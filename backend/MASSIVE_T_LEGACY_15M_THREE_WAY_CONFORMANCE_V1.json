@@ -1,0 +1,320 @@
+{
+  "report_id": "MASSIVE_T_LEGACY_15M_THREE_WAY_CONFORMANCE_V1",
+  "status": "THREE_WAY_CONFORMANCE_COMPLETE",
+  "task_class": "X_ONLY_CONFORMANCE_DIAGNOSTIC",
+  "objects": {
+    "A": "legacy MATERIALIZED 15m t_sig (studio_15m.duckdb :: bars.t_sig)",
+    "B": "canonical engine on the LEGACY 15m OHLC (same store as A)",
+    "C": "canonical engine on the MASSIVE 15m OHLC (T_MASSIVE_PORT semantics)",
+    "why_A_and_B_share_a_store": "running B on a different 15m OHLC store would fold a source difference into a pure storage test"
+  },
+  "bindings": {
+    "MASSIVE_T_LEGACY_DATA_SURFACE_INVENTORY_V1.json": "5ebcad54f619f97d",
+    "MASSIVE_T_LEGACY_15M_AUTHORITY_CORRECTION_V1.json": "24ac4562a96aa869",
+    "MASSIVE_T1_HISTORICAL_EPISODE_POPULATION_PRESERVATION_V1.json": "4a19b83f40adc6cc",
+    "MASSIVE_T_FEATURE_PRODUCTION_V1.json": "ccdb0e35490794da",
+    "MASSIVE_T_FEATURE_PRODUCTION_VERIFY_V1.json": "2bc48ac417c2cbc9",
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1.json": "7c0a5ad6b17d7ae0"
+  },
+  "producer_semantics_digest": "2901107d9baa6320",
+  "port_hash": "0ca86eeb1f8ee8fe",
+  "preflight": {
+    "legacy_dedup": {
+      "duplicated_ticker_timestamp_groups": 0,
+      "finding": "each ticker appears in exactly ONE universe in this store",
+      "consequence": "no dedup rule is required and none was invented",
+      "explains": "the historical reader's duplicate guard never fired",
+      "measured_not_assumed": true
+    },
+    "legacy_availability": {
+      "t_sig_nulls": 0,
+      "t_sig_empty": 48637504,
+      "t_sig_labelled": 42310566,
+      "availability_column": "NONE (only wt_valid_tr, a WLNBB field)",
+      "consequence": "BLANK conflates 'evaluable, no T' with 'could not evaluate'",
+      "handling": "BLANK is carried as its OWN state in every confusion matrix and is never silently equated with NONE",
+      "limitation": "LEGACY_AVAILABILITY_AMBIGUITY"
+    },
+    "timestamp_guard": {
+      "explicit_ms_conversion": true,
+      "fixture_passed": true,
+      "tolerance": 0,
+      "nearest_match": false,
+      "zero_support_is_hold": true,
+      "why": "a us/ms mix-up silently produced zero matches in an earlier run that sealed anyway"
+    }
+  },
+  "identity": {
+    "key": "security_key_v1 + exact 15m timestamp (UTC, bar-start)",
+    "mapped": 473,
+    "unmapped": 0,
+    "no_legacy_rows": 3,
+    "heuristics_used": false
+  },
+  "support": {
+    "S0_current_timestamp_matched": 15186398,
+    "S1_current_matched_and_usable": 10455957,
+    "S2_current_and_predecessor_matched": 10451485,
+    "S3_current_and_predecessor_matched_and_usable_both": 9339483,
+    "primary_denominator": "S3",
+    "why": "T reads shift(1); a matched current bar does not mean both sides saw the same predecessor"
+  },
+  "A_vs_B_legacy_materialized_storage_conformance": {
+    "support": 9339483,
+    "agreed": 4182852,
+    "agreement": 0.447868,
+    "top_disagreements": {
+      "BLANK->NONE": 4708924,
+      "T2G->T2": 135262,
+      "T1->T4": 67244,
+      "T3->T9": 61530,
+      "T9->NONE": 22451,
+      "T2->NONE": 14992,
+      "T2->T4": 14001,
+      "T9->T4": 13690,
+      "T2G->NONE": 13662,
+      "T2G->T1G": 10776,
+      "T3->T5": 10206,
+      "T5->NONE": 9897,
+      "T2->T10": 9802,
+      "T10->NONE": 9554,
+      "T6->T4": 9495,
+      "T2->T6": 8971,
+      "T3->T4": 7770,
+      "T1G->T4": 5122,
+      "T1->T9": 4996,
+      "T1G->T1": 4113
+    },
+    "label_restricted": {
+      "support": 4630559,
+      "agreed": 4182852,
+      "agreement": 0.903315,
+      "top_disagreements": {
+        "T2G->T2": 135262,
+        "T1->T4": 67244,
+        "T3->T9": 61530,
+        "T9->NONE": 22451,
+        "T2->NONE": 14992,
+        "T2->T4": 14001,
+        "T9->T4": 13690,
+        "T2G->NONE": 13662,
+        "T2G->T1G": 10776,
+        "T3->T5": 10206,
+        "T5->NONE": 9897,
+        "T2->T10": 9802,
+        "T10->NONE": 9554,
+        "T6->T4": 9495,
+        "T2->T6": 8971,
+        "T3->T4": 7770,
+        "T1G->T4": 5122,
+        "T1->T9": 4996,
+        "T1G->T1": 4113,
+        "T4->NONE": 3304
+      }
+    },
+    "blank_rows_where_engine_evaluable": 4708924,
+    "classification": "DIAGNOSTIC_ONLY",
+    "question": "how faithfully does current canonical semantics explain the historical materialized 15m T surface?"
+  },
+  "B_vs_C_source_divergence": {
+    "support": 9339483,
+    "agreed": 8881135,
+    "agreement": 0.950924,
+    "top_disagreements": {
+      "T2->T2G": 135297,
+      "T4->T1": 67283,
+      "T9->T3": 61541,
+      "NONE->T9": 23268,
+      "NONE->T2": 16744,
+      "NONE->T2G": 14879,
+      "T4->T2": 14255,
+      "T4->T9": 13779,
+      "T1G->T2G": 10910,
+      "T5->T3": 10206,
+      "NONE->T5": 9925,
+      "T10->T2": 9814,
+      "T4->T6": 9554,
+      "NONE->T10": 9544,
+      "T6->T2": 9002,
+      "T4->T3": 7910,
+      "T4->T1G": 5064,
+      "T9->T1": 5003,
+      "NONE->T4": 4158,
+      "T1->T1G": 4088
+    },
+    "classification": "DIAGNOSTIC_ONLY",
+    "question": "how much does the X source alter T under identical semantics?"
+  },
+  "A_vs_C_population_divergence": {
+    "support": 9339483,
+    "agreed": 4624291,
+    "agreement": 0.495134,
+    "top_disagreements": {
+      "BLANK->NONE": 4702672,
+      "BLANK->T2": 1678,
+      "BLANK->T2G": 1209,
+      "BLANK->T4": 959,
+      "BLANK->T9": 851,
+      "T4->NONE": 831,
+      "BLANK->T1": 541,
+      "BLANK->T3": 519,
+      "T1G->NONE": 295,
+      "T5->NONE": 281,
+      "T2->NONE": 276,
+      "T4->T2": 260,
+      "T2G->NONE": 217,
+      "T9->NONE": 201,
+      "T1G->T2G": 192,
+      "T5->T12": 177,
+      "T10->NONE": 155,
+      "T4->T3": 154,
+      "T4->T2G": 151,
+      "BLANK->T5": 150
+    },
+    "label_restricted": {
+      "support": 4630559,
+      "agreed": 4624291,
+      "agreement": 0.998646,
+      "top_disagreements": {
+        "T4->NONE": 831,
+        "T1G->NONE": 295,
+        "T5->NONE": 281,
+        "T2->NONE": 276,
+        "T4->T2": 260,
+        "T2G->NONE": 217,
+        "T9->NONE": 201,
+        "T1G->T2G": 192,
+        "T5->T12": 177,
+        "T10->NONE": 155,
+        "T4->T3": 154,
+        "T4->T2G": 151,
+        "T6->NONE": 147,
+        "T1->NONE": 143,
+        "T2G->T2": 128,
+        "T4->T9": 118,
+        "T1G->T2": 107,
+        "T4->T6": 104,
+        "T2->T2G": 100,
+        "T4->T1": 98
+      }
+    },
+    "classification": "DIAGNOSTIC_ONLY",
+    "question": "how different is the actual historical materialized population from the Massive research population?",
+    "IS_NOT_PURE_SOURCE_DIVERGENCE": true,
+    "carries": [
+      "legacy materialization/storage residual",
+      "source OHLC divergence",
+      "input-vintage differences",
+      "identity/dedup differences",
+      "unresolved residual"
+    ],
+    "forbidden_statement": "'Massive source causes X% divergence' — that is B<->C"
+  },
+  "additivity_warning": {
+    "rule": "A<->C divergence != A<->B divergence + B<->C divergence",
+    "why": "state disagreements overlap and interact non-linearly; these are a diagnostic decomposition BY COMPARISON, not an additive variance decomposition"
+  },
+  "by_session_position": {
+    "M1": {
+      "AB": 0.496987,
+      "BC": 0.988874,
+      "AC": 0.501375
+    },
+    "M2": {
+      "AB": 0.480493,
+      "BC": 0.970445,
+      "AC": 0.507587
+    },
+    "M3": {
+      "AB": 0.462403,
+      "BC": 0.968681,
+      "AC": 0.491789
+    },
+    "M4": {
+      "AB": 0.468177,
+      "BC": 0.961141,
+      "AC": 0.505047
+    },
+    "SESSION_FINAL": {
+      "AB": 0.449654,
+      "BC": 0.956307,
+      "AC": 0.491478
+    },
+    "OTHER": {
+      "AB": 0.441771,
+      "BC": 0.946163,
+      "AC": 0.494107
+    }
+  },
+  "registered_position_pairs": {
+    "M1+M2": {
+      "support": 354186,
+      "both_same": 89943,
+      "one_diff": 177500,
+      "both_diff": 86743
+    },
+    "M2+M3": {
+      "support": 340938,
+      "both_same": 85031,
+      "one_diff": 170643,
+      "both_diff": 85264
+    },
+    "M3+M4": {
+      "support": 357217,
+      "both_same": 89146,
+      "one_diff": 177643,
+      "both_diff": 90428
+    }
+  },
+  "pair_note": "X-side portability of the historical position-pair claims; no Y, no claim statistic",
+  "price_basis": {
+    "open": {
+      "compared": 9339483,
+      "exact_after_round": 0.897832,
+      "within_1_cent": 0.988612,
+      "within_10_cents": 0.988614,
+      "above_1_dollar": 0.011385,
+      "max_abs_diff": 586.58
+    },
+    "high": {
+      "compared": 9339483,
+      "exact_after_round": 0.924018,
+      "within_1_cent": 0.988602,
+      "within_10_cents": 0.988608,
+      "above_1_dollar": 0.011387,
+      "max_abs_diff": 589.24
+    },
+    "low": {
+      "compared": 9339483,
+      "exact_after_round": 0.924739,
+      "within_1_cent": 0.988603,
+      "within_10_cents": 0.988608,
+      "above_1_dollar": 0.011388,
+      "max_abs_diff": 585.6899999999999
+    },
+    "close": {
+      "compared": 9339483,
+      "exact_after_round": 0.888824,
+      "within_1_cent": 0.988598,
+      "within_10_cents": 0.988611,
+      "above_1_dollar": 0.011385,
+      "max_abs_diff": 586.48
+    }
+  },
+  "input_vintage_attribution": {
+    "status": "PLAUSIBLE / STRONGLY_SUGGESTED",
+    "confirmed": false,
+    "what_would_confirm": "joining a corporate-action / split / spin-off authority at row level"
+  },
+  "same_day_anchor_not_mixed_in": {
+    "artifact": "MASSIVE_T1_EPISODE_TEMPORAL_SEMANTICS_V1",
+    "digest": "819329bf48bd7175",
+    "note": "this gate measures X portability only; no statement here connects position divergence to any outcome, and Y does not exist in this programme"
+  },
+  "no_parameter_changes": 0,
+  "no_source_correction": true,
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 55.3,
+  "sealed_at": "2026-08-26 22:45 +04"
+}

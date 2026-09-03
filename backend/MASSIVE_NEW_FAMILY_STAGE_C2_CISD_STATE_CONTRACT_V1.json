@@ -1,0 +1,91 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_C2_CISD_STATE_CONTRACT_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "scope": [
+    "sig_cisd_cplus",
+    "sig_cisd_cplus_minus",
+    "sig_cisd_minus_struct",
+    "sig_cisd_mpm"
+  ],
+  "STATE_VECTOR": {
+    "variables": [
+      "top_price",
+      "bottom_price",
+      "is_bull_pb",
+      "is_bear_pb",
+      "pot_top",
+      "pot_bottom",
+      "bull_brk_idx",
+      "bear_brk_idx",
+      "bu_price",
+      "bu_active",
+      "be_price",
+      "be_active",
+      "seq_st",
+      "ppm_st",
+      "mpm_st",
+      "pmm_st"
+    ],
+    "seeding": "top_price = h[0], bottom_price = l[0] — seeded from the FIRST BAR (the 2026-08-15 fix), not from zero",
+    "separation": "OUTPUT_t = f(STATE_{t-1}, OBS_t) and STATE_t = g(STATE_{t-1}, OBS_t) analysed separately, to avoid the off-by-one trap that the g* latch exposed"
+  },
+  "COLLAPSE_ANALYSIS": {
+    "question": "does any observed event force all admissible prior states to the same next state?",
+    "finding": "NO unconditional overwrite exists anywhere in the loop. Every state update is guarded by a condition that itself depends on prior state.",
+    "critical_variables": "top_price and bottom_price are MONOTONE RUNNING EXTREMES: \"if l[i] < bottom_price: bottom_price = l[i]\". This is precisely the non-collapsing form — old state survives unless exceeded, and no finite observation can overwrite it for all admissible priors.",
+    "contrast_with_WLNBB": "WLNBB ffill carriers ARE re-anchored, because ffill_when OVERWRITES the level at each qualifying bar. A running extreme never overwrites; it only narrows. That is why the same reasoning yields opposite answers for the two engines.",
+    "contrast_with_g_star": "the g* latch collapses because g_armed := (g_armed OR trigger) AND NOT any_g forces False on any firing bar. CISD has no analogous forcing branch."
+  },
+  "ADVERSARIAL_FIXTURES": {
+    "fixture_1": {
+      "design": "two real prefixes (bars 0..1499 vs 800..1499) then 700 identical post-gap bars",
+      "result": "0 divergence on all four outputs",
+      "interpretation": "NOT evidence of collapse — the fixture failed to separate the states, because the post-gap window contained new extremes that overwrote both priors. Recorded as an inconclusive test, not as a pass."
+    },
+    "fixture_2": {
+      "design": "synthetic priors chosen so post-gap lows fall BETWEEN their extremes (prefix A low ~86.6, prefix B low ~98.1, post-gap low min 99.1) — so the l[i] < bottom_price branch fires for one prior and not the other",
+      "result": {
+        "PLUS_CISD": {
+          "divergent_bars": 67,
+          "A_fires": 23,
+          "B_fires": 78
+        },
+        "MINUS_STRUCT": {
+          "divergent_bars": 83,
+          "A_fires": 14,
+          "B_fires": 97
+        },
+        "CISD_MPM": {
+          "divergent_bars": 12,
+          "A_fires": 6,
+          "B_fires": 15
+        },
+        "CISD_PPM": {
+          "divergent_bars": 0,
+          "A_fires": 0,
+          "B_fires": 0,
+          "note": "not separated by this fixture — both zero. Inherits non-identifiability from the plus/minus stream it consumes."
+        }
+      },
+      "interpretation": "identical post-gap observations, different admissible priors, materially different outputs — up to a 3.4x difference in fire count"
+    }
+  },
+  "VERDICT": "POST_GAP_RECOVERY = NONE_PROVEN",
+  "CONSEQUENCE": {
+    "rule": "after an interior UNOBSERVED_CONTAMINATED gap, all four CISD outputs remain INITIALIZATION_SENSITIVE_POST_GAP until the end of the segment",
+    "no_softening": "this is NOT relaxed to preserve support. No default-state reset is permitted, because source equivalence for such a reset was not shown — it was disproved.",
+    "series_head": "SERIES HEAD is different: no prior Massive history exists at all, so the canonical seed (top_price=h[0], bottom_price=l[0]) defines a NEW MASSIVE measurement regime rather than an unknown-state problem. Classified INITIALIZATION_SENSITIVE_HEAD and distinguished from the post-gap case."
+  },
+  "EXPECTED_SUPPORT_IMPACT": {
+    "note": "Stage A measured COMPLETE-run median length of 2 bars on a pilot security. If post-gap state is never recoverable, CISD valid support is bounded by the FIRST contiguous COMPLETE run of each security only.",
+    "status": "NOT YET MEASURED — this is the quantity C4/C5 must establish before any CISD column can be considered for the search surface"
+  },
+  "OUTPUT_DEPENDENCY_SETS": "not separately established — all four consume plus_arr/minus_arr, which depend on the non-identifiable structure state, so the family shares the blocking condition",
+  "not_done": [
+    "per-output dependency decomposition",
+    "production",
+    "support census"
+  ]
+}

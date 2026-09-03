@@ -1,0 +1,171 @@
+{
+  "artifact": "MASSIVE_1M_SETTLEMENT_INCREMENTAL_STABILITY_V1",
+  "status": "FROZEN",
+  "PROVENANCE": [
+    "POST_REFERENCE_DIAGNOSTIC_AMENDMENT",
+    "PRE_T30_MEASUREMENT",
+    "PRE_FORWARD_Y"
+  ],
+  "provenance_note": "this is NOT a clean pre-registration fix. R_REF = (0,0,0) had already been READ, and it was that result which exposed the structural mismatch. No candidate-maturity result and no forward Y has been seen, so forward inference is not contaminated — but the timing is recorded exactly.",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "amends": {
+    "parent": "MASSIVE_1M_SETTLEMENT_RELATIVE_CRITERION_V1",
+    "parent_digest": "e3675278ece6f27c",
+    "parent_not_deleted": true
+  },
+  "RETRACTION": {
+    "REFERENCE_NONEXCEEDANCE_RULE": "RETRACTED_FOR_PURPOSE_MISMATCH",
+    "R_REF_(0,0,0)": [
+      "RETAINED as a VALID LONG_LAG_RESIDUAL_DRIFT DIAGNOSTIC",
+      "NOT a numerical threshold for cumulative early-vintage revision"
+    ],
+    "root_cause": "V_1 -> V_30 and V_915 -> V_2100 are different estimands"
+  },
+  "CLOCK": "CALENDAR DAYS",
+  "REGISTERED_SESSIONS": [
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-24"
+  ],
+  "sessions_unchanged_from_the_parent": true,
+  "CANDIDATE_MATURITY_LADDER": [
+    30,
+    60,
+    90,
+    120,
+    150,
+    180
+  ],
+  "VERIFICATION_HORIZON_DAYS": 30,
+  "ESTIMAND": "I_s(M) = R( V_s,M -> V_s,M+30 )",
+  "R_definition": "UNCHANGED frozen 3-component vector: minute_key_revision_rate, common_bar_OHLCV_revision_rate, p95_relative_close_revision, computed on the frozen 476 cohort (raw 503 report-only)",
+  "PASS_RULE": {
+    "rule": "candidate M qualifies iff I_s(M) == (0,0,0) EXACTLY for ALL THREE registered sessions",
+    "tolerance": "NONE REQUIRED AND NONE DEFINED",
+    "SELECTION": "the EARLIEST passing M"
+  },
+  "PERMITTED_CLAIM": "across these three preregistered sessions, the maturity-M vintage showed NO change in minute membership and NO OHLCV revision over the following 30 calendar days",
+  "FORBIDDEN_CLAIM": "the vendor is frozen from this age onward, forever",
+  "LADDER_ECONOMY": {
+    "principle": "each rung's upper vintage is the next rung's lower vintage",
+    "chain": [
+      "V30 -> V60 tests M=30",
+      "V60 -> V90 tests M=60",
+      "V90 -> V120 tests M=90",
+      "V120 -> V150 tests M=120",
+      "V150 -> V180 tests M=150",
+      "V180 -> V210 tests M=180"
+    ],
+    "cost": "three new vintages per rung; no call is wasted"
+  },
+  "EXHAUSTION": {
+    "if_M=180_fails": "MATURITY_NOT_ESTABLISHED_WITHIN_REGISTERED_LADDER",
+    "judgment_fallback": "NONE",
+    "consequence": "forward authoritative production REMAINS BLOCKED until a NEW source-qualification branch is separately registered",
+    "why": "cleaner than extending the ladder after seeing a bad result"
+  },
+  "EXISTING_T1_T7": {
+    "session": "2026-08-24",
+    "status": "DESCRIPTIVE EARLY-REVISION DIAGNOSTIC",
+    "explicitly_NOT": "an M=7 test — the frozen verification horizon is 30 days"
+  },
+  "CALL_CALENDAR": {
+    "vintage_dates": {
+      "2026-08-20": {
+        "V30": "2026-09-19",
+        "V60": "2026-10-19",
+        "V90": "2026-11-18",
+        "V120": "2026-12-18",
+        "V150": "2027-01-17",
+        "V180": "2027-02-16",
+        "V210": "2027-03-18"
+      },
+      "2026-08-21": {
+        "V30": "2026-09-20",
+        "V60": "2026-10-20",
+        "V90": "2026-11-19",
+        "V120": "2026-12-19",
+        "V150": "2027-01-18",
+        "V180": "2027-02-17",
+        "V210": "2027-03-19"
+      },
+      "2026-08-24": {
+        "V30": "2026-09-23",
+        "V60": "2026-10-23",
+        "V90": "2026-11-22",
+        "V120": "2026-12-22",
+        "V150": "2027-01-21",
+        "V180": "2027-02-20",
+        "V210": "2027-03-22"
+      }
+    },
+    "evaluation_availability": {
+      "M=30": {
+        "needs": [
+          "V30",
+          "V60"
+        ],
+        "all_three_available_after": "2026-10-23"
+      },
+      "M=60": {
+        "needs": [
+          "V60",
+          "V90"
+        ],
+        "all_three_available_after": "2026-11-22"
+      },
+      "M=90": {
+        "needs": [
+          "V90",
+          "V120"
+        ],
+        "all_three_available_after": "2026-12-22"
+      },
+      "M=120": {
+        "needs": [
+          "V120",
+          "V150"
+        ],
+        "all_three_available_after": "2027-01-21"
+      },
+      "M=150": {
+        "needs": [
+          "V150",
+          "V180"
+        ],
+        "all_three_available_after": "2027-02-20"
+      },
+      "M=180": {
+        "needs": [
+          "V180",
+          "V210"
+        ],
+        "all_three_available_after": "2027-03-22"
+      }
+    },
+    "earliest_M30_evaluation": "2026-10-23",
+    "paid_calls_needed_now": 0,
+    "note": "the three V30 vintages alone CANNOT evaluate M=30; the matching V60 vintages are required"
+  },
+  "FORWARD_EVIDENTIARY_START": {
+    "definition": "the first eligible market session AFTER (settlement-maturity result sealed) AND (end-to-end A1 qualified)",
+    "purpose": "prevents September/October data from being backfilled into 'forward evidence' after the source rule was chosen in the light of their existence",
+    "session_admission": "session D enters primary X evidence only at D + M calendar days",
+    "SUPERSEDES": "the earlier indicative '2026-09 is the first complete forward month'. 2026-09 is NO LONGER automatically eligible; the month-end trigger counts only complete eligible forward months after the new evidentiary start."
+  },
+  "STATE": {
+    "REFORMULATION": "APPROVED",
+    "OLD_R_REF_THRESHOLD": "RETRACTED",
+    "R_REF_RESULT": "RETAINED AS LONG-LAG DIAGNOSTIC",
+    "STABILITY_ESTIMAND": "incremental, fixed 30-day horizon",
+    "CANDIDATES": "30/60/90/120/150/180 calendar days",
+    "PASS": "exact zero revision on all 3 sessions",
+    "SELECTION": "earliest passing M",
+    "NO_PASS_THROUGH_180": "SOURCE MATURITY NOT ESTABLISHED",
+    "JUDGMENT_FALLBACK": "NONE",
+    "FORWARD_Y": "still unexposed",
+    "FORWARD_EVIDENCE": "remains closed"
+  }
+}

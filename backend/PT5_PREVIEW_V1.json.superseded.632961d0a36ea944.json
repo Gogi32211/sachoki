@@ -1,0 +1,82 @@
+{
+  "spec_id": "PT5_PREVIEW_V1",
+  "status": "BUILT",
+  "role": "RESEARCH PREVIEW — a visual window onto already-frozen historical research. Not a trading rule, not forward validation, not evidence.",
+  "base_condition": {
+    "setup": "FINAL_PRIORITY_RESOLVED_T5",
+    "t5_definition_hash": "2775322838e81bd7",
+    "enforced": "hash asserted on every episode row; PT5 cannot exist off the canonical episode table"
+  },
+  "h1": {
+    "families": {
+      "H1_A": "T5_INTRADAY|2|BUY→L5",
+      "H1_B": "CROSS_DAY|2|VOL_W→L46x",
+      "H1_C": "T5_INTRADAY|2|L43→T2",
+      "H1_D": "PREV_INTRADAY|2|BUY→Z2"
+    },
+    "sealed_counts": {
+      "T5_INTRADAY|2|BUY→L5": 322,
+      "CROSS_DAY|2|VOL_W→L46x": 596,
+      "T5_INTRADAY|2|L43→T2": 5670,
+      "PREV_INTRADAY|2|BUY→Z2": 423
+    },
+    "source": "t5_1h_survivor_membership.parquet (overlap-restricted sealed memberships, identity-guarded by T5_1H_MEMBERSHIP_CACHE_V1)"
+  },
+  "m15": {
+    "representatives_artifact": "T5_15M_CLUSTER_REPRESENTATIVES_V1",
+    "representatives_digest": "73a607624cc2973f",
+    "n_clusters": 171,
+    "source": "sealed engine-bundle segments — the reconstruction the forward-evaluator replay proved exact",
+    "reproduction_gate": "len(members) == sealed REP.support for all 171"
+  },
+  "classification": {
+    "classes": [
+      "PT5_BASE",
+      "PT5_1H",
+      "PT5_15M",
+      "PT5_STRONG"
+    ],
+    "no_score": "no numeric strength from Z/theta/support/aliases/returns",
+    "alias_overlap_does_not_strengthen": true
+  },
+  "xr_badge": {
+    "field": "pt5_xr_volw_va",
+    "label": "XR: VOL_W ↔ VA",
+    "status": "DESCRIPTIVE ONLY — post-exposure historical compatibility; not confirmation, not replication, not independent evidence; changes no classification and no ranking"
+  },
+  "cutoff": {
+    "official": "2026-08-20",
+    "default_visibility": "signal_session <= 2026-08-20",
+    "post_cutoff": "hidden by default; behind 'Show post-cutoff PT5' with an OBSERVATIONAL MODE warning"
+  },
+  "x_only": {
+    "forbidden": [
+      "mae_10d",
+      "max_z",
+      "mean_return",
+      "mfe_10d",
+      "mfe_atr_10d",
+      "ret_10d",
+      "survivor_forward",
+      "theta",
+      "win_rate",
+      "z_rank"
+    ],
+    "inputs": [
+      "frozen membership sets",
+      "episode table"
+    ]
+  },
+  "counts": {
+    "PT5_BASE": 97610,
+    "PT5_1H": 524,
+    "PT5_15M": 91123,
+    "PT5_STRONG": 6327,
+    "XR_VOLW_VA": 293
+  },
+  "n_rows": 195584,
+  "membership_digest": "cf9e868af854242c",
+  "reorder_invariance": "PASS",
+  "parquet": "pt5_signals.parquet",
+  "parquet_digest": "a4a399746a744daf"
+}

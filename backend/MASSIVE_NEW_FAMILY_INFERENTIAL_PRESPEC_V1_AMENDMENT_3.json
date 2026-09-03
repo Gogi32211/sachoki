@@ -1,0 +1,55 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1_AMENDMENT_3",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1",
+    "parent_digest": "8f112d7e760953b5",
+    "also": [
+      "AMENDMENT_1 5e6a3788f06c4dc4",
+      "AMENDMENT_2 b082eae1574f0223"
+    ],
+    "parents_not_rewritten": true,
+    "nature": "ENFORCEMENT of the already-frozen DEV scope on the CI mechanism. NOT a new CI design."
+  },
+  "Y_EXPOSED": 1,
+  "why_this_is_not_outcome_informed": "no scientific result has been read; theta, T, p_adj, M_b, CI bounds and rankings remain sealed and unread",
+  "SEPARATE_MECHANISM": {
+    "note": "PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_3 (a11752cb3f51262d) corrects the PERMUTATION map. The CI date-cluster universe is a DISTINCT mechanism and needs its own authority.",
+    "this_artifact": "supplies that authority"
+  },
+  "CI_DATE_CLUSTER_UNIVERSE": {
+    "must_be": "exactly the frozen DEV session dates",
+    "count": 1242,
+    "out_of_scope_date_labels": "FORBIDDEN from the bootstrap multiplicity vector",
+    "implementation": "m_date is drawn as multinomial over the 1,242 DEV dates and scattered into a length-1,254 vector with zeros on HOLDOUT labels"
+  },
+  "UNCHANGED": {
+    "B_CI": 2000,
+    "cluster_axes": "security x session_date",
+    "product_weights": "w(s,d) = m_security(s) * m_date(d)",
+    "primitive": "WEIGHTED_MEDIAN_V2",
+    "CI": "Type-7 95% percentile",
+    "CI_STABILITY_GATE": "defined theta* = 2000/2000 required"
+  },
+  "DEFECT_CORRECTED": {
+    "what": "the date-cluster resampling universe was all 1,254 calendar dates rather than the 1,242 DEV dates",
+    "HOLDOUT_outcome_contamination": "NONE — CI base rows from HOLDOUT = 0 and CI bootstrap source rows from HOLDOUT = 0, both verified",
+    "actual_harm": "~1% of each draw's date-resampling mass landed on labels contributing zero rows, shrinking the effective resample",
+    "classification": "SAME SCOPE-DEFECT FAMILY as the permutation leak, but NOT a holdout contamination"
+  },
+  "OUT_OF_SCOPE_MASS": {
+    "THEORETICAL_EXPECTED_SHARE": "0.9569%  (12 / 1,254)",
+    "EMPIRICALLY_REALIZED_MEAN_20_DRAWS": "1.0327%",
+    "EMPIRICALLY_REALIZED_MEAN_ALL_2000_DRAWS": "0.9705%",
+    "EMPIRICAL_SD": "0.2802%",
+    "CORRECTION": "an earlier report gave 1.033% without distinguishing expected from realized. That figure was an EMPIRICAL mean over 20 sampled draws, high by sampling variation. Theoretical expectation and realized mean are now labelled separately.",
+    "rule": "expected and realized quantities must never be conflated in provenance"
+  },
+  "CI_REUSE_DECISION": {
+    "user_stated_criterion": "reuse permitted if CI base rows and CI source rows from HOLDOUT are both 0",
+    "criterion_status": "BOTH ZERO — reuse was technically permitted",
+    "decision": "CI RERUN ANYWAY",
+    "authorised_by": "user, on being shown the universe defect",
+    "old_CI_digests": "NOT reused"
+  }
+}

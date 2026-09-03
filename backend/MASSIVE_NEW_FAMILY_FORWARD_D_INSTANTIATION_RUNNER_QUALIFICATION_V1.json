@@ -1,0 +1,108 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_D_INSTANTIATION_RUNNER_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "VERDICT": "PASS",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "scope": "DRY_RUN_NON_EVIDENTIARY ONLY. No production LOOK, no production ledger, no real forward Y, and the final maturity M is not used — the runner never consults it.",
+  "module": {
+    "path": "backend/forward_d_instantiation_runner.py",
+    "file_digest": "02a5a3810bce1232"
+  },
+  "FROZEN_ORDER": [
+    "LOOK_ACCEPTED",
+    "WINDOW_FROZEN",
+    "CENSUS_FROZEN",
+    "MAP_UNIVERSE_BUILT",
+    "MAP_COUNT_ASSERTED",
+    "MAPS_DERIVED",
+    "DRAW_MANIFEST_SEALED",
+    "Y_ACCESS_COUNT_ASSERTED",
+    "Y_ACCESS_ENABLED"
+  ],
+  "THE_QUALIFICATION_IS_THE_ORDER": {
+    "principle": "opening forward Y before the draw manifest is sealed must be IMPOSSIBLE, not merely unusual",
+    "mechanism": "open_forward_y() raises unless _y_gate_open, and _y_gate_open is set only by enable_forward_y_access(), which is step 9 of 9 and is itself order-gated",
+    "live_evidence": [
+      "open_forward_y at START -> FORWARD_Y_GATE_CLOSED (step 0/9)",
+      "after LOOK_ACCEPTED -> still closed (1/9)",
+      "with SCALE/NULL maps already derived but the manifest UNSEALED -> still closed (6/9)",
+      "after DRAW_MANIFEST_SEALED but before the gate is enabled -> still closed (7/9)",
+      "FORWARD_Y_ACCESS_COUNT still 0 at that point",
+      "succeeds only after the full nine-step order"
+    ]
+  },
+  "DEFECT_FOUND_BY_THE_FIXTURES": {
+    "defect": "_require() appended the step BEFORE running the step's own validation, so a REFUSED step still advanced the state machine — a rejected derive_maps left the runner one step further along",
+    "how_it_surfaced": "the seed fixtures reported step_order errors instead of seed errors: they were passing for the WRONG REASON",
+    "fix": "split into _check (order only, no mutation) and _commit (after the step's validation succeeds)",
+    "consequence_verified": "the seed fixtures now report the seed guards they claim to test",
+    "class": "the same shape as the earlier fixture-passing-for-the-wrong-reason cases; caught, not counted"
+  },
+  "MAP_UNIVERSE": {
+    "rule": "time-local circular shift within (scope INTERSECT year-month INTERSECT session class)",
+    "worked_example": "six months of 21 in-scope sessions -> 21^6 = 85,766,121 admissible maps",
+    "assert": "N_admissible_maps >= B_SCALE + B_NULL = 10,499",
+    "on_failure": "BLOCKS the look — verified live with a 420-map universe; the budget is NOT shrunk to fit",
+    "early_close_handling": "EARLY_CLOSE sessions take the identity map and contribute a factor of ONE, never zero — verified: a month of only early closes leaves the product at 21 rather than annihilating it"
+  },
+  "SEED_AUTHORITY": {
+    "authority": "MASSIVE_NEW_FAMILY_FORWARD_HUB_PRESPEC_V1 · 627c767ef9708549",
+    "generator": "PCG64 from a numpy SeedSequence spawned off the sealed master seed",
+    "substreams": [
+      "SCALE",
+      "NULL"
+    ],
+    "B_SCALE": 500,
+    "B_NULL": 9999,
+    "verified": [
+      "missing seed -> HARD FAIL, no regeneration",
+      "wrong seed -> seed_mismatch",
+      "seed presented from the wrong authority -> seed_source",
+      "derivation deterministic: same seed, identical draw digests",
+      "no worker-local randomness — the module contains no urandom, no time seeding, no pid seeding, no unseeded default_rng()"
+    ],
+    "draw_digests": {
+      "SCALE": "84105e4cea4a4068",
+      "NULL": "85618906157391e6"
+    }
+  },
+  "LOOK_BINDING": {
+    "requires": "a verified chain with exactly ONE terminal LOOK",
+    "no_look_chain": "refused",
+    "dry_run_LOOK_cannot_authorise_production": "a PRODUCTION runner verifies the chain with expect_role=PRODUCTION, so a dry-run chain is rejected at the chain-role layer BEFORE any LOOK record is read",
+    "note": "that refusal arrives as CHold from the ledger's verification layer rather than DHold — one layer earlier than D's own look_role guard, which is the stronger behaviour. The fixture names which hold actually fired."
+  },
+  "DRAW_MANIFEST": {
+    "binds": [
+      "look",
+      "window",
+      "census",
+      "map_universe",
+      "map_count_assert",
+      "maps"
+    ],
+    "digest": "0cc94031c64d25500ca25cd36595fa7f...",
+    "written_exactly_once": "a second seal is refused",
+    "carries_no_raw_draws": "only per-substream draw digests"
+  },
+  "FIXTURES": {
+    "total": 34,
+    "passed": 34,
+    "VERDICT": "PASS"
+  },
+  "ISOLATION": {
+    "production_ledger": "/Users/sachoki/MASSIVE_DATA/forward/ledger — ABSENT",
+    "forward_canon69": "still empty",
+    "all_D_artefacts": "under MASSIVE_DATA/forward_qualification/",
+    "forbidden_Y_opens": 0,
+    "the_Y_that_was_opened": "a synthetic token through the gate — the runner owns the gate, never the data"
+  },
+  "WHAT_THIS_DOES_NOT_ESTABLISH": [
+    "that the forward window, census or maps are correct for any real forward month — none exists",
+    "that the maturity M is settled — the runner never consults it, by design",
+    "anything about forward Y"
+  ],
+  "STOP": "settlement calls, forward evidence, forward Y and inference remain untouched."
+}

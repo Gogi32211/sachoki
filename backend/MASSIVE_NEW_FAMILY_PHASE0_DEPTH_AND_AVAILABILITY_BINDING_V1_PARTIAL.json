@@ -1,0 +1,139 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PHASE0_DEPTH_AND_AVAILABILITY_BINDING_V1_PARTIAL",
+  "status": "PARTIAL",
+  "why_partial": "2 of 4 groups resolved. sig_tz_flip and vbo_up are STATE-MACHINE features, not depth-floor features; their contracts are NOT closed. Sealing PARTIAL rather than asserting a floor I have not proven.",
+  "rows_written": 0,
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "METHOD_CORRECTION": {
+    "first_harness": "minimum age at which the truncated value FIRST matches the full-series value",
+    "defect": "for RARE boolean features a truncated window matches trivially (value 0 both ways). It returned sig_tz_flip=4 while its own upstream tz_state=25 — logically impossible, since the flip reads tz_state at t AND t-1.",
+    "corrected_harness": "smallest age from which the value is STABLE for ALL longer windows, evaluated preferentially at informative (non-zero) points",
+    "residual_limitation": "even the corrected harness stays vacuous where a feature has too few TRUE points in the sample; it must NOT be used as the authority for rare stateful features. That is why 2 groups are left open rather than assigned an empirical number."
+  },
+  "GROUP_1_CLOSED_DEPTH_FLOOR": {
+    "vol_x_3": {
+      "columns": [
+        "sig_vol_5x",
+        "sig_vol_10x",
+        "sig_vol_20x"
+      ],
+      "source_derivation": "vol_ratio = volume / volume.shift(1) -> needs t and t-1 only",
+      "first_computable_age": 2,
+      "first_AVAILABLE_VALID_age": 2,
+      "stable_from_age_empirical": 2,
+      "direct_dependencies": [
+        "volume[t]",
+        "volume[t-1]"
+      ],
+      "max_transitive_history": 2,
+      "post_gap_recovery": "immediate at the 2nd observed bar of a segment",
+      "head_vs_interior": {
+        "series_head_missing_prior": "INITIALIZATION_SENSITIVE_HEAD",
+        "interior_gap_missing_prior": "INITIALIZATION_SENSITIVE_POST_GAP",
+        "rule": "the first bar of ANY observed segment has no prior volume; its shift(1) is HARD MISSING and MUST NOT be coerced to FALSE"
+      }
+    },
+    "suffix_4": {
+      "columns": [
+        "ne_suffix",
+        "wick_suffix",
+        "close_suffix",
+        "full_suffix"
+      ],
+      "producer": "studio/enricher._compute_suffixes",
+      "source_derivation": "np.roll(o/h/l/c, 1) -> prior bar only",
+      "first_computable_age": 2,
+      "first_AVAILABLE_VALID_age": 2,
+      "stable_from_age_empirical": 2,
+      "max_transitive_history": 2,
+      "post_gap_recovery": "immediate at the 2nd observed bar",
+      "CRITICAL_HEAD_DEFECT": {
+        "finding": "np.roll WRAPS AROUND — at index 0 the 'previous' bar is the LAST bar of the series",
+        "source_comment": "'First bar has no prev - mask it later' (enricher.py:61)",
+        "verification": "no mask is applied before the six df[...] = assignments at enricher.py:99-104",
+        "consequence": "the head row of any independently-computed segment carries WRAP-AROUND CONTAMINATION, not a neutral value",
+        "REQUIRED_HANDLING": "segment head MUST be emitted non-VALID by the producer regardless of the upstream value; the wrapped value must never reach the surface"
+      },
+      "note": "floor derived from THIS source, not inherited from the earlier Stage-A assumption"
+    },
+    "body_wick_1": {
+      "columns": [
+        "bar_body_wick"
+      ],
+      "producer": "studio/enricher._compute_body_wick",
+      "source_derivation": "body_now.shift(1)",
+      "first_AVAILABLE_VALID_age": 2,
+      "stable_from_age_empirical": 2,
+      "stateful_constructs": "none"
+    },
+    "T12_Z13": {
+      "producer": "signal_engine.compute_signals",
+      "first_AVAILABLE_VALID_age": 2,
+      "stable_from_age_empirical": 2,
+      "carry_prev": false
+    }
+  },
+  "GROUP_2_OPEN_STATE_MACHINE": {
+    "sig_tz_flip": {
+      "STATUS": "OPEN — NOT a depth-floor feature",
+      "expected_age_11_REFUTED": true,
+      "why_refuted": "compute_tz_state (combo_engine.py:283-292) ends in an UNBOUNDED CARRIER: 'else: st[i] = st[i-1]'. If no state-setting condition fires the state persists indefinitely, so no fixed depth makes it identifiable.",
+      "additional_depth": "the state-setting conditions themselves depend on ema20 and ema50 (combo_engine.py:257-258) and rolling(10) swing high/low",
+      "empirical_56_reinterpreted": "56 was NOT a bound — it was how long that particular random sample took to hit a state-setting event; it is data-dependent",
+      "state_collapsing_events": [
+        "bull_dom -> 3",
+        "bear_dom -> 0",
+        "bull_att -> 2",
+        "bear_att -> 5",
+        "bear_weak -> 1",
+        "bull_weak -> 4"
+      ],
+      "recovery_structure": "any of the six conditions firing COLLAPSES the state regardless of prior state — so recovery IS possible, at the first bar where one fires with its own dependencies valid",
+      "TRANSITION_RULE_SEPARATE": {
+        "statement": "LEVEL VALID != TRANSITION VALID",
+        "requirement": "sig_tz_flip requires tz_state identifiable at BOTH t and t-1",
+        "gap_case": "if the immediately previous tz_state is non-identifiable, the transition is NOT licensed even when the current level is"
+      },
+      "required_work": "a reachable-state contract of the same class as sig_buy / l_sig — admissible-state propagation, output VALID only when all admissible states agree"
+    },
+    "vbo_up": {
+      "STATUS": "OPEN — bounded state, floor not yet exactly derived",
+      "do_not_freeze": "'depth-21-ish' — explicitly rejected as a guess",
+      "state_class": "BOUNDED_STATE",
+      "explicit_reset": "_BREAK_BARS = 10 (cur_h/cur_l/cur_bar reset when since > 10)",
+      "carry_prev": false,
+      "trigger_chain": "vbo_up <- any_vol = abs_sig | climb_sig | load_sig",
+      "trigger_dependencies": {
+        "bkt": "v.rolling(_MA_PERIOD=20).mean() and .std()",
+        "prev_bkt": "bkt.shift(1)",
+        "prev2_bkt": "bkt.shift(2)",
+        "load_sig": "own for-loop with last_load cooldown, _LOAD_COOLDOWN = 2 (finite-state, sig_buy class)",
+        "atr_load": "_atr(_ATR_LOAD_LEN=14) — ewm, EMA-like depth"
+      },
+      "open_question": "whether the _BREAK_BARS reset TRULY annuls unknown prior state, or is itself conditional on an unknown upstream state — if conditional, this is a state-identifiability problem, not a depth floor",
+      "required_work": [
+        "exact transitive dependency DAG",
+        "symbolic minimum-age derivation",
+        "boundary fixtures at d-1 and d",
+        "post-gap fixture: observed bars x (recovery_depth - 1) MUST remain non-valid"
+      ]
+    }
+  },
+  "COLUMN_CLASSIFICATION_OF_THE_39": {
+    "DEPTH_FLOOR_CLOSED": 33,
+    "STATE_MACHINE_FROZEN_ALREADY": {
+      "g_signals": 4
+    },
+    "STATE_MACHINE_OPEN": {
+      "sig_tz_flip": 1,
+      "vbo_up": 1
+    },
+    "total": 39
+  },
+  "PHASE_1_BLOCKED": true,
+  "PHASE_1_RELEASE_REQUIRES": [
+    "sig_tz_flip reachable-state contract",
+    "vbo_up exact depth/state contract"
+  ]
+}

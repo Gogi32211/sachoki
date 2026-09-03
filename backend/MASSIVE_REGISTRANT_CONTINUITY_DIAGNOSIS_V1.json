@@ -1,0 +1,531 @@
+{
+  "report_id": "MASSIVE_REGISTRANT_CONTINUITY_DIAGNOSIS_V1",
+  "status": "HOLD",
+  "scope": {
+    "securities": [
+      "APO",
+      "J",
+      "CRH",
+      "BG",
+      "LH",
+      "FERG",
+      "BLK",
+      "XOM"
+    ],
+    "count": 8,
+    "not_broadened": "the other 503 were not investigated in this gate"
+  },
+  "hypothesis_correction": {
+    "earlier_claim": "the truncation HOLD attributed the mechanism to a CIK change",
+    "measured": "LH keeps CIK 0000920148 across its boundary while its share_class_figi changes",
+    "corrected_mechanism": "the common factor is the SHARE_CLASS_FIGI changing at reorganisation; a CIK change accompanies some cases but is not the cause",
+    "why_it_matters": "V6 filtered history by share_class_figi == current, so any reorganisation minting a new FIGI erases everything before it regardless of the registrant"
+  },
+  "evidence_hierarchy": {
+    "primary": "an authoritative predecessor/successor relationship, or continuity of a stable share-class/security identifier across the transition",
+    "corroborative_only": [
+      "same ticker across the boundary",
+      "price continuity",
+      "company-name similarity"
+    ],
+    "binding": "corroborative evidence alone may NOT establish CONTINUITY_CONFIRMED — ticker reuse is real, and this programme already found META returning another company's 2021 bars"
+  },
+  "central_obstacle": {
+    "finding": "for the cases where all three of CIK, share_class_figi and composite_figi change together, NO vendor identifier spans the boundary",
+    "consequence": "the strong identifier-based evidence the spec contemplates is simply unavailable from this source",
+    "would_require": "authoritative filing evidence (SEC succession / holding-company reorganisation statements), which this gate did not obtain"
+  },
+  "summary": {
+    "UNRESOLVED": 4,
+    "REGISTRANT_CHANGE_SECURITY_CONTINUITY_CONFIRMED": 4
+  },
+  "unresolved": [
+    "APO",
+    "CRH",
+    "BLK",
+    "XOM"
+  ],
+  "candidates": [
+    {
+      "security_key_v1": "d9c8cefaa04dbb32cdcc729f63d0f98a53df59e82aadc1beb654d8d0393d5e29",
+      "current_ticker": "APO",
+      "v6_regular_way_start": "2022-01-03",
+      "current_identity": {
+        "http": 200,
+        "response_sha256": "8f00d1d024543666cdec5c7e458f562fd121931db714b9744e28eb3a89bdb077",
+        "cik": "0001858681",
+        "name": "Apollo Global Management, Inc.",
+        "share_class_figi": "BBG00ZNLTFL2",
+        "composite_figi": "BBG00ZNLTFK3",
+        "retrieved_at": "2026-08-25T10:04:57Z"
+      },
+      "historical_identity": {
+        "http": 200,
+        "response_sha256": "4f42feb3b7ff8c8e5ff4a2dfa557b30c7e75ce0d94cbd280b06cce8fba5c8455",
+        "cik": "0001411494",
+        "name": "Apollo Global Management, Inc.",
+        "share_class_figi": "BBG001T183G1",
+        "composite_figi": "BBG006T7HJF3",
+        "retrieved_at": "2026-08-25T10:04:57Z"
+      },
+      "cik_changed": true,
+      "share_class_figi_changed": true,
+      "composite_figi_changed": true,
+      "any_vendor_identifier_spans_boundary": false,
+      "aggregate_history_before_v6_start": {
+        "http": 200,
+        "rows": 388,
+        "response_sha256": "ea22ed940c233c1289c98a4577bb9d4e0d4617622552da29f4388fe36acb2305",
+        "first_open": 61.0063,
+        "last_close": 63.29
+      },
+      "transition_bounds": {
+        "last_predecessor_session": "2021-12-31",
+        "first_successor_session": "2022-01-03",
+        "probes": 7,
+        "method": "binary search over XNYS sessions on the reference endpoint; bounded to a session PAIR, not guessed"
+      },
+      "price_continuity": {
+        "predecessor": {
+          "http": 200,
+          "rows": 391,
+          "response_sha256": "6e5007566d876664dba3fd5f3750b6f71ed039856044dcc3aa231e9aee7d3d23",
+          "first_open": 73.03,
+          "last_close": 72.41
+        },
+        "successor": {
+          "http": 200,
+          "rows": 396,
+          "response_sha256": "9df1228386b675155ad7ea39c422a5b909f5762c8dcbfba710e569ebc0b72f2f",
+          "first_open": 73.01,
+          "last_close": 71.53
+        },
+        "price_ratio": 1.0083,
+        "role": "CORROBORATIVE_ONLY"
+      },
+      "classification": "UNRESOLVED",
+      "rationale": "CIK, share_class_figi and composite_figi ALL change at the boundary, so no vendor identifier spans it. Ticker and price continuity are corroborative only and cannot establish continuity on their own; authoritative filing evidence would be required."
+    },
+    {
+      "security_key_v1": "b0d5adffa22717ca1f6d426e9ef34343a1ed10ae4919ee0c21e37297545de2e4",
+      "current_ticker": "J",
+      "v6_regular_way_start": "2022-10-03",
+      "current_identity": {
+        "http": 200,
+        "response_sha256": "94dd7488a2c322bc0d07baf5064abf3d71dd46d88003f11677253868074a906e",
+        "cik": "0000052988",
+        "name": "Jacobs Solutions Inc.",
+        "share_class_figi": "BBG019C1BQS3",
+        "composite_figi": "BBG019C1BQR4",
+        "retrieved_at": "2026-08-25T10:05:04Z"
+      },
+      "historical_identity": {
+        "http": 200,
+        "response_sha256": "5a77353837e1c6857aaf4d7e6066bf5cfca38145dcc6c5f5016cc1ae492dd843",
+        "cik": "0000052988",
+        "name": "Jacobs Engineering Group",
+        "share_class_figi": "BBG001S5SGC6",
+        "composite_figi": "BBG000BMFFQ0",
+        "retrieved_at": "2026-08-25T10:05:05Z"
+      },
+      "cik_changed": false,
+      "share_class_figi_changed": true,
+      "composite_figi_changed": true,
+      "any_vendor_identifier_spans_boundary": true,
+      "aggregate_history_before_v6_start": {
+        "http": 200,
+        "rows": 324,
+        "response_sha256": "d4b5eefbfef3775bebd8fa70f88ae293fd67b7fe528a782d40dbfda34cf96b6f",
+        "first_open": 132.9801,
+        "last_close": 136
+      },
+      "transition_bounds": {
+        "last_predecessor_session": "2021-09-15",
+        "first_successor_session": "2021-09-16",
+        "probes": 8,
+        "method": "binary search over XNYS sessions on the reference endpoint; bounded to a session PAIR, not guessed"
+      },
+      "price_continuity": {
+        "predecessor": {
+          "http": 200,
+          "rows": 324,
+          "response_sha256": "f1820106c64730f71360c0692ce688c35f9a628502c038ed5fd209c696e1bcb9",
+          "first_open": 132.9801,
+          "last_close": 136
+        },
+        "successor": {
+          "http": 200,
+          "rows": 310,
+          "response_sha256": "d6c1685723b88cdef71903d5157f08a74f64f205d31ee0ca92703da8b27aff90",
+          "first_open": 135.64,
+          "last_close": 133.69
+        },
+        "price_ratio": 0.9974,
+        "role": "CORROBORATIVE_ONLY"
+      },
+      "classification": "REGISTRANT_CHANGE_SECURITY_CONTINUITY_CONFIRMED",
+      "rationale": "an identifier survives the transition (only one of CIK / share_class_figi changed), which links predecessor and successor"
+    },
+    {
+      "security_key_v1": "a45d3c9e35ec52dba2e6885f9653e8b83e9fba31d2a489aada720147a6e92c80",
+      "current_ticker": "CRH",
+      "v6_regular_way_start": "2023-10-02",
+      "current_identity": {
+        "http": 200,
+        "response_sha256": "29a89c827fdfb03f476dec9e6194549f32c22bc4559ab0478cf34477641e5426",
+        "cik": "0000849395",
+        "name": "CRH Public Limited Company",
+        "share_class_figi": null,
+        "composite_figi": null,
+        "retrieved_at": "2026-08-25T10:05:12Z"
+      },
+      "historical_identity": {
+        "http": 200,
+        "response_sha256": "6826fbe0e86c3468b77b79f0dd1a32de0aec65de88855898134977f34d064130",
+        "cik": null,
+        "name": null,
+        "share_class_figi": null,
+        "composite_figi": null,
+        "retrieved_at": "2026-08-25T10:05:12Z"
+      },
+      "cik_changed": false,
+      "share_class_figi_changed": false,
+      "composite_figi_changed": false,
+      "any_vendor_identifier_spans_boundary": true,
+      "aggregate_history_before_v6_start": {
+        "http": 200,
+        "rows": 257,
+        "response_sha256": "e92001c1ae4676a0e6d56a2296a1735bb4bac3e685613fb60b7b886e010a8df7",
+        "first_open": 51.69,
+        "last_close": 51.96
+      },
+      "transition_bounds": null,
+      "price_continuity": null,
+      "classification": "UNRESOLVED",
+      "rationale": "history exists before the V6 start but no registrant/identifier change was observed to explain the truncation"
+    },
+    {
+      "security_key_v1": "efdc8c73e47572a689dbc12da00e9bf1fc8041531752a96bb12c6fde9349b635",
+      "current_ticker": "BG",
+      "v6_regular_way_start": "2024-01-02",
+      "current_identity": {
+        "http": 200,
+        "response_sha256": "67533e1e7dfb0cc35354f67544ecafbb53b12d3e5f4c4d32fc55fca794fe2d2d",
+        "cik": "0001996862",
+        "name": "Bunge Global SA",
+        "share_class_figi": null,
+        "composite_figi": null,
+        "retrieved_at": "2026-08-25T10:05:13Z"
+      },
+      "historical_identity": {
+        "http": 200,
+        "response_sha256": "002957bb836cd9a9682026c7c7b9f4b72deee5c837941bfb77c72d2769e2b8fb",
+        "cik": "0001144519",
+        "name": "Bunge Limited",
+        "share_class_figi": null,
+        "composite_figi": null,
+        "retrieved_at": "2026-08-25T10:05:14Z"
+      },
+      "cik_changed": true,
+      "share_class_figi_changed": false,
+      "composite_figi_changed": false,
+      "any_vendor_identifier_spans_boundary": true,
+      "aggregate_history_before_v6_start": {
+        "http": 200,
+        "rows": 382,
+        "response_sha256": "503edfdf663a3f524e38ad3c463ed4853a2bd25f167af274b344f95d66659716",
+        "first_open": 77,
+        "last_close": 81.13
+      },
+      "transition_bounds": {
+        "last_predecessor_session": "2021-09-15",
+        "first_successor_session": "2021-09-16",
+        "probes": 9,
+        "method": "binary search over XNYS sessions on the reference endpoint; bounded to a session PAIR, not guessed"
+      },
+      "price_continuity": {
+        "predecessor": {
+          "http": 200,
+          "rows": 382,
+          "response_sha256": "859c410d5a7028afffef56178deaa8194729f9ccf6a06d935a84088d757caa72",
+          "first_open": 77,
+          "last_close": 81.13
+        },
+        "successor": {
+          "http": 200,
+          "rows": 359,
+          "response_sha256": "1bc7058e26effda1f9835e28b0607a22a6f907213062c7a20a3991b31ab310ba",
+          "first_open": 81.12,
+          "last_close": 81.09
+        },
+        "price_ratio": 0.9999,
+        "role": "CORROBORATIVE_ONLY"
+      },
+      "classification": "REGISTRANT_CHANGE_SECURITY_CONTINUITY_CONFIRMED",
+      "rationale": "an identifier survives the transition (only one of CIK / share_class_figi changed), which links predecessor and successor"
+    },
+    {
+      "security_key_v1": "d6e3f76caa9241a4332830299b5758bcd1649ff2191434009289a2972b58f5c9",
+      "current_ticker": "LH",
+      "v6_regular_way_start": "2024-07-01",
+      "current_identity": {
+        "http": 200,
+        "response_sha256": "bff304855c8cceebaa7a2d470ed3a4d56c39300ddfae60403eebf3e35a790bb2",
+        "cik": "0000920148",
+        "name": "Labcorp Holdings Inc.",
+        "share_class_figi": "BBG01MMT6PQ2",
+        "composite_figi": "BBG01MMT6PL7",
+        "retrieved_at": "2026-08-25T10:05:22Z"
+      },
+      "historical_identity": {
+        "http": 200,
+        "response_sha256": "6bca7d694bb2317b938b4c46a6e7d3b72b8485e805af466e5da7da759d4009a5",
+        "cik": "0000920148",
+        "name": "Laboratory Corporation of America Holdings",
+        "share_class_figi": "BBG001S7RX54",
+        "composite_figi": "BBG000D9DMK0",
+        "retrieved_at": "2026-08-25T10:05:22Z"
+      },
+      "cik_changed": false,
+      "share_class_figi_changed": true,
+      "composite_figi_changed": true,
+      "any_vendor_identifier_spans_boundary": true,
+      "aggregate_history_before_v6_start": {
+        "http": 200,
+        "rows": 355,
+        "response_sha256": "4b8a816d2f6f73d7c6217344202447bcb28a817270c4275d011f9f7dda30122b",
+        "first_open": 254.9656,
+        "last_close": 257.4742
+      },
+      "transition_bounds": {
+        "last_predecessor_session": "2021-09-15",
+        "first_successor_session": "2021-09-16",
+        "probes": 9,
+        "method": "binary search over XNYS sessions on the reference endpoint; bounded to a session PAIR, not guessed"
+      },
+      "price_continuity": {
+        "predecessor": {
+          "http": 200,
+          "rows": 355,
+          "response_sha256": "8b4296ad93a70ca0554107bd56ac639d732607054298d7b5aaa19a8b15c96ef4",
+          "first_open": 254.9656,
+          "last_close": 257.4742
+        },
+        "successor": {
+          "http": 200,
+          "rows": 307,
+          "response_sha256": "edfe527e488ca45a54f569a9f92eefd3c1b3806cf69b1ede71eb0b4b6f2cdcb9",
+          "first_open": 257.7663,
+          "last_close": 255.0086
+        },
+        "price_ratio": 1.0011,
+        "role": "CORROBORATIVE_ONLY"
+      },
+      "classification": "REGISTRANT_CHANGE_SECURITY_CONTINUITY_CONFIRMED",
+      "rationale": "an identifier survives the transition (only one of CIK / share_class_figi changed), which links predecessor and successor"
+    },
+    {
+      "security_key_v1": "d177c46fe7e7ec9fa9556a4b2caedf74a2703ff596d1b4b91b874fd5de56d19c",
+      "current_ticker": "FERG",
+      "v6_regular_way_start": "2024-10-01",
+      "current_identity": {
+        "http": 200,
+        "response_sha256": "19ef4cc69cf229c759219a6030d28b89d671fa27ef4ea83056318cfd61a4789c",
+        "cik": "0002011641",
+        "name": "Ferguson Enterprises Inc.",
+        "share_class_figi": "BBG01NMRD786",
+        "composite_figi": "BBG01NMRD768",
+        "retrieved_at": "2026-08-25T10:05:30Z"
+      },
+      "historical_identity": {
+        "http": 200,
+        "response_sha256": "f28fff2ff83e68821ad25866bdf503dbf4bcf95d79cc5fde0f6036383a76e76a",
+        "cik": "0001832433",
+        "name": "Ferguson plc",
+        "share_class_figi": null,
+        "composite_figi": null,
+        "retrieved_at": "2026-08-25T10:05:30Z"
+      },
+      "cik_changed": true,
+      "share_class_figi_changed": false,
+      "composite_figi_changed": false,
+      "any_vendor_identifier_spans_boundary": true,
+      "aggregate_history_before_v6_start": {
+        "http": 200,
+        "rows": 21,
+        "response_sha256": "34ddaaa834db2f9730f1ed135bd7fdc97e69d8112d7b8c01414a1d67531cd6cc",
+        "first_open": 145.47,
+        "last_close": 146.01
+      },
+      "transition_bounds": {
+        "last_predecessor_session": "2024-07-31",
+        "first_successor_session": "2024-08-01",
+        "probes": 10,
+        "method": "binary search over XNYS sessions on the reference endpoint; bounded to a session PAIR, not guessed"
+      },
+      "price_continuity": {
+        "predecessor": {
+          "http": 200,
+          "rows": 376,
+          "response_sha256": "da581fa5513b8309a65cf6084eb2e26a4ecb3bf4764c3055b47058febd09f8d0",
+          "first_open": 220.5,
+          "last_close": 222.65
+        },
+        "successor": {
+          "http": 200,
+          "rows": 373,
+          "response_sha256": "cdf86bc6c8e3772c341d3d247cf3d3d1b0194254606be7d900b168ac0e05555d",
+          "first_open": 221.83,
+          "last_close": 216.33
+        },
+        "price_ratio": 0.9963,
+        "role": "CORROBORATIVE_ONLY"
+      },
+      "classification": "REGISTRANT_CHANGE_SECURITY_CONTINUITY_CONFIRMED",
+      "rationale": "an identifier survives the transition (only one of CIK / share_class_figi changed), which links predecessor and successor"
+    },
+    {
+      "security_key_v1": "ec4b4f0f2cac042411785183b5508cfe7b996e7d8f619c6b24cd7ecba9bc55be",
+      "current_ticker": "BLK",
+      "v6_regular_way_start": "2025-01-02",
+      "current_identity": {
+        "http": 200,
+        "response_sha256": "561c842f56f588c5e085394a77f6ba3db7a4438ad1a16d5632b7f87a2ababd2d",
+        "cik": "0002012383",
+        "name": "Blackrock, Inc.",
+        "share_class_figi": "BBG01PSW2WR0",
+        "composite_figi": "BBG01PSW2WN4",
+        "retrieved_at": "2026-08-25T10:05:38Z"
+      },
+      "historical_identity": {
+        "http": 200,
+        "response_sha256": "6240653b95a8bec871ec6b6d43cf5faa26a9b9f90f6bf28843ff754f082ddcf6",
+        "cik": "0001364742",
+        "name": "Blackrock, Inc.",
+        "share_class_figi": "BBG001SDBP55",
+        "composite_figi": "BBG000C2PW58",
+        "retrieved_at": "2026-08-25T10:05:39Z"
+      },
+      "cik_changed": true,
+      "share_class_figi_changed": true,
+      "composite_figi_changed": true,
+      "any_vendor_identifier_spans_boundary": false,
+      "aggregate_history_before_v6_start": {
+        "http": 200,
+        "rows": 293,
+        "response_sha256": "caa553e4e5531e60c66504555e8bd826a65c1ae09181446b92172891b13380ec",
+        "first_open": 902,
+        "last_close": 909.65
+      },
+      "transition_bounds": {
+        "last_predecessor_session": "2024-10-01",
+        "first_successor_session": "2024-10-02",
+        "probes": 10,
+        "method": "binary search over XNYS sessions on the reference endpoint; bounded to a session PAIR, not guessed"
+      },
+      "price_continuity": {
+        "predecessor": {
+          "http": 200,
+          "rows": 236,
+          "response_sha256": "6bbdea538083819a3b97c2d1db7c82c1e767833fecd2142b01df2ec1a325ddd6",
+          "first_open": 952.2426,
+          "last_close": 935
+        },
+        "successor": {
+          "http": 200,
+          "rows": 225,
+          "response_sha256": "87636ea41717c0c5f04ed84d84f0daa9954bfda38453af50b1ce4713c864de28",
+          "first_open": 939.87,
+          "last_close": 955.13
+        },
+        "price_ratio": 1.0052,
+        "role": "CORROBORATIVE_ONLY"
+      },
+      "classification": "UNRESOLVED",
+      "rationale": "CIK, share_class_figi and composite_figi ALL change at the boundary, so no vendor identifier spans it. Ticker and price continuity are corroborative only and cannot establish continuity on their own; authoritative filing evidence would be required."
+    },
+    {
+      "security_key_v1": "c6fd905a512fe41410a41637b0dcdd661540868a182e8ca62e3fc79a14f909f8",
+      "current_ticker": "XOM",
+      "v6_regular_way_start": "2026-08-24",
+      "current_identity": {
+        "http": 200,
+        "response_sha256": "896f0b0501c4c74c034f521216c67da8577d0cdf1b8ff8054eb60b72990a41d7",
+        "cik": "0002115436",
+        "name": "ExxonMobil Holdings Corporation",
+        "share_class_figi": "BBG023CY9NL0",
+        "composite_figi": "BBG023CY9MM1",
+        "retrieved_at": "2026-08-25T10:05:47Z"
+      },
+      "historical_identity": {
+        "http": 200,
+        "response_sha256": "3126615b40ac01a8a83731aea930b18655d904d2f785995373c180603a690e28",
+        "cik": "0000034088",
+        "name": "Exxon Mobil Corporation",
+        "share_class_figi": "BBG001S69V32",
+        "composite_figi": "BBG000GZQ728",
+        "retrieved_at": "2026-08-25T10:05:48Z"
+      },
+      "cik_changed": true,
+      "share_class_figi_changed": true,
+      "composite_figi_changed": true,
+      "any_vendor_identifier_spans_boundary": false,
+      "aggregate_history_before_v6_start": {
+        "http": 200,
+        "rows": 546,
+        "response_sha256": "3119c50116c1db371be806950175d45eac2fa9629ff606f23ebe9dcc12896d73",
+        "first_open": 55.1,
+        "last_close": 56.46
+      },
+      "transition_bounds": {
+        "last_predecessor_session": "2026-07-01",
+        "first_successor_session": "2026-07-02",
+        "probes": 10,
+        "method": "binary search over XNYS sessions on the reference endpoint; bounded to a session PAIR, not guessed"
+      },
+      "price_continuity": {
+        "predecessor": {
+          "http": 200,
+          "rows": 436,
+          "response_sha256": "5136898944a519590d0becd008338f629665d9d97d642622316ecfeee795cb66",
+          "first_open": 136.1048,
+          "last_close": 136.33
+        },
+        "successor": {
+          "http": 200,
+          "rows": 451,
+          "response_sha256": "d72fe8252c1e3db1c056d29c87478bfb0f4d24733222810a94d45a2c71a30c71",
+          "first_open": 136.98,
+          "last_close": 136.49
+        },
+        "price_ratio": 1.0048,
+        "role": "CORROBORATIVE_ONLY"
+      },
+      "classification": "UNRESOLVED",
+      "rationale": "CIK, share_class_figi and composite_figi ALL change at the boundary, so no vendor identifier spans it. Ticker and price continuity are corroborative only and cannot establish continuity on their own; authoritative filing evidence would be required."
+    }
+  ],
+  "new_vintage_evidence": {
+    "class_": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE",
+    "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/registrant_continuity",
+    "response_digests_captured": true,
+    "improvement_over_a2": "the earlier boundary diagnosis did not capture response body digests; this one does"
+  },
+  "no_lineage_change": {
+    "v6_digest": "8c961aa3a0c67934",
+    "v6_modified": false,
+    "security_key_v1_modified": false,
+    "universe_modified": false,
+    "v7_created": false,
+    "builder_spec_v2_sealed": false,
+    "smoke_executed": false,
+    "derived_data_written": false
+  },
+  "next_gate": {
+    "if_all_confirmed": "MASSIVE_TICKER_LINEAGE_V7",
+    "if_unresolved_affect_coverage": "DERIVED BUILDER remains HOLD",
+    "current": "HOLD — unresolved cases materially affect expected coverage"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 14:05 +04"
+}

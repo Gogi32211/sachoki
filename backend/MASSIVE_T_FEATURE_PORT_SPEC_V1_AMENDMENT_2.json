@@ -1,0 +1,308 @@
+{
+  "amendment_id": "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_2",
+  "status": "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_2_FROZEN",
+  "task_class": "AUTHORITY_REBINDING_ONLY",
+  "purpose": "rebind the Massive T port from the assumed Pine semantic authority to the proven canonical legacy materializer",
+  "amends": {
+    "artifact": "MASSIVE_T_FEATURE_PORT_SPEC_V1",
+    "digest": "545d293b4f1e4653",
+    "disposition": "FROZEN — not edited"
+  },
+  "authorities": {
+    "base_port_spec": {
+      "artifact": "MASSIVE_T_FEATURE_PORT_SPEC_V1",
+      "digest": "545d293b4f1e4653"
+    },
+    "materializer_provenance": {
+      "artifact": "MASSIVE_T_SUPERCHART_EXPORT_PROVENANCE_V1",
+      "digest": "a8e1f3725ddfe7a1",
+      "status": "RESOLVED"
+    },
+    "historical_unresolved": {
+      "artifact": "MASSIVE_T_MATERIALIZER_AUTHORITY_RESOLUTION_V1",
+      "digest": "1e465831f96bc855",
+      "status": "IMMUTABLE but SUPERSEDED_AUTHORITY_WISE"
+    }
+  },
+  "canonical_producer": {
+    "frozen_as": "CANONICAL_LEGACY_T_MATERIALIZER",
+    "implementation": "signal_engine.py :: compute_signals(df)",
+    "proven_call_path": [
+      "compute_signals(df)",
+      "main.py /api/bar-signals",
+      "SuperchartPanel.jsx",
+      "exportCsv()",
+      "*_signals_5y.csv",
+      "studio/importer.py",
+      "bars.t_sig"
+    ],
+    "authority_established_by": "the call path",
+    "explicitly_not_by": "agreement percentage"
+  },
+  "semantic_target": {
+    "replaces_claim": "SAME RECOVERED PINE SEMANTIC PROGRAM",
+    "allowed_claim": "SAME CANONICAL LEGACY T MATERIALIZER SEMANTICS, EXECUTED ON MASSIVE 15m SOURCE DATA",
+    "forbidden_claim": "same materialized population",
+    "why_forbidden": "the input feed and its precision may differ"
+  },
+  "pine_status": {
+    "artifact": "260523_TZ_F_WLNBB_CMB_pattern.pine",
+    "role": "REFERENCE_ONLY",
+    "usable_for": "historical / design comparison",
+    "not_the": "canonical materialization authority",
+    "conflict_rule": "any disagreement between Pine and signal_engine.py resolves in favour of the proven canonical producer for this port"
+  },
+  "signal_logic_status": {
+    "path": "analyzers/tz_wlnbb/signal_logic.py",
+    "role": "NON_PRODUCER_REFERENCE",
+    "rule": "not usable as the Massive T semantic authority unless a separately registered study explicitly targets it"
+  },
+  "frozen_producer_config": {
+    "use_wick": false,
+    "min_body_ratio": 1.0,
+    "doji_thresh": 0.05,
+    "doji_thresh_participates_in_isDoji": false,
+    "isDoji": "(c == o)",
+    "prevBodySafe": "max(prevBody, 1e-10)",
+    "one_e_minus_10": {
+      "classification": "CANONICAL_NUMERICAL_GUARD",
+      "is_not": [
+        "exchange tick size",
+        "syminfo.mintick",
+        "fallback",
+        "inferred market metadata"
+      ],
+      "role": "divide-by-zero floor on the previous bar's body"
+    },
+    "tradingview_mintick_lookup_required": false,
+    "unavailable_mintick_state_exists": false
+  },
+  "runtime_config": {
+    "status": "RESOLVED",
+    "evidence": "main.py:4060 invokes compute_signals(df) with no overrides",
+    "consequence": "producer defaults ARE the materialization configuration",
+    "retires_classification": "LEGACY_RUNTIME_CONFIGURATION_UNKNOWN",
+    "retired_scope": "the canonical T materializer only"
+  },
+  "export_vintage": {
+    "export_date": "2026-05-29",
+    "authority_commit": "1ef1ef71d93b5abad91a125d160c2ffe59bdc656",
+    "authority_commit_date": "2026-04-24",
+    "authority_source_digest": "2901107d9baa6320",
+    "current_file_slice_digest": "2901107d9baa6320",
+    "t_semantic_diff": 0,
+    "proof": "the T-semantic slice — constants, bar algebra, cT* block, bc priority, sid/name mapping — is byte-identical between the export-vintage blob and the file smoke will run",
+    "slice_excludes": "the bearish condition region",
+    "t_isolation_argument": [
+      "sig_id = where(bc>0, BC_MAP[bc], ZC_MAP[zc])",
+      "zc is zeroed wherever bc>0",
+      "the exporter keeps the cell only when the label starts with 'T'",
+      "therefore a Z-condition change can only move a bar between Z labels, which the T column discards"
+    ],
+    "commits_after_export": [
+      "deb9ba0 2026-06-08 Fix: Z1 signal never fired (wrong open condition in vectorized engine)"
+    ],
+    "limitation": "the vintage blob is the last COMMIT before the export date; uncommitted working-tree state at export time is unverifiable from this repository"
+  },
+  "priority_chain": {
+    "frozen": [
+      "T4",
+      "T6",
+      "T1G",
+      "T2G",
+      "T1",
+      "T2",
+      "T9",
+      "T10",
+      "T3",
+      "T11",
+      "T5",
+      "T12"
+    ],
+    "bound_from": "signal_engine.py bc priority block, parsed",
+    "explicitly_not_from": "Pine ordering or memory"
+  },
+  "state_id_mapping": {
+    "sig_names": {
+      "0": "NONE",
+      "1": "T1G",
+      "2": "T1",
+      "3": "T2G",
+      "4": "T2",
+      "5": "T3",
+      "6": "T4",
+      "7": "T5",
+      "8": "T6",
+      "9": "T9",
+      "10": "T10",
+      "11": "T11",
+      "12": "T12",
+      "13": "Z1G",
+      "14": "Z1",
+      "15": "Z2G",
+      "16": "Z2",
+      "17": "Z3",
+      "18": "Z4",
+      "19": "Z5",
+      "20": "Z6",
+      "21": "Z7",
+      "22": "Z9",
+      "23": "Z10",
+      "24": "Z11",
+      "25": "Z12"
+    },
+    "bc_code_to_label": {
+      "1": "T4",
+      "2": "T6",
+      "3": "T1G",
+      "4": "T2G",
+      "5": "T1",
+      "6": "T2",
+      "7": "T9",
+      "8": "T10",
+      "9": "T3",
+      "10": "T11",
+      "11": "T5",
+      "12": "T12"
+    },
+    "bc_to_sig_id": {
+      "1": 6,
+      "2": 8,
+      "3": 1,
+      "4": 3,
+      "5": 2,
+      "6": 4,
+      "7": 9,
+      "8": 10,
+      "9": 5,
+      "10": 11,
+      "11": 7,
+      "12": 12
+    },
+    "bound_from": "signal_engine.py SIG_NAMES and _BC_TO_SID, parsed",
+    "rule": "state identity is the code mapping, never the label text"
+  },
+  "lookback": {
+    "required_prior_bars": 1,
+    "shifts_found": [
+      1
+    ],
+    "window_functions": [],
+    "derived_from": "signal_engine.py T path, parsed",
+    "explicitly_not_from": "Pine",
+    "rule": "no hidden lookback may be discovered during production; a differing value at smoke time is a HOLD"
+  },
+  "z_dependency": {
+    "exists": true,
+    "expression": "p1Bear = (c.shift(1) < o.shift(1)) | isDoji.shift(1)",
+    "classification": "T_INTERNAL_SUPPORTING_PREDICATE",
+    "precise_form": "RAW prior-bar doji equality",
+    "explicitly_not": "the resolved Z7 signal (cZ7c = isDoji & ~anyB & ~anyZ)",
+    "why_it_matters": "importing resolved Z7 instead of raw prior-bar doji would change T on any bar where a Z or T also fired on the prior bar",
+    "present_in_canonical_path": true,
+    "research_facing_Z": "HOLD"
+  },
+  "t4_config": {
+    "artifact": "T4_ENGULF_CONFIG_V1",
+    "digest": "713f09144a245408",
+    "status": "REINSTATED_AS_VALID_SUPPORTING_AUTHORITY",
+    "citation_amendment_required": false,
+    "previously_suspected_defect": "REVIEW ERROR, not an artifact defect",
+    "original_not_edited": true,
+    "checked": {
+      "use_wick": false,
+      "min_body_ratio": 1.0
+    }
+  },
+  "mintick_qualification": {
+    "artifact": "MASSIVE_T_MINTICK_SOURCE_QUALIFICATION_V1",
+    "digest": "0cad620d6a5fb7bc",
+    "reinterpreted_as": "supporting evidence for the producer's 1e-10 numerical guard",
+    "do_not_describe_1e_10_as": "syminfo.mintick",
+    "tick_size_problem": "CLOSED_AS_NOT_APPLICABLE",
+    "amendment_1": {
+      "digest": "de60bdc75fc61e3c",
+      "original": "HOLD",
+      "now": "RESOLVED"
+    }
+  },
+  "timestamp_alignment": {
+    "rule": "legacy.date == Massive.bar_start",
+    "tz": "UTC",
+    "equality": "EXACT",
+    "tolerance": null,
+    "nearest_timestamp_allowed": false
+  },
+  "price_basis": {
+    "status": "INDICATIVE_COMPATIBILITY_PENDING_FULL_CONFORMANCE",
+    "indication": "legacy OHLC == Massive-equivalent OHLC rounded to 2 decimals",
+    "upgrade_requires": "the full matched conformance run",
+    "upgraded_here": false
+  },
+  "input_timeframe": {
+    "frozen": "15m",
+    "only": true,
+    "forbidden": [
+      "1m",
+      "5m",
+      "1H",
+      "1D"
+    ],
+    "note": "the existence of those datasets is not hypothesis registration"
+  },
+  "conformance_targets": {
+    "A": "canonical producer recomputed on the exact same input bars and config",
+    "B": "historical materialized bars.t_sig",
+    "C": "canonical producer executed on Massive 15m inputs",
+    "primary_semantic_test": "producer implementation vs independent reimplementation on IDENTICAL INPUT — must be EXACT",
+    "secondary": "historical materialized t_sig is a provenance/conformance observation, not the executable semantic authority",
+    "forbidden": "optimising C to maximise agreement with B"
+  },
+  "same_input_invariant": {
+    "statement": "identical input bars + identical producer config + identical canonical implementation semantics => identical T output",
+    "role": "PRIMARY_SMOKE_INVARIANT",
+    "exactness": "EXACT — 99.x% is not acceptable for same-input semantic verification"
+  },
+  "feed_precision_divergence": {
+    "classification": "X_SOURCE_INPUT_DIVERGENCE",
+    "not_automatically": "an implementation defect",
+    "naming_rule": "may not be called 'rounding' unless demonstrated from observed X differences"
+  },
+  "required_negative_fixtures": [
+    "Pine implementation cannot silently replace signal_engine authority",
+    "signal_logic.py cannot silently replace signal_engine authority",
+    "min_body_ratio mutation rejected",
+    "use_wick mutation rejected",
+    "1e-10 mutation rejected",
+    "threshold-doji cannot replace exact equality",
+    "priority permutation rejected",
+    "wrong SIG_NAMES mapping rejected",
+    "non-15m timeframe rejected",
+    "contaminated required Massive bar => UNAVAILABLE",
+    "missing required prior history => UNAVAILABLE",
+    "T_INTERNAL_SUPPORTING_PREDICATE cannot become research-facing Z",
+    "materialized t_sig agreement cannot be used to fit parameters",
+    "Y access rejected"
+  ],
+  "y_firewall": {
+    "y_exposed": 0,
+    "forbidden": [
+      "future returns",
+      "theta",
+      "enrichment",
+      "P&L",
+      "outcome-conditioned conformance"
+    ]
+  },
+  "gates": {
+    "t_port_smoke": "UNBLOCKED_BY_THIS_AMENDMENT",
+    "t_production": "HOLD",
+    "z": "HOLD",
+    "y": "HOLD"
+  },
+  "research_output": null,
+  "t_production_writes": 0,
+  "smoke_started": false,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 10:21 +04"
+}

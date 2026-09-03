@@ -1,0 +1,191 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_SPEC_V1",
+  "status": "FROZEN",
+  "REAL_Y_ACCESS": "FORBIDDEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "PARENTS": {
+    "MULTIPLICITY_UNIVERSE": "a9852e1e4a9495c3",
+    "INFERENTIAL_PRESPEC": "8f112d7e760953b5",
+    "PERMUTATION_MAP_AUTHORITY": "ccdaa6a6f08e8588",
+    "INFERENTIAL_AMENDMENT_1": "5e6a3788f06c4dc4",
+    "REGISTRY": "6900f9d3cf6f13e5",
+    "k": 20751
+  },
+  "PRIME_RULE": "SAME production code path, SAME frozen registry, SAME permutation machinery. ONLY the Y source and B change.",
+  "GATE_1_FABRICATED_OUTCOME_FIXTURES": {
+    "input": "entirely hand-built OHLC/session data; real X not required",
+    "expected_values": "HAND-AUTHORED. The production Y-builder must NOT generate its own expected output, or the implementation would be checking itself.",
+    "fixtures": {
+      "F1": "FULL_REGULAR M1->M2: known 10:00, entry idx2 OPEN, path idx2..idx25 inclusive, exact Y_ATR hand-computed",
+      "F2": "M2->M3: entry idx3 OPEN",
+      "F3": "M3->M4: entry idx4 OPEN",
+      "F4": "EARLY_CLOSE: final regular bar idx13, complete path to 13:00, outcome VALID, class EARLY_CLOSE",
+      "F5": "ENTRY PRICE AUTHORITY: right-bar CLOSE deliberately != next-bar OPEN; expected Y must use next-bar OPEN",
+      "F6": "ENDPOINT INCLUSION: largest excursion on the entry bar or the final regular bar; proves BOTH endpoints included",
+      "F7": "PATH_UNAVAILABLE: one required interior HIGH/LOW bar absent -> no silently shortened path",
+      "F8": "ATR_PRIOR_UNAVAILABLE: previous-session final-bar ATR missing / non-finite / <= 0",
+      "F9": "PREVIOUS SESSION EARLY CLOSE: ATR authority must use that session's OWN final regular bar, not hard-coded idx25"
+    }
+  },
+  "GATE_2_FULL_REGISTRY_SYNTHETIC_RUN": {
+    "X": "REAL — frozen 20,751 claims, real evaluability/positive masks, real security/date structure, real session_length_class, frozen Y-independent active windows",
+    "Y": "SYNTHETIC — no price / OHLC / future-outcome reads"
+  },
+  "SYNTHETIC_Y_GENERATOR": {
+    "form": "deterministic SHA-256 keyed uniforms",
+    "U": "U(tag, key...) = deterministic uniform in (0,1) from SHA256(canonical_serialization(tag, key...))",
+    "Y_SYN": "0.50*U('DATE',d) + 0.20*U('SEC',s) + 0.10*U('POS',p) + 0.20*U('CELL',s,d,p) + 0.10*I(class==EARLY_CLOSE)",
+    "coefficients_are": "PLUMBING FIXTURE PARAMETERS — not a statistical claim",
+    "required_properties": [
+      "Y_SYN >= 0",
+      "same-date dependence across securities",
+      "same-date dependence across positions",
+      "security structure",
+      "FULL/EARLY distributions may differ",
+      "generator NEVER reads claim ID, token ID, token value or real Y"
+    ],
+    "why_not_iid": "iid row noise would give a broken per-security or per-position permutation nothing to destroy",
+    "AVAILABLE_SYN": "active-window structural rules satisfied AND U('MISS',s,d,p) >= 0.01",
+    "the_1pct": "has NO inferential meaning and is NOT changed by smoke results; it exercises (availability,value) payload movement"
+  },
+  "SMOKE_B": {
+    "B_SCALE_SMOKE": 20,
+    "B_NULL_SMOKE": 30,
+    "everything_else_identical": [
+      "c_j = median SCALE theta",
+      "s_j = 1.4826 x MAD SCALE theta",
+      "T_obs, T_b, M_b",
+      "inclusive >=",
+      "plus-one p formula",
+      "PERMUTATION_STABILITY_GATE 20/20 SCALE and 30/30 NULL",
+      "DEGENERATE_NULL_SCALE production handling"
+    ],
+    "smoke_B_does_NOT_calibrate": [
+      "B_SCALE=200",
+      "B_NULL=1800",
+      "B_CI=2000"
+    ]
+  },
+  "SHARED_MAP_ACCEPTANCE": {
+    "store": "machine-readable permutation map per draw, or at minimum its digest",
+    "assert": [
+      "exactly ONE date permutation per session_length_class per draw",
+      "the SAME pi across all securities",
+      "the SAME pi across all 3 position pairs",
+      "the SAME pi across all 20,751 claims",
+      "FULL_REGULAR dates map ONLY to FULL_REGULAR dates",
+      "EARLY_CLOSE dates map ONLY to EARLY_CLOSE dates",
+      "(Y_availability, Y_value) move together",
+      "active-window participation follows the frozen authority exactly"
+    ]
+  },
+  "MAX_STAT_INVARIANTS": {
+    "claims_produced": 20751,
+    "per_null_draw": "M_b == exact max(T_j^b over the stable, non-degenerate set)",
+    "NO_claim_disappears_on_selected_draws_only": true,
+    "unstable_or_degenerate": "p_adj = 1, T_j^b = -inf sentinel on ALL null draws",
+    "registry": "k = 20,751 unchanged"
+  },
+  "P_VALUE_INVARIANTS": {
+    "smoke_grid": "p_adj in {1/31, 2/31, ..., 31/31}",
+    "monotone": "p_adj >= unadjusted permutation p, with inclusive ties",
+    "never": "p = 0",
+    "DETERMINISTIC_REPLAY": "same input digests + same seed/substreams -> same map digests, c_j, s_j, T, M_b, p_adj; bit-identical under the same runtime/numeric contract"
+  },
+  "NEGATIVE_FIXTURES": {
+    "requirement": "the DEFECT must FAIL FIRST, and the CORRECTED implementation must PASS — 'bad implementation detected' alone is insufficient",
+    "list": {
+      "N1": "per-claim independent map -> FAIL_SHARED_MAP",
+      "N2": "per-security independent map -> FAIL_CROSS_SECURITY_DATE_SYNC",
+      "N3": "per-position independent map -> FAIL_CROSS_POSITION_DATE_SYNC",
+      "N4": "FULL <-> EARLY swap -> FAIL_SESSION_LENGTH_STRATUM",
+      "N5": "move Y value but not availability -> FAIL_PAYLOAD_ATOMICITY",
+      "N6": "ignore mapped-date active-window guard -> FAIL_ACTIVE_WINDOW",
+      "N7": "variable-dimension M_b by dropping only the undefined draw -> FAIL_FIXED_MAX_SET",
+      "N8": "silently shorten a missing outcome path -> FAIL_PATH_COMPLETENESS",
+      "N9": "use right-bar CLOSE as entry -> FAIL_ENTRY_AUTHORITY",
+      "N10": "use current-session/opening-hour ATR instead of previous-session final ATR -> FAIL_ATR_AUTHORITY",
+      "N11": "attempt to open/read a real future-price or real-Y source -> FAIL_Y_EXPOSURE_GUARD"
+    },
+    "coverage": "these 11 cover the defect classes learned across the whole archaeology"
+  },
+  "REAL_Y_EXPOSURE_GUARD": {
+    "mechanism": "TECHNICAL, not prose",
+    "input_allowlist": [
+      "CANON69 / frozen X surfaces",
+      "final registry",
+      "session/calendar metadata",
+      "active-window authority",
+      "synthetic payload",
+      "fabricated fixture files"
+    ],
+    "forbidden_sources": [
+      "real post-entry OHLC",
+      "real forward-return table",
+      "real historical Y table",
+      "real HOLDOUT outcome",
+      "real forward outcome"
+    ],
+    "dependency_injection": {
+      "OutcomeProvider": [
+        "FABRICATED_FIXTURE",
+        "SYNTHETIC"
+      ],
+      "REAL_provider": "MUST FAIL AT CONSTRUCTION TIME in smoke mode",
+      "why": "an accidental SQL join then breaks the exposure gate too"
+    }
+  },
+  "CI_SMOKE": {
+    "B_CI_SMOKE": 20,
+    "full_B_CI_not_required_in_smoke": true,
+    "assert": [
+      "security bootstrap multiplicities generated",
+      "date bootstrap multiplicities generated INDEPENDENTLY",
+      "w(s,d) = m_security(s) * m_date(d)",
+      "weighted-median contrast path used",
+      "same seed -> deterministic result"
+    ],
+    "negative": "security-only weights -> MUST FAIL TWO_WAY_CLUSTER_GUARD",
+    "not_assessed": "CI numerical width"
+  },
+  "INJECTED_EFFECT_CAPABILITY": {
+    "separate_from_smoke_PASS": true,
+    "claim_selection": "OUTCOME-INDEPENDENT deterministic rule — first N claim IDs under SHA256 ordering; never chosen because they look interesting",
+    "method": "add synthetic uplift on those claims' positive episodes",
+    "status": "CAPABILITY_DIAGNOSTIC_ONLY",
+    "explicitly_NOT": [
+      "evidence",
+      "power",
+      "sensitivity estimate",
+      "promotion-threshold calibration",
+      "a reason to modify B",
+      "a reason to modify studentization"
+    ],
+    "if_not_recovered": "may be an engineering/capability diagnostic; it must NEVER cause the inference design to be reshaped so the fixture wins"
+  },
+  "FINAL_ACCEPTANCE": [
+    "FABRICATED OUTCOME FIXTURES",
+    "FULL REGISTRY ROW/CLAIM COUNTS",
+    "REAL-Y EXPOSURE GUARD",
+    "DATE-BLOCK MAP",
+    "CROSS-SECURITY SYNC",
+    "CROSS-POSITION SYNC",
+    "SESSION-CLASS STRATIFICATION",
+    "ATOMIC AVAILABILITY PAYLOAD",
+    "ACTIVE-WINDOW GUARD",
+    "FIXED MAX-STAT SET",
+    "STUDENTIZATION PATH",
+    "PLUS-ONE / TIE RULE",
+    "DETERMINISTIC REPLAY",
+    "TWO-WAY CI PLUMBING",
+    "ALL NEGATIVE FIXTURES: FAIL-BEFORE-FIX / PASS-AFTER-FIX"
+  ],
+  "TARGET_STATUS": "SYNTHETIC_PIPELINE_QUALIFIED",
+  "EXPLICITLY_NOT": [
+    "STATISTIC_VALIDATED",
+    "POWER_VALIDATED",
+    "EVIDENCE_FOUND"
+  ],
+  "GATE": "FIRST REAL Y opens ONLY after both gates fully PASS"
+}

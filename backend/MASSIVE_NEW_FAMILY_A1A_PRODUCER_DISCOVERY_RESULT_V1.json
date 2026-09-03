@@ -1,0 +1,103 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_A1A_PRODUCER_DISCOVERY_RESULT_V1",
+  "status": "FROZEN",
+  "SEARCH_PERFORMED": 1,
+  "Y_EXPOSED": 0,
+  "VERDICT": "A1a PRODUCER CHAIN FOUND — end to end",
+  "METHOD": "schema-signature conjunction (minute_states AND observed_regular_bars): 28 / 24 singletons -> 14 .py candidates, all inspected",
+  "CHAIN": [
+    {
+      "layer": "RAW VENDOR INGEST",
+      "code": "massive_ingest.py (183 lines)",
+      "endpoint": "{MASSIVE_BASE}/v2/aggs/ticker/{tk}/range/1/minute/{day}/{day}  (adjusted=true, limit=50000)",
+      "base_env_var": "MASSIVE_BASE (NAME only; no secret value was read, printed or stored)",
+      "writes": "/Volumes/QUANT_RESEARCH/source_data/massive/canonical_1m — 4.5 GB, 1,254 payloads + 1,254 manifests",
+      "authorities": [
+        "MASSIVE_1M_RAW_INTEGRITY_V1",
+        "MASSIVE_1M_SOURCE_SEMANTICS_CLOSURE_V1",
+        "MASSIVE_1M_DATA_CONTRACT_AMENDMENT_V1"
+      ]
+    },
+    {
+      "layer": "CANONICAL 1M BASE",
+      "code": [
+        "derived_base_builder_v2.py (class DerivedBaseBuilderV2)",
+        "derived_base_production_v1.py"
+      ],
+      "CANON_ROOT": "/Volumes/QUANT_RESEARCH/source_data/massive/canonical_1m",
+      "realpath_guard": "the builder REJECTS a source root whose realpath differs from CANON_ROOT",
+      "mount_guard": "studio.mount_guard.require_external_volume",
+      "calendar": "exchange_calendars (xc) — a real session calendar, not clock arithmetic",
+      "writes": "massive_1m_base_v2 — minute_states 231,681,810 rows · observed_regular_bars 213,979,211 rows · 476 keys",
+      "sealed_authority": "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1 · 5591685cfa33b62a",
+      "binding": {
+        "builder_spec": "3af8cc42370fda86",
+        "amendment_1": "317759f7fc843ccd",
+        "authoritative_smoke": "bce44a9000ca3a5f",
+        "implementation_hash": "3a8236bf56cbe9c0",
+        "cohort": 476,
+        "cohort_digest": "1f86d09a76d3c6e9",
+        "exclusion_digest": "3604f7c1dbf902a1"
+      },
+      "COHORT_CONCORDANCE": "the 1m-base production authority already binds cohort = 476 — the same number the forward cohort binding freezes"
+    },
+    {
+      "layer": "15m STAGE-A",
+      "code": [
+        "coarse_aggregator_v1.py",
+        "coarse_production_v1.py"
+      ],
+      "authority": "MASSIVE_1M_COARSE_PRODUCER_CODE_AUTHORITY_V1 · a829902a50056c01"
+    },
+    {
+      "layer": "STAGE-A PROJECTION",
+      "proof": "byte-exact 10-of-18 column projection, full EXCEPT ALL 0/0 over 15,445,454 rows"
+    }
+  ],
+  "NO_FALLBACK_SOURCE": {
+    "yfinance_occurrences_across_the_whole_chain": 0,
+    "files_checked": [
+      "massive_ingest.py",
+      "derived_base_builder_v2.py",
+      "derived_base_production_v1.py",
+      "derived_base_production_verify.py",
+      "coarse_aggregator_v1.py",
+      "coarse_production_v1.py"
+    ],
+    "result": "the 'never yfinance for bars' constraint holds STRUCTURALLY, not just by policy"
+  },
+  "CODE_DIGESTS": {
+    "massive_ingest.py": {
+      "sha256": "0744265ababd4bb133bd9af8491ba70da681940cd5b1fb7b4ec59f9a2e8bc3ca",
+      "lines": 183
+    },
+    "derived_base_builder_v2.py": {
+      "sha256": "418a6fd68a7d18e50c2edb951ab28f2cdfc202aefc10659c7fc0c1987fa1fbac",
+      "lines": 252
+    },
+    "derived_base_production_v1.py": {
+      "sha256": "6b918609d0fbd7616a27e427acebdcee13f41b024de8ce889d183b8fd04ab6ef",
+      "lines": 295
+    },
+    "derived_base_production_verify.py": {
+      "sha256": "7bfe4adb5f4aa9986dc2c3e4839c2c7045d51b33baf3e78a5ed60ba7440a398a",
+      "lines": 308
+    },
+    "coarse_aggregator_v1.py": {
+      "sha256": "15042ae58bf83479c7fef1ae02cdc952f490cb740868eba2fb3ae2ee745964ef",
+      "lines": 182
+    },
+    "coarse_production_v1.py": {
+      "sha256": "bca9463fe39e5ad3ae3e02fdfd25f77f15a612d021060ce172f149f2f4b4329b",
+      "lines": 250
+    }
+  },
+  "COMMAND_STATUS_NOTE": "one enumeration loop exited 1 because its FINAL `grep -c` returned 0 for the last file. That is a loop-terminal condition, NOT a search failure; the output was complete and was verified as such.",
+  "STILL_OWED_FOR_A1a_QUALIFICATION": [
+    "the code exists and is sealed, but forward EXECUTION of massive_ingest.py has NOT been qualified in this programme",
+    "canonical_1m raw is NOT covered by either persistence manifest (4.5 GB, external volume only) — a THIRD persistence decision",
+    "session/timezone authority PASS and security_key_v1 binding PASS must be demonstrated forward, not inherited",
+    "vendor-side regime change (adjustment policy, revision, backfill) is not detectable from code alone"
+  ],
+  "gate": "MASSIVE_NEW_FAMILY_FORWARD_A1_LAYER_SPLIT_V1"
+}

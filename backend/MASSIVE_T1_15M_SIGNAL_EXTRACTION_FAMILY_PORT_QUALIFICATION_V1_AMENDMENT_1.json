@@ -1,0 +1,18 @@
+{
+  "artifact": "MASSIVE_T1_15M_SIGNAL_EXTRACTION_FAMILY_PORT_QUALIFICATION_V1_AMENDMENT_1",
+  "amends": "98157389576d845f",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "S3/S4 were labelled TRUE_SEMANTIC_MISMATCH. That claim is stronger than the evidence.",
+  "superseded": "TRUE_SEMANTIC_MISMATCH (S3 wyc_phase, S4 ad_fresh/ad_cluster)",
+  "replacement": "KNOWN_CANDIDATES_REJECTED / TRUE_HISTORICAL_PRODUCER_UNRESOLVED",
+  "rationale": "only the two signal_extraction.py candidates were tested. Their failure shows those candidates are not the producer; it does not show that no producer reproduces the store. The l_chart, sig_va and z_sig cases each established that the materialized writer can live on a different path entirely.",
+  "correct_use_of_TRUE_SEMANTIC_MISMATCH": "reserved for the case where the authoritative producer IS identified and still fails to reproduce stored output from preserved true input",
+  "unchanged": [
+    "S3 verdict HOLD",
+    "S4 verdict HOLD",
+    "umbrella verdict HOLD",
+    "S1 HOLD",
+    "S2 PASS_FOR_T1_FAMILY_X_DEPENDENCY"
+  ]
+}

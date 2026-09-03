@@ -1,0 +1,155 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_C5_SUPPORT_CENSUS_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "binds": [
+    "0650f4bc695e4dac",
+    "758141467b3f05f4"
+  ],
+  "VERDICT": "SUPPORT_CHARACTERIZED",
+  "not_a_verdict": "no feature is ruled SEARCHABLE or NOT_SEARCHABLE here. That belongs to the prespecified support floor.",
+  "CISD_MASK_IDENTITY": {
+    "method": "row-by-row across all four outputs",
+    "disagreements": 0,
+    "meaning": "all four share one frozen validity contract, so availability, position and pair support are identical by construction; only fire counts differ"
+  },
+  "CISD_PREFIX_STRUCTURE": {
+    "securities": 476,
+    "any_valid": 476,
+    "zero_valid": 0,
+    "valid_prefix_bars": {
+      "median": 4,
+      "p10": 1,
+      "p25": 1,
+      "p75": 38.3,
+      "p90": 924,
+      "max": 32484
+    },
+    "valid_prefix_sessions": {
+      "median": 1,
+      "max": 1254
+    },
+    "no_gap_observed_through_massive_end": 7,
+    "right_censoring": "the 7 securities with no observed gap are recorded as NO_GAP_OBSERVED, not assigned an artificial first-gap time at the Massive end date",
+    "reading": "every security has SOME valid CISD, but the median valid prefix is 4 bars / 1 session. \"any_valid = 476\" is therefore a misleading headline on its own."
+  },
+  "CISD_DEV_VS_HOLDOUT": {
+    "DEV": {
+      "valid_rows": 538182,
+      "securities_with_any_valid": 476,
+      "fires": 3933
+    },
+    "HOLDOUT": {
+      "valid_rows": 2184,
+      "securities_with_any_valid": 7,
+      "fires": 0,
+      "fire_rate": "0.0000% — a TRUE zero, not UNAVAILABLE: 2,184 valid opportunities existed and none fired"
+    },
+    "semantics_note": "the zero-denominator case did NOT arise here. Had valid_rows been 0 the correct report would be UNAVAILABLE / N.A., never 0%."
+  },
+  "CISD_CONCENTRATION_DEV": {
+    "top_10pct_securities_share_of_VALID": 96.6,
+    "top_20_securities_share": 74.1,
+    "securities_contributing": 476,
+    "reading": "the 3.50% does not live spread across the universe. Roughly 48 securities carry 96.6% of all valid CISD observations and 20 carry 74.1%. For search purposes this is a small-cohort feature wearing a full-universe label."
+  },
+  "WLNBB_DEV": {
+    "l34": {
+      "valid": 5791558,
+      "sec": 458,
+      "fires": 595100,
+      "rate": 10.2753
+    },
+    "bo_up": {
+      "valid": 5743859,
+      "sec": 458,
+      "fires": 455685,
+      "rate": 7.9334
+    },
+    "be_up": {
+      "valid": 3270488,
+      "sec": 444,
+      "fires": 111195,
+      "rate": 3.4
+    },
+    "bx_up": {
+      "valid": 3276264,
+      "sec": 446,
+      "fires": 54955,
+      "rate": 1.6774
+    },
+    "l43": {
+      "valid": 5791558,
+      "sec": 458,
+      "fires": 19831,
+      "rate": 0.3424
+    },
+    "l22": {
+      "valid": 5791558,
+      "sec": 458,
+      "fires": 15787,
+      "rate": 0.2726
+    },
+    "l_sig": {
+      "valid": 5791532,
+      "sec": 458,
+      "note": "categorical — fire count not meaningful"
+    },
+    "vol_bucket": {
+      "valid": 5791558,
+      "sec": 458,
+      "note": "categorical"
+    }
+  },
+  "WLNBB_HOLDOUT": {
+    "l34": {
+      "valid": 54984,
+      "sec": 308,
+      "fires": 5531,
+      "rate": 10.0593
+    },
+    "bo_up": {
+      "valid": 54573,
+      "sec": 301,
+      "fires": 4205,
+      "rate": 7.7053
+    },
+    "be_up": {
+      "valid": 35329,
+      "sec": 204,
+      "fires": 1122,
+      "rate": 3.1759
+    },
+    "bx_up": {
+      "valid": 35345,
+      "sec": 204,
+      "fires": 558,
+      "rate": 1.5787
+    },
+    "stability": "fire rates are close to DEV across every column (l34 10.28 vs 10.06, bo_up 7.93 vs 7.71, be_up 3.40 vs 3.18, bx_up 1.68 vs 1.58) — descriptive only, no inference drawn"
+  },
+  "WLNBB_CONCENTRATION_DEV": {
+    "vol_bucket": 25.9,
+    "l_sig": 25.9,
+    "bo_up": 26.1,
+    "bx_up": 42.6,
+    "be_up": 42.6,
+    "reading": "the anchored columns are roughly twice as concentrated as the bounded ones, consistent with the L43 anchor being available mainly on well-covered securities"
+  },
+  "EFFECTIVE_SURFACE_TOPOLOGY": {
+    "summary": "Stage C features do not share one evidence surface",
+    "ladder": {
+      "bounded WLNBB (vol_bucket,l34,l22,l43)": "37.85% valid, 458 securities",
+      "bo_up": "37.5% valid, 458 securities, cheap anchor",
+      "bx_up / be_up": "21.4% valid, ~445 securities, L43 anchor costs 43%",
+      "CISD x4": "3.50% valid, but 96.6% of it in 10% of securities, and 7 securities in HOLDOUT"
+    },
+    "conclusion": "grouping these twelve as \"stateful features\" concealed four materially different evidence surfaces"
+  },
+  "CISD_INTERPRETATION_GUARD": "CISD is semantically producible under the frozen new-Massive measurement regime. It is NOT declared unusable here. What is established: only 3.50% of bars are AVAILABLE_VALID because state cannot be recovered after the first interior contamination, that support is highly concentrated, and the historical holdout retains 7 securities with zero fires.",
+  "not_done": [
+    "anchor acquisition latency distributions not computed",
+    "M1-M4 and adjacent-pair cuts not run for Stage C columns",
+    "no support floor applied"
+  ]
+}

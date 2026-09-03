@@ -1,0 +1,90 @@
+{
+  "artifact": "MASSIVE_T1_15M_OFFREPO_WRITER_ARCHIVE_RECOVERY_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "family_membership": "unchanged",
+  "binds": {
+    "pine_replay": "cc20ef7f94549aad",
+    "source_recovery": "bdb22d2510813187"
+  },
+  "objects": [
+    "bar_line5",
+    "wyc_phase",
+    "ad_fresh",
+    "ad_cluster"
+  ],
+  "SURFACE_ENUMERATION": {
+    "surfaces_walked": [
+      "/Volumes/QUANT_RESEARCH/archive",
+      "/Volumes/QUANT_RESEARCH/artifacts",
+      "/Volumes/QUANT_RESEARCH/research",
+      "/Volumes/QUANT_RESEARCH/scratch",
+      "/Volumes/QUANT_RESEARCH/staging",
+      "/Volumes/QUANT_RESEARCH/studio_data"
+    ],
+    "file_counts": {
+      "archive": 162,
+      "artifacts": 6241,
+      "research": 0,
+      "scratch": 0,
+      "staging": 42,
+      "studio_data": 22578
+    },
+    "archive_composition": {
+      ".parquet": 134,
+      ".duckdb": 11,
+      ".json": 6,
+      ".npz": 4,
+      ".zip": 3,
+      ".csv": 2,
+      ".wal": 1
+    },
+    "code_type_files_offrepo": 15,
+    "code_type_identity": "ALL 15 are S&P500 point-in-time press-release snapshots under artifacts/provenance — none is project source",
+    "zip_contents_inspected": true,
+    "content_sweep": {
+      "files_scanned": 6246,
+      "read_failures": 0,
+      "walk_errors": 0,
+      "files_with_any_hit": 9
+    },
+    "hit_identity": "7 are research documents that MENTION the terms (LINE5_PSAR_RSI2_VIX_DISCOVERIES.md, ATOMIC_PROFILE_BACKTEST.md, _MASTER_CHEATSHEET.md); 2 are massive_probe_raw JSONs where \"260523\" is a coincidental probe id",
+    "enumeration_complete": true
+  },
+  "KEY_NEGATIVE": "the archive contains DATA and RESEARCH REPORTS only. It holds zero .py, .pine, .ipynb, .sh or .sql project source. No backfill or writer implementation exists on any enumerated off-repo surface.",
+  "VERDICT": "WRITER_NOT_RECOVERED_FROM_PRESERVED_AUTHORITIES",
+  "EXACT_FAMILY_BRANCH": "CLOSED",
+  "closure_statement": "The frozen historical study is NOT invalidated. Its own materialization stands. What is established is narrower and final: four required X components of that materialization are no longer reproducible with sufficient authority to carry the SAME ENTIRE 35,587-member family onto Massive faithfully.",
+  "exhausted_search_surfaces": [
+    "current working tree (2,366 files)",
+    "all git refs (1,720 commits, all branches and tags)",
+    "Pine authority 260523 (1,194 lines) and 260809",
+    "off-repo /Volumes/QUANT_RESEARCH (29,023 files across 6 surfaces)"
+  ],
+  "what_remains_qualified": {
+    "columns": 64,
+    "of": 84,
+    "families": [
+      "T (12)",
+      "Z (13)",
+      "L/WLNBB (8)",
+      "P/D (12)",
+      "combo-four (4)",
+      "physics (11)",
+      "suffix (4)"
+    ]
+  },
+  "what_is_unrecoverable": [
+    "bar_line5",
+    "wyc_phase",
+    "ad_fresh",
+    "ad_cluster"
+  ],
+  "deliberately_not_done": [
+    "parameter fitting to the store — fitting is not provenance",
+    "dropping the four tokens to force the family through — forbidden (N1/N8)",
+    "pruning post-boundary sessions — forbidden (N9)"
+  ],
+  "next_branch": "a NEW smaller-family pre-Y registration built only on qualified, reproducible X — a new registration, explicitly NOT a pruning or cleanup of the frozen family"
+}

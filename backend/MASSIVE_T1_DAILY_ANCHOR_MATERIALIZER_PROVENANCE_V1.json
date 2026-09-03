@@ -1,0 +1,67 @@
+{
+  "report_id": "MASSIVE_T1_DAILY_ANCHOR_MATERIALIZER_PROVENANCE_V1",
+  "status": "WRITER_RESOLVED__TRUE_INPUT_SURFACE_NOT_PRESERVED",
+  "task_class": "PROVENANCE_RESOLUTION_ONLY",
+  "question": "which writer, input OHLC surface and producer created the daily t_sig == 'T1' that t1_dna.py uses as the historical episode selector?",
+  "writer": {
+    "status": "RESOLVED",
+    "authority": "MASSIVE_T_SUPERCHART_EXPORT_PROVENANCE_V1",
+    "digest": "a8e1f3725ddfe7a1",
+    "chain": [
+      "SuperchartPanel.jsx exportCsv()",
+      "/api/bar-signals",
+      "main.api_bar_signals",
+      "compute_all_signals",
+      "signal_engine.compute_signals",
+      "*_signals_5y.csv",
+      "studio/importer.py",
+      "bars.t_sig"
+    ],
+    "producer": "the same canonical producer confirmed at 15m"
+  },
+  "true_input_surface": {
+    "status": "NOT_PRESERVED",
+    "what_it_was": "the full-precision frame returned by fetch_ohlcv(interval='1d') at export time",
+    "what_is_stored": "a two-decimal rendering of it",
+    "evidence": {
+      "rows_checked": 780261,
+      "values_with_more_than_2dp": 0,
+      "exporter_rounding": "bulk_export.py:186-189 round(..., 2); the Superchart exporter rounds likewise"
+    },
+    "consequence": "exact reproduction from stored data is STRUCTURALLY IMPOSSIBLE, not merely unachieved"
+  },
+  "reproduction": {
+    "engine_on_stored_2dp_ohlc": 0.999171,
+    "engine_on_massive_1d_full_precision": 0.916174,
+    "sample_bars": 27760,
+    "exact": false
+  },
+  "hypotheses_tested_and_refuted": [
+    {
+      "hypothesis": "full precision reproduces the label better",
+      "verdict": "REFUTED",
+      "evidence": "Massive 1D full precision scores 0.916174, far worse — consistent with a different feed whose close is the last regular-session minute"
+    },
+    {
+      "hypothesis": "the residual is a write-path/vintage artefact at the CSV-seed boundary",
+      "verdict": "REFUTED",
+      "evidence": "scattered across 2021-2024, at most 2 per date; CSV-seed era rate 0.000736 vs nightly era 0.000142 — the boundary explains nothing"
+    }
+  ],
+  "remaining_explanation": {
+    "statement": "consistent with two-decimal rounding of the true input — daily comparisons sitting within a cent flip when rounded",
+    "status": "UNPROVEN",
+    "why_unprovable": "it would require the unrounded frame, which was never stored",
+    "residual_rate": 0.000829
+  },
+  "consequence_for_c3": {
+    "blocks_anchor_construction": false,
+    "why": "C3 builds a MASSIVE-NATIVE daily anchor and does not need to reproduce the legacy stored label",
+    "what_it_does_limit": "the HISTORICAL DIAGNOSTIC comparison against the preserved historical anchor positives",
+    "required_limitation_if_c3_proceeds": "historical daily anchor labels cannot be exactly regenerated from stored data; any historical-vs-Massive anchor comparison inherits a ~0.08% legacy irreproducibility floor that is NOT attributable to the Massive port",
+    "decision_owner": "user — the standing rule is 'exact, or HOLD', and this is not exact"
+  },
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-27 09:56 +04"
+}

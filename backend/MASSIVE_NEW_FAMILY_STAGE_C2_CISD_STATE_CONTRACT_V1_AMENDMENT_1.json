@@ -1,0 +1,37 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_C2_CISD_STATE_CONTRACT_V1_AMENDMENT_1",
+  "amends": "4c28079c3c89839e",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "LOGICAL_INCONSISTENCY_CORRECTED": {
+    "was": "SERIES HEAD -> INITIALIZATION_SENSITIVE_HEAD, combined with POST_GAP_RECOVERY = NONE_PROVEN",
+    "why_wrong": "if head uncertainty never resolves and no recovery event exists, then AVAILABLE_VALID = 0 everywhere and CISD is a mathematically zero-support feature. That contradicts the same artifact statement that support is bounded by the first uninterrupted COMPLETE run.",
+    "caught_by": "caller"
+  },
+  "HEAD_SEED_POLICY": "CANONICAL_SEED_AT_FIRST_OBSERVED_COMPLETE_BAR",
+  "HEAD_SEED_ROLE": [
+    "NEW_MASSIVE_MEASUREMENT_REGIME",
+    "NOT_LEGACY_HISTORICAL_EQUIVALENCE"
+  ],
+  "justification": "the canonical producer seeds market structure from the first bar of its input history (top_price=h[0], bottom_price=l[0]). For the new family the input history IS the Massive coverage window, so seeding at its head is not a claim about legacy equivalence — it defines the regime.",
+  "AVAILABILITY_LADDER": {
+    "before first COMPLETE bar": "UNAVAILABLE_CURRENT — no state exists",
+    "first uninterrupted COMPLETE run": "AVAILABLE_VALID",
+    "after first interior UNOBSERVED_CONTAMINATED gap": "INITIALIZATION_SENSITIVE_POST_GAP until the end of Massive history",
+    "POST_GAP_RECOVERY": "NONE_PROVEN — unchanged"
+  },
+  "consequence": "CISD valid support is exactly the first contiguous COMPLETE run of each security. Given the Stage A pilot median COMPLETE-run length of 2 bars, this may be severe — C5 must measure it, not assume it.",
+  "CISD_PPM_STATUS": {
+    "DIRECT_SEPARATING_FIXTURE": "INCONCLUSIVE — the adversarial fixture produced 0 fires on both prefixes, so it did not separate them",
+    "DEPENDENCY_BASED_BLOCKING": "PROVEN — CISD_PPM consumes the plus/minus event stream, which the fixture DID prove non-identifiable (PLUS_CISD 23 vs 78 fires)",
+    "correction": "the sealed artifact should not read as though all four outputs were separated by direct fixture"
+  },
+  "C5_REQUIRED_METRICS": [
+    "securities with any valid CISD",
+    "median valid-prefix length",
+    "p10/p50/p90 valid-prefix length",
+    "DEV valid episodes",
+    "HOLDOUT valid episodes",
+    "note: HOLDOUT may be near-zero if most securities hit their first contamination long before 2026-08-07 — to be measured, not predicted"
+  ]
+}

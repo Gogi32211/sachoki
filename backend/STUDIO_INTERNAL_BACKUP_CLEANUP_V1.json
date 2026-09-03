@@ -1,0 +1,246 @@
+{
+  "report_id": "STUDIO_INTERNAL_BACKUP_CLEANUP_V1",
+  "final_verdict": "BACKUP_CLEANUP_COMPLETE",
+  "hold_reason": null,
+  "authorization_scope": "ONE destructive cleanup of exactly the internal pre-migration backup directory; nothing else",
+  "exact_original_target": "/Users/sachoki/Desktop/sachoki-desktop/data.INTERNAL_BACKUP_PRE_EXTERNAL_MIGRATION",
+  "exact_delete_pending_path": "/Users/sachoki/Desktop/sachoki-desktop/data.INTERNAL_BACKUP_DELETE_PENDING_20260825",
+  "rollback_archive_classification": "ROLLBACK_ARCHIVE_NOT_DISASTER_RECOVERY",
+  "rollback_archive_note": "canonical data and the rollback archive share one physical SSD. This covers logical failure — corruption, a bad update, a code defect, accidental deletion — and does NOT cover physical loss of that device.",
+  "external_archive_deletion_authorised": false,
+  "prior_evidence": {
+    "artifact": "STUDIO_PRE_MIGRATION_ROLLBACK_ARCHIVE_V1",
+    "digest": "441e5a4cf9383745",
+    "note": "that artifact recorded deletion_authorised=false; this is the separate deletion authorisation"
+  },
+  "untouched": [
+    "backend and frontend code",
+    "canonical DuckDB files",
+    "Massive raw payloads and manifests",
+    "sealed research artifacts",
+    "mount guard",
+    "launchd configuration",
+    "current-universe overlay",
+    "MASSIVE_TICKER_LINEAGE_V6",
+    "the external rollback archive"
+  ],
+  "jobs_run": "none — no dbupdate, research, backfill, derived-data, densification, zero-fill, RTH or EMA/RVOL/T-Z job was executed",
+  "phase1_pre_deletion_gate": {
+    "volume_is_mount": true,
+    "volume_device_differs_from_home": true,
+    "phantom": false,
+    "mount_guard_ok": true,
+    "mount_guard_checks": {
+      "volume_exists": true,
+      "is_mount_point": true,
+      "distinct_filesystem_from_home": true,
+      "volume_identity_matches": true,
+      "sentinel_exists": true,
+      "sentinel_uuid_matches": true,
+      "logical_resolves_to_target": true,
+      "target_on_validated_filesystem": true
+    },
+    "live_is_symlink": true,
+    "live_resolves_correctly": true,
+    "live_target_on_external": true,
+    "target_exists": true,
+    "target_is_real_dir": true,
+    "target_not_symlink": true,
+    "target_not_mount": true,
+    "target_on_internal": true,
+    "target_device_differs_from_external": true,
+    "target_realpath": "/Users/sachoki/Desktop/sachoki-desktop/data.INTERNAL_BACKUP_PRE_EXTERNAL_MIGRATION",
+    "target_not_live": true,
+    "target_not_canonical": true,
+    "target_not_archive": true,
+    "target_not_ancestor_of_external": true,
+    "pass": true
+  },
+  "phase2_fresh_full_verification": {
+    "method": "every file hashed on BOTH sides — no spot check",
+    "manifest": {
+      "tree_digest": "fb3766e99a46beb5b12eee206db753d5efed65eccfba542f1125a197d8aa4e32",
+      "files": 162,
+      "bytes": 89778107215
+    },
+    "internal_target": {
+      "files_expected": 162,
+      "files_present": 162,
+      "bytes": 89778107215,
+      "missing": 0,
+      "extra": 0,
+      "mismatches": 0,
+      "detail": [],
+      "clean": true
+    },
+    "external_rollback_archive": {
+      "files_expected": 162,
+      "files_present": 162,
+      "bytes": 89778107215,
+      "missing": 0,
+      "extra": 0,
+      "mismatches": 0,
+      "detail": [],
+      "clean": true
+    },
+    "establishes": [
+      "A: the internal object about to be destroyed is still the exact verified pre-migration backup",
+      "B: the external rollback archive that remains is still byte-identical to it"
+    ],
+    "pass": true
+  },
+  "phase3_pre_deletion_state": {
+    "internal_free_bytes_before": 64879927296,
+    "internal_free_gib_before": 60.42,
+    "external_free_bytes": 815186419712,
+    "external_free_gib": 759.2,
+    "internal_target_file_count": 162,
+    "internal_target_bytes": 89778107215,
+    "external_archive_file_count": 162,
+    "external_archive_bytes": 89778107215,
+    "data_symlink_target": "/Volumes/QUANT_RESEARCH/source_data/studio",
+    "external_device_id": 16777239,
+    "internal_device_id": 16777230,
+    "storage": {
+      "live_symlink_present": true,
+      "live_resolves_to": "/Volumes/QUANT_RESEARCH/source_data/studio",
+      "live_resolves_correctly": true,
+      "volume_is_mount": true,
+      "phantom_internal_volume": false,
+      "all_stores_present": true,
+      "massive_manifests": 1254,
+      "rollback_archive_present": true,
+      "backend": {
+        "status": "ok",
+        "service": "tz-signal-dashboard",
+        "version": "2.8"
+      },
+      "representative": {
+        "readable": true,
+        "rows": 8787711,
+        "st_dev": 16777239
+      }
+    },
+    "massive_manifest_expected": 1254
+  },
+  "phase4_atomic_rename": {
+    "from_path": "/Users/sachoki/Desktop/sachoki-desktop/data.INTERNAL_BACKUP_PRE_EXTERNAL_MIGRATION",
+    "to_path": "/Users/sachoki/Desktop/sachoki-desktop/data.INTERNAL_BACKUP_DELETE_PENDING_20260825",
+    "same_filesystem": true,
+    "destination_pre_existing": false,
+    "deleted_yet": false,
+    "rationale": "a verified external copy proves the CONTENT is safe; it says nothing about whether code still resolves the old internal PATH. This rename makes that failure observable while all 84 GB are still recoverable."
+  },
+  "phase5_post_rename_operational": {
+    "pending_file_count": 162,
+    "pending_bytes": 89778107215,
+    "storage": {
+      "live_symlink_present": true,
+      "live_resolves_to": "/Volumes/QUANT_RESEARCH/source_data/studio",
+      "live_resolves_correctly": true,
+      "volume_is_mount": true,
+      "phantom_internal_volume": false,
+      "all_stores_present": true,
+      "massive_manifests": 1254,
+      "rollback_archive_present": true,
+      "backend": {
+        "status": "ok",
+        "service": "tz-signal-dashboard",
+        "version": "2.8"
+      },
+      "representative": {
+        "readable": true,
+        "rows": 8787711,
+        "st_dev": 16777239
+      }
+    },
+    "checks": {
+      "original_path_absent": true,
+      "pending_is_real_dir": true,
+      "pending_on_internal": true,
+      "pending_162_files": true,
+      "pending_bytes_match": true,
+      "live_symlink_intact": true,
+      "mount_guard_pass": true,
+      "backend_healthy": true,
+      "representative_readable": true,
+      "representative_on_external": true,
+      "all_stores_present": true,
+      "massive_manifests_1254": true,
+      "rollback_archive_present": true,
+      "no_phantom_internal_volume": true,
+      "no_app_path_resolves_into_pending": true
+    },
+    "row_count_note": "readability and correct external source are the claim — a row count need not match an older value, since a legitimate scheduled writer may have run since",
+    "pass": true
+  },
+  "phase6_final_deletion": {
+    "assertions": {
+      "is_real_dir": true,
+      "not_symlink": true,
+      "not_mount": true,
+      "on_internal_fs": true,
+      "basename_prefix_ok": true,
+      "inside_project": true,
+      "not_project_root": true,
+      "not_live_data": true,
+      "not_under_volumes": true
+    },
+    "deleted_path": "/Users/sachoki/Desktop/sachoki-desktop/data.INTERNAL_BACKUP_DELETE_PENDING_20260825",
+    "deleted": true,
+    "method": "shutil.rmtree on the exact resolved literal path",
+    "no_glob": true,
+    "no_wildcard": true,
+    "no_parent_cleanup": true
+  },
+  "phase7_post_deletion": {
+    "storage": {
+      "live_symlink_present": true,
+      "live_resolves_to": "/Volumes/QUANT_RESEARCH/source_data/studio",
+      "live_resolves_correctly": true,
+      "volume_is_mount": true,
+      "phantom_internal_volume": false,
+      "all_stores_present": true,
+      "massive_manifests": 1254,
+      "rollback_archive_present": true,
+      "backend": {
+        "status": "ok",
+        "service": "tz-signal-dashboard",
+        "version": "2.8"
+      },
+      "representative": {
+        "readable": true,
+        "rows": 8787711,
+        "st_dev": 16777239
+      }
+    },
+    "archive_files": 162,
+    "archive_bytes": 89778107215,
+    "checks": {
+      "original_backup_absent": true,
+      "delete_pending_absent": true,
+      "live_symlink_present": true,
+      "live_resolves_correctly": true,
+      "no_phantom_internal_volume": true,
+      "mount_guard_pass": true,
+      "canonical_studio_present": true,
+      "representative_readable": true,
+      "all_stores_present": true,
+      "backend_healthy": true,
+      "massive_manifests_1254": true,
+      "rollback_archive_present": true,
+      "rollback_archive_162_files": true,
+      "rollback_archive_bytes": true
+    },
+    "archive_reverification": "non-destructive file/byte check; the sealed full-SHA verification from phase 2 stands and was not repeated absent any anomaly"
+  },
+  "phase8_reclamation": {
+    "internal_free_bytes_before": 64879927296,
+    "internal_free_bytes_after": 154647359488,
+    "reclaimed_bytes": 89767432192,
+    "reclaimed_gib": 83.6,
+    "expected_order_of_magnitude_gib": 83.6,
+    "note": "APFS accounting, snapshots and metadata mean reclaimed free space need not equal logical directory bytes. A large positive reclamation is an OPERATIONAL OBSERVATION, not a content-integrity proof."
+  },
+  "sealed_at": "2026-08-25 12:44 +04"
+}

@@ -1,0 +1,68 @@
+{
+  "report_id": "MASSIVE_T_FEATURE_PRODUCTION_VERIFY_V1",
+  "status": "HOLD",
+  "verifies": {
+    "artifact": "MASSIVE_T_FEATURE_PRODUCTION_V1",
+    "digest": "e80b2817df28c6fd"
+  },
+  "independence": {
+    "imports_production_module": false,
+    "method": "scalar if/elif verifier re-deriving T from raw coarse OHLC over one continuously concatenated per-security series",
+    "production_used": "vectorised census — a different program"
+  },
+  "row_level": {
+    "availability": 5,
+    "final_state": 0,
+    "priority": 0,
+    "compared": 389808,
+    "boundary_compared": 15048,
+    "boundary_mismatch": 0
+  },
+  "row_level_pass": false,
+  "session_boundary": {
+    "compared": 15048,
+    "mismatch": 0,
+    "why_separate": "a session reset provably changes labels, so a partition-boundary reset must not be able to hide inside an overall agreement figure"
+  },
+  "structural": {
+    "rows": 15445454,
+    "availability": {
+      "EVALUABLE_T_STATE": 4705795,
+      "EVALUABLE_NO_T_STATE": 4778448,
+      "UNAVAILABLE_CURRENT_INPUT": 4827268,
+      "UNAVAILABLE_REQUIRED_HISTORY": 1133943
+    },
+    "states": {
+      "NONE": 4778448,
+      "T1": 416995,
+      "T10": 59656,
+      "T11": 7745,
+      "T12": 19243,
+      "T1G": 101366,
+      "T2": 1244017,
+      "T2G": 929362,
+      "T3": 427317,
+      "T4": 696337,
+      "T5": 88715,
+      "T6": 71583,
+      "T9": 643459
+    },
+    "invalid_labels": 0,
+    "z_outputs": 0,
+    "keys_outside_cohort": 0,
+    "duplicate_logical_keys": 0,
+    "partitions": 1254,
+    "digest_mismatches": 0,
+    "availability_sums_to_rows": true
+  },
+  "structural_pass": true,
+  "availability_agrees_with_production": true,
+  "state_counts_agree": true,
+  "capability_reconciliation_pass": true,
+  "rows": 15445454,
+  "y_exposed": 0,
+  "z_outputs": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 11.8,
+  "sealed_at": "2026-08-26 15:28 +04"
+}

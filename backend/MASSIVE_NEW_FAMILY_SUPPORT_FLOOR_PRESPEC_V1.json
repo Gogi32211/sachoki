@@ -1,0 +1,93 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_SUPPORT_FLOOR_PRESPEC_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "SEALED_BEFORE_APPLICATION": {
+    "k_computed_at_seal_time": false,
+    "statement": "this artifact is sealed BEFORE the floor is applied to any claim. k is a RESULT, never a target."
+  },
+  "AUTHORITY_WINDOW": {
+    "DEV": "session_date <= 2026-08-06",
+    "role": "sole eligibility authority",
+    "HOLDOUT": {
+      "range": "2026-08-07 .. 2026-08-24",
+      "role": "DIAGNOSTIC ONLY",
+      "eligibility_criterion": "NEVER"
+    }
+  },
+  "HARD_FLOORS": {
+    "EVALUABLE_MIN": 10000,
+    "POSITIVE_MIN": 100,
+    "POSITIVE_SECURITY_MIN": 30,
+    "rule": "SEARCHABLE_SUPPORT = evaluable_pairs >= 10,000 AND positive_pairs >= 100 AND positive_securities >= 30",
+    "conjunction": "ALL THREE required"
+  },
+  "RATIONALE": {
+    "EVALUABLE_MIN_10000": "a baseline measurability guard. The observed minimum is already 19,783, so this floor cuts essentially nothing — which is correct, because the census showed LOW EVALUABILITY is not this family's real problem.",
+    "POSITIVE_MIN_100": "yields a claim built on a genuinely repeating X-state rather than a handful of instances. This is a SUPPORT ADEQUACY threshold, NOT a significance or power threshold.",
+    "POSITIVE_SECURITY_MIN_30": "the most important breadth guard. A claim with 500 occurrences on 3 tickers is not the same quality of candidate as 500 on 150 tickers. 30 is also a sane minimum for downstream clustered inference not to rest on a few names.",
+    "epistemic_status": "these are PRE-Y DESIGN THRESHOLDS setting minimum episode count and cross-security breadth. They are NOT a statistical theorem and NOT an optimal cut."
+  },
+  "NO_TYPE_SPECIFIC_FLOOR": {
+    "decision": "one claim grammar -> ONE support standard",
+    "observed_disparity": {
+      "boolean->boolean median positive": 5,
+      "categorical->categorical median positive": 372
+    },
+    "why_uniform_anyway": "type-specific floors would grant different admission standards to different parts of the family purely because their support distributions differ",
+    "accepted_consequence": "a large share of boolean->boolean claims may fail. That is not bias against them — their X-state combinations are simply often sparse."
+  },
+  "NO_POSITION_SPECIFIC_FLOOR": {
+    "decision": "identical thresholds on M1->M2, M2->M3, M3->M4",
+    "basis": "the census showed no position suffers structural starvation (median positive 71 / 60 / 63)"
+  },
+  "CONCENTRATION_POLICY": {
+    "metric": "top10pct_security_share_positive",
+    "role": "MANDATORY DIAGNOSTIC — REPORT and FLAG",
+    "exclusion_criterion_in_V1": "NO",
+    "status_rule": "if securities_positive <= 48 -> DEGENERATE (metric reaches 1.0 by construction); else INFORMATIVE",
+    "explicit": "concentration NEVER affects searchability in V1"
+  },
+  "MULTI_REASON_EXCLUSION": {
+    "rule": "record all three tests independently per claim",
+    "fields": [
+      "pass_evaluability",
+      "pass_positive_count",
+      "pass_security_breadth",
+      "support_eligible"
+    ],
+    "support_eligible": "all three TRUE",
+    "FORBIDDEN": "precedence ordering where the first failure hides the others",
+    "reason_codes_may_be_multiple": [
+      "FAIL_EVALUABILITY",
+      "FAIL_POSITIVE_COUNT",
+      "FAIL_SECURITY_BREADTH"
+    ]
+  },
+  "ZERO_POSITIVE_CLAIMS": {
+    "outcome": "fail POSITIVE_MIN automatically",
+    "retention": "NOT deleted from the census or registry; recorded with excluded_reason",
+    "example_reason": "FAIL_POSITIVE_COUNT (and typically FAIL_SECURITY_BREADTH)"
+  },
+  "HOLDOUT_NON_EXCLUSION": {
+    "HOLDOUT positive_pairs = 0": "does NOT exclude",
+    "HOLDOUT positive_securities = 0": "does NOT exclude",
+    "evidence": "51.8% of claims never fire in the 12 HOLDOUT sessions and the median claim has zero HOLDOUT positives; a HOLDOUT floor would cut half the family on timing luck"
+  },
+  "IRREVERSIBILITY_CLAUSE": {
+    "rule": "apply ONCE to all 45,387 claims; k is whatever results",
+    "explicit": "if k is 300, or 2,000, or 20,000, that is the answer",
+    "FORBIDDEN": "revising the floor because the surviving count seems too large or too small",
+    "reason": "that would be post-hoc multiplicity engineering"
+  },
+  "SEQUENCE": [
+    "SUPPORT_FLOOR_PRESPEC freeze  <- THIS ARTIFACT",
+    "apply once to 45,387 claims",
+    "FINAL SEARCHABLE CLAIM REGISTRY",
+    "freeze k",
+    "freeze multiplicity universe",
+    "synthetic-Y smoke",
+    "FIRST REAL Y"
+  ]
+}

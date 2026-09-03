@@ -1,0 +1,114 @@
+{
+  "spec_id": "SESSION_UNIFIED_PATH_CLOSURE_V1",
+  "status": "X_ONLY_PRE_Y",
+  "amendment": "0b3d1963c50c1033",
+  "helper_digest": "2200ee09114c6d02",
+  "mapping_digest": "0d99e85d817dcaba",
+  "static_assertions": {
+    "legacy_modal_sites": 0,
+    "independent_expected_bars_recomputation": 0,
+    "fallback_session_length_inference": 0
+  },
+  "T1": {
+    "production_vs_reference": {
+      "claims_compared": 1002,
+      "episodes_compared": 156596,
+      "identical_claim_sets": true,
+      "identical_episode_index": true,
+      "mismatching_claims": 0,
+      "examples": [],
+      "production_digest": "f0a6244eb4192f1b",
+      "reference_digest": "f0a6244eb4192f1b",
+      "result": "PASS"
+    },
+    "evidence_reconciliation": {
+      "stages_sealed": {
+        "sequence_analyzable": 156596,
+        "mfe10_available": 155442,
+        "primary": 154786,
+        "n_blocks": 5040,
+        "k_final": 911
+      },
+      "stages_unified": {
+        "sequence_analyzable": 156596,
+        "mfe10_available": 155442,
+        "primary": 154786,
+        "n_blocks": 5040,
+        "k_final": 911
+      },
+      "population_hash": "1959eb5a9e938b6c",
+      "block_assignment_hash": "4f7406cefaf3ba69",
+      "claim_order_artifact": null,
+      "identical": {
+        "sequence_analyzable": true,
+        "mfe10_available": true,
+        "primary": true,
+        "n_blocks": true,
+        "k_final": true
+      },
+      "result": "IDENTICAL"
+    },
+    "branch": "A — final evidence inputs identical; implementation defect confirmed upstream, no realized impact on the registered inference universe"
+  },
+  "RETAINED_FAMILY_REGRESSION": {
+    "T5": {
+      "stages": {
+        "analyzable": 120612,
+        "mfe_available": 119792,
+        "primary": 119166
+      },
+      "population_hash": "9685aef9ebe8b074",
+      "block_assignment_hash": "f3ed2e8044459261",
+      "sealed_funnel": {
+        "grammar_claims": 863,
+        "episodes_total": 195584,
+        "n_1h_observable": 123193,
+        "n_mfe10_available": 122506,
+        "n_anchor_available": 121837,
+        "n_sequence_analyzable": 118849,
+        "n_primary_population": 118849,
+        "n_blocks": 5010,
+        "median_block_size": 13,
+        "support_qualified": 867,
+        "k_final": 840
+      },
+      "result": "REPORTED"
+    },
+    "T9": {
+      "stages": {
+        "analyzable": 158933,
+        "mfe_available": 157826,
+        "primary": 157031
+      },
+      "population_hash": "b8a264697867c9a3",
+      "block_assignment_hash": "d04667806c44c62d",
+      "sealed_population_hash": "b8a264697867c9a3",
+      "sealed_block_hash": "d04667806c44c62d",
+      "population_identical": true,
+      "blocks_identical": true,
+      "k_unified": 890,
+      "k_sealed": 890,
+      "k_identical": true,
+      "result": "PASS"
+    },
+    "T3": {
+      "stages": {
+        "analyzable": 144123,
+        "mfe_available": 143035,
+        "primary": 142263
+      },
+      "population_hash": "3b7c7665f7423c9c",
+      "block_assignment_hash": "6676af767944b165",
+      "sealed_population_hash": "3b7c7665f7423c9c",
+      "sealed_block_hash": "6676af767944b165",
+      "population_identical": true,
+      "blocks_identical": true,
+      "k_unified": 853,
+      "k_sealed": 853,
+      "k_identical": true,
+      "result": "PASS"
+    }
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome, Z, theta or survivor computed",
+  "runtime_min": 1.9
+}

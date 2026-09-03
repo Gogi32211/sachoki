@@ -1,0 +1,78 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_COVERAGE_STRUCTURE_FINDING_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": "38a68c742c673c4a",
+  "trigger": "Stage A pilot — validating the segment/availability model before scaling",
+  "SEGMENT_MODEL_VALIDATED": {
+    "my_model": "split each security series into contiguous COMPLETE runs; state resets at every UNOBSERVED_CONTAMINATED bar",
+    "registered_model": "massive_coarse_ema_v1 ema_segment_id / ema_age_valid_bars / ema_reset_reason",
+    "agreement": "EXACT on the pilot security — 4,490 segments, median length 2, max 63, identical to my computation",
+    "reset_reasons": {
+      "UNOBSERVED_CONTAMINATED": 17175,
+      "SEGMENT_SEED": 4490
+    },
+    "conclusion": "the availability model I intended for Stage A matches the already-registered Massive semantics; no new convention is being invented"
+  },
+  "PILOT_SECURITY": {
+    "bars": 32484,
+    "COMPLETE": 15309,
+    "UNOBSERVED_CONTAMINATED": 17175,
+    "contaminated_share": "52.9%",
+    "longest_COMPLETE_run": 63,
+    "EMA200_VALID_bars": 0,
+    "note": "all 15,309 COMPLETE bars are INITIALIZATION_SENSITIVE for EMA200 because no run reaches 200 bars"
+  },
+  "COVERAGE_IS_STRONGLY_BIMODAL": {
+    "window": "DEV 2021-08-25 .. 2026-08-06",
+    "securities": 476,
+    "per_period": {
+      "EMA9": {
+        "securities_with_ZERO_valid": 3,
+        "median_valid_pct": 38.7,
+        "gt20pct": 302,
+        "gt50pct": 209,
+        "max": 100.0
+      },
+      "EMA20": {
+        "securities_with_ZERO_valid": 18,
+        "median_valid_pct": 22.9,
+        "gt20pct": 245,
+        "gt50pct": 174,
+        "max": 99.9
+      },
+      "EMA50": {
+        "securities_with_ZERO_valid": 54,
+        "median_valid_pct": 9.8,
+        "gt20pct": 196,
+        "gt50pct": 130,
+        "max": 99.8
+      },
+      "EMA200": {
+        "securities_with_ZERO_valid": 174,
+        "median_valid_pct": 1.2,
+        "gt20pct": 146,
+        "gt50pct": 88,
+        "max": 99.4
+      }
+    },
+    "reading": "the universe is not uniformly covered. Some securities are near-continuous (EMA200 valid on 99.4% of bars) while 174 of 476 have literally zero valid EMA200 bars. The aggregate 20.81% is a mixture of two very different populations, not a typical security."
+  },
+  "EFFECTIVE_UNIVERSE_BY_DEPTH": {
+    "definition": "securities with more than 20% valid bars for the required EMA depth",
+    "EMA9": 302,
+    "EMA20": 245,
+    "EMA50": 196,
+    "EMA200": 146,
+    "nominal": 476,
+    "IMPLICATION": "the effective universe SHRINKS WITH FEATURE DEPTH. A P66/D66 token does not operate on 476 securities; it operates on roughly 146. Support floors and multiplicity must be computed against the depth-specific universe, not the nominal 476."
+  },
+  "WHY_THIS_MATTERS_MORE_THAN_THE_AGGREGATE": "a family-wide \"20.81% availability\" reads as a uniform thinning. It is not. It is 146 usable securities plus 330 mostly-unusable ones, and that difference changes support floors, clustering, and the independence assumptions behind any multiplicity correction.",
+  "STAGE_A_UNAFFECTED": "Stage A features (Z, vol, suffix, body_wick, g*, tz_flip, vbo_up) do not depend on deep EMA state and are not governed by this finding",
+  "not_done": [
+    "no production run yet",
+    "per-security coverage not yet cross-tabulated against the opening-hour window",
+    "no decision on universe restriction"
+  ]
+}

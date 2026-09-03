@@ -1,0 +1,160 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_REMAINING_FEATURES_CONTRACT_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "INVENTORY_CORRECTION": {
+    "my_earlier_framing": "\"composites + bar_gap_range\"",
+    "omission": "rsi_14 was dropped from the Stage D scope",
+    "remaining_six": [
+      "rsi_14",
+      "sig_3g",
+      "sig_buy",
+      "sig_svs",
+      "sig_va",
+      "bar_gap_range"
+    ],
+    "reconciliation": "63 produced (T 12, Z 13, WLNBB 8, P/D 12, g* 4, vol 3, suffix 4, body_wick 1, tz_flip 1, vbo_up 1, CISD 4) + 6 remaining = 69",
+    "ATR14_note": "ATR14 is NOT a searchable feature. It is bar_gap_range dependency layer only."
+  },
+  "COMPOSITE_DEPENDENCIES": {
+    "method": "machine-extracted from combo_engine.compute_combo and main.py api_bar_signals with transitive expansion",
+    "sig_3g": {
+      "formula": "prev_below_all3 & curr_open_above & curr_close_above",
+      "deps": [
+        "ema9",
+        "ema20",
+        "ema50",
+        "prior bar"
+      ],
+      "depth_class": "EMA50",
+      "history": 50
+    },
+    "sig_buy": {
+      "formula": "_apply_cooldown(buy_raw, 6) where buy_raw = upmove_ok & break_gate",
+      "chain": {
+        "trend_up": "ema9>ema20>ema50",
+        "roc_40": "close.shift(40)",
+        "vol_max40": "volume.rolling(40, min_periods=10).max()",
+        "cons_high": "high.shift(1).rolling(6, min_periods=6).max()",
+        "avg_vol": "volume.rolling(20, min_periods=1).mean()",
+        "cooldown": "bounded state machine, n=6"
+      },
+      "depth_class": "EMA50",
+      "history": 50,
+      "MIXED_UNAVAILABILITY": "cons_high uses min_periods=6 STRICTLY, so it yields NaN below 6 bars — that is UNAVAILABLE_HISTORY, not INIT_SENSITIVE. sig_buy therefore carries BOTH classes: age<7 -> UNAVAILABLE_HISTORY; 7<=age<50 -> INITIALIZATION_SENSITIVE."
+    },
+    "sig_svs": {
+      "formula": "_crossover(vol_ratio, 1.4) & (close > open_)",
+      "deps": [
+        "volume.rolling(20, min_periods=1)",
+        "shift(1)"
+      ],
+      "depth": 21,
+      "class_": "BOUNDED, min_periods=1 -> INIT_SENSITIVE below depth"
+    },
+    "sig_va": {
+      "formula": "(_vr > 2.0) & (_vr.shift(1, fill_value=0) <= 2.0), _vr = volume / volume.rolling(20, min_periods=1).mean()",
+      "depth": 21,
+      "class_": "BOUNDED, INIT_SENSITIVE below depth"
+    },
+    "observed_windows": {
+      "rolling": [
+        6,
+        7,
+        10,
+        14,
+        20,
+        22,
+        40,
+        50
+      ],
+      "shifts": [
+        1,
+        2,
+        40
+      ],
+      "min_periods": [
+        1,
+        4,
+        6,
+        10
+      ]
+    }
+  },
+  "RSI14_CONTRACT": {
+    "formula": "Wilder ewm(alpha=1/14, adjust=False, min_periods=1) on gain/loss, rd.replace(0, 1e-10), rounded to 1dp",
+    "recursive_state": "yes — same structural class as EMA and ATR",
+    "DECISION_REQUIRED": "the historical recurrence does not license a post-gap reset rule. Adopting segment-reset + age>=14 VALID is a NEW MEASUREMENT REGIME choice, not a recovered fact.",
+    "DECLARED_RULE": {
+      "contaminated gap": "reset state",
+      "seed": "first close of segment",
+      "age < 14": "INITIALIZATION_SENSITIVE",
+      "age >= 14": "AVAILABLE_VALID"
+    },
+    "status": "DECLARED_NEW_REGIME — must be recorded as such, and may require an amendment to its FULL_HISTORY_SEMANTIC_CORRECTION class in the eligibility matrix if this materially changes the historical recurrence",
+    "warning_heeded": "not asserting \"gap -> reset -> 14 bars -> VALID\" as though the source licensed it"
+  },
+  "ATR14_DEPENDENCY_CONTRACT": {
+    "role": "dependency layer for bar_gap_range only — not searchable",
+    "canonical": "TR_t = max(H-L, |H-C_prev|, |L-C_prev|); ATR = EWM(alpha=1/14, adjust=False)",
+    "historical_authority_gap": "the enriched 2dp tie-rounding convention was NOT recovered (c947ee91c255fc81), so Massive ATR is a NEW DEFINITION, not a historical port",
+    "DECLARED_RULE": {
+      "input": "canonical Massive 15m OHLC",
+      "gap": "reset state",
+      "seed": "segment first bar",
+      "age < 14": "INITIALIZATION_SENSITIVE",
+      "age >= 14": "AVAILABLE_VALID"
+    },
+    "VALID_THRESHOLD_IS_A_CHOICE": "age >= 14 is reasonable but is NOT a recovered fact merely because period=14. It is frozen here as a new validity rule."
+  },
+  "BAR_GAP_RANGE": {
+    "class_": "NEW_MASSIVE_DERIVED_DEFINITION",
+    "formula": "exact historical enricher._compute_gap_range formula",
+    "dependency": "the NEW Massive ATR above — availability propagates from it",
+    "acceptance": [
+      "formula/contract conformance",
+      "determinism",
+      "state/value invariants",
+      "dependency propagation"
+    ],
+    "NOT_acceptance": "legacy numeric equality — legacy overlap is a provenance diagnostic only"
+  },
+  "EVALUATION_RULE": {
+    "default": "all required dependencies VALID -> composite evaluable; any dependency non-VALID -> composite non-VALID and value NULL",
+    "forbidden": "creating FALSE from an unknown dependency via Python short-circuit, unless output-identifiability is separately proven and frozen in the contract",
+    "fixtures_required": "invalidate each dependency in turn; the composite must lose validity each time"
+  },
+  "OUTSTANDING_OPERATIONAL_DEBT": {
+    "item": "Stage A was a SEMANTIC PRODUCTION REPLAY and AVAILABILITY CENSUS — the durable feature store was never materialised (2b7521ff39ef6b60)",
+    "consequence": "completing Stage D does NOT yield a frozen 69-column X surface. A consolidation gate must still produce durable value/state columns for all 69."
+  },
+  "FINAL_CONSOLIDATION_REQUIREMENTS": {
+    "inventory": {
+      "T": 12,
+      "Z": 13,
+      "FULL_HISTORY_SEMANTIC_CORRECTION": 43,
+      "NEW_MASSIVE_DERIVED_DEFINITION": 1,
+      "total": 69
+    },
+    "per_column": [
+      "producer authority",
+      "availability contract",
+      "durable value/state columns",
+      "support census",
+      "provenance class"
+    ],
+    "absence_checks": {
+      "blocked physics 11": "absent",
+      "unrecoverable 4": "absent",
+      "unexpected columns": 0,
+      "missing candidate columns": 0,
+      "Y exposure": 0
+    }
+  },
+  "not_done": [
+    "no production",
+    "no fixtures run",
+    "rsi_14 and ATR new-regime decisions not yet ratified"
+  ]
+}

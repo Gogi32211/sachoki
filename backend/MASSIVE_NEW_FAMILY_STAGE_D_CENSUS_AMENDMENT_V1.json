@@ -1,0 +1,79 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_CENSUS_AMENDMENT_V1",
+  "status": "FROZEN",
+  "amends": [
+    {
+      "parent": "MASSIVE_NEW_FAMILY_STAGE_D_SUPPORT_CENSUS_V1",
+      "digest": "933280157dbf6201"
+    },
+    {
+      "parent": "MASSIVE_NEW_FAMILY_STAGE_D_PRODUCTION_V1",
+      "digest": "21032d2cfc56e8c5",
+      "reason": "that artifact's COOLDOWN_AMBIGUITY_COST.interpretation over-claimed the residual attribution"
+    }
+  ],
+  "AMENDMENT_1_bar_gap_range_contract": {
+    "column": "bar_gap_range",
+    "PROVENANCE": "NEW_MASSIVE_DERIVED_DEFINITION",
+    "DATA_TYPE": "CATEGORICAL / VARCHAR",
+    "SEARCH_SEMANTICS": "category membership only",
+    "FORBIDDEN": [
+      "numeric thresholding",
+      "quantile bins",
+      "ordered interpretation unless separately proven and registered"
+    ],
+    "categories_observed": 12,
+    "category_names": [
+      "N",
+      "C",
+      "V",
+      "G1-N",
+      "G1-C",
+      "G1-V",
+      "G2-N",
+      "G2-C",
+      "G2-V",
+      "G3-N",
+      "G3-C",
+      "G3-V"
+    ],
+    "explicit_warning": "category NAMES must not be read as implying a natural numeric order. G1/G2/G3 look ordinal but no ordering has been proven or registered.",
+    "binds": "final token registry"
+  },
+  "AMENDMENT_2_sig_buy_residual_attribution": {
+    "counts": {
+      "INITIALIZATION_total": 245412,
+      "depth_explained": 245242,
+      "residual": 170
+    },
+    "RESIDUAL_ATTRIBUTION": "UNRESOLVED_FROM_PERSISTED_D6_ALONE",
+    "RETRACTED_CLAIM": "'the 170 residual bars are effectively pure cooldown state-ambiguity' — stated in the Stage D acceptance report and sealed in MASSIVE_NEW_FAMILY_STAGE_D_PRODUCTION_V1",
+    "why_retracted": "the persisted d6 surface stores the availability CLASS, not the admissible-state set. The sig_3g reference (INIT at age>=51 = 0) is a strong INDICATION that EMA depth loses nothing further, but an indication is NOT a direct attribution.",
+    "correct_standing": "INDICATION, not ATTRIBUTION",
+    "resolution_path": "at 69-column consolidation the pre-cooldown buy_raw and the dependency states are re-read anyway; the 170 can then be decomposed exactly",
+    "principle": "an indication must not be recorded as a resolved attribution"
+  },
+  "CENSUS_VERDICT": {
+    "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_SUPPORT_CENSUS_V1",
+    "digest": "933280157dbf6201",
+    "STATUS": "SUPPORT_CHARACTERIZED",
+    "ACCEPTED_FOR_CONSOLIDATION": true,
+    "Y_EXPOSED": 0,
+    "SEARCH_PERFORMED": 0,
+    "rerun_required": false
+  },
+  "SIG_3G_M1_OBSERVATION_STANDING": {
+    "status": "X-SURFACE DESCRIPTIVE OBSERVATION",
+    "Y_EXPOSED": 0,
+    "EDGE_CLAIM": "NONE",
+    "rule": "if this later motivates a grammar change, it MUST be registered as a separate pre-Y hypothesis with its own provenance, never folded in silently"
+  },
+  "SUPPORT_CONCENTRATION_STANDING": {
+    "sig_buy": {
+      "VALID_top10pct": 29.47,
+      "FIRE_top10pct": 67.81
+    },
+    "reading": "availability is comparatively broad while fires concentrate in a much smaller cohort",
+    "status": "retained for support-floor interpretation later; NOT grounds for feature exclusion now"
+  }
+}

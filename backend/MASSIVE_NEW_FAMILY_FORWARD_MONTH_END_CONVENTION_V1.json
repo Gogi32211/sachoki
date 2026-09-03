@@ -1,0 +1,21 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_MONTH_END_CONVENTION_V1",
+  "status": "FROZEN_BEFORE_C_EXECUTION",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "closes": "the MINOR_CONVENTION_STILL_OPEN item recorded in MASSIVE_1M_SETTLEMENT_EXECUTION_PROTOCOL_V1 · 8649fae24a968b4c",
+  "DEFINITION": "'month-end' = CALENDAR MONTH-END",
+  "CALENDAR_AUTHORITY": "America/New_York calendar date",
+  "RULE": "the effective decision date is the FINAL CALENDAR DATE of the month, whether or not XNYS trades that day",
+  "WORKED_EXAMPLE": "2027-05-31 remains the effective May month-end even though it is a US market holiday",
+  "TWO_DISTINCT_TIMESTAMPS": {
+    "effective_month_end": "the AS-OF date the decision is computed for",
+    "executed_at": "when the runner physically ran",
+    "rule": "the runner MAY execute later than effective_month_end, but the decision MUST be computed AS-OF effective_month_end"
+  },
+  "EVIDENCE_CUTOFF": {
+    "any X evidence or vintage created AFTER effective_month_end": "MUST NOT enter that month's census or decision",
+    "late_backfill": "MUST NOT rewrite an earlier NO_LOOK or LOOK"
+  },
+  "why_calendar_not_session": "there is no basis for tying the decision clock to a trading-session count; the maturity clock is already frozen in CALENDAR DAYS (MASSIVE_1M_SETTLEMENT_RELATIVE_CRITERION_V1 · e3675278ece6f27c) and the two must agree"
+}

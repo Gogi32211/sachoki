@@ -1,0 +1,33 @@
+{
+  "artifact": "MASSIVE_T1_15M_TOKEN_PORT_FEASIBILITY_V1_AMENDMENT_1",
+  "amends": "3db5c3c49fd33c35",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "two Z-counts appeared in the record: narrative 4,598 vs sealed matrix 4,534",
+  "resolution": "ACCOUNTING_UNITS_NOT_ERROR — neither number is wrong; they count different objects",
+  "Z_COLUMN_AFFECTED_CLAIMS": 4534,
+  "Z_ANY_TRANSITIVE_DEPENDENCY_CLAIMS": 4534,
+  "definitions": {
+    "Z_COLUMN_AFFECTED_CLAIMS": "final family MEMBERS (k=35,587) whose frozen representative claim carries a sig_z* token",
+    "Z_ANY_TRANSITIVE_DEPENDENCY_CLAIMS": "final members where ANY claim in the alias equivalence class carries a sig_z* token",
+    "narrative_4598": "alias-fanned CLAIM ROWS over denominator 36,256 (claims x order join), NOT members — superseded as a family-level statistic"
+  },
+  "identity_check": {
+    "any_alias": 4534,
+    "all_aliases": 4534,
+    "representative": 4534,
+    "members_with_Z_free_alias": 0,
+    "consequence": "no member can be made Z-free by re-choosing its representative; the N8 evasion route does not exist"
+  },
+  "tz_flip": {
+    "token": "TZ_FLIP",
+    "column": "sig_tz_flip",
+    "counted_as_Z": false,
+    "status": "DEFINITION_UNRESOLVED",
+    "members_touching": 528,
+    "union_Z_or_TZFLIP": 5034,
+    "conditional": "if B5 resolves sig_tz_flip as a T x Z composite, Z-bound members become 5034"
+  },
+  "canonical_going_forward": 4534,
+  "umbrella_decision_unchanged": "PORT_BLOCKED_BY_UNQUALIFIED_Z"
+}

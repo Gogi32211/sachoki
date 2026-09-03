@@ -1,0 +1,128 @@
+{
+  "artifact": "MASSIVE_T1_15M_COMBO_DEFINITION_GIT_ARCHAEOLOGY_V1",
+  "writes": 0,
+  "feature_production": 0,
+  "Y_EXPOSED": 0,
+  "Z_inferential_use": 0,
+  "scope": [
+    "sig_d2",
+    "sig_d3",
+    "sig_d50",
+    "sig_d55",
+    "sig_d66",
+    "sig_d89",
+    "sig_p2",
+    "sig_p3",
+    "sig_p50",
+    "sig_p55",
+    "sig_p66",
+    "sig_p89"
+  ],
+  "search": {
+    "refs": "--all",
+    "commits_in_repo": 1720,
+    "pickaxe_candidates": 31,
+    "methods": [
+      "git log --all -S<literal>",
+      "git log --all -G<regex>",
+      "per-commit blob scan of every .py"
+    ],
+    "files_with_real_assignment": [
+      "backend/combo_engine.py"
+    ],
+    "note": "readers (_sa/_sig/_sn/.get) excluded; only real assignments counted"
+  },
+  "recovered_definition": {
+    "emas": "ema{9,20,34,50,89,200} = close.ewm(span=N, adjust=False).mean()",
+    "cx": "cx_N = (open < ema_N) & (close > ema_N)",
+    "dx": "dx_N = (open > ema_N) & (close < ema_N)",
+    "raw": [
+      "raw_p66 = cx200 & (cx9|cx20|cx34|cx50|cx89)",
+      "raw_p55 = cx89 & (cx9|cx20|cx34|cx50|cx200)",
+      "raw_p3 = cx9 & cx20 & cx50",
+      "raw_p2 = cx9 & cx20",
+      "raw_d66 = dx200 & (dx9|dx20|dx34|dx50|dx89)",
+      "raw_d55 = dx89 & (dx9|dx20|dx34|dx50|dx200)",
+      "raw_d3 = dx9 & dx20 & dx50",
+      "raw_d2 = dx9 & dx20"
+    ],
+    "ladder_P": [
+      "preup66 = raw_p66",
+      "preup55 = raw_p55 & ~raw_p66",
+      "preup89 = cx89 & ~raw_p55 & ~raw_p66",
+      "preup3 = raw_p3 & ~raw_p55 & ~raw_p66 & ~cx89",
+      "preup2 = raw_p2 & ~raw_p3 & ~raw_p55 & ~raw_p66 & ~cx89",
+      "preup50 = cx50 & ~raw_p2 & ~raw_p3 & ~raw_p55 & ~raw_p66 & ~cx89"
+    ],
+    "ladder_D": [
+      "predn66 = raw_d66",
+      "predn55 = raw_d55 & ~raw_d66",
+      "predn89 = dx89 & ~raw_d55 & ~raw_d66",
+      "predn3 = raw_d3 & ~raw_d55 & ~raw_d66 & ~dx89",
+      "predn2 = raw_d2 & ~raw_d3 & ~raw_d55 & ~raw_d66 & ~dx89",
+      "predn50 = dx50 & ~raw_d2 & ~raw_d3 & ~raw_d55 & ~raw_d66 & ~dx89"
+    ]
+  },
+  "recovered_at_commit": "1e774ce8 (2026-04-12)",
+  "timeline": [
+    [
+      "2026-04-07",
+      "7b44596",
+      "ADDED — \"Delta V2 formula, PREUP P55/P66, all PREDN signals\""
+    ],
+    [
+      "2026-04-12",
+      "1e774ce8",
+      "present — 96 assignments in backend/combo_engine.py"
+    ],
+    [
+      "2026-04-17",
+      "56f70a7",
+      "REMOVED — \"refactor: extract shared indicators module + refactor all engines\""
+    ],
+    [
+      "2026-04-24",
+      "1ef1ef71",
+      "EXPORT VINTAGE — 0 assignments anywhere in the tree"
+    ]
+  ],
+  "ancestry": "1e774ce8 IS an ancestor of 1ef1ef71, but the definition was deleted 7 days BEFORE that export vintage",
+  "at_export_vintage": {
+    "assignments_anywhere": 0,
+    "only_reference": "backend/turbo_engine.py (reader with default)"
+  },
+  "CORRECTION_TO_RESIDUAL_PREFLIGHT": {
+    "affected": "sig_p2, sig_p3, sig_p50, sig_p89 were classified RESOLVED_PURE_X from the CURRENT tree",
+    "why_wrong": "the current definitions are a post-refactor SIMPLIFICATION and differ from the historical ladder",
+    "current_vs_historical": {
+      "preup89": [
+        "cx89",
+        "cx89 & ~raw_p55 & ~raw_p66"
+      ],
+      "preup3": [
+        "cx9 & cx20 & cx50",
+        "raw_p3 & ~raw_p55 & ~raw_p66 & ~cx89"
+      ],
+      "preup2": [
+        "cx9 & cx20 & ~preup3",
+        "raw_p2 & ~raw_p3 & ~raw_p55 & ~raw_p66 & ~cx89"
+      ],
+      "preup50": [
+        "cx50 & ~cx9 & ~cx20",
+        "cx50 & ~raw_p2 & ~raw_p3 & ~raw_p55 & ~raw_p66 & ~cx89"
+      ]
+    },
+    "consequence": "porting from the current tree would silently produce DIFFERENT values; all 12 P/D columns are one vintage-bound family",
+    "error_class": "WRONG_VINTAGE_ASSUMED_FROM_CURRENT_TREE"
+  },
+  "family_structure": "mutually exclusive priority ladder over EMA 9/20/34/50/89/200 crosses; P (up) and D (down) are exact mirrors — 12 columns, ONE generator",
+  "verdict": "FOUND_BUT_WRONG_VINTAGE",
+  "verdict_detail": "executable definition FULLY recovered, but absent at the identified export vintage 1ef1ef71. The stored values therefore cannot have been produced by that vintage -> the 15m store is MIXED-VINTAGE, or 1ef1ef71 is not the vintage anchor for these columns.",
+  "final_members_affected": 5187,
+  "next_gate_available": "same-input verification: re-execute the recovered ladder on preserved studio_15m_base OHLCV and compare EXACTLY to the stored sig_d*/sig_p* columns. This can confirm the producer independently of the commit-date puzzle.",
+  "not_done": [
+    "no re-execution performed",
+    "no Massive feature produced",
+    "vintage anchor of the 15m store not re-derived"
+  ]
+}

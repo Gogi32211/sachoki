@@ -1,0 +1,51 @@
+{
+  "spec_id": "T4_DNA_AUDIT_V1",
+  "family_id": "T4_MICROSTRUCTURE_DNA_V1",
+  "definition": "t_sig=='T4' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==1, FIRST in bullish priority). Raw: prevBear(close[1]<open[1] OR doji[1]) AND close>open AND max(o,c)>=max(o1,c1) AND min(o1,c1)>=min(o,c) AND |c-o|/max(|c1-o1|,1e-10)>=1.0 with use_wick=False, min_body_ratio=1.0 (T4_ENGULF_CONFIG_V1, from production config.py/signal_engine.py). Engine-vs-SQL on identical DB bars: 78,181/78,181 exact \u2014 semantics proven; bilateral store residual (667 canon-not-raw 0.27%; 10,518 raw-not-canon, 88.9% within 0.01 of the engulf boundary, median margin 0) is INPUT-VINTAGE, visible bilaterally only because T4 is priority-first. Prev-doji 31,276 (12.5%) is structural and descriptive-only. Universe rows deduplicated one per (ticker,date), sp500<nasdaq<russell2k.",
+  "definition_hash": "10a19cd627d940cd",
+  "token_registry_hash": "08b73d474f17a778",
+  "n_tokens_1h": 165,
+  "reconstruction": {
+    "canonical": 250162,
+    "raw_on_current_ohlc": 260013,
+    "agree": 249495,
+    "canon_not_raw": 667,
+    "raw_not_canon": 10518,
+    "engine_vs_sql_identical_inputs": "78181/78181 exact",
+    "residual_class": "INPUT_VINTAGE",
+    "boundary_share_lt_001": 0.889,
+    "prev_doji": 31276,
+    "prev_strict_bear": 218885
+  },
+  "episodes": 250161,
+  "tickers": 5350,
+  "yearly": {
+    "2021": 21601,
+    "2022": 40877,
+    "2023": 45765,
+    "2024": 46016,
+    "2025": 55947,
+    "2026": 39955
+  },
+  "funnel": {
+    "BOTH": 152839,
+    "T4_ONLY": 544,
+    "PREV_ONLY": 622,
+    "NONE": 96156
+  },
+  "episode_id_unique": true,
+  "coverage_bias": {
+    "price": {
+      "covered_median": 29.94,
+      "missing_median": 8.38
+    },
+    "prev_price": {
+      "covered_median": 29.24,
+      "missing_median": 8.06
+    }
+  },
+  "m_rows": 2116818,
+  "m_episodes": 154005,
+  "y_status": "NO OUTCOME COLUMN EXISTS IN THESE TABLES",
+  "runtime_min": 3.8
+}

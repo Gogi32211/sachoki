@@ -1,0 +1,826 @@
+{
+  "report_id": "MASSIVE_T_PORT_SMOKE_FEED_CONFORMANCE_V1",
+  "status": "MASSIVE_T_PORT_SMOKE_FEED_CONFORMANCE_V1_PASS",
+  "hold_reason": null,
+  "task_class": "SMOKE_AND_CONFORMANCE",
+  "authorities": {
+    "amendment_2": "bd9292853ee10f2c",
+    "provenance": "a8e1f3725ddfe7a1",
+    "base_spec": "545d293b4f1e4653",
+    "producer_t_slice": "2901107d9baa6320",
+    "coarse_source": {
+      "artifact": "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1.json",
+      "digest": "6ec73d5f462761f0",
+      "readable": false
+    },
+    "eligibility": {
+      "artifact": "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1.json",
+      "digest": "7c0a5ad6b17d7ae0",
+      "readable": false
+    }
+  },
+  "implementation_hash": "0d460e028f7c6bf6910df10cdef6f38f4c06d1431bc100a88d5a9769a6074add",
+  "port_implementation_hash": "5ab5390171e0d5d2206d4aed82a3a85d4600c98be0352cf59c1dad1da0c672ef",
+  "harness_hash": "b45f9fcb88165b951e2003e88bacde98e9534d9b0d3ffa1b7a5b0dd9c22e5b28",
+  "hash_split": {
+    "note": "the earlier run reported ONE combined hash (ee48e008e7c20b10) over port + verifier + harness + producer; it could not distinguish a port change from a fixture correction, so it is split here",
+    "port_scope": [
+      "t_port_v1.py",
+      "t_port_verifier_v1.py",
+      "t_port_census_v1.py"
+    ],
+    "harness_scope": [
+      "t_port_smoke_conformance_v1.py"
+    ],
+    "producer_bound_by": "T-slice digest 2901107d9baa6320",
+    "prior_combined_hash": "ee48e008e7c20b10",
+    "prior_hash_was_mixed": true
+  },
+  "implementation_frozen_before_first_fixture": true,
+  "hash_drift": {
+    "prior_port": "5ab5390171e0d5d2",
+    "actual_port": "5ab5390171e0d5d2",
+    "prior_harness": "5a183315f801b568",
+    "actual_harness": "b45f9fcb88165b95",
+    "changed": [
+      "harness"
+    ],
+    "permission_change_is_not_a_mutation": true,
+    "rule": "restoring volume access mutates no artifact and no code; a hash may differ ONLY because the corresponding source actually changed"
+  },
+  "timeframe_registry_guard": {
+    "amendment_2_frozen_15m_only": true,
+    "amendment_2_forbidden_list": [
+      "1D",
+      "1H",
+      "1m",
+      "5m"
+    ],
+    "amendment_2_forbids_1D": true,
+    "scope_research_unchanged": true,
+    "scope_1D_is_diagnostic_only": true,
+    "scope_forbidden_consequences": 6,
+    "scope_family_not_enlarged": true,
+    "port_registered_timeframe": "15m",
+    "port_is_15m": true,
+    "research_registry": [
+      "15m"
+    ],
+    "diagnostic_registry": [
+      "1D"
+    ],
+    "registries_disjoint": true,
+    "research_registry_is_15m_alone": true,
+    "verdict": "PASS",
+    "enforces": "adding a 1D reader cannot become a research-registry expansion; the research registry is 15m alone and 1D stays DIAGNOSTIC_ONLY_NOT_HYPOTHESIS_REGISTRATION"
+  },
+  "frozen_config_integrity": {
+    "fingerprint_before": "4d6344bed8fc025d",
+    "fingerprint_after": "4d6344bed8fc025d",
+    "unchanged": true,
+    "covers": [
+      "use_wick",
+      "min_body_ratio",
+      "doji_thresh",
+      "1e-10 guard",
+      "priority chain",
+      "bc->sig_id mapping",
+      "sig_id->name mapping",
+      "registered timeframe",
+      "call context",
+      "required prior bars"
+    ],
+    "enforces": "Layer 2 and Layer 3A are diagnostics, not tuning inputs — no measured result can reach these values, because they are proven identical after the run",
+    "also_catches": "a negative fixture that mutates a module global and fails to restore it"
+  },
+  "call_context_preflight": {
+    "established": true,
+    "facts": {
+      "dedup_on_index_then_sort_ascending": true,
+      "vendor_requested_ascending": true,
+      "adjusted_series": true,
+      "utc_datetime_index": true,
+      "trim_to_last_N_rows": true,
+      "single_ticker_per_call": true,
+      "producer_normaliser": true,
+      "caller_source": true,
+      "norm_does_not_sort": true,
+      "norm_does_not_dropna": true,
+      "norm_does_not_dedup": true
+    },
+    "input_source": "Massive/Polygon aggregates via data_polygon.fetch_bars (adjusted=true, vendor sort=asc)",
+    "security_scope": "ONE ticker per compute_signals call",
+    "range_scope": "tail(bars) of a days-derived window; optional `since` filter",
+    "row_ordering": "chronologically ASCENDING (df.sort_index())",
+    "timestamp_ordering": "UTC DatetimeIndex",
+    "duplicate_handling": "df[~df.index.duplicated()] — first kept, BEFORE computation",
+    "rows_span_multiple_sessions": true,
+    "dataframe_reset_by_session": false,
+    "filtering_before_compute": "`since` filter and tail(bars) only; no session or time-of-day filter",
+    "ohlc_consumed": [
+      "open",
+      "high",
+      "low",
+      "close"
+    ],
+    "volume_consumed": false,
+    "null_drop_behaviour": "NONE — norm_ohlcv neither sorts, drops nor deduplicates; ordering is therefore entirely the caller's",
+    "shift1_semantics": "the immediately preceding row of this security's deduplicated ascending series",
+    "session_boundary": "CROSSED — classified SESSION_CONTINUOUS",
+    "producer_export_timeframe": "1d (the legacy export); the port is 15m ONLY",
+    "note": "the producer imposes no ordering discipline of its own, which is exactly why this preflight was mandatory"
+  },
+  "layer_1_semantic_correctness": {
+    "expectation": "EXACT",
+    "evaluable_bars": 39999,
+    "producer_vs_port": 0,
+    "port_vs_verifier": 0,
+    "producer_vs_verifier": 0,
+    "raw_predicate_mismatches": {
+      "T1G": 0,
+      "T1": 0,
+      "T2G": 0,
+      "T2": 0,
+      "T3": 0,
+      "T4": 0,
+      "T5": 0,
+      "T6": 0,
+      "T9": 0,
+      "T10": 0,
+      "T11": 0,
+      "T12": 0
+    },
+    "result": "EXACT",
+    "note": "three independent implementations: vectorised producer, vectorised port, scalar if/elif verifier"
+  },
+  "layers": {
+    "layer_3b_massive_15m_capability": {
+      "sessions": 1254,
+      "securities": 476,
+      "totals": {
+        "slots": 15462384,
+        "current_complete": 10618186,
+        "prior_complete": 10617733,
+        "evaluable": 9484243,
+        "unavailable_required_history": 1133943,
+        "unavailable_current": 4844198,
+        "fired": 4705795
+      },
+      "per_state": {
+        "T4": 696337,
+        "T6": 71583,
+        "T1G": 101366,
+        "T2G": 929362,
+        "T1": 416995,
+        "T2": 1244017,
+        "T9": 643459,
+        "T10": 59656,
+        "T3": 427317,
+        "T11": 7745,
+        "T5": 88715,
+        "T12": 19243
+      },
+      "session_shapes": {
+        "14": 10,
+        "26": 1244
+      },
+      "per_security_evaluable": {
+        "min": 23,
+        "max": 32483,
+        "mean": 19924.88025210084,
+        "zero_evaluable_securities": 0
+      },
+      "contiguous_evaluable_runs": {
+        "max": 32483,
+        "min": 4,
+        "median": 402.0
+      },
+      "per_session_sample": [
+        {
+          "day": "2021-08-25",
+          "slots": 12376,
+          "evaluable": 6139,
+          "fired": 3149
+        },
+        {
+          "day": "2021-08-26",
+          "slots": 12376,
+          "evaluable": 6474,
+          "fired": 2947
+        },
+        {
+          "day": "2021-08-27",
+          "slots": 12376,
+          "evaluable": 6536,
+          "fired": 3399
+        },
+        {
+          "day": "2026-08-20",
+          "slots": 12376,
+          "evaluable": 7951,
+          "fired": 3681
+        },
+        {
+          "day": "2026-08-21",
+          "slots": 12376,
+          "evaluable": 7467,
+          "fired": 3610
+        },
+        {
+          "day": "2026-08-24",
+          "slots": 12376,
+          "evaluable": 7759,
+          "fired": 3980
+        }
+      ],
+      "distinct_security_keys_read": 476
+    },
+    "cross_universe_tsig_consistency": {
+      "checked_tickers": 60,
+      "multi_universe_rows": 183065,
+      "ticker_dates_in_multiple_universes": 77520,
+      "inconsistent_ticker_dates": 0,
+      "consistent": true
+    },
+    "layer_2_legacy_1d_materializer_storage_conformance": {
+      "support": 614059,
+      "agreed": 613613,
+      "agreement": 0.999274,
+      "per_state": {
+        "T11": {
+          "stored": 4805,
+          "reproduced": 4800,
+          "agreed": 4792
+        },
+        "T1": {
+          "stored": 29538,
+          "reproduced": 29522,
+          "agreed": 29488
+        },
+        "T12": {
+          "stored": 6569,
+          "reproduced": 6545,
+          "agreed": 6544
+        },
+        "T1G": {
+          "stored": 24584,
+          "reproduced": 24574,
+          "agreed": 24543
+        },
+        "T4": {
+          "stored": 24084,
+          "reproduced": 24148,
+          "agreed": 24083
+        },
+        "T9": {
+          "stored": 27590,
+          "reproduced": 27603,
+          "agreed": 27564
+        },
+        "T5": {
+          "stored": 22050,
+          "reproduced": 22051,
+          "agreed": 22020
+        },
+        "T10": {
+          "stored": 13028,
+          "reproduced": 13024,
+          "agreed": 13001
+        },
+        "T2G": {
+          "stored": 78990,
+          "reproduced": 78858,
+          "agreed": 78858
+        },
+        "T2": {
+          "stored": 43047,
+          "reproduced": 43091,
+          "agreed": 43012
+        },
+        "T6": {
+          "stored": 12338,
+          "reproduced": 12345,
+          "agreed": 12321
+        },
+        "T3": {
+          "stored": 25754,
+          "reproduced": 25705,
+          "agreed": 25705
+        }
+      },
+      "top_mismatch_transitions": {
+        "T2G->T2": 79,
+        "T1->T4": 34,
+        "T1G->T1": 34,
+        "T2G->T1G": 31,
+        "T5->NONE": 29,
+        "T9->NONE": 25,
+        "T10->NONE": 24,
+        "T3->T9": 23,
+        "T2G->NONE": 22,
+        "T2->T6": 18,
+        "T3->T5": 17,
+        "T6->T4": 17,
+        "T1->T9": 16,
+        "T2->T10": 15,
+        "T12->T5": 13
+      },
+      "tickers_without_rows": 2,
+      "universe_pinned": true,
+      "classification": "DIAGNOSTIC_ONLY"
+    },
+    "layer_3a_1d_cross_source": {
+      "common_matched_support": 212108,
+      "matched_securities": 447,
+      "possible_pairs": 596904,
+      "support_note": "a Massive 1D bar enters only when coverage_state is COMPLETE, which requires every constituent minute; that is why matched support is far below the possible pair count",
+      "t_comparison_support": 211661,
+      "t_agreed": 206520,
+      "t_agreement": 0.975711,
+      "price_basis": {
+        "open": {
+          "compared": 212108,
+          "exact_after_round": 204945,
+          "rate": 0.966229,
+          "within_1_cent": 0.987459,
+          "within_10_cents": 0.987492,
+          "above_1_dollar": 0.012479,
+          "median_abs_diff": 0.0,
+          "max_abs_diff": 1992.03
+        },
+        "high": {
+          "compared": 212108,
+          "exact_after_round": 198435,
+          "rate": 0.935538,
+          "within_1_cent": 0.986493,
+          "within_10_cents": 0.987063,
+          "above_1_dollar": 0.012593,
+          "median_abs_diff": 0.0,
+          "max_abs_diff": 2188.16
+        },
+        "low": {
+          "compared": 212108,
+          "exact_after_round": 199042,
+          "rate": 0.938399,
+          "within_1_cent": 0.986464,
+          "within_10_cents": 0.98695,
+          "above_1_dollar": 0.012616,
+          "median_abs_diff": 0.0,
+          "max_abs_diff": 1985.65
+        },
+        "close": {
+          "compared": 212108,
+          "exact_after_round": 60035,
+          "rate": 0.28304,
+          "within_1_cent": 0.618195,
+          "within_10_cents": 0.944208,
+          "above_1_dollar": 0.013177,
+          "median_abs_diff": 0.010000000000001563,
+          "max_abs_diff": 2170.6099999999997
+        },
+        "divergence_decomposition": {
+          "SOURCE_OHLC_DIFFERENCE": {
+            "evidence": "close median |diff| = 0.0100, 61.8% within one cent, while open/high/low are within one cent on ~98.7% of rows",
+            "attribution": "the coarse 1D close is the last REGULAR-SESSION minute close; the legacy daily close carries the official closing print. The coarse spec left SESSION_CLOSE_BOUNDARY_BAR / auction semantics deliberately unasserted, and this is that decision becoming visible",
+            "confidence": "STRONG — the asymmetry is confined to close and is sub-dime"
+          },
+          "INPUT_VINTAGE_DIFFERENCE": {
+            "rows": 2795,
+            "securities": 58,
+            "share_of_matched": 0.013177,
+            "top_securities": {
+              "MNST": 787,
+              "BNY": 773,
+              "CRWD": 760,
+              "DD": 282,
+              "KLAC": 37,
+              "LLY": 21
+            },
+            "top4_concentration": 0.9309,
+            "attribution": "corporate-action adjustment vintage — the legacy rows were stored adjusted at fetch time, the 1m base carries its own vintage; the diffs cluster in a few securities rather than spreading",
+            "confidence": "PLAUSIBLE — clustering is consistent with splits/spin-offs, but no corporate-action table was joined here to prove it per security"
+          },
+          "UNRESOLVED": {
+            "note": "rows above one dollar outside the clustered securities are not attributed and are left labelled UNRESOLVED rather than called noise"
+          }
+        }
+      },
+      "per_state": {
+        "T1": {
+          "legacy": 9197,
+          "massive": 9340,
+          "both": 8945
+        },
+        "T12": {
+          "legacy": 3598,
+          "massive": 3617,
+          "both": 3446
+        },
+        "T9": {
+          "legacy": 8361,
+          "massive": 8264,
+          "both": 7908
+        },
+        "T1G": {
+          "legacy": 10547,
+          "massive": 10530,
+          "both": 10268
+        },
+        "T5": {
+          "legacy": 9139,
+          "massive": 9083,
+          "both": 8716
+        },
+        "T10": {
+          "legacy": 4282,
+          "massive": 4281,
+          "both": 4032
+        },
+        "T2G": {
+          "legacy": 27307,
+          "massive": 27647,
+          "both": 26664
+        },
+        "T2": {
+          "legacy": 13071,
+          "massive": 12942,
+          "both": 12422
+        },
+        "T6": {
+          "legacy": 3930,
+          "massive": 3962,
+          "both": 3787
+        },
+        "T3": {
+          "legacy": 8092,
+          "massive": 8225,
+          "both": 7723
+        },
+        "T11": {
+          "legacy": 1846,
+          "massive": 1832,
+          "both": 1744
+        },
+        "T4": {
+          "legacy": 7410,
+          "massive": 7286,
+          "both": 6937
+        }
+      },
+      "classification": "DIAGNOSTIC_ONLY_NOT_HYPOTHESIS_REGISTRATION"
+    },
+    "n16": {
+      "cohort": 476,
+      "frozen_universe": 503,
+      "excluded_securities": 27,
+      "distinct_keys_the_census_pivoted": 476,
+      "keys_outside_cohort_consumed": 0,
+      "supplemental_namespace_present": false,
+      "supplemental_rows_consumed": 0,
+      "new_vintage_rows_consumed": 0,
+      "note": "the census pivots ONLY cohort keys; rows for any other security are dropped before any array is built, so an excluded or supplemental security cannot reach a predicate",
+      "passed": true
+    }
+  },
+  "fifteen_minute_feed_divergence": {
+    "status": "NOT_ESTIMABLE_FROM_AVAILABLE_MATCHED_DATA",
+    "reason": "no matched legacy 15m support exists — bars is structurally daily",
+    "explicitly_not": "a value carried across from the 1D diagnostic"
+  },
+  "per_state": {
+    "raw_counts": {
+      "T1G": 1340,
+      "T1": 2015,
+      "T2G": 902,
+      "T2": 1763,
+      "T3": 854,
+      "T4": 2828,
+      "T5": 1822,
+      "T6": 1952,
+      "T9": 1929,
+      "T10": 2007,
+      "T11": 1332,
+      "T12": 930
+    },
+    "priority_resolved_counts": {
+      "T4": 2828,
+      "T6": 1952,
+      "T1G": 1340,
+      "T2G": 902,
+      "T1": 1336,
+      "T2": 1323,
+      "T9": 1774,
+      "T10": 1872,
+      "T3": 854,
+      "T11": 1332,
+      "T5": 1822,
+      "T12": 930
+    },
+    "scope": "Layer 1 corpus only — NOT a Massive population statistic"
+  },
+  "fixtures": [
+    {
+      "fixture": "L1",
+      "name": "producer vs port vs verifier — EXACT on identical input",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "39,999 evaluable bars; producer!=port 0, port!=verifier 0, producer!=verifier 0"
+    },
+    {
+      "fixture": "L1b",
+      "name": "raw predicate agreement port vs verifier (pre-priority)",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "12 families, total mismatches 0"
+    },
+    {
+      "fixture": "P1",
+      "name": "every registered T state represented (raw and priority-resolved)",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "raw min 854, resolved min 854"
+    },
+    {
+      "fixture": "P2",
+      "name": "priority winner is the highest-ranked competing predicate",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "1,409 bars with >=2 raw predicates; winner matches rank-1 in all"
+    },
+    {
+      "fixture": "P3",
+      "name": "isDoji is EXACT equality and drives prior-bar bearishness",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "prev c==o exactly -> T4"
+    },
+    {
+      "fixture": "P4",
+      "name": "a near-doji is NOT a doji despite doji_thresh=0.05",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "prev body/range = 0.0167 (<0.05) -> T6, not T4"
+    },
+    {
+      "fixture": "P5",
+      "name": "prevBodySafe binds to 1e-10 when the previous body is exactly zero",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "pBody=0 -> safe=1e-10 -> ratio unbounded, so engOk rests on the edges alone"
+    },
+    {
+      "fixture": "P6",
+      "name": "use_wick=False — wick-engulf does not engulf",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "current wicks span the prior wicks but bodies do not -> T2"
+    },
+    {
+      "fixture": "P7",
+      "name": "min_body_ratio=1.0 is inclusive at the boundary",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "cBody == pBody exactly and the bodies coincide (ratio 1.0) -> T4"
+    },
+    {
+      "fixture": "P7b",
+      "name": "body-edge engulf implies cBody >= pBody, so ratio<=1.0 cannot bind",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "0 counterexamples in 9,465 edge-engulfing bars; only min_body_ratio > 1.0 is semantically active"
+    },
+    {
+      "fixture": "P8",
+      "name": "raw prior-bar doji == resolved Z7 in this producer (proven, not assumed)",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "3,639 doji bars, none of which is bull or bear, so anyB=anyZ=False and cZ7c collapses to isDoji"
+    },
+    {
+      "fixture": "P9",
+      "name": "state code mapping identical to the producer",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "bc->sig_id and sig_id->name match signal_engine exactly"
+    },
+    {
+      "fixture": "P10",
+      "name": "SESSION_CONTINUOUS shift(1) crosses the boundary, and it matters",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "first bar of session 2: continuous -> 'T6', session-reset -> ''; differs=True"
+    },
+    {
+      "fixture": "P11",
+      "name": "first evaluable observation after unavailable history",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "states ['UNAVAILABLE', 'UNAVAILABLE', 'UNAVAILABLE', 'AVAILABLE']"
+    },
+    {
+      "fixture": "P12",
+      "name": "session-partitioned census engine == validated 1-D port",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "3 securities x 5 sessions, 387 compared bars incl. planted UNOBSERVED at a session boundary; mismatches 0"
+    },
+    {
+      "fixture": "N1",
+      "name": "Pine mintick semantics cannot silently replace the guard",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N2",
+      "name": "authority is bound by module identity + T-slice digest",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N3",
+      "name": "use_wick mutation detected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N4",
+      "name": "min_body_ratio mutation detected (active direction)",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N5",
+      "name": "1e-10 guard mutation detected (active direction)",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N6",
+      "name": "threshold-doji cannot replace exact equality",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N7",
+      "name": "priority permutation detected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N8",
+      "name": "wrong state-code mapping detected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N9",
+      "name": "non-15m timeframe rejected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "GUARD timeframe: '1H' is not registered; Amendment 2 freezes 15m ONLY, and the presence of"
+    },
+    {
+      "fixture": "N10",
+      "name": "contaminated current bar cannot become FALSE",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N11",
+      "name": "unavailable required prior bar cannot become FALSE",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N12",
+      "name": "reordered caller dataframe rejected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "GUARD ordering: the frozen call context requires a chronologically ascending index; the po"
+    },
+    {
+      "fixture": "N13",
+      "name": "changed session-slicing semantics detected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N14",
+      "name": "port emits no research-facing Z label",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N15",
+      "name": "no tunable config path exists on the port entry point",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N16",
+      "name": "supplemental / new-vintage / excluded securities rejected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "cohort 476 · excluded 27 · outside-cohort consumed 0 · supplemental present False"
+    },
+    {
+      "fixture": "N17",
+      "name": "no Y-side symbol reachable from the port",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    }
+  ],
+  "fixtures_passed": 32,
+  "fixtures_blocked": 0,
+  "fixtures_total": 32,
+  "guard_sensitivity_band": {
+    "changes_output": {
+      "1e-10": false,
+      "1e-06": false,
+      "0.0001": false,
+      "0.005": false,
+      "0.01": true,
+      "0.02": true
+    },
+    "interpretation": "the guard is inert for any value below the data's minimum body and becomes active around one tick; on a 2-decimal lattice the ratio==1.0 comparison is additionally float-marginal",
+    "taxonomy": "PREDICATE_BOUNDARY_SENSITIVITY",
+    "inherited_faithfully": "the producer behaves identically — Layer 1 is exact"
+  },
+  "independent_verifier": {
+    "module": "t_port_verifier_v1.py",
+    "imports_port": false,
+    "imports_producer": false,
+    "method": "scalar row loop with an explicit if/elif priority ladder",
+    "same_input_mismatches": 0
+  },
+  "findings": [
+    {
+      "finding": "raw prior-bar doji and resolved Z7 COINCIDE in this producer",
+      "proof": "every Z condition requires isBear and every T condition requires isBull, so on a doji bar anyB=anyZ=False and cZ7c == isDoji",
+      "consequence": "Amendment 2's rule stands and is now proven harmless rather than merely obeyed"
+    },
+    {
+      "finding": "the session-boundary choice is observable",
+      "detail": "on a constructed two-session frame the first bar of session 2 differs between SESSION_CONTINUOUS and session-reset",
+      "consequence": "binding it in the preflight was necessary; it could not have been left to be discovered from results"
+    },
+    {
+      "finding": "min_body_ratio <= 1.0 is redundant under use_wick=False",
+      "proof": "the body-edge conditions cTop>=pTop and pBot>=cBot imply cBody = cTop-cBot >= pTop-pBot = pBody; measured with 0 counterexamples over the corpus",
+      "consequence": "only min_body_ratio > 1.0 is semantically active; a downward mutation is a no-op rather than an undetected change",
+      "fixture_corrected": "P7 originally used bars whose ratio was 1.0 but whose bodies did not engulf, so it tested nothing"
+    },
+    {
+      "finding": "the 1e-10 guard has a measured inert band",
+      "detail": "it binds only where the previous body falls below it, i.e. after a doji, and the current body must then clear it",
+      "consequence": "registered as PREDICATE_BOUNDARY_SENSITIVITY and carried into the divergence taxonomy for the blocked feed comparison"
+    }
+  ],
+  "divergence_taxonomy_registered": [
+    "LEGACY_STORAGE_PRECISION",
+    "INPUT_VINTAGE_DIFFERENCE",
+    "SOURCE_OHLC_DIFFERENCE",
+    "PREDICATE_BOUNDARY_SENSITIVITY",
+    "CALL_CONTEXT_DIFFERENCE",
+    "PRIORITY_DIFFERENCE",
+    "IMPLEMENTATION_DEFECT",
+    "UNAVAILABLE_INPUT",
+    "UNRESOLVED"
+  ],
+  "no_conformance_threshold_invented": true,
+  "blocked_components": [],
+  "pass_criteria": {
+    "volume_readable": true,
+    "all_fixtures_ran": true,
+    "all_fixtures_passed": true,
+    "layer_1_exact": true,
+    "nothing_blocked": true
+  },
+  "blocker": {
+    "kind": "MACOS_TCC_FILE_ACCESS",
+    "symptom": "PermissionError [Errno 1] Operation not permitted on /Volumes/QUANT_RESEARCH despite the volume being mounted",
+    "mount_guard": "fail-closed; sentinel_uuid_matches could not be read",
+    "nothing_written": true,
+    "remedy": "grant the Claude Code app Full Disk Access in System Settings and restart it; this is a user action"
+  },
+  "t_production_writes": 0,
+  "z_research_outputs": 0,
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "authorizes": "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1",
+  "sealed_at": "2026-08-26 11:53 +04"
+}

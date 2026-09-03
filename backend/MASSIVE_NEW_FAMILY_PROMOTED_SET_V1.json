@@ -1,0 +1,45 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PROMOTED_SET_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 1,
+  "SCIENTIFIC_RESULTS_READ": 1,
+  "parent_inference": {
+    "artifact": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V2",
+    "digest": "324690afd38e3ffb"
+  },
+  "rule": {
+    "gate": "p_adj <= 0.05 AND theta > 0",
+    "source": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1.PROMOTION",
+    "frozen_before_Y": true,
+    "no_additional_filter_applied": true,
+    "explicitly_NOT_applied": [
+      "real-Y positive_n >= 100",
+      "CI_lo > 0",
+      "any concentration or early-close screen"
+    ]
+  },
+  "members": 732,
+  "of_k": 20751,
+  "pct": 3.53,
+  "membership_digest": "f4baf91ab0a063c8",
+  "claim_id_digest": "38d58fedec2638ad",
+  "files": {
+    "ids": "PROMOTED_SET_V1_ids.npy",
+    "members": "PROMOTED_SET_V1_members.txt",
+    "table": "PROMOTED_732.csv"
+  },
+  "CLAIM_SCOPE": "MOVEMENT ENRICHMENT ONLY — not directional edge, not profitability, not tradability",
+  "RESOLUTION_LIMIT": {
+    "B_NULL": 1800,
+    "floor_p_adj": 0.000555247084952804,
+    "members_at_floor": 265,
+    "rule": "B_NULL MAY NOT BE RAISED NOW to rank the 265 floor-bound claims against each other. That would be post-result refinement. Any higher permutation resolution must be frozen BEFORE the forward Y is seen."
+  },
+  "FORWARD": {
+    "this_set_is_the_forward_family": true,
+    "membership_may_not_be_edited_after_this_seal": true,
+    "historical_HOLDOUT": "NON-PRISTINE — diagnostic only",
+    "confirmation_authority": "TRUE FORWARD ONLY"
+  },
+  "NEXT": "descriptive redundancy / motif census — NO new significance testing"
+}

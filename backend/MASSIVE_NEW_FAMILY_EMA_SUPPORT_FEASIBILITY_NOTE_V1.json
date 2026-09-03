@@ -1,0 +1,75 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_EMA_SUPPORT_FEASIBILITY_NOTE_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": "54c070915f39565c",
+  "trigger": "discovered while preparing Stage B of the 57-feature production; surfaced BEFORE spending the production effort",
+  "FINDING_1_MISSING_PERIODS": {
+    "massive_coarse_ema_v1_periods": [
+      9,
+      20,
+      50,
+      200
+    ],
+    "PD_requires": [
+      9,
+      20,
+      34,
+      50,
+      89,
+      200
+    ],
+    "missing": [
+      34,
+      89
+    ],
+    "consequence": "P/D cannot be built on the existing EMA surface. EMA34 and EMA89 must be produced first — they do not exist at any period on this surface."
+  },
+  "FINDING_2_VALIDITY": {
+    "window": "DEV 2021-08-25 .. 2026-08-06",
+    "bars": 15296942,
+    "per_period": {
+      "EMA9": {
+        "VALID": 45.71,
+        "INIT_SENSITIVE": 23.03,
+        "UNAVAILABLE": 31.26
+      },
+      "EMA20": {
+        "VALID": 37.86,
+        "INIT_SENSITIVE": 30.88,
+        "UNAVAILABLE": 31.26
+      },
+      "EMA50": {
+        "VALID": 30.3,
+        "INIT_SENSITIVE": 38.44,
+        "UNAVAILABLE": 31.26
+      },
+      "EMA200": {
+        "VALID": 20.81,
+        "INIT_SENSITIVE": 47.93,
+        "UNAVAILABLE": 31.26
+      }
+    },
+    "joint": {
+      "EMA9": 45.71,
+      "EMA9+20": 37.86,
+      "EMA9+20+50": 30.3,
+      "EMA9+20+50+200": 20.81
+    },
+    "holdout_consistent": "HOLDOUT shows the same profile (EMA200 VALID 20.87%)"
+  },
+  "IMPLICATION": {
+    "rule_in_force": "the registration default is that AVAILABLE_INIT_SENSITIVE is NOT usable for claim evaluation",
+    "consequence": "every EMA200-dependent feature has at most 20.81% valid support in DEV. For P/D that governs sig_p66/sig_d66 (cx200/dx200) and, through the ladder, the whole 12-column family.",
+    "compounding": "this must further intersect with the opening-hour all-four requirement (53.72%) and with each feature own availability — the intersection was NOT computed here and will be lower still",
+    "not_a_defect": "47.93% INIT_SENSITIVE is not a bug. It is the honest consequence of resetting long-memory state at every UNOBSERVED_CONTAMINATED gap — exactly the discipline that prevents the legacy incremental-slice failure class."
+  },
+  "WHAT_IS_UNAFFECTED": "Stage A (Z x13, vol x3, suffix x4, body_wick, g* x4, tz_flip, vbo_up) needs no EMA200 and is not constrained by this finding",
+  "DECISION_SURFACED": "whether to produce EMA34/EMA89 and the full P/D family given ~20.81% ceiling support, or to let the prespec consider a shallower-EMA grammar",
+  "not_done": [
+    "no production started",
+    "no intersection of EMA validity with opening-hour support",
+    "no decision taken"
+  ]
+}

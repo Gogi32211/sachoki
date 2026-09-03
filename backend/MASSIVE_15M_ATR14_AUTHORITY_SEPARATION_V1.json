@@ -1,0 +1,24 @@
+{
+  "artifact": "MASSIVE_15M_ATR14_AUTHORITY_SEPARATION_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "the daily ATR14 authority was about to be reused for the 15m physics dependency. It does not transfer.",
+  "DAILY": {
+    "authority": "MASSIVE_T1_DAILY_ATR14_BLOCKING_PORT_V1 · 64e7b35df4ee3d1c",
+    "scope": "blocking / daily estimand context ONLY"
+  },
+  "M15": {
+    "scope": "15m enrichment-time feature consumed by bar_physics",
+    "formula": "IDENTICAL — tr.ewm(alpha=1/14, adjust=False).mean(), no min_periods",
+    "input_surface": "the ENRICHED store own 2dp OHLC — NOT the lean base",
+    "evidence": "enriched OHLC reproduces stored 15m atr_14 with max|diff| 0.000e+00 over 33,508 rows; lean base gives 2.900e-03 on 33,508/33,508 rows",
+    "status": "separate semantics instance / separate authority object"
+  },
+  "rule": "same formula does not imply the same authority object; the input surface is part of the authority",
+  "GENERAL_FINDING": {
+    "two_input_surfaces": true,
+    "export_path": "T, Z, L/WLNBB, P/D, combo-four -> lean base OHLCV (studio_15m_base)",
+    "enricher_path": "atr_14, bar_physics -> the enriched store own rounded OHLC",
+    "correction": "an earlier blanket statement that lean base is \"the true input surface\" was too broad; it holds for the export-path family only"
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_A2_PHASE1R1_FAMILY_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "VERDICT": "A2 FAMILY QUALIFIED",
+  "family": "PHASE1_R1",
+  "columns": 39,
+  "authority": {
+    "producer_script": "massive_new_family_runtime/phase1.py",
+    "sealed": "MASSIVE_NEW_FAMILY_PHASE1_PRODUCTION_V1",
+    "engines_imported": [
+      "signal_engine.compute_signals",
+      "signal_engine.compute_g_signals",
+      "studio.enricher._compute_suffixes",
+      "studio.enricher._compute_body_wick",
+      "vabs_engine.compute_vabs",
+      "tz_flip_state.step/classify"
+    ]
+  },
+  "code_binding": {
+    "module": "backend/forward_a2_producers.py",
+    "sha256": "cb7a872ecd6695d1674232d716e54fd84d6c346b08eeba89752b3f20b8686b15"
+  },
+  "HISTORICAL_REPLAY": {
+    "expected_rows": 602372706,
+    "rebuilt_rows": 602372706,
+    "except_all_O_minus_R": 0,
+    "except_all_R_minus_O": 0,
+    "method": "PARTITIONED BY k",
+    "schema_match": true,
+    "build_s": 11643,
+    "VERDICT": "EXACT"
+  },
+  "STATEFUL_REPLAY": {
+    "inside_head_run": {
+      "cases": 9,
+      "rows": 10683504,
+      "mismatches": 0
+    },
+    "before_first_contamination": {
+      "cases": 16,
+      "rows": 19489782,
+      "mismatches": 0
+    },
+    "after_first_contamination": {
+      "cases": 16,
+      "rows": 19489158,
+      "mismatches": 0
+    },
+    "inside_later_segment": {
+      "cases": 16,
+      "rows": 9375405,
+      "mismatches": 0
+    },
+    "mid_open_segment": {
+      "cases": 13,
+      "rows": 135252,
+      "mismatches": 0
+    },
+    "tz_flip_predecessor_across_split": {
+      "cases": 14,
+      "rows": 8284107,
+      "mismatches": 0
+    },
+    "TOTAL_MISMATCHES": 0,
+    "VERDICT": "PASS"
+  },
+  "SIG_TZ_FLIP": {
+    "cases": 14,
+    "mismatches": 0,
+    "silent_false_where_full_run_said_unavailable": 0,
+    "VERDICT": "PASS"
+  },
+  "THREE_LAYERS_OF_STATE": {
+    "per_segment": "compute_signals · compute_g_signals · _compute_suffixes · _compute_body_wick · volume ratios · tz_predicates · compute_vabs",
+    "whole_series_1": "sig_tz_flip — tz_step over EVERY bar including contaminated ones, seeded once with HEAD_SEED at absolute bar 0",
+    "whole_series_2": "vbo_up — vbo_reach whose state is an ABSOLUTE BAR INDEX, reading hi[s] up to BREAK=10 bars back plus cl[i-1]/ok[i-1]",
+    "consequence": "replaying only the open segment is NOT sufficient here — that is the structural difference from stageC4"
+  },
+  "STATE_MATERIALISATION": {
+    "declared_not_smuggled": true,
+    "what_happened": "the first pilot HIT the guard: 'live state 27579 precedes the window start 27583'. Pushing the window further back does not help — it is recursive: at any position the live states always precede it.",
+    "rendering": "{s: (hi[s], ok[s])} for live states, plus prev_ok / prev_cl for the window's first bar",
+    "why_lossless": "the engine's state is an absolute bar index and the ONLY things it reads from that bar are hi[s], ok[s] and the age test i-s. Carrying those values is a faithful rendering of what it consults, not a new abstraction.",
+    "not_assumed": "exactness is PROVEN by the full-vs-resumed replay: 0 mismatches over 67,457,208 compared rows across 84 split cases",
+    "guard": "a live state neither inside the window nor carried raises GUARD vbo_state_unmaterialised"
+  },
+  "TEN_WATCH_ITEMS": {
+    "1_sig_id_identity": "map DERIVED from signal_engine.SIG_NAMES with an assert (T1G=1, T1=2, T2G=3); all 25 T/Z names resolve; G bound BY NAME ['g1','g2','g4','g11'] — a [:4] slice once took g6 instead of g11; column set identical to the frozen store (39)",
+    "2_TZG_mapping": "whole-store two-way EXCEPT ALL 0/0 (the exhaustive oracle) + per-column row and non-null counts identical across all 39",
+    "3_suffix_vocabularies": "ne 2 · wick 4 · close 3 · full 14 categories — symmetric difference empty for every one",
+    "4_vol_availability": "5x/10x/20x availability distributions identical: VALID 9,484,243 · INIT_HEAD 476 · INIT_POST_GAP 1,133,467 · UNAVAIL_CURRENT 4,827,268",
+    "5_bar_body_wick": "15 categories, symmetric difference empty",
+    "6_vbo_up_depth": "never AVAILABLE_VALID below the depth convention — min age at VALID = 22, depth = 22",
+    "7_sig_tz_flip_predecessor": "14 dedicated split cases where the predecessor lies on the far side of the split and BOTH sides are AVAILABLE_VALID — 0 mismatches",
+    "8_no_fallback": "non-VALID rows carrying a value: 0. VALID rows missing a value: 0. Availability vocabulary identical.",
+    "9_dtypes": "identical, bval TINYINT",
+    "10_import_side_effects": "module level imports os/sys/json/hashlib only; every engine imported inside the core"
+  },
+  "SILENT_FALSE_GUARD": {
+    "metric": "resumed row AVAILABLE_VALID with bval 0 where the full run said non-VALID",
+    "observed": 0,
+    "meaning": "a resumed first row is never written 'no flip' merely because its predecessor is outside the window"
+  },
+  "FIXTURES": {
+    "total": 31,
+    "passed": 31,
+    "VERDICT": "PASS"
+  },
+  "TEST_HARNESS_DEFECTS_IN_MY_OWN_FIXTURES": [
+    {
+      "defect": "whole-store 602M-row join exhausted 49 GiB of temp",
+      "fix": "the EXCEPT ALL already IS the exhaustive per-column oracle (multiset equality on the full tuple implies per-column agreement); replaced with a bounded per-column reconciliation",
+      "class": "harness, not producer"
+    },
+    {
+      "defect": "the vbo unmaterialised-state fixture used s=100 at abs0=200 — 100 bars old, so the frozen engine kills it via i-s > BREAK before any lookup, and no exception could fire",
+      "fix": "s=195, within BREAK of the window start",
+      "class": "TEST-HARNESS DEFECT — the fixture was wrong, not the guard"
+    },
+    {
+      "defect": "duplicate-key scan over 602M rows OOM'd",
+      "fix": "per-partition scan across all 476",
+      "class": "harness"
+    }
+  ],
+  "Y_BLINDNESS": {
+    "forbidden_opens_attempted": 0,
+    "VERDICT": "PASS"
+  },
+  "STATUS_TABLE": {
+    "HISTORICAL_EXACTNESS": "PASS",
+    "SEGMENT_AND_WHOLE_SERIES_STATE": "PASS",
+    "SIG_TZ_FLIP_PREDECESSOR": "PASS",
+    "SCHEMA_CONFORMANCE": "PASS",
+    "AVAILABILITY_CONFORMANCE": "PASS",
+    "CATEGORICAL_VOCABULARIES": "PASS",
+    "ORDER_INVARIANCE": "PASS",
+    "RESTART_IDEMPOTENCY": "PASS",
+    "Y_BLINDNESS": "PASS",
+    "STATUS": "A2 FAMILY QUALIFIED"
+  },
+  "runtime_s": 14272,
+  "NEXT": "STAGE_D_R2 — the last family and the only one whose cross-segment state is a COOLDOWN over the full series; elapsed bars cannot substitute for 6 proven-false observed bars"
+}

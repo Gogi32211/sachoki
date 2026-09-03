@@ -1,0 +1,252 @@
+{
+  "report_id": "MASSIVE_T_SUPERCHART_EXPORT_PROVENANCE_V1",
+  "status": "MATERIALIZER_AUTHORITY_RESOLVED",
+  "resolution_class": "PRODUCER_POSITIVELY_IDENTIFIED",
+  "task_class": "PROVENANCE_RESOLUTION_ONLY",
+  "supersedes_authority_wise": {
+    "artifact": "MASSIVE_T_MATERIALIZER_AUTHORITY_RESOLUTION_V1",
+    "digest": "1e465831f96bc855",
+    "disposition": "LEFT ON DISK, NOT EDITED",
+    "note": "its UNRESOLVED verdict, its two retractions and its T4 citation-defect finding are all withdrawn as products of the errors recorded below"
+  },
+  "end_to_end_chain": {
+    "export_action": "SuperchartPanel.jsx:1195  exportCsv()",
+    "superchart_variant": "A — the application computes T; the exporter only serializes",
+    "steps": [
+      "signal_engine.py :: compute_signals(df)  — T IS COMPUTED HERE",
+      "main.py:34  from signal_engine import compute_signals",
+      "main.py:4060  compute_signals(df)  [DEFAULT arguments]",
+      "main.py:4835  tz = sig_df.iloc[i][\"sig_name\"]",
+      "main.py:5253  \"tz\": tz  -> /api/bar-signals payload",
+      "SuperchartPanel.jsx:1051  fetch /api/bar-signals",
+      "SuperchartPanel.jsx:1238  headers [... 'Z','T','L','F' ...]",
+      "SuperchartPanel.jsx:1405  b.tz?.startsWith('T') ? b.tz : ''",
+      "SuperchartPanel.jsx:1610  csv = [headers, ...rows]",
+      "*_signals_5y.csv",
+      "studio/importer.py:41  \"T\" -> t_sig",
+      "bars.t_sig  CANONICAL"
+    ],
+    "first_location_where_T_obtains_its_value": {
+      "module": "signal_engine.py",
+      "function": "compute_signals",
+      "mechanism": "sig_id -> SIG_NAMES -> sig_name; bullish priority chain T4 > T6 > T1G > T2G > T1 > T2 > T9 > T10 > T3 > T11 > T5 > T12",
+      "not_a_pass_through": true
+    },
+    "link_verification": [
+      {
+        "file": "signal_engine.py",
+        "evidence": "producer entry point",
+        "verified": true
+      },
+      {
+        "file": "signal_engine.py",
+        "evidence": "SIG_NAMES maps ids to T-labels",
+        "verified": true
+      },
+      {
+        "file": "signal_engine.py",
+        "evidence": "isDoji is EXACT equality",
+        "verified": true
+      },
+      {
+        "file": "signal_engine.py",
+        "evidence": "mintick constant",
+        "verified": true
+      },
+      {
+        "file": "signal_engine.py",
+        "evidence": "min_body_ratio default",
+        "verified": true
+      },
+      {
+        "file": "signal_engine.py",
+        "evidence": "use_wick default",
+        "verified": true
+      },
+      {
+        "file": "main.py",
+        "evidence": "import of the producer",
+        "verified": true
+      },
+      {
+        "file": "main.py",
+        "evidence": "called with DEFAULT arguments",
+        "verified": true
+      },
+      {
+        "file": "main.py",
+        "evidence": "tz <- sig_name",
+        "verified": true
+      },
+      {
+        "file": "../frontend/src/components/SuperchartPanel.jsx",
+        "evidence": "the Superchart Export CSV action",
+        "verified": true
+      },
+      {
+        "file": "../frontend/src/components/SuperchartPanel.jsx",
+        "evidence": "the exported T cell",
+        "verified": true
+      },
+      {
+        "file": "studio/importer.py",
+        "evidence": "CSV T -> t_sig",
+        "verified": true
+      },
+      {
+        "file": "studio/importer.py",
+        "evidence": "the imported filenames",
+        "verified": true
+      }
+    ],
+    "corroboration": {
+      "superchart_panel_header_coverage": "71 of the 74 importer-mapped columns",
+      "bulk_export_header_coverage": "71 of 74 (a later batch replica of the button)",
+      "compare_tradingview_cloud": "27 of 74 across all 932 scripts",
+      "compare_local_pine": "9 of 74",
+      "unmatched_three": [
+        "TURBO_SCORE_N3",
+        "TURBO_SCORE_N5",
+        "TURBO_SCORE_N10"
+      ],
+      "unmatched_note": "header-vintage difference; not attributed"
+    },
+    "explains": "why one CSV mixes T/Z, TURBO, RTB, WYC, GOG, BETA and PREBREAK — api_bar_signals() assembles every engine into a single row"
+  },
+  "authority_hierarchy": {
+    "PRIMARY": {
+      "implementation": "backend/signal_engine.py :: compute_signals",
+      "role": "CANONICAL_LEGACY_MATERIALIZER",
+      "basis": "proven call path, not output agreement"
+    },
+    "SECONDARY": {
+      "implementation": "Pine 260523_TZ_F_WLNBB_CMB_pattern.pine",
+      "role": "REFERENCE_ONLY",
+      "note": "same priority chain, but it is not in the call path"
+    },
+    "NON_PRODUCER": [
+      {
+        "path": "analyzers/tz_wlnbb/signal_logic.py",
+        "role": "LOCAL_REIMPLEMENTATION",
+        "note": "99.14% agreement was never the argument; it is not in the call path"
+      },
+      {
+        "path": "frontend SuperchartPanel.jsx",
+        "role": "SERIALIZER_ONLY — carries no T semantics"
+      },
+      {
+        "path": "backend/bulk_export.py",
+        "role": "LATER_BATCH_REPLICA — first committed 2026-07-26, after the 2026-05-29 export"
+      }
+    ],
+    "studio_db_py": "STORAGE_AND_IMPORT_MAPPING_AUTHORITY_ONLY"
+  },
+  "my_errors": [
+    {
+      "error": "ran the decisive searches as `timeout 60 grep ...`; `timeout` does not exist on macOS, so the command never ran and printed nothing",
+      "consequence": "empty output was read as 'no matches' and LOCAL_PYTHON was sealed as REFUTED",
+      "corrected_by": "re-running the identical greps without `timeout`, which return 11 files including bulk_export.py and importer.py",
+      "error_class": "TOOLING_FAILURE_READ_AS_EVIDENCE"
+    },
+    {
+      "error": "carried forward a note that signal_engine.py used a threshold doji `(bdy/rng) <= doji_thresh`",
+      "consequence": "a non-existent contradiction was diagnosed between T4_ENGULF_CONFIG_V1 and its own cited source",
+      "corrected_by": "signal_engine.py:99 is `isDoji = (c == o)`; doji_thresh is declared at :69 and never enters isDoji",
+      "error_class": "STALE_NOTE_NOT_RE_VERIFIED"
+    }
+  ],
+  "reinstatements": [
+    {
+      "artifact": "MASSIVE_T_MINTICK_SOURCE_QUALIFICATION_V1",
+      "digest_prefix": "0cad6a",
+      "claim": "1e-10 is the value used by the implementation that produced the column",
+      "status": "REINSTATED",
+      "why": "the producer is signal_engine.py, whose line 97 is mintick = 1e-10"
+    },
+    {
+      "artifact": "MASSIVE_T_MINTICK_SOURCE_QUALIFICATION_V1",
+      "digest_prefix": "0cad6a",
+      "claim": "TradingView is not the authority for this value",
+      "status": "REINSTATED",
+      "why": "the producer is a local Python module, not a TradingView script"
+    }
+  ],
+  "mintick_status": {
+    "current_status": "CLOSED",
+    "value": 1e-10,
+    "source": "signal_engine.py:97 — the proven producer",
+    "amendment_1": {
+      "artifact": "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_1",
+      "digest": "de60bdc75fc61e3c",
+      "original_verdict": "HOLD",
+      "now": "RESOLVED",
+      "note": "its HOLD was the right call under the provenance then available; the provenance is now established"
+    },
+    "no_tradingview_metadata_required": true,
+    "syminfo_mintick_relevance": "applies to the Pine SECONDARY reference only"
+  },
+  "t4_config_status": {
+    "artifact": "T4_ENGULF_CONFIG_V1",
+    "digest": "713f09144a245408",
+    "verdict": "CORRECT_IN_FULL_INCLUDING_CITATION",
+    "amendment_required": false,
+    "amendment_issued": false,
+    "checked": {
+      "use_wick": false,
+      "min_body_ratio": 1.0,
+      "doji": "isDoji = (close == open) EXACTLY; doji_thresh=0.05 exists as a parameter but does not participate in isDoji (verified in source)",
+      "mintick": "prevBodySafe = max(prevBody, 1e-10); ratio = currBody/prevBodySafe",
+      "cited": [
+        "analyzers/tz_wlnbb/config.py:51-55 (USE_WICK, MIN_BODY_RATIO, DOJI_THRESH)",
+        "signal_engine.py:67-69,97-122 (defaults + kernel)"
+      ]
+    },
+    "why": "signal_engine.py:67-69,97-122 is exactly where use_wick, min_body_ratio, doji_thresh, mintick, isDoji and engOk live in the proven producer; the doji_semantics sentence describes that code verbatim",
+    "previously_alleged_defect": "WITHDRAWN — it was my misreading, not a defect"
+  },
+  "runtime_configuration": {
+    "previously": "LEGACY_RUNTIME_CONFIGURATION_UNKNOWN",
+    "now": "RESOLVED_FOR_THE_PYTHON_PRODUCER",
+    "evidence": "main.py:4060 calls compute_signals(df) with no arguments",
+    "values": {
+      "use_wick": false,
+      "min_body_ratio": 1.0,
+      "doji_thresh": 0.05,
+      "mintick": 1e-10
+    }
+  },
+  "vintage": {
+    "export_date": "2026-05-29",
+    "commits_touching_producer_since": [
+      "deb9ba0 2026-06-08 Fix: Z1 signal never fired (wrong open condition in vectorized engine)"
+    ],
+    "assessment": "the only post-export commit is a one-line Z1 condition fix; it does not touch T",
+    "parameter_markers_identical_at": "bc037e1 (2026-04-16) and HEAD",
+    "conclusion": "the current signal_engine.py carries the export-vintage T semantics"
+  },
+  "tradingview_inventory_disposition": {
+    "artifact_finding_preserved": true,
+    "scripts": 932,
+    "sources_fetched": 932,
+    "errors": 0,
+    "union_coverage": "27 of 74",
+    "status": "VALID — correctly excluded the TradingView-direct-export hypothesis",
+    "not_wasted": "that exclusion is what moved the hunt to the application surface"
+  },
+  "claim_language": {
+    "now_supported": "the same CANONICAL LEGACY T MATERIALIZER semantics — signal_engine.py :: compute_signals at its export vintage, on its declared defaults — re-executed on Massive 15m source data",
+    "still_required": "the port must be verified against the producer, not against Pine, and not by agreement with t_sig"
+  },
+  "gates": {
+    "t_port_smoke": "UNBLOCKED_PENDING_YOUR_APPROVAL",
+    "t_production": "HOLD",
+    "z": "HOLD",
+    "y": "HOLD",
+    "t4_amendment": "NOT_REQUIRED"
+  },
+  "y_exposed": 0,
+  "t_production_writes": 0,
+  "smoke_started": false,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 10:16 +04"
+}

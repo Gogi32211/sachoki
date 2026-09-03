@@ -1,0 +1,116 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_HUB_REGISTRATION_V1",
+  "status": "FROZEN",
+  "PROVENANCE": [
+    "POST_DEV_Y_DERIVED_HYPOTHESIS",
+    "DERIVED_FROM_PROMOTED_STRUCTURE_CENSUS",
+    "NOT_PRISTINE_DISCOVERY",
+    "FORWARD_CONFIRMATION_ONLY"
+  ],
+  "HISTORICAL_Y_EXPOSED": 1,
+  "FORWARD_Y_EXPOSED": 0,
+  "FORWARD_RESULTS_READ": 0,
+  "parents": {
+    "promoted_set": "5893f9d0f5be4dbb",
+    "census": "9fef130a58f27f9c",
+    "census_amendment": "13e5015bdebaa8e4",
+    "inference": "324690afd38e3ffb"
+  },
+  "k_registry": {
+    "historical_registered_k": 20751,
+    "promoted_exact_claim_family": 732,
+    "new_hub_forward_family_k_hub": 4,
+    "PROHIBITION": "k_hub = 4 belongs ONLY to this new forward family. It is NOT a retroactive effective k for the 20,751 historical tests and NOT a compression of the 732. No historical p-value may be recomputed against it."
+  },
+  "HUBS": {
+    "H1_VOL_BUCKET": {
+      "n": 460,
+      "members_digest": "b0d6f9b4d67d2b6d",
+      "file": "HUB_H1_VOL_BUCKET_ids.npy",
+      "definition": "promoted claims containing ANY frozen vol_bucket token, either side",
+      "THETA_h_obs_DEV_reference_only": 0.53
+    },
+    "H2_GAP_V": {
+      "n": 173,
+      "members_digest": "c814b6ddaf166f3d",
+      "file": "HUB_H2_GAP_V_ids.npy",
+      "definition": "promoted claims containing bar_gap_range==V, either side",
+      "THETA_h_obs_DEV_reference_only": 0.3664
+    },
+    "H3_VOL_CONSTRUCT": {
+      "n": 61,
+      "members_digest": "b4d902efd7103dfb",
+      "file": "HUB_H3_VOL_CONSTRUCT_ids.npy",
+      "definition": "promoted claims containing sig_va==TRUE or sig_vol_5x==TRUE, either side",
+      "THETA_h_obs_DEV_reference_only": 0.55
+    },
+    "H4_LSIG_M1_STAR": {
+      "n": 48,
+      "members_digest": "938a6f0f5eb6a9b7",
+      "file": "HUB_H4_LSIG_M1_STAR_ids.npy",
+      "definition": "M1->M2 promoted claims whose token_A is l_sig==L3 or l_sig==L46",
+      "THETA_h_obs_DEV_reference_only": 0.5057
+    }
+  },
+  "COUNT_RECONCILIATION": {
+    "H2": "the census reported 175 TOKEN OCCURRENCES of bar_gap_range==V; the hub has 173 CLAIMS because 2 claims carry it on both sides. Membership is by CLAIM.",
+    "H4": "l_sig==L3/L46 appear on the A side of 57 promoted claims overall; 48 of those are M1->M2, which is the registered definition."
+  },
+  "OVERLAP": {
+    "allowed": true,
+    "H1^H2": 15,
+    "H1^H3": 9,
+    "H1^H4": 4,
+    "H2^H3": 4,
+    "H2^H4": 2,
+    "H3^H4": 0,
+    "union": 708,
+    "promoted_in_no_hub": 24,
+    "union_digest": "86f9e90325a7280e",
+    "policy": "NO disjoint partition is attempted. The shared forward permutation preserves this overlap and the resulting dependence."
+  },
+  "HUB_STATISTIC": {
+    "theta_j": "median(Y | positive_j) - median(Y | evaluable nonpositive_j), unchanged from the historical design",
+    "THETA_h": "median over j in hub h of theta_j",
+    "per_draw": "THETA_h^(b) = median_j(theta_j^(b))",
+    "studentisation": {
+      "c_h": "median over SCALE draws of THETA_h^(b)",
+      "s_h": "1.4826 * MAD over SCALE draws",
+      "T_h_obs": "(THETA_h_obs - c_h) / s_h",
+      "T_h^(b)": "(THETA_h^(b) - c_h) / s_h"
+    },
+    "max_stat": "M_hub^(b) = max over the 4 hubs of T_h^(b)",
+    "p_adj_h": "(1 + #{b: M_hub^(b) >= T_h_obs}) / (B_NULL + 1)",
+    "rationale": "all theta_j share one ATR-normalised unit; the median prevents one or two extreme members from steering a hub"
+  },
+  "CONFIRMATION_RULE": {
+    "per_hub": "p_adj,h <= 0.05 AND THETA_h > 0",
+    "family_report": "x / 4 confirmed",
+    "PERMITTED_ON_PASS": "at least one post-DEV registered structural motif replicated in clean forward data — naming exactly which hub(s)",
+    "FORBIDDEN": [
+      "'all four hubs confirmed' when fewer passed",
+      "attributing a hub pass to the whole 732 set",
+      "any member claim inheriting confirmation from its hub"
+    ]
+  },
+  "SECONDARY_FAMILY": {
+    "k_claim_forward": 732,
+    "membership": "MASSIVE_NEW_FAMILY_PROMOTED_SET_V1 f4baf91ab0a063c8",
+    "question": "which specific historical claim replicates forward",
+    "correction": "family-wide over 732, NOT over 4",
+    "HARD_SEPARATION": "HUB CONFIRMED != every member claim confirmed. INDIVIDUAL CLAIM CONFIRMED requires its own 732-family forward test."
+  },
+  "FORWARD_EVIDENCE_BOUNDARY": {
+    "starts": "the first eligible session strictly AFTER the forward prespec seal",
+    "backfill": "FORBIDDEN — no later-arriving data for 2026-08-25..31 or any pre-seal date may enter confirmation",
+    "source_HOLD_or_unavailable_dates": "PERMANENTLY NON-EVIDENTIARY",
+    "historical_HOLDOUT": "NON-PRISTINE — diagnostic only, never confirmation"
+  },
+  "NOT_YET_FROZEN": [
+    "first-look trigger",
+    "B_NULL / B_SCALE for the forward run",
+    "per-member definedness rule inside THETA_h",
+    "look multiplicity (single look vs sequential)"
+  ],
+  "NEXT": "MASSIVE_NEW_FAMILY_FORWARD_HUB_PRESPEC_V1"
+}

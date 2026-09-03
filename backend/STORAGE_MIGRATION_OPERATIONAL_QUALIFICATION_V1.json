@@ -1,0 +1,166 @@
+{
+  "report_id": "STORAGE_MIGRATION_OPERATIONAL_QUALIFICATION_V1",
+  "status": "OPERATIONALLY QUALIFIED · CLOSED",
+  "what_this_proves": "the migration was verified byte-for-byte at the time; what was unproven was whether an ORDINARY nightly writer, unattended and on its own schedule, would write through the symlink, clear the guard and leave the backup untouched. A natural cycle has now run.",
+  "dbupdate_process": {
+    "completed": true,
+    "still_running": false,
+    "pid_field": null,
+    "last_exit_status": "0",
+    "log_note": "the launchd stdout log is a zero-byte file and is NOT cited as evidence in either direction"
+  },
+  "canonical_external_stores": {
+    "studio_analytics.duckdb": {
+      "exists": true,
+      "size_bytes": 4687409152,
+      "mtime": "2026-08-25 05:58",
+      "st_dev": 16777239,
+      "on_external": true,
+      "readable": true,
+      "rows_bars": 8787711
+    },
+    "studio_15m.duckdb": {
+      "exists": true,
+      "size_bytes": 43052445696,
+      "mtime": "2026-08-25 07:08",
+      "st_dev": 16777239,
+      "on_external": true,
+      "readable": true,
+      "rows_bars": 90868203
+    },
+    "studio_15m_base.duckdb": {
+      "exists": true,
+      "size_bytes": 15891705856,
+      "mtime": "2026-08-25 06:39",
+      "st_dev": 16777239,
+      "on_external": true,
+      "readable": true,
+      "rows_bars": 90872640
+    },
+    "studio_1h.duckdb": {
+      "exists": true,
+      "size_bytes": 13469757440,
+      "mtime": "2026-08-25 06:25",
+      "st_dev": 16777239,
+      "on_external": true,
+      "readable": true,
+      "rows_bars": 24838698
+    },
+    "studio_4h.duckdb": {
+      "exists": true,
+      "size_bytes": 3887869952,
+      "mtime": "2026-08-25 06:33",
+      "st_dev": 16777239,
+      "on_external": true,
+      "readable": true,
+      "rows_bars": 7102389
+    },
+    "studio_1w.duckdb": {
+      "exists": true,
+      "size_bytes": 601108480,
+      "mtime": "2026-08-22 08:03",
+      "st_dev": 16777239,
+      "on_external": true,
+      "readable": true,
+      "rows_bars": 1119785
+    }
+  },
+  "symlink": {
+    "logical": "/Users/sachoki/Desktop/sachoki-desktop/data",
+    "is_symlink": true,
+    "resolves_to": "/Volumes/QUANT_RESEARCH/source_data/studio",
+    "expected_target": "/Volumes/QUANT_RESEARCH/source_data/studio",
+    "resolves_correctly": true,
+    "target_st_dev": 16777239,
+    "home_st_dev": 16777234,
+    "on_validated_device": true,
+    "guard_checks": {
+      "volume_exists": true,
+      "is_mount_point": true,
+      "distinct_filesystem_from_home": true,
+      "volume_identity_matches": true,
+      "sentinel_exists": true,
+      "sentinel_uuid_matches": true,
+      "logical_resolves_to_target": true,
+      "target_on_validated_filesystem": true
+    },
+    "guard_ok": true
+  },
+  "internal_backup": {
+    "comparison": "FULL — every file hashed, not sampled",
+    "manifest": {
+      "artifact": "SOURCE_POST_COPY.json",
+      "tree_digest": "fb3766e99a46beb5b12eee206db753d5efed65eccfba542f1125a197d8aa4e32",
+      "files": 162,
+      "bytes": 89778107215
+    },
+    "files_expected": 162,
+    "files_present": 162,
+    "missing": 0,
+    "extra": 0,
+    "size_mismatches": 0,
+    "sha256_mismatches": 0,
+    "missing_list": [],
+    "extra_list": [],
+    "mismatch_list": [],
+    "mutation_since_migration": 0
+  },
+  "mount_guard_natural_qualification": {
+    "evidence": "POSITIVE AND STRUCTURAL — successful production writes through guarded entry points are positive evidence that the guard admitted the validated mounted volume",
+    "mechanism": "the guard is fail-closed: a refusal raises before DuckDB opens, so no write occurs at all",
+    "stores_written_this_cycle": [
+      "studio_analytics.duckdb",
+      "studio_15m.duckdb",
+      "studio_15m_base.duckdb",
+      "studio_1h.duckdb",
+      "studio_4h.duckdb"
+    ],
+    "not_claimed": "'no refusals were logged' is NOT claimed — the launchd log is zero-byte and citing it would be citing silence",
+    "manual_bypass": "none — the writers ran on their own launchd schedule with no intervention from this session",
+    "fallback_internal_store": "none — no canonical DuckDB was created under the internal backup path or anywhere on the home device",
+    "phantom_database": "none — the logical path resolves to the external device and the guard's eight checks pass"
+  },
+  "process_state": {
+    "dbupdate_running": false,
+    "stranded_children": false,
+    "services": {
+      "com.sachoki.backend": {
+        "pid": "64217",
+        "last_exit": "0"
+      },
+      "com.sachoki.brainlearn": {
+        "pid": "-",
+        "last_exit": "0"
+      },
+      "com.sachoki.dbupdate": {
+        "pid": "-",
+        "last_exit": "0"
+      },
+      "com.sachoki.paperloop": {
+        "pid": "-",
+        "last_exit": "0"
+      }
+    }
+  },
+  "acceptance": {
+    "dbupdate_completed": true,
+    "dbupdate_exit_zero": true,
+    "all_expected_stores_exist": true,
+    "all_stores_readable": true,
+    "all_stores_on_external_device": true,
+    "symlink_resolves_correctly": true,
+    "mount_guard_all_checks_pass": true,
+    "backup_no_missing": true,
+    "backup_no_extra": true,
+    "backup_no_size_mismatch": true,
+    "backup_no_sha_mismatch": true,
+    "backup_mutation_zero": true,
+    "no_stranded_children": true,
+    "services_restored": true
+  },
+  "massive_archive_untouched": "this qualification read nothing under source_data/massive and modified nothing there",
+  "backup_retention": "the 84 GB internal backup is RETAINED. The remaining operational test is Mac reboot / re-mount behaviour; deletion is a separate gate after that.",
+  "elapsed_sec": 50.8,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 09:20 +04"
+}

@@ -1,0 +1,320 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PD_12_PRODUCTION_V1",
+  "Y_EXPOSED": 0,
+  "binds": [
+    "0e33b4f878194ac7",
+    "77e7113b174129ac"
+  ],
+  "DEPENDENCY_AUTHORITY": "availability derived mechanically from the transitive graph 0e33b4f878194ac7 — no hand simplification",
+  "STATE_PRECEDENCE": [
+    "bar != COMPLETE -> UNAVAILABLE_CURRENT",
+    "any required EMA == UNAVAILABLE -> UNAVAILABLE_DEPENDENCY",
+    "any required EMA == INITIALIZATION_SENSITIVE -> INITIALIZATION_SENSITIVE",
+    "else -> AVAILABLE_VALID, and only then is the boolean evaluated"
+  ],
+  "NO_SHORT_CIRCUIT": "deliberately not optimised: sig_p66 is not marked FALSE on cx200=False while EMA34 is still init-sensitive. Every referenced dependency must be VALID before the output is evaluable.",
+  "PRODUCTION": {
+    "securities": "476 / 476",
+    "rows": 185345448,
+    "expected": 185345448,
+    "elapsed_s": 134
+  },
+  "FULL_STORE_INVARIANTS": {
+    "AVAILABLE_VALID and value IS NULL": 0,
+    "non-VALID and value IS NOT NULL": 0,
+    "duplicate (k,bar_start,col)": 0,
+    "value not in (0,1) when VALID": 0,
+    "distinct columns": 12,
+    "securities": 476
+  },
+  "DEPTH_CLASS_CHECKSUM": {
+    "purpose": "structural check that no family-wide over-gating leaked in — each column valid share must track its OWN deepest EMA dependency",
+    "result": {
+      "max EMA20": "37.85% (ref 37.86) — sig_d2",
+      "max EMA50": "30.29% (ref 30.30) — sig_p3, sig_p2, sig_p50, sig_d3, sig_d50",
+      "max EMA89": "26.09% (ref 26.09) — sig_p89, sig_d89",
+      "max EMA200": "20.81% (ref 20.81) — sig_p55, sig_p66, sig_d55, sig_d66"
+    },
+    "collapse": "every depth class collapsed to a SINGLE distinct valid% — no spread",
+    "delta_explanation": "the -0.01 offsets are window scope: the EMA reference shares were computed on DEV only, this run spans DEV+HOLDOUT"
+  },
+  "UNAVAILABLE_DEPENDENCY_IS_ZERO": {
+    "observed": 0,
+    "explanation": "an EMA is UNAVAILABLE exactly when its bar is contaminated, so UNAVAILABLE_CURRENT always fires first under the precedence order. Zero here is correct, not a missing branch."
+  },
+  "NEGATIVE_FIXTURES": {
+    "total": 29,
+    "passed": 29,
+    "F1": "sig_p2 with EMA50 INIT -> INITIALIZATION_SENSITIVE (transitive dependency through sig_p3 honoured)",
+    "F2": "sig_d2 with EMA50/200 UNAVAILABLE -> still AVAILABLE_VALID (no spurious deep dependency)",
+    "F3": "sig_p89 / sig_d89 valid on EMA89 alone while all other periods unavailable",
+    "F4": "24 mutation tests — each of the six dependencies invalidated in turn for each of the deep four; all correctly non-valid",
+    "F5": "sig_d50 valid on EMA50 alone"
+  },
+  "PER_COLUMN": {
+    "sig_p66": {
+      "max_ema": 200,
+      "deps": [
+        9,
+        20,
+        34,
+        50,
+        89,
+        200
+      ],
+      "VALID": 3214742,
+      "INIT": 7403444,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 27922
+    },
+    "sig_p55": {
+      "max_ema": 200,
+      "deps": [
+        9,
+        20,
+        34,
+        50,
+        89,
+        200
+      ],
+      "VALID": 3214742,
+      "INIT": 7403444,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 49900
+    },
+    "sig_p89": {
+      "max_ema": 89,
+      "deps": [
+        89
+      ],
+      "VALID": 4030486,
+      "INIT": 6587700,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 100207
+    },
+    "sig_p3": {
+      "max_ema": 50,
+      "deps": [
+        9,
+        20,
+        50
+      ],
+      "VALID": 4679170,
+      "INIT": 5939016,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 57512
+    },
+    "sig_p2": {
+      "max_ema": 50,
+      "deps": [
+        9,
+        20,
+        50
+      ],
+      "VALID": 4679170,
+      "INIT": 5939016,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 143244
+    },
+    "sig_p50": {
+      "max_ema": 50,
+      "deps": [
+        9,
+        20,
+        50
+      ],
+      "VALID": 4679170,
+      "INIT": 5939016,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 72695
+    },
+    "sig_d66": {
+      "max_ema": 200,
+      "deps": [
+        9,
+        20,
+        34,
+        50,
+        89,
+        200
+      ],
+      "VALID": 3214742,
+      "INIT": 7403444,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 28229
+    },
+    "sig_d55": {
+      "max_ema": 200,
+      "deps": [
+        9,
+        20,
+        34,
+        50,
+        89,
+        200
+      ],
+      "VALID": 3214742,
+      "INIT": 7403444,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 50180
+    },
+    "sig_d89": {
+      "max_ema": 89,
+      "deps": [
+        89
+      ],
+      "VALID": 4030486,
+      "INIT": 6587700,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 100159
+    },
+    "sig_d3": {
+      "max_ema": 50,
+      "deps": [
+        9,
+        20,
+        50
+      ],
+      "VALID": 4679170,
+      "INIT": 5939016,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 58093
+    },
+    "sig_d2": {
+      "max_ema": 20,
+      "deps": [
+        9,
+        20
+      ],
+      "VALID": 5846542,
+      "INIT": 4771644,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 249143
+    },
+    "sig_d50": {
+      "max_ema": 50,
+      "deps": [
+        50
+      ],
+      "VALID": 4679170,
+      "INIT": 5939016,
+      "UNAVAIL_CURRENT": 4827268,
+      "fires_on_valid": 161128
+    }
+  },
+  "COVERAGE_HETEROGENEITY": {
+    "sig_p66": {
+      "zero": 174,
+      "any": 302,
+      "median": 0.012313754463735994,
+      "p10": 0.0,
+      "p25": 0.0,
+      "p75": 0.28763391207979316,
+      "p90": 0.8202653614086934
+    },
+    "sig_p55": {
+      "zero": 174,
+      "any": 302,
+      "median": 0.012313754463735994,
+      "p10": 0.0,
+      "p25": 0.0,
+      "p75": 0.28763391207979316,
+      "p90": 0.8202653614086934
+    },
+    "sig_p89": {
+      "zero": 98,
+      "any": 378,
+      "median": 0.05368796946188893,
+      "p10": 0.0,
+      "p25": 0.0009774042605590445,
+      "p75": 0.44203300086196284,
+      "p90": 0.9001046669129418
+    },
+    "sig_p3": {
+      "zero": 54,
+      "any": 422,
+      "median": 0.09657061938184952,
+      "p10": 0.0,
+      "p25": 0.0051871690678487875,
+      "p75": 0.5508096293559906,
+      "p90": 0.9403398596231991
+    },
+    "sig_p2": {
+      "zero": 54,
+      "any": 422,
+      "median": 0.09657061938184952,
+      "p10": 0.0,
+      "p25": 0.0051871690678487875,
+      "p75": 0.5508096293559906,
+      "p90": 0.9403398596231991
+    },
+    "sig_p50": {
+      "zero": 54,
+      "any": 422,
+      "median": 0.09657061938184952,
+      "p10": 0.0,
+      "p25": 0.0051871690678487875,
+      "p75": 0.5508096293559906,
+      "p90": 0.9403398596231991
+    },
+    "sig_d66": {
+      "zero": 174,
+      "any": 302,
+      "median": 0.012313754463735994,
+      "p10": 0.0,
+      "p25": 0.0,
+      "p75": 0.28763391207979316,
+      "p90": 0.8202653614086934
+    },
+    "sig_d55": {
+      "zero": 174,
+      "any": 302,
+      "median": 0.012313754463735994,
+      "p10": 0.0,
+      "p25": 0.0,
+      "p75": 0.28763391207979316,
+      "p90": 0.8202653614086934
+    },
+    "sig_d89": {
+      "zero": 98,
+      "any": 378,
+      "median": 0.05368796946188893,
+      "p10": 0.0,
+      "p25": 0.0009774042605590445,
+      "p75": 0.44203300086196284,
+      "p90": 0.9001046669129418
+    },
+    "sig_d3": {
+      "zero": 54,
+      "any": 422,
+      "median": 0.09657061938184952,
+      "p10": 0.0,
+      "p25": 0.0051871690678487875,
+      "p75": 0.5508096293559906,
+      "p90": 0.9403398596231991
+    },
+    "sig_d2": {
+      "zero": 18,
+      "any": 458,
+      "median": 0.22925132372860485,
+      "p10": 0.0026782415958625785,
+      "p25": 0.028136928949636743,
+      "p75": 0.7191309567787219,
+      "p90": 0.9751108237901736
+    },
+    "sig_d50": {
+      "zero": 54,
+      "any": 422,
+      "median": 0.09657061938184952,
+      "p10": 0.0,
+      "p25": 0.0051871690678487875,
+      "p75": 0.5508096293559906,
+      "p90": 0.9403398596231991
+    }
+  },
+  "LEGACY_COMPARISON_EXCLUDED": "acceptance is NOT tied to legacy stored P/D exactness. Authority is Massive canonical OHLC -> Massive canonical EMA -> established formula. Legacy overlap remains a provenance diagnostic only.",
+  "not_done": [
+    "not written to a Massive derived surface — local durable table",
+    "B4 support census (DEV/HOLDOUT split, M1-M4, adjacent pairs) not yet cut"
+  ]
+}

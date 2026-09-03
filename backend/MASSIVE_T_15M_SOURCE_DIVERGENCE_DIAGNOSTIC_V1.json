@@ -1,0 +1,168 @@
+{
+  "report_id": "MASSIVE_T_15M_SOURCE_DIVERGENCE_DIAGNOSTIC_V1",
+  "status": "X_ONLY_DIAGNOSTIC_COMPLETE",
+  "task_class": "SOURCE_DIVERGENCE_DIAGNOSTIC_ONLY",
+  "question": "canonical compute_signals on legacy 15m OHLC vs canonical compute_signals on Massive 15m OHLC, matched by secure identity and EXACT timestamp",
+  "classification": "DIAGNOSTIC_ONLY_NOT_HYPOTHESIS_REGISTRATION",
+  "supersedes_premise": {
+    "old_claim": "15M_LEGACY_VS_MASSIVE_FEED_DIVERGENCE = NOT_ESTIMABLE_FROM_AVAILABLE_MATCHED_DATA",
+    "why_it_was_wrong": "it was frozen after proving `bars` is daily; that proof was right, but this comparison never needed a legacy T column — it runs the canonical engine on both sides, and a legacy 15m OHLC store existed all along",
+    "what_remains_true": "a legacy 15m MATERIALIZED T population DOES NOT EXIST",
+    "what_is_now_measured": "15m same-engine cross-source divergence",
+    "old_artifacts_not_edited": [
+      "c6358576c5c9411b",
+      "4c9b15eb8cfed786"
+    ]
+  },
+  "sources": {
+    "legacy": {
+      "store": "/Volumes/QUANT_RESEARCH/source_data/studio/studio_15m_base.duckdb",
+      "table": "bars",
+      "rows": 90952507,
+      "range": "2021-07-02 .. 2026-08-25",
+      "has_t_column": false,
+      "universe_pinned": true
+    },
+    "massive": {
+      "store": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_coarse_v1/15m",
+      "coverage_filter": "COMPLETE only"
+    }
+  },
+  "matching": {
+    "key": "security_key_v1 + exact bar_start (UTC, bar-START both sides)",
+    "tolerance": null,
+    "nearest_timestamp": false,
+    "offset_search": false
+  },
+  "support": {
+    "securities_compared": 473,
+    "bars_compared": 10458803,
+    "loss_by_reason": {
+      "no_legacy_ticker": 3,
+      "ts_only_in_legacy": 461887,
+      "ts_only_in_massive": 158749,
+      "massive_not_complete": 4730450
+    }
+  },
+  "agreement": {
+    "t_label_agreement": 0.945539,
+    "agreed": 9889211,
+    "predecessor_also_matched": {
+      "bars": 10454319,
+      "agreement": 0.945767,
+      "why": "each side keeps its OWN predecessors, so predecessor disagreement is part of source divergence and is decomposed rather than hidden"
+    }
+  },
+  "state_divergence_matrix": {
+    "T2->NONE": 130915,
+    "T2G->NONE": 122036,
+    "T4->NONE": 74945,
+    "T9->NONE": 66224,
+    "T1->NONE": 55693,
+    "T3->NONE": 52108,
+    "T1G->NONE": 14621,
+    "T5->NONE": 14316,
+    "T6->NONE": 12061,
+    "T10->NONE": 11448,
+    "NONE->T2": 2241,
+    "NONE->T2G": 1595,
+    "NONE->T4": 1256,
+    "T11->NONE": 1222,
+    "NONE->T9": 1174,
+    "T12->NONE": 1081,
+    "NONE->T3": 697,
+    "NONE->T1": 690,
+    "T4->T2": 332,
+    "T1G->T2G": 220,
+    "T2G->T2": 208,
+    "T4->T2G": 207,
+    "NONE->T1G": 187,
+    "T4->T3": 179,
+    "T5->T12": 178
+  },
+  "price_basis": {
+    "open": {
+      "compared": 10458803,
+      "exact_after_round": 7288940,
+      "rate": 0.696919,
+      "within_1_cent": 0.988719,
+      "max_abs_diff": 586.58
+    },
+    "high": {
+      "compared": 10458803,
+      "exact_after_round": 7750898,
+      "rate": 0.741088,
+      "within_1_cent": 0.98871,
+      "max_abs_diff": 589.24
+    },
+    "low": {
+      "compared": 10458803,
+      "exact_after_round": 7798020,
+      "rate": 0.745594,
+      "within_1_cent": 0.98871,
+      "max_abs_diff": 585.6899999999999
+    },
+    "close": {
+      "compared": 10458803,
+      "exact_after_round": 6867490,
+      "rate": 0.656623,
+      "within_1_cent": 0.988705,
+      "max_abs_diff": 586.48
+    }
+  },
+  "by_session_position": {
+    "M1": {
+      "bars": 386091,
+      "agreement": 0.994089
+    },
+    "M2": {
+      "bars": 411411,
+      "agreement": 0.927812
+    },
+    "M3": {
+      "bars": 429593,
+      "agreement": 0.942634
+    },
+    "M4": {
+      "bars": 416540,
+      "agreement": 0.959324
+    },
+    "SESSION_FINAL": {
+      "bars": 554641,
+      "agreement": 0.950822
+    },
+    "OTHER": {
+      "bars": 8260527,
+      "agreement": 0.943254
+    }
+  },
+  "by_body_size": {
+    "body_0": {
+      "bars": 159446,
+      "agreement": 0.99899
+    },
+    "body_le_1c": {
+      "bars": 464399,
+      "agreement": 0.960978
+    },
+    "body_le_10c": {
+      "bars": 3831171,
+      "agreement": 0.954382
+    },
+    "body_gt_10c": {
+      "bars": 6003787,
+      "agreement": 0.937283
+    }
+  },
+  "producer_semantics_digest": "2901107d9baa6320",
+  "does_not": [
+    "register any hypothesis",
+    "restore legacy 15m materialization equivalence",
+    "authorize correcting Massive T labels toward legacy",
+    "authorize weighting observations by agreement"
+  ],
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 32.1,
+  "sealed_at": "2026-08-26 19:23 +04"
+}

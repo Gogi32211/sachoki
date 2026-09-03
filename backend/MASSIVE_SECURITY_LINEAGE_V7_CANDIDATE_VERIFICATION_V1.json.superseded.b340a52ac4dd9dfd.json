@@ -1,0 +1,176 @@
+{
+  "report_id": "MASSIVE_SECURITY_LINEAGE_V7_CANDIDATE_VERIFICATION_V1",
+  "status": "INDEPENDENT_VERIFICATION_PASS",
+  "independence": {
+    "shares_code_with_builder": false,
+    "imports_builder": false,
+    "why": "verification that imports the builder's helpers proves only self-consistency; a bug in the interval writer would be reproduced and confirmed",
+    "writes": "its own report only"
+  },
+  "verifies": {
+    "execution_artifact": "MASSIVE_SECURITY_LINEAGE_V7_CANDIDATE_EXECUTION_V1.json",
+    "digest": "e454381d12c66441",
+    "candidate_staging_path": "/Volumes/QUANT_RESEARCH/staging/lineage_v7_candidate/e81cb9367d3e37eb",
+    "implementation_code_hash": "e81cb9367d3e37eb7487db9ba69da905c28c5d63b2045637498525da2c25da38",
+    "spec_digest": "f858ee0f3be05cc7"
+  },
+  "digest_reproduction": {
+    "research_securities": {
+      "sealed": "fe1b7902d74f",
+      "recomputed": "fe1b7902d74f",
+      "rows_sealed": 503,
+      "rows_read": 503,
+      "match": true
+    },
+    "research_coverage_intervals": {
+      "sealed": "726fc82ca19d",
+      "recomputed": "726fc82ca19d",
+      "rows_sealed": 522,
+      "rows_read": 522,
+      "match": true
+    },
+    "registrant_cik_intervals": {
+      "sealed": "944c2862f0a9",
+      "recomputed": "944c2862f0a9",
+      "rows_sealed": 531,
+      "rows_read": 531,
+      "match": true
+    },
+    "share_class_figi_intervals": {
+      "sealed": "6596f61ef238",
+      "recomputed": "6596f61ef238",
+      "rows_sealed": 533,
+      "rows_read": 533,
+      "match": true
+    },
+    "composite_figi_intervals": {
+      "sealed": "8d8f9a90c151",
+      "recomputed": "8d8f9a90c151",
+      "rows_sealed": 533,
+      "rows_read": 533,
+      "match": true
+    },
+    "ticker_intervals": {
+      "sealed": "83281a14f1f8",
+      "recomputed": "83281a14f1f8",
+      "rows_sealed": 526,
+      "rows_read": 526,
+      "match": true
+    },
+    "instrument_type_intervals": {
+      "sealed": "dc01d03a7f4e",
+      "recomputed": "dc01d03a7f4e",
+      "rows_sealed": 504,
+      "rows_read": 504,
+      "match": true
+    },
+    "vendor_reference_intervals": {
+      "sealed": "c02e474eb4a4",
+      "recomputed": "c02e474eb4a4",
+      "rows_sealed": 40,
+      "rows_read": 40,
+      "match": true
+    },
+    "vendor_aggregate_access_intervals": {
+      "sealed": "ee2170c0fcb9",
+      "recomputed": "ee2170c0fcb9",
+      "rows_sealed": 8,
+      "rows_read": 8,
+      "match": true
+    },
+    "structural_transition_events": {
+      "sealed": "18cf2053eaa6",
+      "recomputed": "18cf2053eaa6",
+      "rows_sealed": 12,
+      "rows_read": 12,
+      "match": true
+    },
+    "lineage_evidence_links": {
+      "sealed": "cb8b989e6a19",
+      "recomputed": "cb8b989e6a19",
+      "rows_sealed": 503,
+      "rows_read": 503,
+      "match": true
+    }
+  },
+  "restored_sessions": {
+    "recomputed_from": "supplemental quarantine _manifest.jsonl (sessions whose response carried rows)",
+    "independent_of": "MASSIVE_SECURITY_LINEAGE_BOUNDARY_AUDIT_V1",
+    "why": "checking the candidate against the audit would compare two numbers derived from the same pass",
+    "recomputed_total": 5069,
+    "expected": 5069,
+    "per_security": {
+      "APO": 89,
+      "J": 277,
+      "CRH": 527,
+      "BG": 590,
+      "LH": 714,
+      "FERG": 778,
+      "BLK": 842,
+      "XOM": 1252
+    },
+    "match": true
+  },
+  "interval_validation": {
+    "convention": "[start_boundary, end_boundary_exclusive)",
+    "datasets_checked": [
+      "composite_figi_intervals",
+      "instrument_type_intervals",
+      "registrant_cik_intervals",
+      "share_class_figi_intervals",
+      "ticker_intervals"
+    ],
+    "problems": 0,
+    "samples": []
+  },
+  "checks": {
+    "candidate_digests_reproduce": true,
+    "identities_503": true,
+    "distinct_keys_503": true,
+    "no_duplicate_keys": true,
+    "no_ticker_primary_key": true,
+    "coverage_covers_all_503": true,
+    "repair_count_8": true,
+    "repairs_start_at_window": true,
+    "repairs_not_v6_moved_backward": true,
+    "repair_set_is_the_eight": true,
+    "restored_sessions_5069_recomputed": true,
+    "restored_matches_candidate": true,
+    "interval_invariants": true,
+    "no_type_fabricated_for_inherited": true,
+    "inherited_type_is_not_audited": true,
+    "crh_adrc_present": true,
+    "crh_adrc_not_relabelled": true,
+    "apo_composition_break": true,
+    "v6_ticker_rename_preserved": true,
+    "wi_intervals_flagged": true,
+    "wi_excluded_from_coverage": true,
+    "no_canonical_use_authorised": true,
+    "no_canonical_v7_artifact": true,
+    "no_derived_dir": true,
+    "quarantine_payloads_intact": true,
+    "every_coverage_has_evidence": true,
+    "every_security_has_evidence_link": true,
+    "input_artifacts_unmutated": true,
+    "implementation_hash_unchanged": true
+  },
+  "failed_checks": [],
+  "problems": [],
+  "reproduces": {
+    "identity_counts": true,
+    "coverage_counts": true,
+    "repair_counts": true,
+    "interval_validation": true,
+    "digests": true
+  },
+  "mutations": {
+    "input_artifacts_mutated": {},
+    "canonical_writes": 0,
+    "derived_writes": 0,
+    "supplemental_promoted": 0
+  },
+  "verdict": "PASS",
+  "does_not_authorize": "canonical V7. This verifies the CANDIDATE only; the full-503 audit verdict is carried separately by the execution artifact.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 17:29 +04"
+}

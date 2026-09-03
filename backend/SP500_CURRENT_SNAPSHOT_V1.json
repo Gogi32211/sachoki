@@ -1,0 +1,60 @@
+{
+  "spec_id": "SP500_CURRENT_SNAPSHOT_V1",
+  "status": "FROZEN",
+  "snapshot_date": "2026-08-25",
+  "definition": "all securities that are constituents of the S&P 500 on the snapshot date",
+  "historical_treatment": "the frozen current constituent set is carried BACKWARD through the historical period",
+  "membership_changes_during_history": "IGNORED BY DESIGN",
+  "survivorship_bias": "KNOWN · ACCEPTED · DECLARED",
+  "allowed_claim": "historical behaviour of CURRENT S&P 500 constituents",
+  "forbidden_claims": [
+    "historical behaviour of the S&P 500 constituent universe",
+    "point-in-time S&P 500 evidence"
+  ],
+  "immutability": {
+    "rule": "this set does NOT change mid-research, even if S&P adds or removes a constituent tomorrow",
+    "enforcement": "downstream steps cite frozen_set_digest; a different digest is a different universe and a different study",
+    "reseal": "a new snapshot is a NEW artifact with a new date and digest, never an edit of this one"
+  },
+  "n_securities": 503,
+  "frozen_set_digest": "a0f6e42a502b21667e70012ab117cdef5ec03e2b1aca5a200b620166e20e3d99",
+  "multi_class_lines": [
+    "BF.B",
+    "BRK.B"
+  ],
+  "source": {
+    "url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+    "final_url": "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+    "http_status": 200,
+    "retrieved_at_utc": "2026-08-24T21:01:35Z",
+    "raw_filename": "2026-08-25_sp500_constituents_source_9f279f54.html",
+    "raw_sha256": "9f279f54429e2888701cfd280c2c8424e0d7ace4339a93c4c3f7cc675692f863",
+    "raw_size_bytes": 568331,
+    "authority": "community-maintained encyclopedia page",
+    "limitation": "NOT an index-administrator feed. Acceptable for a CURRENT snapshot, where the claim is narrow and the list is heavily watched; it was correctly rejected for point-in-time history, where nobody maintains historical deletions.",
+    "parsed_from": "the archived bytes above, not a second fetch"
+  },
+  "structural_checks": {
+    "count_in_expected_range": true,
+    "no_duplicate_tickers": true,
+    "multi_class_lines_present": true,
+    "every_row_has_security": true,
+    "cik_present_for_most": true
+  },
+  "artifacts": {
+    "raw_snapshot": "2026-08-25_sp500_constituents_source_9f279f54.html",
+    "frozen_set_csv": "2026-08-25_sp500_frozen_set_a0f6e42a.csv",
+    "archive_dir": "/Volumes/QUANT_RESEARCH/artifacts/provenance/sp500_current_snapshot"
+  },
+  "ticker_alias_note": {
+    "issue": "multi-class lines use a '.' or '-' separator that vendors write differently (BRK.B / BRK-B / BRK/B)",
+    "status": "NOT RESOLVED HERE — alias resolution requires querying the vendor and is a separate step",
+    "rule": "alias resolution may change the STRING used to request a security; it may never add or remove a security from this frozen set"
+  },
+  "related": {
+    "branch_closure": "SP500_PIT_UNIVERSE_BRANCH_CLOSURE_V1",
+    "charter": "MASSIVE_1M_STATE_TRANSITION_V1 (universe_contract superseded)"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:01 +04"
+}

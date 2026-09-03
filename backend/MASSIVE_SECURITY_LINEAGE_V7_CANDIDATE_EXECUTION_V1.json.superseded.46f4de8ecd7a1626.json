@@ -1,0 +1,906 @@
+{
+  "report_id": "MASSIVE_SECURITY_LINEAGE_V7_CANDIDATE_EXECUTION_V1",
+  "classification": "NON_CANONICAL_V7_CANDIDATE",
+  "explicitly_not": [
+    "CANONICAL_LINEAGE",
+    "CANONICAL_RAW",
+    "DERIVED_DATA",
+    "RESEARCH_EVIDENCE",
+    "SUPPLEMENT_PROMOTION"
+  ],
+  "spec": {
+    "artifact": "MASSIVE_SECURITY_LINEAGE_V7_SPEC",
+    "digest": "f858ee0f3be05cc7",
+    "verified": true
+  },
+  "implementation_code_hash": "63d8e03cdafb257fb26d1231a33f8a0eaeaf4711a1e1053dabf1de4a5dce6ebb",
+  "implementation_binding": "if this file changes, the candidate is invalidated and must be rebuilt under the new hash; partial results are never carried across a code change",
+  "input_digests": {
+    "MASSIVE_SECURITY_LINEAGE_V7_SPEC": "f858ee0f3be05cc7",
+    "MASSIVE_TICKER_LINEAGE_V6": "8c961aa3a0c67934",
+    "MASSIVE_SECURITY_IDENTITY_KEY_AMENDMENT_V1": "04e28f9570a39282",
+    "MASSIVE_SECURITY_LINEAGE_BOUNDARY_AUDIT_V1": "1d3ed5c970ea64c0",
+    "APO_PRIMARY_SECURITY_CONTINUITY_RESOLUTION_V1": "b98ab1801c60b84a",
+    "MASSIVE_LINEAGE_PRIMARY_EVIDENCE_RESOLUTION_V1": "9a95328aa59a678e",
+    "SP500_CURRENT_SNAPSHOT_V1": "ffabd63a1aad0538",
+    "MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1": "e8c8a648923e22a3"
+  },
+  "superseded_artifact": {
+    "digest": "2f372b2f0fab898f",
+    "classification": "SUPERSEDED_ARTIFACT_ONLY",
+    "live_authority": "e8c8a648923e22a3",
+    "bound_downstream": false
+  },
+  "candidate_staging_path": "/Volumes/QUANT_RESEARCH/staging/lineage_v7_candidate/63d8e03cdafb257f",
+  "candidate_digests": {
+    "research_securities": {
+      "rows": 503,
+      "sha256": "fe1b7902d74f4927734667ac83175b3db9351c095ca7385fb87fc1cd07ffabf4"
+    },
+    "research_coverage_intervals": {
+      "rows": 522,
+      "sha256": "65fcec395965738a971ebbd0000210d50bdff5630d3d95cc68a76dccad8c58ef"
+    },
+    "registrant_cik_intervals": {
+      "rows": 531,
+      "sha256": "73ce7a50bc2fa078ecfc1472dddfeef887f663b749f60755844a021217e0f2ef"
+    },
+    "share_class_figi_intervals": {
+      "rows": 533,
+      "sha256": "a2d4590f6dad572de98db2f7f1f486801f5b5f506e0f530baac65ae6a067b09d"
+    },
+    "composite_figi_intervals": {
+      "rows": 533,
+      "sha256": "a7c329612eb04b437dfa85166ed0157457fc178202454bb0b34d623ba4e2b512"
+    },
+    "ticker_intervals": {
+      "rows": 526,
+      "sha256": "6e302190264afd3629f9becc63c0461a59280eb0fab0c5254aad5ad752ff81f3"
+    },
+    "instrument_type_intervals": {
+      "rows": 504,
+      "sha256": "dc01d03a7f4e47429062ba3d084a77cd44084eb0096da5507039b27eab70c0d0"
+    },
+    "vendor_reference_intervals": {
+      "rows": 40,
+      "sha256": "c02e474eb4a402d26881f70d6a2e35ed5225570c8ea9a06a7be527c96242145b"
+    },
+    "vendor_aggregate_access_intervals": {
+      "rows": 8,
+      "sha256": "ee2170c0fcb9e43dbe5d93acefee17edade04e0a99fcfd69d606715c27db48c0"
+    },
+    "structural_transition_events": {
+      "rows": 12,
+      "sha256": "18cf2053eaa65a90fb48718a948f6ae9f2ea806370297da5d10104f829a72876"
+    },
+    "lineage_evidence_links": {
+      "rows": 503,
+      "sha256": "cb8b989e6a19f21e93ec45471baf288fb80efad1f6eb03ecbcc006da3e892238"
+    }
+  },
+  "dataset_counts": {
+    "research_securities": 503,
+    "research_coverage_intervals": 522,
+    "registrant_cik_intervals": 531,
+    "share_class_figi_intervals": 533,
+    "composite_figi_intervals": 533,
+    "ticker_intervals": 526,
+    "instrument_type_intervals": 504,
+    "vendor_reference_intervals": 40,
+    "vendor_aggregate_access_intervals": 8,
+    "structural_transition_events": 12,
+    "lineage_evidence_links": 503
+  },
+  "canonical_v7_path_created": false,
+  "known_eight_reconciliation": {
+    "repair_set": [
+      "APO",
+      "J",
+      "CRH",
+      "BG",
+      "LH",
+      "FERG",
+      "BLK",
+      "XOM"
+    ],
+    "coverage_derivation": "AUDITED_SECURITY_LEVEL_CONTINUITY",
+    "explicitly_not": "V6_START_MOVED_BACKWARD",
+    "restored_security_sessions": 5069,
+    "expected": 5069,
+    "reconciled": true,
+    "per_security": {
+      "APO": 89,
+      "J": 277,
+      "CRH": 527,
+      "BG": 590,
+      "LH": 714,
+      "FERG": 778,
+      "BLK": 842,
+      "XOM": 1252
+    }
+  },
+  "when_issued_handling": {
+    "known_non_anomaly": "KNOWN_NON_ANOMALY_WHEN_ISSUED_STATUS_DIVERGENCE",
+    "securities": [
+      "GEHC",
+      "GEV",
+      "SOLV",
+      "VLTO"
+    ],
+    "both_status_fields_carried": true,
+    "reconciled": false
+  },
+  "apo_handling": {
+    "security_continuity": true,
+    "economic_composition_continuity": false,
+    "legal": "2022-01-01 01:00 ET",
+    "first_successor_session": "2022-01-03"
+  },
+  "crh_handling": {
+    "research_security_continuity": true,
+    "instrument_transition": "ADRC -> CS",
+    "boundary": "2023-09-25",
+    "adr_period_dropped": false,
+    "adr_relabelled": false
+  },
+  "full_503_audit": {
+    "scope": "all 503 research securities",
+    "detection_only_outside_repair_set": true,
+    "three_level_discipline": {
+      "level_1_signal": "older bars exist under the ticker",
+      "level_2_candidate_anomaly": "older bars AND a shared current identifier",
+      "level_3_evidence_qualified_defect": "NOT PERFORMED IN THIS TASK",
+      "why": "ticker reuse is real; META returned another company's 2021 bars"
+    },
+    "late_start_securities": 23,
+    "known_eight": 8,
+    "probed": 15,
+    "probed_list": [
+      "CEG",
+      "FDXF",
+      "GEHC",
+      "GEV",
+      "HONA",
+      "KVUE",
+      "PSKY",
+      "Q",
+      "RDDT",
+      "SNDK",
+      "SOLV",
+      "SW",
+      "TKO",
+      "VLTO",
+      "WBD"
+    ],
+    "instrument_type_sweep": {
+      "securities_probed_at_window_start": 503,
+      "non_CS_at_window_start": [
+        {
+          "ticker": "CRH",
+          "type_at_window_start": "ADRC",
+          "v6_coverage_start": "2023-10-02",
+          "sha256": "32741c70a1756fa4879e1394b648b7be81a656a2461ec5f996063cbda4754382"
+        }
+      ],
+      "count": 1,
+      "note": "check C executed rather than assumed"
+    },
+    "known_non_anomalies": [
+      {
+        "pattern": "status vs canonical_status divergence",
+        "securities": [
+          "GEHC",
+          "GEV",
+          "SOLV",
+          "VLTO"
+        ],
+        "count": 4,
+        "classification": "KNOWN_NON_ANOMALY_WHEN_ISSUED_STATUS_DIVERGENCE",
+        "excluded_from_anomaly_count": true,
+        "do_not_reconcile": "19 vs 23 and 22 vs 18 are both correct"
+      }
+    ],
+    "findings": [
+      {
+        "security_key_v1": "b4e3cffd09deed70989c7038163733b1a99b696445c2d484d626169c9011ad8c",
+        "current_ticker": "CEG",
+        "v6_coverage_start": "2022-04-01",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 152,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2022-02-02",
+          "probes": 8,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "5ca200efebd41f189c85eaa67568d491bb4eb9af8d0362a360e38842a00196fd",
+          "present": true,
+          "cik": "0001868275",
+          "share_class_figi": "BBG014KFRPJ9",
+          "composite_figi": "BBG014KFRNP7",
+          "type": "CS",
+          "name": "Constellation Energy Corporation Common Stock"
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2022-02-02, before the V6 coverage start 2022-04-01, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 41,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "95c91d7a71f613f6cec23858c13e481f464709bf53ee5303d09abb5190ffb2be",
+        "current_ticker": "FDXF",
+        "v6_coverage_start": "2026-07-01",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 1216,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2026-06-01",
+          "probes": 12,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "0a790c07f78d9f92d09019fe4b6792be5db363281b2f0040f6c80ace9d5657b5",
+          "present": true,
+          "cik": "0002082247",
+          "share_class_figi": "BBG01ZPB92B3",
+          "composite_figi": "BBG01ZPB91C4",
+          "type": "CS",
+          "name": "FedEx Freight Holding Company, Inc."
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2026-06-01, before the V6 coverage start 2026-07-01, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 21,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "751cd10a480eb5838533ed1a1b7de5b55b5acc85c227199cc5b73d570e40b8bb",
+        "current_ticker": "GEHC",
+        "v6_coverage_start": "2023-01-05",
+        "v6_start_on_anchor_grid": false,
+        "v6_status": "RENAMED_IN_WINDOW",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 343,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2023-01-04",
+          "probes": 10,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "0a42874e21a6a3bc120ca8e4c7ad119d2d2ff690c7183402e865a6ed10cd3ecc",
+          "present": true,
+          "cik": null,
+          "share_class_figi": "BBG01BFR8YW0",
+          "composite_figi": "BBG01BFR8YV1",
+          "type": "CS",
+          "name": "GE HealthCare Technologies Inc. Common Stock"
+        },
+        "identifiers_matching_current": [
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2023-01-04, before the V6 coverage start 2023-01-05, and the historical reference row shares ['share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start is not on the anchor grid",
+        "sessions_potentially_missing": 1,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "ed5e2c56494d03dc5dacb1060d161b69277938cbb25a80ea3b05fd765ea739a3",
+        "current_ticker": "GEV",
+        "v6_coverage_start": "2024-04-02",
+        "v6_start_on_anchor_grid": false,
+        "v6_status": "RENAMED_IN_WINDOW",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 653,
+        "probe": {
+          "found": false,
+          "probes": 1
+        },
+        "classification": "NO_ANOMALY_DETECTED",
+        "reasoning": "no aggregates served on the session immediately before the V6 coverage start"
+      },
+      {
+        "security_key_v1": "94ca83c229531d0b68efab9a28304e2f495629744f55b218e6607b68e351bb7c",
+        "current_ticker": "HONA",
+        "v6_coverage_start": "2026-07-01",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 1216,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2026-06-29",
+          "probes": 12,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "b622644fbb9650fa16783cd2205fde5ecfaec82b22cf15bcc7601ecd04bc1011",
+          "present": true,
+          "cik": "0002089271",
+          "share_class_figi": "BBG020QYV2Q7",
+          "composite_figi": "BBG020QYV152",
+          "type": "CS",
+          "name": "Honeywell Aerospace Inc. Common Stock"
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2026-06-29, before the V6 coverage start 2026-07-01, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 2,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "e285ef89c4084458c87ea48709edb6745695785b240ab3dc35e7a5b4be803e11",
+        "current_ticker": "KVUE",
+        "v6_coverage_start": "2023-07-03",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 465,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2023-05-04",
+          "probes": 10,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "f1bb5fe080da57640ebffa22c33658f0e375dae34df6ab1d59dda673f4f3cebb",
+          "present": true,
+          "cik": "0001944048",
+          "share_class_figi": "BBG01C79X614",
+          "composite_figi": "BBG01C79X561",
+          "type": "CS",
+          "name": "Kenvue Inc."
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2023-05-04, before the V6 coverage start 2023-07-03, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 40,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "15f4235d8ec66648b24a380d15f3eb28f1c204480e610b60cf6a6106f13c083a",
+        "current_ticker": "PSKY",
+        "v6_coverage_start": "2025-10-01",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 1029,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2025-08-07",
+          "probes": 11,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "2a0491d1eb35a0d12521cb1aaf3ba7040e89268269d9c5a1a5bb5732c5fe2f9c",
+          "present": true,
+          "cik": "0002041610",
+          "share_class_figi": "BBG01VS5NKB6",
+          "composite_figi": "BBG01VS5NK99",
+          "type": "CS",
+          "name": "Paramount Skydance Corporation Class B Common Stock"
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2025-08-07, before the V6 coverage start 2025-10-01, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 38,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "2ce8a5a673195d915d23f4cb15274a4f8bce6017432277d771c22924443866b6",
+        "current_ticker": "Q",
+        "v6_coverage_start": "2026-01-02",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 1093,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2025-11-03",
+          "probes": 11,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "526c4e55f6b775f1f53a0b4fd39eb0751309849b3ddf2ac8bd0dc348ca975e70",
+          "present": true,
+          "cik": null,
+          "share_class_figi": "BBG01TRL7564",
+          "composite_figi": "BBG01TRL73S5",
+          "type": "CS",
+          "name": "Qnity Electronics, Inc."
+        },
+        "identifiers_matching_current": [
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2025-11-03, before the V6 coverage start 2026-01-02, and the historical reference row shares ['share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 41,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "0425a134ff8acab2c5d8bd31999eb0bd864093da4b09dae2d4eaa46027a768c6",
+        "current_ticker": "RDDT",
+        "v6_coverage_start": "2024-04-01",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 652,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2024-03-21",
+          "probes": 10,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "f09de4b1831a5281078737cbbf1392f9d9490fa53e18ae983de1ec56c5596bcf",
+          "present": true,
+          "cik": "0001713445",
+          "share_class_figi": "BBG015RGX648",
+          "composite_figi": "BBG005K1D4S0",
+          "type": "CS",
+          "name": "Reddit, Inc."
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2024-03-21, before the V6 coverage start 2024-04-01, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 6,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "e15f386156b38d4996622f322bda80ae2225e5fb9031ed2109da0dcc942ffcea",
+        "current_ticker": "SNDK",
+        "v6_coverage_start": "2025-04-01",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 903,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2025-02-24",
+          "probes": 11,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "9521afed301f806de45f4f29b34f96be828abb7abb43941bb9be99b3105d65d9",
+          "present": true,
+          "cik": "0002023554",
+          "share_class_figi": "BBG01R388JK6",
+          "composite_figi": "BBG01R388JG1",
+          "type": "CS",
+          "name": "Sandisk Corporation Common Stock"
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2025-02-24, before the V6 coverage start 2025-04-01, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 26,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "52660f0a6d9513c989be47137fb722c1015d097aeef8852c2e88b9dfbf909c05",
+        "current_ticker": "SOLV",
+        "v6_coverage_start": "2024-04-02",
+        "v6_start_on_anchor_grid": false,
+        "v6_status": "RENAMED_IN_WINDOW",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 653,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2024-04-01",
+          "probes": 11,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "12b0ff93734d4b21d287ee9dbe8e3d6a689b847b9c9d706fb2100eb265bec17c",
+          "present": true,
+          "cik": "0001964738",
+          "share_class_figi": "BBG018YZH6V0",
+          "composite_figi": "BBG018YZH6T3",
+          "type": "CS",
+          "name": "Solventum Corporation"
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2024-04-01, before the V6 coverage start 2024-04-02, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start is not on the anchor grid",
+        "sessions_potentially_missing": 1,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "7950a3c358b7cda006beaad43e00048af7ff1dbaa4c6ce34df01529443eb0f16",
+        "current_ticker": "SW",
+        "v6_coverage_start": "2024-10-01",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 779,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2024-07-08",
+          "probes": 11,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "76947119982391dced4283c71a239d3423492f6c47167bdff67a3f70b29690af",
+          "present": true,
+          "cik": "0002005951",
+          "share_class_figi": null,
+          "composite_figi": null,
+          "type": "CS",
+          "name": "Smurfit WestRock plc"
+        },
+        "identifiers_matching_current": [
+          "cik"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2024-07-08, before the V6 coverage start 2024-10-01, and the historical reference row shares ['cik'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 60,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "4f50ce52da2a20a0580c66b3681d496852fe928e7bf4d843afd74062565a4db6",
+        "current_ticker": "TKO",
+        "v6_coverage_start": "2023-10-02",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 528,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2023-09-12",
+          "probes": 10,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "02f3c8f6d9802c1bb19fb9a715ada479daf70836f59eeebc7cce1fc3a2ab3b12",
+          "present": true,
+          "cik": "0001973266",
+          "share_class_figi": "BBG01G9JKWW4",
+          "composite_figi": "BBG01G9JKWV5",
+          "type": "CS",
+          "name": "TKO Group Holdings, Inc."
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2023-09-12, before the V6 coverage start 2023-10-02, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 14,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "213bc10dc2fca2cda679b90293e89b1cc168d07d3f53f37c0fd8fe9e08bbb750",
+        "current_ticker": "VLTO",
+        "v6_coverage_start": "2023-10-03",
+        "v6_start_on_anchor_grid": false,
+        "v6_status": "RENAMED_IN_WINDOW",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 529,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2023-10-02",
+          "probes": 11,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "103aad918ad363446c828a52d9c99ff39c8470a89569642706f028e614165cce",
+          "present": true,
+          "cik": "0001967680",
+          "share_class_figi": "BBG019Q32XK7",
+          "composite_figi": "BBG019Q32XJ9",
+          "type": "CS",
+          "name": "Veralto Corporation"
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2023-10-02, before the V6 coverage start 2023-10-03, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start is not on the anchor grid",
+        "sessions_potentially_missing": 1,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      },
+      {
+        "security_key_v1": "03cb866cb9ea0402b48c41dedbe6d911c48c1199e0bc4bf3cbd050486690d151",
+        "current_ticker": "WBD",
+        "v6_coverage_start": "2022-07-01",
+        "v6_start_on_anchor_grid": true,
+        "v6_status": "LISTED_LATER",
+        "v6_canonical_status": "LISTED_LATER",
+        "pre_start_sessions_examined": 214,
+        "probe": {
+          "found": true,
+          "earliest_with_bars": "2022-04-11",
+          "probes": 9,
+          "method": "XNYS-session bisection; ENTITLEMENT_UNAVAILABLE never read as absence of listing"
+        },
+        "early_reference": {
+          "http": 200,
+          "sha256": "59eb416ad594d971eada224795224fafe3037abd99fdeb09b3fc456665434bed",
+          "present": true,
+          "cik": "0001437107",
+          "share_class_figi": "BBG011386VG3",
+          "composite_figi": "BBG011386VF4",
+          "type": "CS",
+          "name": "Warner Bros. Discovery, Inc. Series A Common Stock"
+        },
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "classification": "NEW_LINEAGE_ANOMALY_CANDIDATE",
+        "level": "CANDIDATE_ANOMALY",
+        "reasoning": "aggregates exist from 2022-04-11, before the V6 coverage start 2022-07-01, and the historical reference row shares ['cik', 'share_class_figi', 'composite_figi'] with the current identity — same-security evidence",
+        "anchor_note": "the V6 start sits exactly on the quarterly anchor grid, the same mechanism that truncated the known eight",
+        "sessions_potentially_missing": 56,
+        "NOT_REPAIRED": true,
+        "required_next_step": "evidence-qualified defect determination in a separate gate; this task does not repair"
+      }
+    ],
+    "counts": {
+      "no_anomaly": 1,
+      "insufficient_evidence": 0,
+      "new_anomaly_candidates": 14,
+      "known_non_anomalies": 4
+    },
+    "new_anomaly_candidate_tickers": [
+      "CEG",
+      "FDXF",
+      "GEHC",
+      "HONA",
+      "KVUE",
+      "PSKY",
+      "Q",
+      "RDDT",
+      "SNDK",
+      "SOLV",
+      "SW",
+      "TKO",
+      "VLTO",
+      "WBD"
+    ],
+    "auto_repaired": 0,
+    "repair_set_unchanged": [
+      "APO",
+      "J",
+      "CRH",
+      "BG",
+      "LH",
+      "FERG",
+      "BLK",
+      "XOM"
+    ],
+    "verdict": "HOLD"
+  },
+  "negative_guards": {
+    "total": 14,
+    "passed": 14,
+    "results": [
+      {
+        "guard": 1,
+        "rejects": "current CIK as timeless master identity",
+        "passed": true,
+        "evidence": "BLK has 2 CIK intervals under one security_key_v1"
+      },
+      {
+        "guard": 2,
+        "rejects": "current FIGI as timeless master identity",
+        "passed": true,
+        "evidence": "LH has 2 share_class_figi intervals under one key"
+      },
+      {
+        "guard": 3,
+        "rejects": "type == \"CS\" as universal historical coverage filter",
+        "passed": true,
+        "evidence": "CRH instrument_type values: ['ADRC', 'CS']"
+      },
+      {
+        "guard": 4,
+        "rejects": "ticker as timeless identity",
+        "passed": true,
+        "evidence": "META ticker intervals: ['FB', 'META']"
+      },
+      {
+        "guard": 5,
+        "rejects": "V6 anchor treated as the actual event boundary",
+        "passed": true,
+        "evidence": "BLK CIK boundary ['2024-10-03'] != V6 anchor 2025-01-02"
+      },
+      {
+        "guard": 6,
+        "rejects": "legal / FIGI / CIK boundary collapse",
+        "passed": true,
+        "evidence": "BLK distinct boundary dates: ['2024-10-01', '2024-10-02', '2024-10-03']"
+      },
+      {
+        "guard": 7,
+        "rejects": "CRH ADR period dropped",
+        "passed": true,
+        "evidence": "CRH coverage starts 2021-08-25"
+      },
+      {
+        "guard": 8,
+        "rejects": "CRH ADR history relabeled CS",
+        "passed": true,
+        "evidence": "an ADRC interval begins at the window start and is not relabelled"
+      },
+      {
+        "guard": 9,
+        "rejects": "APO composition transition erased",
+        "passed": true,
+        "evidence": "APO carries MATERIAL_ECONOMIC_COMPOSITION_TRANSITION with economic_composition_continuity=false"
+      },
+      {
+        "guard": 10,
+        "rejects": "eight repaired histories left truncated",
+        "passed": true,
+        "evidence": "all eight coverage intervals start 2021-08-25"
+      },
+      {
+        "guard": 11,
+        "rejects": "supplemental payload auto-promoted to canonical",
+        "passed": true,
+        "evidence": "canonical_use_authorised=false on every access interval; no derived directory"
+      },
+      {
+        "guard": 12,
+        "rejects": "2021-08-25 entitlement failure read as NOT_YET_REGULAR_WAY",
+        "passed": true,
+        "evidence": "8 securities record 2021-08-25 ENTITLEMENT_UNAVAILABLE while coverage still starts 2021-08-25"
+      },
+      {
+        "guard": 13,
+        "rejects": "new anomaly outside the known eight auto-repaired",
+        "passed": true,
+        "evidence": "injecting a synthetic anomaly candidate forces canonical_v7_eligible=false and leaves every coverage interval byte-identical"
+      },
+      {
+        "guard": 14,
+        "rejects": "V6 artifact overwritten",
+        "passed": true,
+        "evidence": "V6 digest unchanged: 8c961aa3a0c67934"
+      }
+    ]
+  },
+  "candidate_implementation_checks": {
+    "identities_503": true,
+    "coverage_all_securities": true,
+    "eight_repairs": true,
+    "restored_sessions_5069": true,
+    "eight_gap_zero": true,
+    "apo_break": true,
+    "crh_adrc": true,
+    "v6_rename_preserved": true,
+    "wi_preserved": true,
+    "evidence_links_present": true,
+    "guards_14": true,
+    "supplement_promoted_zero": true,
+    "canonical_mutations_zero": true
+  },
+  "candidate_implementation_verdict": "PASS",
+  "full_503_lineage_audit_verdict": "HOLD",
+  "canonical_v7_eligible": false,
+  "canonical_v7_sealed": false,
+  "new_vintage_probes": {
+    "count": 665,
+    "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/v7_anomaly_audit",
+    "every_response_digested": true
+  },
+  "supplemental": {
+    "payloads_promoted": 0,
+    "rows_promoted": 0,
+    "status": "QUARANTINED_DIFFERENT_RETRIEVAL_VINTAGE",
+    "canonical_use_authorised": false
+  },
+  "mutations": {
+    "artifacts_mutated": {},
+    "any_mutation": false,
+    "canonical_raw": 0,
+    "derived_writes": 0,
+    "builder_spec_v2_sealed": false,
+    "smoke_executed": false
+  },
+  "known_limitations": [
+    "instrument_type is NOT_AUDITED for the 495 inherited securities; V6 carries no type and it was not fabricated as CS",
+    "for the eight, attributes with NO_TRANSITION_IN_WINDOW were observed at the window endpoints only; the interior was not probed and precision was not upgraded",
+    "the 503 audit stops at CANDIDATE_ANOMALY; no evidence-qualified defect determination was performed"
+  ],
+  "elapsed_sec": 371.6,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 17:09 +04",
+  "status": "HOLD"
+}

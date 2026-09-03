@@ -1,0 +1,131 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_MULTIPLICITY_UNIVERSE_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "REGISTERED_K": {
+    "k": 20751,
+    "unit": "one frozen claim ID = one registered hypothesis/test",
+    "registry_file": "SEARCHABLE_REGISTRY_k.txt",
+    "registry_digest": "e60eb8061aa80ddf"
+  },
+  "WHAT_IS_ONE_TEST": {
+    "form": "TOKEN_A @ M_i AND TOKEN_B @ M_{i+1}",
+    "position_is_part_of_test_identity": true,
+    "worked_example": {
+      "sig_buy@M1->sig_va@M2": "one test",
+      "sig_buy@M2->sig_va@M3": "a DIFFERENT test"
+    },
+    "explicit": "the same token pair at a different position pair is NOT merged"
+  },
+  "K_IS_NOT_REDUCED_BY_CLUSTERING": {
+    "RULE": "clustering and correlation do NOT reduce the registered k",
+    "FORBIDDEN_REASONING": "20,751 raw claims -> highly correlated -> effective k = 2,500",
+    "correct_separation": {
+      "REGISTERED_k": "20,751 — fixed at registry level",
+      "dependency_and_clustering": "handled later as STATISTICAL TREATMENT; never rewrites the registered k"
+    },
+    "non_equivalences": [
+      "graph cluster count != independent discoveries",
+      "graph cluster count != a replacement for k",
+      "effective sample size != registered multiplicity"
+    ],
+    "why_it_matters_here": "these claims share source features heavily, so a cluster-count substitution would be especially tempting and especially wrong"
+  },
+  "ONE_FAMILY_ONLY": {
+    "authority": "ONE searchable family, k = 20,751",
+    "FORBIDDEN": "post-hoc splitting into subfamilies each carrying its own smaller k",
+    "named_forbidden_splits": [
+      "boolean->boolean family",
+      "categorical->categorical family",
+      "M1->M2 family",
+      "M2->M3 family",
+      "M3->M4 family"
+    ],
+    "permitted": "position and type breakdowns as DIAGNOSTICS only — never a reason to restart the correction"
+  },
+  "NON_SEARCHABLE_CLAIMS": {
+    "pre_support_universe": 45387,
+    "searchable": 20751,
+    "non_searchable": 24636,
+    "retention": "kept in the audit registry with reason codes",
+    "RULE": "real Y must NOT be computed on them within this family's search",
+    "NO_RESURRECTION": {
+      "forbidden": "reviving a support-failed claim because Y later looks interesting",
+      "if_wanted_later": [
+        "NEW HYPOTHESIS",
+        "NEW PROVENANCE",
+        "NEW CONFIRMATION REQUIREMENT"
+      ]
+    }
+  },
+  "DIAGNOSTICS_DO_NOT_ALTER_MEMBERSHIP": {
+    "eligible_claims_with_zero_HOLDOUT_positives": {
+      "n": 1492,
+      "membership": "RETAINED in k"
+    },
+    "DEGENERATE_concentration_claims": {
+      "n": 46,
+      "membership": "RETAINED in k"
+    },
+    "basis": "both metrics were prespecified as NON-EXCLUSION diagnostics before any distribution was seen"
+  },
+  "FROZEN_LINEAGE": {
+    "CANONICAL_X_SURFACE_CLOSURE": "228c9ceae10bd0cc",
+    "CANONICAL_X_SURFACE": "e8016cb7c39a969d",
+    "TOKEN_DICTIONARY": {
+      "artifact": "4944126121f8fe16",
+      "token_table_digest": "299c963427568b49",
+      "tokens": 123
+    },
+    "CLAIM_GRAMMAR": {
+      "artifact": "4f07512770af4615",
+      "raw_universe_digest": "684b6dce407c9f0e",
+      "raw_claims": 45387
+    },
+    "SUPPORT_CENSUS_SPEC": "faaa0a70aa050c93",
+    "SUPPORT_CENSUS": "8215d99503f5ff2d",
+    "SUPPORT_FLOOR": "aeab8354237def8c",
+    "FINAL_REGISTRY": {
+      "artifact": "6900f9d3cf6f13e5",
+      "registry_digest": "e60eb8061aa80ddf"
+    },
+    "FINAL_K": 20751,
+    "purpose": "every future statistic has exactly ONE frozen search universe to refer to"
+  },
+  "IMMUTABILITY": {
+    "after_this_freeze": {
+      "add_claim": "FORBIDDEN",
+      "remove_claim": "FORBIDDEN",
+      "change_grammar": "FORBIDDEN",
+      "change_floor": "FORBIDDEN",
+      "change_token": "FORBIDDEN"
+    },
+    "only_exception": "a discovered TECHNICAL DEFECT, handled by an EXPLICIT amendment or requalification artifact — never a silent membership edit",
+    "absolutely_forbidden": "after seeing Y, dropping a claim on the grounds that it 'resembles another one'"
+  },
+  "NEXT_GATE": {
+    "rule": "do NOT proceed to real Y after this freeze",
+    "required_first": "INFERENTIAL / Y PRESPEC FREEZE",
+    "prespec_must_fix": [
+      "outcome definition",
+      "decision timestamp",
+      "entry timing",
+      "horizon",
+      "primary statistic",
+      "secondary/descriptive statistics",
+      "blocking / clustering unit",
+      "null / permutation mechanism",
+      "family-wide multiplicity treatment",
+      "promotion threshold"
+    ],
+    "then": "SYNTHETIC-Y SMOKE (validates plumbing; requires the statistical contract to already exist)",
+    "then_finally": "FIRST REAL Y"
+  },
+  "SEQUENCE": [
+    "MULTIPLICITY UNIVERSE FREEZE  <- THIS ARTIFACT",
+    "INFERENTIAL / Y PRESPEC FREEZE",
+    "SYNTHETIC-Y SMOKE",
+    "FIRST REAL Y"
+  ]
+}

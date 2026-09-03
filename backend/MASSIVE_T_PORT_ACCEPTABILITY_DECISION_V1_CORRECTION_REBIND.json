@@ -1,0 +1,189 @@
+{
+  "decision_id": "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1_CORRECTION_REBIND",
+  "status": "ACCEPT_FOR_REPLICATION_LIKE_SOURCE_PORT",
+  "verdict_computed_not_asserted": true,
+  "task_class": "ACCEPTABILITY_REBIND_ONLY",
+  "amends": {
+    "decision": "4c9b15eb8cfed786",
+    "amendment_1": "cdd94787f424b5cb",
+    "amendment_2": "e8908bdf5d5d8a23",
+    "disposition": "FROZEN — none edited"
+  },
+  "why_recomputed": "the earlier verdicts rested partly on limitations now known to be false",
+  "superseded_false_premises": [
+    {
+      "premise": "a legacy 15m materialized T population does not exist",
+      "verdict": "FALSE",
+      "now": "studio_15m.duckdb :: bars.t_sig, bar-grain, 12 labels"
+    },
+    {
+      "premise": "15m population equivalence is NOT_ESTIMABLE",
+      "verdict": "FALSE",
+      "now": "measured directly at 15m"
+    },
+    {
+      "premise": "15m source divergence is ~5.4461%",
+      "verdict": "WRONG_INPUT_SURFACE",
+      "now": "0.001341 on the true lean-base surface"
+    },
+    {
+      "premise": "an unexplained A<->B provenance residual sits under the port",
+      "verdict": "RESOLVED",
+      "now": "the residual was my wrong input surface; A==B is EXACT on qualified support"
+    }
+  ],
+  "direct_evidence": {
+    "materializer_writer_chain": [
+      "update_all.sh -> derive_intraday.py --tf 15m",
+      "derive_intraday reads studio_15m_base.duckdb (LEAN base); for 15m the resample is IDENTITY ('base IS 15m')",
+      "build_intraday_db._process",
+      "main.api_bar_signals(tk, tf=tf, bars=len(df), universe=u, _df=df)",
+      "compute_all_signals -> signal_engine.compute_signals",
+      "studio_15m.duckdb :: bars.t_sig"
+    ],
+    "A_equals_B": {
+      "qualified_support": 15659656,
+      "qualified_mismatches": 0,
+      "raw_support": 15659659,
+      "raw_mismatches": 3,
+      "conformance": "EXACT"
+    },
+    "boundary_exclusion": {
+      "rows": 3,
+      "authority": "38e044124d4f21ad",
+      "causal_not_blacklist": true
+    },
+    "source_port_divergence": {
+      "support": 9339483,
+      "agreement": 0.998659,
+      "divergence": 0.001341
+    },
+    "registered_pair_portability": {
+      "M1+M2": 0.995785,
+      "M2+M3": 0.997912,
+      "M3+M4": 0.998197
+    },
+    "by_position": {
+      "M1": 0.996086,
+      "M2": 0.998234,
+      "M3": 0.99856,
+      "M4": 0.998505,
+      "SESSION_FINAL": 0.998671,
+      "OTHER": 0.998828
+    },
+    "layer_1": "EXACT",
+    "production_verified": true
+  },
+  "hard_requirements": [
+    {
+      "requirement": "canonical 15m materializer writer chain resolved",
+      "met": true
+    },
+    {
+      "requirement": "true historical input surface resolved",
+      "met": true
+    },
+    {
+      "requirement": "A==B EXACT on qualified materializer support",
+      "met": true
+    },
+    {
+      "requirement": "every raw deviation has a sealed structural authority",
+      "met": true
+    },
+    {
+      "requirement": "the boundary deviation is explained mechanistically",
+      "met": true
+    },
+    {
+      "requirement": "A<->C and B<->C are row-identical, as A==B requires",
+      "met": true
+    },
+    {
+      "requirement": "same-engine legacy<->Massive divergence measured at 15m",
+      "met": true
+    },
+    {
+      "requirement": "registered position-pair portability measured",
+      "met": true
+    },
+    {
+      "requirement": "evidence surface enumeration complete",
+      "met": true
+    },
+    {
+      "requirement": "Layer 1 same-input semantics EXACT",
+      "met": true
+    },
+    {
+      "requirement": "port hash unchanged",
+      "met": true
+    },
+    {
+      "requirement": "canonical config unchanged",
+      "met": true
+    },
+    {
+      "requirement": "Massive production independently verified",
+      "met": true
+    },
+    {
+      "requirement": "no label corrected toward legacy",
+      "met": true
+    },
+    {
+      "requirement": "no parameter fitted from conformance",
+      "met": true
+    },
+    {
+      "requirement": "Y_EXPOSED = 0",
+      "met": true
+    }
+  ],
+  "all_met": true,
+  "allowed_claim": {
+    "text": "The Massive T port uses the same canonical 15m materializer semantics as the historical programme, verified EXACTLY against the historical materialized signal surface on its true input surface. On jointly usable legacy-versus-Massive support the resulting T-token population is highly portable, while remaining a source and cohort port rather than an identical historical-population reconstruction.",
+    "provenance": [
+      "PREVIOUSLY_EXPOSED_HYPOTHESIS",
+      "CURRENT_PRE_REGISTERED_SOURCE_PORT",
+      "REPLICATION_LIKE"
+    ]
+  },
+  "forbidden_claims": [
+    "NEW_DISCOVERY",
+    "INDEPENDENT_REPLICATION",
+    "SAME_MATERIALIZED_POPULATION",
+    "LEGACY_15M_POPULATION_REPRODUCED",
+    "FEED_EQUIVALENCE_PROVEN",
+    "identical historical population reconstruction",
+    "availability-semantic equivalence with the legacy blank representation"
+  ],
+  "accepted_object": {
+    "is_": "T_MASSIVE_PORT",
+    "is_not": "RECONSTRUCTED_LEGACY_15M_T",
+    "because": "the same canonical semantic program can produce different T labels when its X-side source representation differs; that is not automatically a defect"
+  },
+  "limitations_carried": {
+    "blank_semantics": "legacy '' means NO_MATERIALIZED_T_LABEL, never EVALUABLE_NO_T_STATE",
+    "population_equivalence": "portability is measured; identity is NOT claimed",
+    "live_store": "the legacy enriched store is written by a nightly pipeline, so its denominators drift between runs; the invariant held on both observed",
+    "boundary_rows": "3 legacy rows excluded from materializer conformance only — they remain in the Massive research population"
+  },
+  "production_disposition": {
+    "artifact": "MASSIVE_T_FEATURE_PRODUCTION_V1",
+    "digest": "ccdb0e35490794da",
+    "rebuild_required": false,
+    "status": "BYTE_VALID / SEMANTICALLY_VERIFIED",
+    "downstream_authorization": "RELEASED"
+  },
+  "authorizes": "MASSIVE_T1_DAILY_EPISODE_ANCHOR_PORT_V1 (C3)",
+  "does_not_authorize": [
+    "Z",
+    "the pre-Y analysis dictionary",
+    "Y exposure",
+    "reconstructing the historical candidate population"
+  ],
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-27 09:47 +04"
+}

@@ -1,0 +1,74 @@
+{
+  "spec_id": "SESSION_FILTER_UNIFICATION_AMENDMENT_V1",
+  "status": "FROZEN",
+  "amends": [
+    "ADJACENCY_REMEDIATION_V1",
+    "SESSION_VALIDITY_REMEDIATION_AMENDMENT_V1"
+  ],
+  "amends_digests": {
+    "adjacency": "eceb57488f51b983",
+    "session_validity": "ca4f746019d9b123"
+  },
+  "trigger": "the corrected T1 reconciliation showed 10 grammar-level membership changes and zero estimand-level changes; checking why exposed a THIRD session-completeness implementation — the estimand's own — which disagreed with the grammar's on 9 rows, all on 2022-06-10, and which happened to be right there",
+  "finding": {
+    "grammar_implementation": "modal over (session_date, ticker) sessions — family-local",
+    "estimand_implementation": "modal over ROWS grouped by session_date only — row-weighted",
+    "registered_rule": "modal bar count across ALL TICKERS that traded the date",
+    "rows_in_disagreement": 9,
+    "dates": [
+      "2022-06-10"
+    ],
+    "lesson": "a correct number from an unregistered implementation is not a correct implementation; the estimand's accidental correctness on that date is not evidence of compliance"
+  },
+  "registered_rule": {
+    "statement": "grammar eligibility and estimand membership eligibility MUST consume the SAME market-wide expected_bars(date) mapping",
+    "mapping": "SESSION_REFERENCE_UNIVERSE_V1 with SESSION_MODE_TIE_POLICY_V1",
+    "reference_universe": "4b6af06f107bb00c",
+    "tie_policy": "ee7e3d6fffa395a9"
+  },
+  "forbidden": [
+    "family-local modal in the grammar",
+    "row-weighted / session_date-only modal in the estimand",
+    "any independently recomputed expected session length",
+    "silent fallback to either legacy implementation",
+    "keeping a diagnostic mirror on the production evidence path"
+  ],
+  "architecture": {
+    "helper": "session_calendar.py",
+    "helper_digest": "2200ee09114c6d02",
+    "api": [
+      "expected_bars_by_date()",
+      "session_is_complete(frame)",
+      "complete_sessions(frame)"
+    ],
+    "consumed_identically_by": [
+      "t*_sequence_grammar.enumerate_grammar",
+      "t*_sequence_estimand.membership"
+    ],
+    "source": "def session_is_complete(frame: pd.DataFrame) -> pd.Series:\n    \"\"\"Boolean per row: does this row's session have exactly its scheduled bar count?\n\n    `frame` needs `session_date` and `bars_in_session`. No modal is computed here — the\n    expected length comes from the sealed market-wide mapping, so a family's own episode\n    mix cannot influence it.\n    \"\"\"\n    exp = frame[\"session_date\"].astype(str).map(expected_bars_by_date())\n    return frame[\"bars_in_session\"] == exp\n",
+    "guarantee": "both sides call one pure function over one sealed mapping, so a divergence is constructively impossible rather than merely absent"
+  },
+  "local_mirror_status": {
+    "role": "REFERENCE ORACLE / REGRESSION TEST",
+    "not_role": "PRODUCTION MEMBERSHIP IMPLEMENTATION",
+    "requirement": "production membership == independent reference mirror for EVERY supported syntactic name, not only the changed ones"
+  },
+  "required_closure": [
+    "1 grammar uses the shared expected_bars mapping",
+    "2 estimand uses the same mapping",
+    "3 expected_bars digest identical on both sides",
+    "4 active family-local modal code paths == 0",
+    "5 active row-weighted modal code paths == 0",
+    "6 production membership == independent reference mirror for every supported claim",
+    "7 re-run the T1 final-evidence identity reconciliation on the unified path",
+    "8 classify Branch A/B from FINAL EVIDENCE INPUTS, per the pre-frozen rule"
+  ],
+  "branch_classification_note": "the pre-frozen Branch A/B rule decides on evidence-bearing inputs — eligible population, blocks, final claim memberships, claim identities and order, k, outcome sidecar — not on an upstream intermediate artifact. T1's branch is therefore NOT pre-assigned here; provenance will record the upstream grammar defect either way.",
+  "other_families": {
+    "scope": "T5 / T9 / T3 are not reopened; the shared refactor requires only a regression closure",
+    "requirement": "final memberships after the unified helper == sealed",
+    "if_exact": "their RETAINED status is unchanged; no new Z, theta or permutation"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "sealed_at": "2026-08-22 12:44 +04"
+}

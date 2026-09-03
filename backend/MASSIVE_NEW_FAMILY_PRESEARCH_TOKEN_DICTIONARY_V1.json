@@ -1,0 +1,183 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_TOKEN_DICTIONARY_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "binds": {
+    "x_surface": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1",
+    "digest": "e8016cb7c39a969d",
+    "closure": "MASSIVE_NEW_FAMILY_X_SURFACE_CLOSURE_V1",
+    "closure_digest": "228c9ceae10bd0cc"
+  },
+  "BASE_TOKEN_COUNT": {
+    "boolean": 60,
+    "categorical": 63,
+    "numeric": 0,
+    "total": 123
+  },
+  "GRAMMAR_RULES": {
+    "boolean": {
+      "searchable": "feature == TRUE",
+      "negation": "NOT SEARCHABLE",
+      "rationale": "the dictionary grammar is restricted A PRIORI to positive event/state tokens. This is a grammar restriction, NOT an inference from observed base rates — no support distribution was consulted.",
+      "future": "a specific negation, if ever wanted, enters as a SEPARATELY REGISTERED hypothesis with its own provenance; it is never added silently to this frozen family"
+    },
+    "categorical": {
+      "searchable": "feature == VALUE",
+      "negation": "NOT SEARCHABLE",
+      "rationale": "categorical token grammar = EQUALITY ONLY",
+      "wording_note": "no claim is made that '!= VALUE' is expressible via a union grammar; no disjunctive-union grammar is frozen"
+    },
+    "numeric": {
+      "rsi_14": {
+        "TYPE": "NUMERIC",
+        "TOKENIZATION": "NONE",
+        "SEARCHABLE_IN_V1": "NO",
+        "explicitly_forbidden": [
+          "RSI < 30",
+          "RSI > 70",
+          "quartiles",
+          "deciles",
+          "custom bins"
+        ],
+        "condition": "admissible only if separately registered by its own pre-Y prespec"
+      }
+    },
+    "position": {
+      "in_token": "NO",
+      "tokens_are": "POSITION-AGNOSTIC",
+      "example": {
+        "TOKEN": "sig_buy",
+        "CLAIMS": [
+          "sig_buy @ M1",
+          "sig_buy @ M2",
+          "sig_buy @ M3",
+          "sig_buy @ M4"
+        ]
+      },
+      "where_multiplicity_is_counted": "the claim/search universe, not the dictionary"
+    }
+  },
+  "SEMANTIC_VS_SUPPORT_EXCLUSION": {
+    "SEMANTIC_EXCLUSION": "the token does not belong to the hypothesis vocabulary at all",
+    "SUPPORT_EXCLUSION": "the token is semantically legitimate but may fail the support floor",
+    "why_the_line_matters": "a support floor would have removed the l_sig fallbacks for the WRONG reason, and the same error would pass unnoticed on a fallback that happened to be common",
+    "retained_pending_support_floor": {
+      "bar_gap_range==G2-C": 256,
+      "bar_gap_range==G3-C": 3,
+      "status": "LEGITIMATE categories, rarity is the support floor's business, NOT the dictionary's"
+    }
+  },
+  "LSIG_SEMANTIC_EXCLUSIONS": {
+    "legitimate_l_states": [
+      "L12",
+      "L2",
+      "L25",
+      "L3",
+      "L34",
+      "L4",
+      "L46",
+      "L5"
+    ],
+    "excluded": [
+      {
+        "source_feature": "l_sig",
+        "excluded_value": "<EMPTY>",
+        "observed_valid_rows": 12,
+        "reason": "NON_L_STATE_PRODUCER_FALLBACK",
+        "detail": "emitted by the priority-named fallback branch at main.py:5217-5240; not an L-state"
+      },
+      {
+        "source_feature": "l_sig",
+        "excluded_value": "BE_DN",
+        "observed_valid_rows": 2,
+        "reason": "NON_L_STATE_PRODUCER_FALLBACK",
+        "detail": "emitted by the priority-named fallback branch at main.py:5217-5240; not an L-state"
+      },
+      {
+        "source_feature": "l_sig",
+        "excluded_value": "BE_UP",
+        "observed_valid_rows": 2,
+        "reason": "NON_L_STATE_PRODUCER_FALLBACK",
+        "detail": "emitted by the priority-named fallback branch at main.py:5217-5240; not an L-state"
+      },
+      {
+        "source_feature": "l_sig",
+        "excluded_value": "FUCHSIA_RH",
+        "observed_valid_rows": 1,
+        "reason": "NON_L_STATE_PRODUCER_FALLBACK",
+        "detail": "emitted by the priority-named fallback branch at main.py:5217-5240; not an L-state"
+      },
+      {
+        "source_feature": "l_sig",
+        "excluded_value": "BX_DN",
+        "observed_valid_rows": 1,
+        "reason": "NON_L_STATE_PRODUCER_FALLBACK",
+        "detail": "emitted by the priority-named fallback branch at main.py:5217-5240; not an L-state"
+      },
+      {
+        "source_feature": "l_sig",
+        "excluded_value": "PRE_PUMP",
+        "observed_valid_rows": 1,
+        "reason": "NON_L_STATE_PRODUCER_FALLBACK",
+        "detail": "emitted by the priority-named fallback branch at main.py:5217-5240; not an L-state"
+      },
+      {
+        "source_feature": "l_sig",
+        "excluded_value": "BO_UP",
+        "observed_valid_rows": 1,
+        "reason": "NON_L_STATE_PRODUCER_FALLBACK",
+        "detail": "emitted by the priority-named fallback branch at main.py:5217-5240; not an L-state"
+      },
+      {
+        "source_feature": "l_sig",
+        "excluded_value": "CCI_READY",
+        "observed_valid_rows": 1,
+        "reason": "NON_L_STATE_PRODUCER_FALLBACK",
+        "detail": "emitted by the priority-named fallback branch at main.py:5217-5240; not an L-state"
+      }
+    ],
+    "excluded_total_valid_rows": 21,
+    "authority": "MASSIVE_NEW_FAMILY_LSIG_FALLBACK_RESEAL_V1 bc96d9184a18ca24"
+  },
+  "TOKEN_TABLE": {
+    "file": "TOKEN_DICTIONARY_123.json",
+    "digest": "299c963427568b49",
+    "entries": 123,
+    "fields": [
+      "token_id",
+      "source_feature",
+      "feature_type",
+      "operator",
+      "value",
+      "semantic_status",
+      "provenance_class",
+      "position_agnostic",
+      "negation_allowed"
+    ],
+    "purpose": "the 123 arithmetic is machine-readable and does not depend on prose"
+  },
+  "FROZEN_SEQUENCE": [
+    "123-token dictionary FREEZE  <- THIS ARTIFACT",
+    "PRESEARCH CLAIM GRAMMAR FREEZE (positions M1-M4, adjacent pairs, claim forms, no undeclared disjunction/negation)",
+    "X-only support census over the frozen grammar",
+    "support-floor freeze",
+    "apply floor",
+    "final searchable registry",
+    "k",
+    "multiplicity universe freeze"
+  ],
+  "ORDERING_GUARD": {
+    "rule": "position and pair grammar MUST be frozen BEFORE any support distribution is seen",
+    "threat_prevented": "deciding after seeing support that (say) M1 is wanted and M4 is not",
+    "note": "support floors may end up depending on CLAIM-level support, so the claim grammar cannot be deferred to k-computation time"
+  },
+  "NOT_STARTED": [
+    "claim grammar",
+    "support census",
+    "support floor",
+    "searchable registry",
+    "k",
+    "multiplicity universe"
+  ]
+}

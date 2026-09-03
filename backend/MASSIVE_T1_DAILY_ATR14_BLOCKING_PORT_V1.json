@@ -1,0 +1,83 @@
+{
+  "report_id": "MASSIVE_T1_DAILY_ATR14_BLOCKING_PORT_V1",
+  "status": "MASSIVE_T1_DAILY_ATR14_BLOCKING_PORT_V1_PASS",
+  "task_class": "X_ONLY_BLOCKING_PORT",
+  "bindings": {
+    "MASSIVE_T1_DAILY_EPISODE_ANCHOR_PORT_V1.json": "26e7eda6ffd22a95",
+    "MASSIVE_T1_OPENING_HOUR_SUPPORT_MAP_V1.json": "c47f6decfd4cd7af",
+    "MASSIVE_T1_HISTORICAL_EPISODE_POPULATION_PRESERVATION_V1.json": "4a19b83f40adc6cc",
+    "MASSIVE_T_PRE_Y_ANALYSIS_DICTIONARY_V1.json": "a5a5c5d1b97fa94d"
+  },
+  "atr_definition": {
+    "recovered_from": "studio/enricher.py::_compute_atr14",
+    "assumed": false,
+    "tr": "max(|h-l|, |h-pc|, |l-pc|)",
+    "smoothing": "tr.ewm(alpha=1/14, adjust=False).mean()  [Wilder RMA]",
+    "initialization": "NO min_periods — available from bar 0 using just h-l",
+    "note": "atr_14 is NOT a CSV column; it was computed at enrichment time from the OHLC already stored, so unlike t_sig its input surface IS preserved"
+  },
+  "same_input_conformance": {
+    "compared_bars": 102164,
+    "exact": 102164,
+    "rate": 1.0,
+    "max_abs_difference": 0.0,
+    "verdict": "EXACT",
+    "why_testable_here": "the input surface is preserved, unlike the daily t_sig case"
+  },
+  "block_assignment_conformance": {
+    "authority": "preserved 15m estimand population (t1_15m_population.parquet)",
+    "compared": 157038,
+    "exact_matches": 157038,
+    "rate": 1.0,
+    "verdict": "EXACT",
+    "why_this_is_the_strongest_check": "numeric agreement on a derived quantity would not prove the downstream structure survived; the stored block column does",
+    "tolerance_invented": false
+  },
+  "massive_port": {
+    "rule_unchanged": true,
+    "anchor_point": "T-2 (second most recent COMPLETE session strictly before D)",
+    "liquidity": "median(close*volume) over 20 rows",
+    "volatility": "atr_14 / close",
+    "split": "median split by rank WITHIN each decision date",
+    "block_key": "session_date | liq_half | vol_half",
+    "no_massive_specific_requantisation": true,
+    "anchors_in": 8588,
+    "anchors_with_block": 8339,
+    "dropped_no_T2_anchor_or_n20": 249,
+    "blocks": 3410,
+    "median_block_size": 2.0,
+    "max_block_size": 19
+  },
+  "left_to_D": {
+    "item": "path_status_10d == AVAILABLE population filter",
+    "why": "it is an outcome AVAILABILITY status — permitted pre-Y as a status, but it requires forward bars to determine maturity",
+    "belongs_to": "MASSIVE_T_PRE_Y_ANALYSIS_DICTIONARY_V1",
+    "this_gate_does_not": "finalise the estimand population"
+  },
+  "resolves_blocker": {
+    "dictionary": "MASSIVE_T_PRE_Y_ANALYSIS_DICTIONARY_V1",
+    "digest": "a5a5c5d1b97fa94d",
+    "blocker": "BLOCKING_VARIABLE_NOT_PORTABLE",
+    "resolved": true
+  },
+  "remaining_blocker": "CLAIM_LAYER_ABSENT_ON_MASSIVE (E2)",
+  "output": {
+    "path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_t1_blocking_v1/blocking.parquet",
+    "rows": 8339,
+    "digest": "5e636340af20f7e9",
+    "schema": [
+      "security_key_v1",
+      "session_date",
+      "liq_anchor",
+      "vol_anchor",
+      "n20",
+      "liq_half",
+      "vol_half",
+      "block"
+    ]
+  },
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 14.5,
+  "sealed_at": "2026-08-27 11:47 +04"
+}

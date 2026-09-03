@@ -1,0 +1,23 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V2_AMENDMENT_1",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V2",
+    "parent_digest": "324690afd38e3ffb",
+    "parent_not_rewritten": true,
+    "nature": "WORDING CORRECTION, made BEFORE any result was read"
+  },
+  "Y_EXPOSED": 1,
+  "results_read_at_time_of_this_amendment": false,
+  "RETRACTED_WORDING": "'every digest changed -> the 0.32% contamination really changed the null'",
+  "WHY": "a digest change proves BYTE-LEVEL NON-IDENTITY. It says nothing about the magnitude or the practical materiality of the difference, and it conflates two separate corrections.",
+  "CORRECT_ATTRIBUTION": {
+    "c_s": "changed because of the corrected DEV-only permutation null",
+    "M_b": "same cause",
+    "p_adj": "same cause",
+    "T_obs": "theta_obs itself was CLEAN (identity map); T_obs changed because it is studentised by the NEW c_j / s_j",
+    "CI_lo_CI_hi": "changed because of the SEPARATE CI-universe correction (1,254 -> frozen DEV 1,242), NOT as a direct consequence of the permutation contamination"
+  },
+  "CANONICAL_STATEMENT": "CORRECTED SCOPE PRODUCED DIFFERENT SEALED ARTIFACTS. DIGEST CHANGES PROVE NON-IDENTITY, NOT THE MAGNITUDE OR PRACTICAL MATERIALITY OF THE DIFFERENCE.",
+  "changes_nothing_in_inference": true
+}

@@ -1,0 +1,42 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1_AMENDMENT_2",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1_AMENDMENT_1",
+    "parent_digest": "1568b798a0a8aed5",
+    "parent_not_rewritten": true
+  },
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "PERMUTATION_AND_MAX_STAT": {
+    "disposition": "INHERITED UNCHANGED — not re-run",
+    "reason": "the defect was confined to the CI bootstrap primitive; the permutation map, studentization, max-stat aggregation and p-value path never call it"
+  },
+  "OUTCOME_BUILDER": {
+    "disposition": "INHERITED UNCHANGED",
+    "reason": "unaffected by the CI primitive"
+  },
+  "TWO_WAY_CI": {
+    "disposition": "REQUALIFIED UNDER WEIGHTED_MEDIAN_V2",
+    "previous_status": "the parent's 'TWO_WAY_CI_PLUMBING PASS' was obtained on the DEFECTIVE lower-weighted-median primitive and is SUPERSEDED",
+    "requalification_result": "11 / 11 PASS",
+    "checks": [
+      "security and date multiplicities generated independently",
+      "product weights integer-valued",
+      "CI_STABILITY_GATE 20/20 defined",
+      "theta* finite on every defined draw",
+      "95% percentile interval computes",
+      "CI draw deterministic",
+      "security-only weights REJECTED by TWO_WAY_CLUSTER_GUARD",
+      "canonical two-way weights ACCEPTED",
+      "all-zero weights -> EMPTY_EFFECTIVE_GROUP",
+      "empty group -> BOOTSTRAP_SUPPORT_UNSTABLE path"
+    ],
+    "context": "~36% of securities and ~36% of dates draw multiplicity 0, so the V2 zero-weight handling is exercised on the majority of rows"
+  },
+  "SCOPE_NOTE": {
+    "what_this_amendment_does_NOT_claim": "a full REFERENCE == FAST CI equivalence over all 20,751 claims",
+    "that_belongs_to": "EXACT_FAST_KERNEL_QUALIFICATION_V1, where the fast CI kernel is compared against the reference on B_CI_SMOKE = 20 draws"
+  },
+  "STATUS": "SYNTHETIC_PIPELINE_REQUALIFIED_UNDER_TIME_LOCAL_NULL_AND_WEIGHTED_MEDIAN_V2"
+}

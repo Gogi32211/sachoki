@@ -1,0 +1,85 @@
+{
+  "amendment_id": "MASSIVE_1M_DATA_CONTRACT_AMENDMENT_V1",
+  "status": "FROZEN BEFORE ANY MASSIVE INGESTION",
+  "reason": "distinguish STRUCTURAL_NO_TRADE from UNOBSERVED source absence",
+  "amends": {
+    "artifact": "MASSIVE_1M_STATE_TRANSITION_V1.json",
+    "digest": "d73a88d836f36eea",
+    "clause": "aggregation_contract.sparse_minutes.volume_rule",
+    "original_wording": "an absent minute means ZERO volume, not missing volume",
+    "defect": "true only when the minute was a real trading minute, the security was eligible, and source coverage is proven complete. Applied unconditionally it converts vendor outages, pagination gaps and coverage holes into measured zeros.",
+    "charter_not_rewritten": "the charter remains sealed at its own digest with its original text; this artifact narrows the clause"
+  },
+  "states": {
+    "OBSERVED": {
+      "definition": "a vendor bar exists for the minute",
+      "values": "as returned by the vendor",
+      "enters_rvol_baseline": true
+    },
+    "STRUCTURAL_NO_TRADE": {
+      "definition": "an expected trading minute in which the security was eligible, the covering source interval is proven complete, and no bar was legitimately emitted because nothing traded",
+      "preconditions_ALL_REQUIRED": [
+        "the minute lies inside a session per the SEALED exchange calendar, accounting for holidays and early closes",
+        "the security was index-eligible on that date per the PIT universe contract",
+        "the source interval covering the minute PASSED the pagination completeness gate (strict monotonicity, zero duplicates, zero page-boundary gaps, deterministic replay)",
+        "no trading halt covering the minute is recorded",
+        "the vendor emitted no bar"
+      ],
+      "values": {
+        "volume": 0,
+        "transaction_count": 0,
+        "price": "NULL",
+        "vwap": "NULL"
+      },
+      "forward_fill": "NEVER — the absence of a trade is not the persistence of a price",
+      "enters_rvol_baseline": true,
+      "note": "this is a real observation whose value is zero"
+    },
+    "UNOBSERVED": {
+      "definition": "any STRUCTURAL_NO_TRADE precondition is unproven",
+      "triggers": [
+        "coverage incomplete",
+        "pagination boundary uncertain",
+        "vendor gap or outage",
+        "eligibility uncertain",
+        "source unavailable",
+        "exchange calendar unresolved for the date",
+        "halt status unknown"
+      ],
+      "values": {
+        "volume": "INVALID/UNAVAILABLE",
+        "transaction_count": "INVALID/UNAVAILABLE",
+        "price": "NULL",
+        "vwap": "NULL"
+      },
+      "explicitly_not_zero": "an UNOBSERVED minute is NEVER coerced to zero volume, in storage, in aggregation, or in any feature",
+      "enters_rvol_baseline": false,
+      "note": "this is the absence of an observation, not an observation"
+    }
+  },
+  "default_state": {
+    "rule": "UNOBSERVED is the DEFAULT for any absent minute",
+    "promotion": "a minute is promoted to STRUCTURAL_NO_TRADE only when every precondition is affirmatively demonstrated",
+    "why": "the burden of proof runs toward the conservative state. A pipeline that defaults to zero and downgrades on discovered problems will silently record zeros for every problem it never discovered."
+  },
+  "propagation": {
+    "rule": "a coarser bar (15m/1H/1D) whose window contains ANY UNOBSERVED minute is flagged UNOBSERVED_CONTAMINATED and carries the count of such minutes",
+    "why": "summing volume over a window with unobserved minutes understates it, and the understatement is invisible in the result",
+    "usage": "a contaminated bar is not silently dropped and not silently used; each study declares its own tolerance, and the declaration is part of that study's specification",
+    "vwap": "a window whose observed volume is 0 has NULL vwap regardless of whether the zero is structural or contaminated"
+  },
+  "rvol_consequence": {
+    "slot_rvol": "the per-slot baseline is computed over OBSERVED and STRUCTURAL_NO_TRADE minutes only; UNOBSERVED minutes are excluded from both numerator and denominator",
+    "cum_rvol": "a cumulative curve crossing an UNOBSERVED minute is flagged from that point forward for that session",
+    "reported": "every RVOL-family feature reports the count of excluded UNOBSERVED minutes alongside its value"
+  },
+  "assert_contract_additions": [
+    "every stored minute carries an explicit availability state from the three above; a null or missing state is a fatal ingestion error",
+    "no row may carry availability=STRUCTURAL_NO_TRADE together with a non-null price or a non-zero volume",
+    "no row may carry availability=UNOBSERVED together with any numeric volume, including zero",
+    "a STRUCTURAL_NO_TRADE row must reference the completeness-gate result that licensed its promotion"
+  ],
+  "outcome_exposure": "NOT_EXPOSED",
+  "authorises": "nothing — this narrows a definition and starts no download",
+  "sealed_at": "2026-08-24 22:17 +04"
+}

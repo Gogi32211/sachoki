@@ -1,0 +1,76 @@
+{
+  "report_id": "MASSIVE_T_LEGACY_15M_OHLC_VINTAGE_DIAGNOSTIC_V1",
+  "status": "UNRESOLVED",
+  "task_class": "X_ONLY_PROVENANCE_ATTRIBUTION_DIAGNOSTIC",
+  "hypothesis": "the legacy 15m OHLC was revised AFTER t_sig was materialized, which is why the canonical engine on the store's current OHLC reproduces that store's own labels worse than the Massive feed does",
+  "purpose": "attribution — explicitly NOT selecting the best-matching feed for research",
+  "candidates_frozen_before_measurement": {
+    "V_CURRENT": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_15m.duckdb",
+    "V_ARCHIVE_20260824": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_15m.duckdb",
+    "V_MASSIVE": "reference source-port, not a legacy-vintage candidate",
+    "enumerated_from": "MASSIVE_T_LEGACY_DATA_SURFACE_INVENTORY_V1 (enumeration complete)",
+    "forbidden": "sweeping vintages and keeping whichever best matches A — that is fitting dressed as provenance"
+  },
+  "sample": {
+    "securities": 60,
+    "stride": 8,
+    "cap": 60,
+    "deterministic": true,
+    "why_sampled": "row-level intersection needs full per-security history",
+    "declared": true
+  },
+  "label_surface": {
+    "common_bars": 1890015,
+    "identical": 1890015,
+    "stability": 1.0,
+    "reading": "LABEL_SURFACE_STABLE"
+  },
+  "ohlc_surface": {
+    "common_bars": 1890015,
+    "identical": 1890015,
+    "stability": 1.0,
+    "reading": "OHLC_SURFACE_STABLE"
+  },
+  "engine_vs_materialized": {
+    "A_vs_engine_on_CURRENT_ohlc": 0.960841,
+    "A_vs_engine_on_ARCHIVED_ohlc": 0.960841,
+    "archive_reproduces_better": false,
+    "A_vs_massive": 0.797162,
+    "bars": 1890015
+  },
+  "row_level_coincidence": {
+    "ab_mismatch_rows": 74012,
+    "ohlc_changed_rows": 0,
+    "mismatch_AND_changed": 0,
+    "mismatch_NOT_changed": 74012,
+    "changed_NOT_mismatch": 0,
+    "share_of_mismatches_on_changed_rows": 0.0,
+    "why_it_matters": "if the mirror lived only in aggregate counts it would be weak evidence; the same ROWS moving is what carries weight"
+  },
+  "verdict": {
+    "status": "UNRESOLVED",
+    "criteria": {
+      "label_surface_stable": true,
+      "ohlc_surface_changed": false,
+      "archive_reproduces_A_better": false,
+      "majority_of_mismatches_on_changed_rows": false
+    },
+    "if_unresolved_alternatives": [
+      "the historical producer consumed a different upstream feed vintage",
+      "the historical materializer read a different OHLC surface entirely",
+      "engine provenance differs in part",
+      "rounding / corporate-action adjustment semantics",
+      "a source transform not yet identified"
+    ],
+    "not_chosen_on": "the elegance of the mirror pattern"
+  },
+  "does_not_authorize": [
+    "selecting a legacy feed for research use",
+    "correcting Massive labels toward any legacy vintage",
+    "treating any vintage as the canonical X source"
+  ],
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 4.0,
+  "sealed_at": "2026-08-26 23:48 +04"
+}

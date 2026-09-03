@@ -1,0 +1,129 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PROMOTED_STRUCTURE_CENSUS_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 1,
+  "SCIENTIFIC_RESULTS_READ": 1,
+  "class": "POST-Y DESCRIPTIVE REDUNDANCY CENSUS — NO hypothesis testing, NO new significance, NO p-value recomputation",
+  "parent": {
+    "set": "MASSIVE_NEW_FAMILY_PROMOTED_SET_V1",
+    "digest": "5893f9d0f5be4dbb",
+    "membership_digest": "f4baf91ab0a063c8"
+  },
+  "POSITION": {
+    "M1->M2": {
+      "promoted": 252,
+      "k": 6996,
+      "rate_pct": 3.6
+    },
+    "M2->M3": {
+      "promoted": 238,
+      "k": 6838,
+      "rate_pct": 3.48
+    },
+    "M3->M4": {
+      "promoted": 242,
+      "k": 6917,
+      "rate_pct": 3.5
+    },
+    "finding": "NO position specialisation — the three promotion rates are statistically indistinguishable by inspection and no test was run"
+  },
+  "HUB_LIFT_anywhere": {
+    "vol_bucket==VB": 18.12,
+    "vol_bucket==B": 9.96,
+    "bar_gap_range==V": 8.21,
+    "sig_vol_5x(feature)": 8.57,
+    "vol_bucket(feature)": 6.25,
+    "sig_va(feature)": 3.89,
+    "vol_bucket==N": 3.53,
+    "bar_gap_range(feature)": 2.58,
+    "l43(feature)": 1.93,
+    "everything_else": "~1.0 or BELOW 1.0"
+  },
+  "DEPLETION": {
+    "statement": "the entire sig_* T/Z/D/P signal family is DEPLETED among promoted claims (lift 0.06-0.6), with the sole exceptions of sig_va and sig_vol_5x, which are themselves VOLUME constructs",
+    "zero_promoted_features": 17
+  },
+  "VOL_STRATIFICATION": {
+    "promotion_rate_given_vol_bucket_VB_pct": 63.58,
+    "promotion_rate_given_no_vol_bucket_token_pct": 1.46,
+    "ratio": 43.5,
+    "claims_with_no_vol_bucket": 272
+  },
+  "GRAPH": {
+    "nodes": 86,
+    "edges": 732,
+    "connected_components": 1,
+    "per_position_components": {
+      "M1->M2": 1,
+      "M2->M3": 1,
+      "M3->M4": 1
+    },
+    "components_after_deleting_all_vol_bucket_nodes": 1,
+    "FINDING": "COMPONENT COUNT IS UNINFORMATIVE HERE. The promoted graph is a single connected component in every slice, including after the vol_bucket hub is deleted. Connected components DO NOT partition this family and must not be reported as a count of motifs.",
+    "top_degree": {
+      "vol_bucket==VB": 216,
+      "vol_bucket==B": 189,
+      "bar_gap_range==V": 175
+    }
+  },
+  "REDUNDANCY": {
+    "exact_identical_positive_masks": 0,
+    "distinct_positive_masks": 732,
+    "distinct_evaluable_pools": 25,
+    "largest_pool_shared_by": 188,
+    "jaccard_median": 0.00812,
+    "jaccard_mean": 0.02218,
+    "pairs_jaccard_gt_0": "79.4%",
+    "pairs_jaccard_ge_0.5": 226,
+    "pairs_full_containment": 527,
+    "single_linkage_clusters": {
+      "J>=0.25": 173,
+      "J>=0.50": 560,
+      "J>=0.75": 710
+    },
+    "episode_coverage": {
+      "distinct_DEV_episodes_touched": 180732,
+      "Y_available_DEV_episodes": 193305,
+      "pct": 93.5,
+      "mean_promoted_claims_per_touched_episode": 28.8
+    },
+    "GOVERNANCE": "cluster count != independent discoveries != a new k != permission to collapse p-values"
+  },
+  "HUB_PEELING": {
+    "contains_vol_bucket": {
+      "promoted": 460,
+      "k": 2125,
+      "rate_pct": 21.65
+    },
+    "+bar_gap_range": {
+      "promoted": 631,
+      "k": 4175,
+      "rate_pct": 15.11
+    },
+    "+sig_va": {
+      "promoted": 667,
+      "k": 4490,
+      "rate_pct": 14.86
+    },
+    "+sig_vol_5x": {
+      "promoted": 676,
+      "k": 4522,
+      "rate_pct": 14.95
+    },
+    "residual": {
+      "promoted": 56,
+      "k": 16229,
+      "rate_pct": 0.35,
+      "vs_family_baseline_3.53": "BELOW baseline by 10x",
+      "structure": "42 of the 56 have l_sig==L3 (26) or l_sig==L46 (16) fixed on the A side; ALL 56 are M1->M2",
+      "reading": "the residual is not a second independent family, it is one further STAR centred on the L3/L46 opening volume-line state"
+    }
+  },
+  "ADMISSIBLE_SUMMARY": "the promoted set is dominated by a small number of high-degree VOLUME-STATE hubs, plus one gap-range hub and one L3/L46 star. 732 promoted claims describe far fewer than 732 distinct structural motifs, and collectively touch 93.5% of the evaluable DEV population.",
+  "FORBIDDEN": [
+    "treating any hub as 'the discovery' without forward confirmation",
+    "treating cluster or component counts as an effective number of tests",
+    "raising B_NULL now to rank the 265 floor-bound claims",
+    "any directional, profitability or tradability reading"
+  ]
+}

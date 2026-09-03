@@ -1,0 +1,168 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_SIG_TZ_FLIP_STATE_AUTHORITY_V1",
+  "status": "FROZEN",
+  "rows_written": 0,
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "VERDICT_FORM": {
+    "STATE_CLASS": "FINITE_PERSISTENT_STATE",
+    "STATE_DOMAIN": 6,
+    "FIXED_FIRST_VALID_AGE": "NOT_APPLICABLE",
+    "POST_GAP_RECOVERY": "EVENT_ANCHORED",
+    "LEVEL_RECOVERY": "first bar where a setter is PROVEN TRUE with all higher-priority setters PROVEN FALSE",
+    "TRANSITION_RECOVERY": "requires bull_dom identifiable AND the prev-state 3/non-3 PARTITION identifiable — strictly weaker than full LEVEL identifiability"
+  },
+  "SOURCE_BINDING": {
+    "file": "combo_engine.py",
+    "lines": "283-292",
+    "method": "AST",
+    "machine": {
+      "domain": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "priority_chain": [
+        [
+          "bull_dom",
+          3
+        ],
+        [
+          "bear_dom",
+          0
+        ],
+        [
+          "bull_att",
+          2
+        ],
+        [
+          "bear_att",
+          5
+        ],
+        [
+          "bear_weak",
+          1
+        ],
+        [
+          "bull_weak",
+          4
+        ]
+      ],
+      "default": "carry previous state (UNBOUNDED)"
+    },
+    "HEAD_SEED": {
+      "source": "st = np.zeros(n)",
+      "value": 0,
+      "loop_start": "range(1, n)",
+      "consequence": "st[0] = 0 UNCONDITIONALLY; bar-0 predicates are NEVER consulted",
+      "flip_at_bar0": "tz_state_prev = shift(1, fill_value=0) -> flip[0] = (0==3)&(0!=3) = FALSE, deterministic",
+      "AMBIGUITY_NOTE": "seed value 0 is ALSO the bear_dom setter value, so a head state of 0 is indistinguishable from a genuine bear_dom collapse"
+    }
+  },
+  "PRIORITY_IS_LOAD_BEARING": {
+    "mutual_exclusivity": "REFUTED",
+    "evidence_bars": 143132,
+    "co_firing_pairs": {
+      "bull_dom+bull_att": 8153,
+      "bear_dom+bear_att": 7505,
+      "bull_att+bear_weak": 2578,
+      "bear_att+bull_weak": 2325
+    },
+    "containments_proven": [
+      "bull_dom SUBSET bull_att (8,153 = 8,153)",
+      "bear_dom SUBSET bear_att (7,505 = 7,505)"
+    ],
+    "consequence": "the canonical branch ORDER must be reproduced exactly; assuming exclusivity would misassign state on 20,561 of 143,132 bars"
+  },
+  "FLIP_IDENTITY": {
+    "statement": "sig_tz_flip == bull_dom AND (prev_state != 3)",
+    "derivation": "curr==3 arises only from bull_dom firing, or from carrying a prev of 3. On a carry bar curr==p, so flip=(p==3)&(p!=3)=FALSE always. Hence a flip REQUIRES bull_dom.",
+    "verification": {
+      "bars": "randomized brute force",
+      "mismatches": 0,
+      "true_flips_observed": 4609
+    },
+    "consequence": "identifiability needs only the 3/non-3 PARTITION of the prior state, not the full state"
+  },
+  "LEVEL_VS_TRANSITION": {
+    "rule": "LEVEL VALID != TRANSITION VALID",
+    "asymmetry_runs_BOTH_ways": true,
+    "case_level_valid_transition_init": "F3: prev={1,3}, bull_dom TRUE -> state collapses to singleton {3} (LEVEL VALID) but flip is {TRUE,FALSE} (TRANSITION INIT)",
+    "case_level_init_transition_valid": "F6a: prev={3}, bar UNOBSERVED -> state branches to all 6 (LEVEL INIT) but flip is VALID FALSE, because p==3 makes a flip impossible regardless",
+    "why_it_matters": "neither can be derived from the other; both must be tracked separately"
+  },
+  "REACHABLE_STATE_ENGINE": {
+    "knowledge_domain": "per-setter {TRUE, FALSE, UNKNOWN}",
+    "enumeration": "priority chain; a setter that MAY fire branches BOTH ways",
+    "flip_computation": "on the (prev, curr) PAIR — never from the two sets independently",
+    "classification": {
+      "{False}": "AVAILABLE_VALID 0",
+      "{True}": "AVAILABLE_VALID 1",
+      "{False,True}": "INITIALIZATION_SENSITIVE"
+    },
+    "UNOBSERVED_BAR": {
+      "knowledge": "all six setters UNKNOWN",
+      "FORBIDDEN": "coercing an unobserved bar to the carry branch",
+      "measured_result": "reachable set becomes {0,1,2,3,4,5} after one unobserved bar — measured, not assumed"
+    }
+  },
+  "GATES": {
+    "REDUCTION_to_canonical_loop": {
+      "bars": 34198,
+      "state_mismatches": 0,
+      "flip_mismatches": 0,
+      "verdict": "PASS"
+    },
+    "FLIP_IDENTITY": {
+      "mismatches": 0,
+      "verdict": "PASS"
+    },
+    "FIXTURES": {
+      "F1_known_prev3_bulldom": "S={3} flip VALID 0  PASS",
+      "F2_known_prev1_bulldom": "S={3} flip VALID 1  PASS",
+      "F3_prev_1or3_bulldom": "S={3} flip INIT  PASS",
+      "F4_prev_ALL_beardom": "S={0} flip VALID 0  PASS",
+      "F5_prev_ALL_no_setter": "S=ALL flip VALID 0  PASS (expectation CORRECTED: a carry bar can never flip)",
+      "F6a_prev3_unobserved": "flip VALID 0  PASS",
+      "F6b_prev1_unobserved": "flip INIT  PASS",
+      "F7_gap_then_beardom": "bar0 head VALID 0 / GAP INIT / bear_dom S={0} VALID 0 / carry VALID 0  PASS",
+      "F8_priority_collision": "bull_dom+bull_att -> {3} not {2}; bull_att+bear_weak -> {2}  PASS"
+    }
+  },
+  "CORRECTIONS_MADE": [
+    {
+      "defect": "engine passed bar 0 through the transition machine",
+      "impact": "779 reduction mismatches",
+      "fix": "bar 0 is head-seeded S={0}, flip FALSE; predicates consumed from bar 1"
+    },
+    {
+      "defect": "my F5 expectation said INIT",
+      "reality": "VALID FALSE — engine was right, expectation was wrong"
+    },
+    {
+      "defect": "my F6a expectation implied INIT",
+      "reality": "VALID FALSE — p==3 makes a flip impossible regardless of the gap"
+    }
+  ],
+  "PREDICATE_AVAILABILITY_LAYER": {
+    "principle": "predicate UNKNOWN != predicate FALSE; a setter whose dependencies are not identifiable is UNKNOWN and MUST branch",
+    "per_setter_binding_depth_from_source": {
+      "bull_dom": "ema50 (50) | ema20 | swHigh=high.shift(1).rolling(10) | rolling(7) | rolling(3) | compute_signals -> MAX 50",
+      "bear_dom": "ema50 (50) | ema20 | swLow  | rolling(7) | rolling(3) -> MAX 50",
+      "bull_att": "ema20 (20) | rolling(3) -> MAX 20",
+      "bear_att": "ema20 (20) | rolling(3) -> MAX 20",
+      "bear_weak": "rolling(7) | rolling(3), NO EMA -> MAX 7",
+      "bull_weak": "rolling(7) | rolling(3), NO EMA -> MAX 7"
+    },
+    "EMA_convention": "inherited from the frozen EMA validity convention (period p -> first valid age p)",
+    "IMPORTANT_CONSEQUENCE": "the six setters have DIFFERENT depth floors (7 / 20 / 50). Between ages 7 and 50 the knowledge vector is PARTIALLY known — some setters proven, others UNKNOWN. The engine supports this natively, so no separate contract is needed; but a single scalar 'first valid age' for sig_tz_flip does NOT exist."
+  },
+  "SUPERSEDES": {
+    "claim": "sig_tz_flip first VALID age = 11",
+    "status": "REFUTED",
+    "why": "inferred from the visible rolling windows; the unbounded carry at combo_engine.py:292 makes any fixed depth wrong"
+  }
+}

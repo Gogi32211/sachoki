@@ -1,0 +1,122 @@
+{
+  "spec_id": "GANN_INFERENCE_AMENDMENT_V1",
+  "status": "FROZEN",
+  "amends": [
+    "GANN_PHASE_NULL_V1",
+    "GANN_CAPABILITY_PROTOCOL_V1"
+  ],
+  "frozen_before": "the first GANN outcome read",
+  "trigger": {
+    "finding": "phi = 0 is structurally non-exchangeable with uniform shifted phases in event geometry",
+    "evidence": {
+      "ASC.events": {
+        "observed": 143784,
+        "null_max": 141810,
+        "percentile": 1.0
+      },
+      "CONF.events": {
+        "observed": 109229,
+        "null_max": 105591,
+        "percentile": 1.0
+      },
+      "CONF.directional_valid": {
+        "observed": 81769,
+        "null_max": 79850,
+        "percentile": 1.0
+      }
+    },
+    "reading": "the anchored lattice touches more often than every one of the 999 shifted worlds; blocks control part of that difference but do not establish exchangeability"
+  },
+  "gate_A": {
+    "name": "PRIMARY INFERENTIAL NULL — outcome permutation",
+    "memberships": "the frozen phi = 0 X memberships, unchanged",
+    "unit": "the direction-neutral PAIR (MFE_LONG_10D, MFE_SHORT_10D) permuted jointly",
+    "blocks": [
+      "decision_date",
+      "pre_liquidity",
+      "pre_volatility"
+    ],
+    "direction_not_a_block": "direction is derived from X, so it must not be a permutation dimension; it stays a block of the comparison",
+    "per_permutation": "select LONG/SHORT by the frozen phi = 0 X direction, compute all three registered Z_rank statistics, persist maxZ_perm = max(Z_ASC, Z_DESC, Z_CONF)",
+    "permutations": 999,
+    "promotion": "Z_obs(claim) > p95(maxZ_perm)  — family-wise, strict",
+    "answers": "is there a directional excursion association at all, conditional on the registered structure?"
+  },
+  "gate_B": {
+    "name": "REGISTERED SHIFTED-LATTICE PLACEBO REFERENCE",
+    "worlds": 999,
+    "mechanism": "the already sealed ticker-local shared-phase worlds, retained verbatim — one phi per ticker, both families, every date",
+    "statistic": "Z(phi = 0) versus the distribution of Z over shifted worlds, per claim; family-wise as the advantage of phi = 0 over the shifted geometry",
+    "threshold": "Z_phi0(claim) > p95(Z_shifted(claim))",
+    "wording_forbidden": [
+      "exact phase-exchangeability p-value",
+      "randomization p-value",
+      "probability that the Gann construction is false"
+    ],
+    "wording_required": "registered shifted-lattice placebo reference",
+    "answers": "is any association specific to the anchored integer phase, or would an equally dense shifted lattice do as well?"
+  },
+  "interpretation_table": {
+    "A PASS, B PASS": "association exists AND is concentrated at the anchored integer lattice relative to same-geometry phase shifts",
+    "A PASS, B FAIL": "a price-reaction association exists, but it is NOT specific to the Gann integer phase",
+    "A FAIL": "no registered directional association is established; gate B is not interpreted"
+  },
+  "capability": {
+    "qualifies": "GATE A only",
+    "per_world": [
+      "jointly block-nullize the LONG/SHORT outcome pair",
+      "inject delta only into the component matching the frozen phi = 0 treated direction",
+      "run the registered 999-permutation max-Z engine"
+    ],
+    "detection": "injected claim Z > p95(maxZ_perm)",
+    "acceptance": {
+      "at_1pp": "each of the 3 claims >= 16 / 20",
+      "at_2pp": "each of the 3 claims >= 19 / 20",
+      "at_0_5pp": "descriptive sensitivity only"
+    },
+    "phase_placebo_in_capability": "NOT a blocking criterion; its behaviour under the injected worlds may be characterized later",
+    "matrix": {
+      "claims": [
+        "GANN_ASC_TOUCH_V1",
+        "GANN_DESC_TOUCH_V1",
+        "GANN_CONFLUENCE_TOUCH_V1"
+      ],
+      "deltas": [
+        0.5,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0
+      ],
+      "worlds_per_cell": 20,
+      "total": 360
+    }
+  },
+  "retained": {
+    "phase_x_qualification": {
+      "digest": "f32cdcd9c175002f",
+      "status": "VALID AND SEALED — its geometry findings are not superseded; they are the REASON for this amendment"
+    },
+    "x_freeze": "c82591109bc45da0",
+    "estimand": "000aa1edce0ffc89",
+    "rank_code": "c9086f25703db35b"
+  },
+  "outcome_spec_provenance": {
+    "active": {
+      "spec_id": "GANN_OUTCOME_SPEC_V1",
+      "digest": "af4b205e152c9d43",
+      "status": "ACTIVE / SEALED",
+      "content": "direction-neutral: MFE_LONG_10D, MFE_SHORT_10D, MFE_ATR_LONG_10D, MFE_ATR_SHORT_10D"
+    },
+    "superseded": {
+      "digest": "5a40ebc562ca5262",
+      "status": "SUPERSEDED",
+      "content": "the earlier single DIR_MFE_10D materialised through the phi = 0 direction",
+      "sidecar": "GANN_OUTCOME_SPEC_V1.json.superseded.5a40ebc562ca5262.json"
+    },
+    "note": "an earlier progress message labelled the ACTIVE digest as superseded; that was a reporting error, not an artifact error — the file has carried the direction-neutral definition since it was re-sealed"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 17:37 +04"
+}

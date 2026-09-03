@@ -1,0 +1,156 @@
+{
+  "decision_id": "MASSIVE_T1_EPISODE_RULE_AUTHORITY_DECISION_V1",
+  "status": "ACCEPT_RULE_AUTHORITY",
+  "task_class": "RULE_AUTHORITY_DECISION_ONLY",
+  "verdict_computed_not_asserted": true,
+  "question": "is the recovered generator semantics sufficient to be the EXECUTION AUTHORITY for the historical episode selector, even though the mutable legacy store no longer reproduces the sealed historical population?",
+  "answer": "YES — the rule and the population are different objects",
+  "hard_link": {
+    "claim": "the recovered file is the generator the sealed estimand points at, not a file that resembles it",
+    "estimand_governing_definition_hash": "a1c9b7eb94331751",
+    "generator_constant_T1_DEF_HASH": "a1c9b7eb94331751",
+    "equal": true,
+    "episode_id_formula": "sha256(\"{ticker}|{date}|T1|a1c9b7eb94331751\")[:16]"
+  },
+  "generator_provenance": {
+    "files": {
+      "t15m_x.py": {
+        "digest": "2e88c4f8b04e8845"
+      },
+      "t1_dna.py": {
+        "digest": "bb1147a45569cebc"
+      },
+      "t5_dna.py": {
+        "digest": "4c0a3d0508359a89"
+      }
+    },
+    "git": {
+      "t15m_x_py": "9357bfe 2026-08-22",
+      "t1_dna_py": "124c055 2026-08-21",
+      "t5_dna_py": "9f20f9b 2026-08-21"
+    },
+    "all_committed_clean": true,
+    "commits_predate_programme_seal": "7274640 2026-08-24",
+    "pinned_and_traceable": true
+  },
+  "recovered_rule": {
+    "anchor": "daily bars.t_sig == 'T1'",
+    "identity_historical": "episode_id from (ticker, session_date)",
+    "required": "prev_session_date IS NOT NULL",
+    "dedup": "row_number() PARTITION BY (ticker, date) ORDER BY universe preference sp500 < nasdaq < russell2k, keep rn = 1",
+    "universe": "sp500 + nasdaq + russell2k",
+    "m_slots": {
+      "M1": "09:30 ET",
+      "M2": "09:45 ET",
+      "M3": "10:00 ET",
+      "M4": "10:15 ET"
+    },
+    "selector": "EXACT ET clock; NO next-available-bar fallback",
+    "missing_slot_effect": "the corresponding pair claim is UNAVAILABLE",
+    "arrow": "POSITION_PAIR_CLAIM — explicitly NOT a T_STATE_TRANSITION"
+  },
+  "checks": [
+    {
+      "check": "generator chain resolved",
+      "met": true
+    },
+    {
+      "check": "the generator is the one the sealed estimand names",
+      "met": true
+    },
+    {
+      "check": "episode identity function is family-specific and deterministic",
+      "met": true
+    },
+    {
+      "check": "daily T1 anchor condition resolved",
+      "met": true
+    },
+    {
+      "check": "previous-session requirement resolved",
+      "met": true
+    },
+    {
+      "check": "universe dedup resolved (deterministic preference, rn = 1)",
+      "met": true
+    },
+    {
+      "check": "episode universe resolved",
+      "met": true
+    },
+    {
+      "check": "exact clock semantics resolved",
+      "met": true
+    },
+    {
+      "check": "no next-available-bar fallback",
+      "met": true
+    },
+    {
+      "check": "the T1 SQL differs from T5's by the t_sig literal ONLY",
+      "met": true
+    },
+    {
+      "check": "generator sources are git-tracked, committed and clean",
+      "met": true
+    },
+    {
+      "check": "population mismatch attributed to store vintage/revision",
+      "met": true
+    },
+    {
+      "check": "the mismatch was NOT used to tune the rule",
+      "met": true
+    },
+    {
+      "check": "Y_EXPOSED = 0",
+      "met": true
+    }
+  ],
+  "all_checks_met": true,
+  "population_disposition": {
+    "HISTORICAL_EPISODE_RULE": "RECOVERED_FROM_GENERATOR",
+    "SEALED_HISTORICAL_POPULATION": 220351,
+    "CURRENT_LEGACY_STORE_RECONSTRUCTION": 221229,
+    "EXACT_HISTORICAL_POPULATION_REPRODUCTION": "NOT AVAILABLE FROM CURRENT REVISED STORE",
+    "rule": "220,351 must NOT become an expected count for any Massive build",
+    "what_is_ported": "the RULE, not the mutable store's present-day population",
+    "tuning_forbidden": true,
+    "nothing_in_the_rule_was_chosen_to_close_the_gap": true
+  },
+  "deliberately_not_decided_here": {
+    "item": "the historical episode_id is built from `ticker`; the Massive cohort is keyed by security_key_v1",
+    "classification": "PORTING_DECISION",
+    "belongs_to": "MASSIVE_T1_DAILY_EPISODE_ANCHOR_PORT_V1",
+    "why_not_here": "it is a porting choice, not a hole in the recovered rule, and resolving it quietly here would smuggle a decision into a recovery"
+  },
+  "one_d_status": {
+    "granted": "REGISTERED_EPISODE_ANCHOR_ONLY / RESEARCH_SUPPORT_SELECTOR_ONLY",
+    "not_granted": [
+      "standalone inferential hypothesis",
+      "a new T family",
+      "a multiplicity member",
+      "a conditioning variable",
+      "general 1D research authorization"
+    ],
+    "research_states_remain": "15m"
+  },
+  "analysis_universe": {
+    "current": "frozen Massive V1 cohort = 476 securities",
+    "historical_reference_universe": 5252,
+    "do_not_conflate": true,
+    "denominator_note": "476 is the SECURITY cohort; the episode support count is a separate quantity to be MEASURED, not assumed",
+    "gev": "its 653 pre-regular-way sessions remain OUTSIDE the support universe, never FALSE"
+  },
+  "authorizes": "MASSIVE_T1_DAILY_EPISODE_ANCHOR_PORT_V1",
+  "does_not_authorize": [
+    "Z",
+    "Y exposure",
+    "the pre-Y dictionary",
+    "expanding the analysis universe to 5,252",
+    "inventing a Massive-native 15m anchor"
+  ],
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 21:02 +04"
+}

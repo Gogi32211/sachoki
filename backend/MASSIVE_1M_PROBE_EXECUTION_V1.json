@@ -1,0 +1,177 @@
+{
+  "report_id": "MASSIVE_1M_PROBE_EXECUTION_V1",
+  "status": "PROBES EXECUTED · SOURCE SEMANTICS PARTIALLY RESOLVED",
+  "spec": {
+    "artifact": "MASSIVE_1M_PROBE_SPEC_V1.json",
+    "digest": "a162b31502019df1",
+    "boundaries_unchanged": "no acceptance boundary, band or threshold was altered after any response was seen"
+  },
+  "stages": {
+    "stage_a": {
+      "artifact": "MASSIVE_1M_PROBE_EXECUTION_STAGE_A_V1.json",
+      "digest": "85e9686c397515ab",
+      "gate": "PASS"
+    },
+    "stage_b": {
+      "artifact": "MASSIVE_1M_PROBE_EXECUTION_STAGE_B_V1.json",
+      "digest": "c7975ebe30315267"
+    }
+  },
+  "foundational_gate": "PASS",
+  "results": {
+    "P1": {
+      "topic": "split/dividend adjustment regime",
+      "verdict": "UNRESOLVED",
+      "classification": "UNRESOLVED"
+    },
+    "P2": {
+      "topic": "timestamp unit, labelling and timezone",
+      "verdict": "PASS",
+      "classification": "BAR_START"
+    },
+    "P3": {
+      "topic": "sparse vs dense minute grid",
+      "verdict": "SPARSE",
+      "classification": "SPARSE"
+    },
+    "P4": {
+      "topic": "auction attribution",
+      "verdict": "CLOSING_IN_1600",
+      "classification": "CLOSING_IN_1600"
+    },
+    "P5": {
+      "topic": "extended-hours inclusion",
+      "verdict": "EXTENDED_INCLUDED",
+      "classification": "EXTENDED_INCLUDED"
+    },
+    "P6": {
+      "topic": "pagination limit and interval completeness",
+      "verdict": "PASS",
+      "classification": null
+    },
+    "P7": {
+      "topic": "vw and n semantics",
+      "verdict": "FAIL",
+      "classification": null
+    },
+    "P8": {
+      "topic": "volume comparability with the existing store",
+      "verdict": "NOT_COMPARABLE",
+      "classification": "NOT_COMPARABLE"
+    },
+    "P9": {
+      "topic": "exchange calendar",
+      "verdict": "FAIL",
+      "classification": "FAIL"
+    }
+  },
+  "source_semantics": {
+    "timestamp": {
+      "state": "RESOLVED",
+      "value": "epoch MILLISECONDS, labelling the bar START, genuinely timezone-aware",
+      "evidence": "first RTH bar is 14:30 UTC on 2024-01-16 (EST) and 13:30 UTC on 2024-07-16 (EDT); both decode to 09:30:00 America/New_York",
+      "note": "asserted on the UTC value, which is arithmetic from the epoch, with the ET conversion as corroboration"
+    },
+    "pagination": {
+      "state": "RESOLVED",
+      "value": "50,000 rows per page; next_url pagination terminates with an explicit exhaustion signal",
+      "evidence": "AAPL 2024 returned 187,547 rows over 4 pages with 0 duplicates, strictly increasing timestamps, 0 page-boundary gaps across 3 boundaries, and two independent replays identical by ordered row digest",
+      "licenses": "this is the completeness evidence the minute-availability amendment requires before an absent minute may be promoted to STRUCTURAL_NO_TRADE"
+    },
+    "sparse_minute_emission": {
+      "state": "RESOLVED",
+      "value": "SPARSE — minutes with no trades are OMITTED, not emitted as zero-volume bars",
+      "evidence": "RTH bar counts ranged 19 to 390 across 20 symbol-sessions on 2024-05-15, with ZERO zero-volume bars anywhere",
+      "consequence": "the three-valued availability semantics of MASSIVE_1M_DATA_CONTRACT_AMENDMENT_V1 are LIVE and must be implemented"
+    },
+    "session": {
+      "state": "RESOLVED",
+      "value": "extended hours ARE included, roughly 04:00-19:59 ET",
+      "consequence": "the RTH filter is MANDATORY at ingestion; extended-hours bars are retained but flagged and never mixed into RTH aggregates"
+    },
+    "adjustment": {
+      "state": "UNRESOLVED",
+      "why": "the AAPL 2020 split sessions the spec requires are outside the plan's entitlement window and return HTTP 403. The spec requires BOTH names to agree.",
+      "indicative": "the NVDA 2024 10-for-1 case alone gives r = 1.0041, which is the ADJUSTED band — indicative only, and one name cannot separate an adjusted series from a coincidence",
+      "established": "the `adjusted` parameter is NOT inert: true and false return different response digests, so it does control something",
+      "blocks": "any multi-year feature, because an unadjusted series has a discontinuity at every split"
+    },
+    "vw": {
+      "state": "RESOLVED AS UNUSABLE",
+      "value": "FAIL_NOT_WITHIN_BAR — vw falls outside the bar's own [low, high] range",
+      "evidence": "AAPL 1/390 bars, MSFT 5/390, and NVR 95/140 — 68% of bars for the low-liquidity name",
+      "consequence": "per the frozen spec, vw is DISCARDED and every VWAP feature must be recomputed from OHLCV or removed. No VWAP-family feature may rest on the vendor field.",
+      "severity": "this is the probe that earned its keep — the field looks usable on liquid names and is broken where it would have been trusted silently"
+    },
+    "n": {
+      "state": "INTERNALLY CONSISTENT / SEMANTICALLY UNRESOLVED",
+      "value": "no bar carries volume with a missing n",
+      "why_unresolved": "no independent external quantity was available to confirm what n COUNTS. The frozen spec forbids resolving this by vendor Polygon-compatibility.",
+      "consequence": "transaction-count features stay out of the dictionary until the meaning is established"
+    },
+    "calendar": {
+      "state": "UNRESOLVED",
+      "vendor_side": "FAIL per the frozen rule",
+      "detail": "all 10 full-closure dates returned zero bars, which is correct. All 3 early-close dates end at a bar stamped 13:00, where the rule demanded 12:59.",
+      "observed_explanation": "P4 finds the same shape on a normal session: a bar stamped 16:00 carrying auction-scale volume. The vendor appears to emit the closing auction as a bar stamped at the closing minute, consistently. 211 = 210 regular minutes + 1 auction bar.",
+      "governance": "the explanation does NOT convert FAIL into PASS. Reconciling the rule with this behaviour requires a NEW amendment explicitly marked as written after P1-P9 exposure.",
+      "calendar_candidate": "NOT EVALUATED — no exchange-calendar library or dataset is installed, and the spec's fixed 2024 dates are the standard, so they cannot also be the candidate"
+    },
+    "auction": {
+      "state": "PARTIALLY RESOLVED",
+      "closing": "CLOSING_IN_1600 — a bar stamped 16:00 exists on all three names with volume above the pre-committed 5x median",
+      "caveat": "the 5x threshold was exceeded by BOTH the 15:59 and the 16:00 bar on all three names, so the classification rests on the EXISTENCE of a 16:00 bar rather than on clean separation. The probe was less discriminating than its rule assumed.",
+      "opening": "UNRESOLVED BY CONSTRUCTION, as the spec anticipated",
+      "binding": "no VWAP may be anchored to the open until trade-condition data is obtained"
+    },
+    "cross_source_comparability": {
+      "state": "RESOLVED — NOT_COMPARABLE",
+      "evidence": "20 overlapping symbol-sessions: 0 within 1%, mean ratio 0.803, stdev 0.167. Liquid names cluster 0.89-0.96 while GWW runs 0.50-0.59 and TDY 0.55-0.85.",
+      "consequence": "the existing DuckDB store and Massive 1m are kept STRICTLY SEPARATE. No study may mix them, and the existing store CANNOT serve as an ingestion validation for the new one.",
+      "note": "part of the gap is structural — Massive RTH-only summed against a full-day store figure — but the spread across names is far too wide for that alone, and the frozen rule was applied as written"
+    }
+  },
+  "entitlement_finding": {
+    "discovered_via": "diagnostic follow-up to P1's missing sessions",
+    "behaviour": "dates before the boundary return HTTP 403, not empty results",
+    "boundary": "2021-08-25",
+    "today": "2026-08-25",
+    "window": "FIVE YEARS, ROLLING",
+    "bisection": "2021-08-24 → 403 · 2021-08-25 → 200",
+    "consequences": [
+      "the 1m research window is 2021-08-25 to present, about 5 years",
+      "ROLLING means the oldest available data recedes daily; what is fetchable today will not be fetchable next year",
+      "reproducibility therefore depends on INGESTING AND RETAINING the data, because a re-fetch will silently lose the oldest part",
+      "the charter's vintage law becomes operationally load-bearing rather than precautionary",
+      "the AAPL 2020 split case in P1 is permanently unavailable on this plan, so P1 cannot be resolved as written"
+    ]
+  },
+  "implementation_defects_recorded": [
+    {
+      "where": "Stage B P1 classifier",
+      "defect": "the runner lacked the spec's UNRESOLVED branch for a missing required session and reported FAIL_AMBIGUOUS",
+      "fix": "the branch was added; no acceptance boundary was altered",
+      "nature": "conformance to the frozen spec, NOT a change to it"
+    },
+    {
+      "where": "Stage B P9",
+      "defect": "none — the rule was applied correctly",
+      "fix": "an explanatory note on the observed 13:00 auction bar was added",
+      "nature": "the FAIL verdict was NOT altered"
+    }
+  ],
+  "canonical_1m_rows_downloaded": 0,
+  "blocking_for_ingestion": [
+    "adjustment regime UNRESOLVED — blocks any multi-year feature",
+    "calendar source not chosen, and the vendor calendar rule recorded FAIL",
+    "n semantics unresolved — blocks transaction-count features only"
+  ],
+  "non_blocking_resolved": [
+    "vw discarded; VWAP recomputed from OHLCV or removed",
+    "existing store and Massive kept strictly separate",
+    "RTH filter mandatory; extended hours retained but flagged",
+    "three-valued minute availability is live"
+  ],
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:27 +04"
+}

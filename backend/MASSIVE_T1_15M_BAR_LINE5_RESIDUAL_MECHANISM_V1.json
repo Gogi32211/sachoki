@@ -1,0 +1,44 @@
+{
+  "artifact": "MASSIVE_T1_15M_BAR_LINE5_RESIDUAL_MECHANISM_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": "98157389576d845f",
+  "scope": {
+    "full_store_mismatches": 676,
+    "claim_relevant": 4,
+    "all_on": "2026-07-10",
+    "physics_critical": "ARCC 2026-07-10 M1 differs by the \"VX-\" prefix; wvf_spike = bar_line5.contains(\"VX\")"
+  },
+  "COMPONENT_DECOMPOSITION": {
+    "assembly": "tokens = \"-\".join([vix_tok?, psar_tok, rsi2_tok])",
+    "psar_rule": "\"PB\" if close > psar_arr[i] else \"PS\"",
+    "first_divergent_component": {
+      "ARCC": "VIX-Fix (VX present in store, absent in recompute)",
+      "CPB": "PSAR (calc PB vs stored PS)",
+      "MLTX M1": "PSAR (calc PB vs stored PS)",
+      "MLTX M4": "PSAR (calc PB vs stored PS)"
+    },
+    "summary": "3 of 4 are PSAR-direction; 1 is the VIX-Fix flag"
+  },
+  "TRUNCATION_HYPOTHESIS": {
+    "candidate": "PSAR is recursive state; an incremental frame could reset it",
+    "test": "recompute at 30d / 45d / 60d windows and full history at each of the 4 bars",
+    "result": {
+      "30d": "0/4",
+      "45d": "0/4",
+      "60d": "0/4",
+      "full_history": "0/4"
+    },
+    "VERDICT": "REFUTED — no window reproduces the stored value; the divergence is stable regardless of frame length",
+    "consequence": "the WLNBB/P&D truncation mechanism does NOT extend to bar_line5, exactly as the no-transfer rule anticipated"
+  },
+  "VERDICT": "UNRESOLVED",
+  "note": "not LOCALIZED_..._CONFIRMED and not TRUE_LINE5_SEMANTIC_MISMATCH: the candidate producer is stable (1 signature) and reproduces 91,027,145 of 91,027,821 rows, but these 4 cells are not explained by any tested mechanism",
+  "remaining_candidates": [
+    "the underlying OHLC for those bars was revised after materialization (no current input can then reproduce it)",
+    "a PSAR parameter differed at write time",
+    "a different line5 writer path"
+  ],
+  "consequence": "bar_line5 stays HOLD; physics production stays BLOCKED because wvf_spike cannot be bound"
+}

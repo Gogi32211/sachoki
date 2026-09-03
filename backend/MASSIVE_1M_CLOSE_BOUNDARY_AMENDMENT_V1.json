@@ -1,0 +1,62 @@
+{
+  "spec_id": "MASSIVE_1M_CLOSE_BOUNDARY_AMENDMENT_V1",
+  "status": "FROZEN BEFORE QUERY",
+  "written_after_exposure": {
+    "declaration": "THIS AMENDMENT WAS WRITTEN AFTER P1-P9 EXPOSURE",
+    "p9_verdict_unchanged": "P9 remains FAIL in MASSIVE_1M_PROBE_EXECUTION_STAGE_B_V1; this amendment settles downstream policy, not that verdict",
+    "naming_discipline": "the bar is called SESSION_CLOSE_BOUNDARY_BAR and NOT CLOSE_AUCTION_BAR. P4 was INDICATIVE ONLY and its 5x threshold was met by both the 15:59 and the 16:00 bar, so the auction reading is plausible and undemonstrated. A canonical name asserting a mechanism would convert an unproven reading into an inherited fact."
+  },
+  "frozen_rule": {
+    "regular_minute_lattice": {
+      "normal": "09:30..15:59 = 390 one-minute intervals",
+      "early_close": "09:30..12:59 = 210 one-minute intervals"
+    },
+    "boundary_bar": {
+      "normal_stamp": "16:00",
+      "early_close_stamp": "13:00",
+      "canonical_name": "SESSION_CLOSE_BOUNDARY_BAR",
+      "name_rationale": "describes the bar's POSITION, which is observed, not its CAUSE, which P4 did not establish"
+    },
+    "stability_assertions": [
+      "A: a bar stamped exactly at the session close exists for every (symbol, session)",
+      "B: the count of REGULAR minutes equals 390 on a normal session and 210 on an early close, for these liquid symbols",
+      "C: the boundary bar's volume exceeds 5x the median volume of the preceding 30 regular minutes"
+    ],
+    "verdict_rule": "STABLE only if A, B and C hold for every (symbol, session) combination; otherwise UNSTABLE",
+    "frozen_before": "any query for these sessions"
+  },
+  "downstream_policy": {
+    "not_a_regular_minute": "the boundary bar is NOT a 391st or 211th regular minute; under BAR_START labelling it begins AT the close",
+    "preservation": "preserved separately and never silently dropped",
+    "excluded_from": [
+      "regular-minute counts",
+      "slot-RVOL and CUM-RVOL denominators",
+      "any per-minute baseline"
+    ],
+    "higher_tf": "included in the FINAL session bucket as an explicit endpoint component, declared rather than absorbed",
+    "why": "counting it as an extra minute would inflate every per-minute denominator by one and shift every RVOL baseline downward"
+  },
+  "test_matrix": {
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "JPM",
+      "XOM",
+      "KO"
+    ],
+    "normal_sessions": [
+      "2024-05-15",
+      "2024-09-18",
+      "2025-03-12"
+    ],
+    "early_close_sessions": [
+      "2024-07-03",
+      "2024-11-29",
+      "2024-12-24"
+    ],
+    "combinations": 30
+  },
+  "massive_queried": "NO",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:42 +04"
+}

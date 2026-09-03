@@ -1,0 +1,36 @@
+{
+  "spec_id": "HYPOTHESIS_PROVENANCE_15M_V1",
+  "status": "FROZEN",
+  "purpose": "record where M1->M2 and L3 came from, so a later program cannot rediscover them as pristine findings",
+  "origin": {
+    "T9_15M": {
+      "artifact": "997e1bb2119ac4e5",
+      "observations": [
+        "M1->M2 concentration 2.98% vs 0.98% / 0.47%",
+        "M1:L3 65%->70% survival vs ~1.3%, lift ~54x, 42 components"
+      ]
+    },
+    "T3_15M": {
+      "artifact": "bfb00643695726fb",
+      "observations": [
+        "M1->M2 concentration 4.00% vs 1.62% / 0.84%",
+        "M1:L3 65% vs ~2.00%, lift ~32x, 21 components"
+      ]
+    }
+  },
+  "status_of_these_observations": "POST-EXPOSURE DESCRIPTIVE · HYPOTHESIS-GENERATING",
+  "what_they_are_not": [
+    "pre-specified findings",
+    "replicated results",
+    "evidence of a mechanism",
+    "tradeable rules"
+  ],
+  "binding_rule": {
+    "statement": "M1->M2 and L3 may serve as a HYPOTHESIS SOURCE for future work. They may NOT enter a new confirmatory branch ON THE SAME HISTORY as though they had been pre-specified.",
+    "applies_to": "the planned 1m -> 15m -> 1H -> 1D program and any successor",
+    "requirement": "if either is carried forward, its provenance is carried with it and stated in the new branch's own registration",
+    "why": "a hypothesis discovered in this history and then confirmed on this history is not confirmed; it is restated. Only a fresh evidence universe can test it."
+  },
+  "outcome_exposure": "NOT_EXPOSED — this artifact records provenance, not results",
+  "sealed_at": "2026-08-24 13:02 +04"
+}

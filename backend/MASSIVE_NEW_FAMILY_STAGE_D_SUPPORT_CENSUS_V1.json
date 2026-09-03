@@ -1,0 +1,900 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_SUPPORT_CENSUS_V1",
+  "status": "SUPPORT_CHARACTERIZED",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "source": {
+    "production_artifact": "MASSIVE_NEW_FAMILY_STAGE_D_PRODUCTION_V1",
+    "production_digest": "21032d2cfc56e8c5",
+    "certified_output_db_sha16": "56eba94c6e858fea",
+    "certified_output_db_bytes": 742928384,
+    "input_surface": {
+      "stageA_input.duckdb": "39abadbd14901c0b",
+      "pd_input.duckdb": "a058d189de33103f"
+    },
+    "securities": "476 / 476",
+    "base_rows": 15445454,
+    "output_rows": 92672724
+  },
+  "classification_scope": {
+    "PERMITTED": "support characterization only",
+    "NOT_PERFORMED": [
+      "SEARCHABLE / NOT_SEARCHABLE classification",
+      "support-floor selection",
+      "threshold or bin search",
+      "outcome conditioning",
+      "combination search",
+      "sequence claims",
+      "any Y access"
+    ]
+  },
+  "1_WINDOW_SPLIT": {
+    "DEV": {
+      "sessions": 1242,
+      "base_rows": 15296942,
+      "scope": "session_date <= '2026-08-06'"
+    },
+    "HOLDOUT": {
+      "sessions": 12,
+      "base_rows": 148512,
+      "scope": "session_date between '2026-08-07' and '2026-08-24'"
+    },
+    "EXCLUDED": {
+      "dates": [
+        "2026-08-25",
+        "2026-08-26"
+      ],
+      "status": "UNAVAILABLE_FROM_MASSIVE_V1",
+      "verification": "store max session_date = 2026-08-24 -> absent from the surface, NOT filtered out",
+      "rows_present_for_those_dates": 0
+    },
+    "TOTAL_sessions": 1254
+  },
+  "2_AVAILABILITY_CENSUS": {
+    "DEV": {
+      "rsi_14": {
+        "total_rows": 15296942,
+        "AVAILABLE_VALID": 6313742,
+        "INITIALIZATION_SENSITIVE_HEAD": 3015,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 4198234,
+        "UNAVAILABLE_CURRENT": 4781951,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 41.2745
+      },
+      "sig_3g": {
+        "total_rows": 15296942,
+        "AVAILABLE_VALID": 4611274,
+        "INITIALIZATION_SENSITIVE_HEAD": 7632,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 5896085,
+        "UNAVAILABLE_CURRENT": 4781951,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 30.1451,
+        "TRUE_fires": 8105,
+        "fire_rate_on_VALID_pct": 0.1758
+      },
+      "sig_buy": {
+        "total_rows": 15296942,
+        "AVAILABLE_VALID": 4634437,
+        "INITIALIZATION_SENSITIVE_HEAD": 988,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 242198,
+        "UNAVAILABLE_CURRENT": 4781951,
+        "UNAVAILABLE_REQUIRED_HISTORY": 5637368,
+        "VALID_pct": 30.2965,
+        "TRUE_fires": 5374,
+        "fire_rate_on_VALID_pct": 0.116
+      },
+      "sig_svs": {
+        "total_rows": 15296942,
+        "AVAILABLE_VALID": 5723780,
+        "INITIALIZATION_SENSITIVE_HEAD": 4002,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 4787209,
+        "UNAVAILABLE_CURRENT": 4781951,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 37.4178,
+        "TRUE_fires": 197025,
+        "fire_rate_on_VALID_pct": 3.4422
+      },
+      "sig_va": {
+        "total_rows": 15296942,
+        "AVAILABLE_VALID": 5723780,
+        "INITIALIZATION_SENSITIVE_HEAD": 4002,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 4787209,
+        "UNAVAILABLE_CURRENT": 4781951,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 37.4178,
+        "TRUE_fires": 280808,
+        "fire_rate_on_VALID_pct": 4.906
+      },
+      "bar_gap_range": {
+        "total_rows": 15296942,
+        "AVAILABLE_VALID": 6313742,
+        "INITIALIZATION_SENSITIVE_HEAD": 3015,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 4198234,
+        "UNAVAILABLE_CURRENT": 4781951,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 41.2745
+      }
+    },
+    "HOLDOUT": {
+      "rsi_14": {
+        "total_rows": 148512,
+        "AVAILABLE_VALID": 59948,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 43247,
+        "UNAVAILABLE_CURRENT": 45317,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 40.3658
+      },
+      "sig_3g": {
+        "total_rows": 148512,
+        "AVAILABLE_VALID": 44356,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 58839,
+        "UNAVAILABLE_CURRENT": 45317,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 29.8669,
+        "TRUE_fires": 104,
+        "fire_rate_on_VALID_pct": 0.2345
+      },
+      "sig_buy": {
+        "total_rows": 148512,
+        "AVAILABLE_VALID": 44563,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 2226,
+        "UNAVAILABLE_CURRENT": 45317,
+        "UNAVAILABLE_REQUIRED_HISTORY": 56406,
+        "VALID_pct": 30.0063,
+        "TRUE_fires": 80,
+        "fire_rate_on_VALID_pct": 0.1795
+      },
+      "sig_svs": {
+        "total_rows": 148512,
+        "AVAILABLE_VALID": 54370,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 48825,
+        "UNAVAILABLE_CURRENT": 45317,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 36.6098,
+        "TRUE_fires": 1883,
+        "fire_rate_on_VALID_pct": 3.4633
+      },
+      "sig_va": {
+        "total_rows": 148512,
+        "AVAILABLE_VALID": 54370,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 48825,
+        "UNAVAILABLE_CURRENT": 45317,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 36.6098,
+        "TRUE_fires": 2667,
+        "fire_rate_on_VALID_pct": 4.9053
+      },
+      "bar_gap_range": {
+        "total_rows": 148512,
+        "AVAILABLE_VALID": 59948,
+        "INITIALIZATION_SENSITIVE_POST_GAP": 43247,
+        "UNAVAILABLE_CURRENT": 45317,
+        "UNAVAILABLE_REQUIRED_HISTORY": 0,
+        "VALID_pct": 40.3658
+      }
+    }
+  },
+  "2_NOTE_reason_code_naming": "spec said UNAVAILABLE_HISTORY; the persisted surface uses UNAVAILABLE_REQUIRED_HISTORY. Reported under the ACTUAL persisted code, not renamed to match the spec.",
+  "3_SECURITY_DISTRIBUTION": {
+    "DEV": {
+      "rsi_14": {
+        "securities_total": 476,
+        "zero_valid_securities": 8,
+        "any_valid_securities": 468,
+        "median_valid_pct": 30.6649,
+        "p10": 0.8622,
+        "p25": 5.4418,
+        "p75": 79.4868,
+        "p90": 98.439,
+        "max_valid_pct": 99.9596,
+        "VALID_concentration_top10pct_share": 23.837
+      },
+      "sig_3g": {
+        "securities_total": 476,
+        "zero_valid_securities": 55,
+        "any_valid_securities": 421,
+        "median_valid_pct": 14.6929,
+        "p10": 0.2331,
+        "p25": 1.9675,
+        "p75": 67.366,
+        "p90": 95.4805,
+        "max_valid_pct": 99.8446,
+        "VALID_concentration_top10pct_share": 29.611,
+        "securities_with_ge1_fire": 340,
+        "median_fires_among_valid_support_securities": 8.0,
+        "FIRE_concentration_top10pct_share": 37.52
+      },
+      "sig_buy": {
+        "securities_total": 476,
+        "zero_valid_securities": 54,
+        "any_valid_securities": 422,
+        "median_valid_pct": 14.8499,
+        "p10": 0.2555,
+        "p25": 1.9846,
+        "p75": 67.6427,
+        "p90": 95.5241,
+        "max_valid_pct": 99.8477,
+        "VALID_concentration_top10pct_share": 29.47,
+        "securities_with_ge1_fire": 278,
+        "median_fires_among_valid_support_securities": 2.0,
+        "FIRE_concentration_top10pct_share": 67.808
+      },
+      "sig_svs": {
+        "securities_total": 476,
+        "zero_valid_securities": 20,
+        "any_valid_securities": 456,
+        "median_valid_pct": 24.4965,
+        "p10": 0.5144,
+        "p25": 3.6258,
+        "p75": 76.5316,
+        "p90": 97.7931,
+        "max_valid_pct": 99.9378,
+        "VALID_concentration_top10pct_share": 25.684,
+        "securities_with_ge1_fire": 445,
+        "median_fires_among_valid_support_securities": 285.5,
+        "FIRE_concentration_top10pct_share": 26.787
+      },
+      "sig_va": {
+        "securities_total": 476,
+        "zero_valid_securities": 20,
+        "any_valid_securities": 456,
+        "median_valid_pct": 24.4965,
+        "p10": 0.5144,
+        "p25": 3.6258,
+        "p75": 76.5316,
+        "p90": 97.7931,
+        "max_valid_pct": 99.9378,
+        "VALID_concentration_top10pct_share": 25.684,
+        "securities_with_ge1_fire": 452,
+        "median_fires_among_valid_support_securities": 395.0,
+        "FIRE_concentration_top10pct_share": 26.474
+      },
+      "bar_gap_range": {
+        "securities_total": 476,
+        "zero_valid_securities": 8,
+        "any_valid_securities": 468,
+        "median_valid_pct": 30.6649,
+        "p10": 0.8622,
+        "p25": 5.4418,
+        "p75": 79.4868,
+        "p90": 98.439,
+        "max_valid_pct": 99.9596,
+        "VALID_concentration_top10pct_share": 23.837
+      }
+    },
+    "HOLDOUT": {
+      "rsi_14": {
+        "securities_total": 476,
+        "zero_valid_securities": 123,
+        "any_valid_securities": 353,
+        "median_valid_pct": 57.0513,
+        "p10": 1.9231,
+        "p25": 12.1795,
+        "p75": 95.5128,
+        "p90": 100.0,
+        "max_valid_pct": 100.0,
+        "VALID_concentration_top10pct_share": 18.736
+      },
+      "sig_3g": {
+        "securities_total": 476,
+        "zero_valid_securities": 246,
+        "any_valid_securities": 230,
+        "median_valid_pct": 70.5128,
+        "p10": 5.4167,
+        "p25": 20.9135,
+        "p75": 100.0,
+        "p90": 100.0,
+        "max_valid_pct": 100.0,
+        "VALID_concentration_top10pct_share": 16.178,
+        "securities_with_ge1_fire": 82,
+        "median_fires_among_valid_support_securities": 0.0,
+        "FIRE_concentration_top10pct_share": 67.308
+      },
+      "sig_buy": {
+        "securities_total": 476,
+        "zero_valid_securities": 246,
+        "any_valid_securities": 230,
+        "median_valid_pct": 70.8333,
+        "p10": 5.7692,
+        "p25": 21.1538,
+        "p75": 100.0,
+        "p90": 100.0,
+        "max_valid_pct": 100.0,
+        "VALID_concentration_top10pct_share": 16.103,
+        "securities_with_ge1_fire": 39,
+        "median_fires_among_valid_support_securities": 0.0,
+        "FIRE_concentration_top10pct_share": 100.0
+      },
+      "sig_svs": {
+        "securities_total": 476,
+        "zero_valid_securities": 171,
+        "any_valid_securities": 305,
+        "median_valid_pct": 68.2692,
+        "p10": 3.3333,
+        "p25": 13.141,
+        "p75": 100.0,
+        "p90": 100.0,
+        "max_valid_pct": 100.0,
+        "VALID_concentration_top10pct_share": 17.789,
+        "securities_with_ge1_fire": 257,
+        "median_fires_among_valid_support_securities": 6.0,
+        "FIRE_concentration_top10pct_share": 35.475
+      },
+      "sig_va": {
+        "securities_total": 476,
+        "zero_valid_securities": 171,
+        "any_valid_securities": 305,
+        "median_valid_pct": 68.2692,
+        "p10": 3.3333,
+        "p25": 13.141,
+        "p75": 100.0,
+        "p90": 100.0,
+        "max_valid_pct": 100.0,
+        "VALID_concentration_top10pct_share": 17.789,
+        "securities_with_ge1_fire": 269,
+        "median_fires_among_valid_support_securities": 10.0,
+        "FIRE_concentration_top10pct_share": 30.671
+      },
+      "bar_gap_range": {
+        "securities_total": 476,
+        "zero_valid_securities": 123,
+        "any_valid_securities": 353,
+        "median_valid_pct": 57.0513,
+        "p10": 1.9231,
+        "p25": 12.1795,
+        "p75": 95.5128,
+        "p90": 100.0,
+        "max_valid_pct": 100.0,
+        "VALID_concentration_top10pct_share": 18.736
+      }
+    }
+  },
+  "3_NOTE": "VALID concentration and FIRE concentration are reported separately and must not be conflated.",
+  "4_OPENING_HOUR": {
+    "DEV": {
+      "rsi_14": {
+        "M1": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 236744
+        },
+        "M2": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 240263
+        },
+        "M3": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 245619
+        },
+        "M4": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 250600
+        }
+      },
+      "sig_3g": {
+        "M1": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 178382,
+          "fires": 8090,
+          "fire_rate_on_VALID_pct": 4.5352
+        },
+        "M2": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 177969,
+          "fires": 2,
+          "fire_rate_on_VALID_pct": 0.0011
+        },
+        "M3": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 178027,
+          "fires": 0,
+          "fire_rate_on_VALID_pct": 0.0
+        },
+        "M4": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 177849,
+          "fires": 2,
+          "fire_rate_on_VALID_pct": 0.0011
+        }
+      },
+      "sig_buy": {
+        "M1": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 178530,
+          "fires": 1974,
+          "fire_rate_on_VALID_pct": 1.1057
+        },
+        "M2": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 178234,
+          "fires": 369,
+          "fire_rate_on_VALID_pct": 0.207
+        },
+        "M3": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 178252,
+          "fires": 278,
+          "fire_rate_on_VALID_pct": 0.156
+        },
+        "M4": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 178156,
+          "fires": 194,
+          "fire_rate_on_VALID_pct": 0.1089
+        }
+      },
+      "sig_svs": {
+        "M1": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 216484,
+          "fires": 311,
+          "fire_rate_on_VALID_pct": 0.1437
+        },
+        "M2": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 215938,
+          "fires": 2401,
+          "fire_rate_on_VALID_pct": 1.1119
+        },
+        "M3": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 216411,
+          "fires": 8996,
+          "fire_rate_on_VALID_pct": 4.1569
+        },
+        "M4": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 216767,
+          "fires": 5774,
+          "fire_rate_on_VALID_pct": 2.6637
+        }
+      },
+      "sig_va": {
+        "M1": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 216484,
+          "fires": 3799,
+          "fire_rate_on_VALID_pct": 1.7549
+        },
+        "M2": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 215938,
+          "fires": 2921,
+          "fire_rate_on_VALID_pct": 1.3527
+        },
+        "M3": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 216411,
+          "fires": 6793,
+          "fire_rate_on_VALID_pct": 3.1389
+        },
+        "M4": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 216767,
+          "fires": 4040,
+          "fire_rate_on_VALID_pct": 1.8638
+        }
+      },
+      "bar_gap_range": {
+        "M1": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 236744
+        },
+        "M2": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 240263
+        },
+        "M3": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 245619
+        },
+        "M4": {
+          "positions": 590539,
+          "AVAILABLE_VALID": 250600
+        }
+      }
+    },
+    "HOLDOUT": {
+      "rsi_14": {
+        "M1": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2259
+        },
+        "M2": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2294
+        },
+        "M3": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2353
+        },
+        "M4": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2392
+        }
+      },
+      "sig_3g": {
+        "M1": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 1721,
+          "fires": 104,
+          "fire_rate_on_VALID_pct": 6.043
+        },
+        "M2": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 1719,
+          "fires": 0,
+          "fire_rate_on_VALID_pct": 0.0
+        },
+        "M3": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 1721,
+          "fires": 0,
+          "fire_rate_on_VALID_pct": 0.0
+        },
+        "M4": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 1718,
+          "fires": 0,
+          "fire_rate_on_VALID_pct": 0.0
+        }
+      },
+      "sig_buy": {
+        "M1": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 1725,
+          "fires": 25,
+          "fire_rate_on_VALID_pct": 1.4493
+        },
+        "M2": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 1721,
+          "fires": 9,
+          "fire_rate_on_VALID_pct": 0.523
+        },
+        "M3": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 1723,
+          "fires": 1,
+          "fire_rate_on_VALID_pct": 0.058
+        },
+        "M4": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 1718,
+          "fires": 4,
+          "fire_rate_on_VALID_pct": 0.2328
+        }
+      },
+      "sig_svs": {
+        "M1": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2066,
+          "fires": 0,
+          "fire_rate_on_VALID_pct": 0.0
+        },
+        "M2": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2056,
+          "fires": 19,
+          "fire_rate_on_VALID_pct": 0.9241
+        },
+        "M3": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2070,
+          "fires": 92,
+          "fire_rate_on_VALID_pct": 4.4444
+        },
+        "M4": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2077,
+          "fires": 67,
+          "fire_rate_on_VALID_pct": 3.2258
+        }
+      },
+      "sig_va": {
+        "M1": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2066,
+          "fires": 7,
+          "fire_rate_on_VALID_pct": 0.3388
+        },
+        "M2": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2056,
+          "fires": 32,
+          "fire_rate_on_VALID_pct": 1.5564
+        },
+        "M3": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2070,
+          "fires": 71,
+          "fire_rate_on_VALID_pct": 3.43
+        },
+        "M4": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2077,
+          "fires": 51,
+          "fire_rate_on_VALID_pct": 2.4555
+        }
+      },
+      "bar_gap_range": {
+        "M1": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2259
+        },
+        "M2": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2294
+        },
+        "M3": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2353
+        },
+        "M4": {
+          "positions": 5712,
+          "AVAILABLE_VALID": 2392
+        }
+      }
+    }
+  },
+  "4_NOTE": "Descriptive only. Position differences are NOT interpreted as edge.",
+  "5_ADJACENCY": {
+    "DEV": {
+      "rsi_14": {
+        "sessions_considered": 590539,
+        "M1_M2_both_VALID": 233830,
+        "M2_M3_both_VALID": 238571,
+        "M3_M4_both_VALID": 243031,
+        "M1_M4_all_four_VALID_sessions": 230430,
+        "securities_with_ge1_valid_adjacent_pair": 456,
+        "securities_with_ge1_all_four_valid_session": 450
+      },
+      "sig_3g": {
+        "sessions_considered": 590539,
+        "M1_M2_both_VALID": 177792,
+        "M2_M3_both_VALID": 177750,
+        "M3_M4_both_VALID": 177615,
+        "M1_M4_all_four_VALID_sessions": 177172,
+        "securities_with_ge1_valid_adjacent_pair": 413,
+        "securities_with_ge1_all_four_valid_session": 412
+      },
+      "sig_buy": {
+        "sessions_considered": 590539,
+        "M1_M2_both_VALID": 177931,
+        "M2_M3_both_VALID": 178010,
+        "M3_M4_both_VALID": 177833,
+        "M1_M4_all_four_VALID_sessions": 177303,
+        "securities_with_ge1_valid_adjacent_pair": 413,
+        "securities_with_ge1_all_four_valid_session": 412
+      },
+      "sig_svs": {
+        "sessions_considered": 590539,
+        "M1_M2_both_VALID": 214759,
+        "M2_M3_both_VALID": 215077,
+        "M3_M4_both_VALID": 215122,
+        "M1_M4_all_four_VALID_sessions": 212775,
+        "securities_with_ge1_valid_adjacent_pair": 446,
+        "securities_with_ge1_all_four_valid_session": 445
+      },
+      "sig_va": {
+        "sessions_considered": 590539,
+        "M1_M2_both_VALID": 214759,
+        "M2_M3_both_VALID": 215077,
+        "M3_M4_both_VALID": 215122,
+        "M1_M4_all_four_VALID_sessions": 212775,
+        "securities_with_ge1_valid_adjacent_pair": 446,
+        "securities_with_ge1_all_four_valid_session": 445
+      },
+      "bar_gap_range": {
+        "sessions_considered": 590539,
+        "M1_M2_both_VALID": 233830,
+        "M2_M3_both_VALID": 238571,
+        "M3_M4_both_VALID": 243031,
+        "M1_M4_all_four_VALID_sessions": 230430,
+        "securities_with_ge1_valid_adjacent_pair": 456,
+        "securities_with_ge1_all_four_valid_session": 450
+      }
+    },
+    "HOLDOUT": {
+      "rsi_14": {
+        "sessions_considered": 5712,
+        "M1_M2_both_VALID": 2227,
+        "M2_M3_both_VALID": 2286,
+        "M3_M4_both_VALID": 2333,
+        "M1_M4_all_four_VALID_sessions": 2207,
+        "securities_with_ge1_valid_adjacent_pair": 302,
+        "securities_with_ge1_all_four_valid_session": 283
+      },
+      "sig_3g": {
+        "sessions_considered": 5712,
+        "M1_M2_both_VALID": 1715,
+        "M2_M3_both_VALID": 1719,
+        "M3_M4_both_VALID": 1716,
+        "M1_M4_all_four_VALID_sessions": 1711,
+        "securities_with_ge1_valid_adjacent_pair": 220,
+        "securities_with_ge1_all_four_valid_session": 215
+      },
+      "sig_buy": {
+        "sessions_considered": 5712,
+        "M1_M2_both_VALID": 1719,
+        "M2_M3_both_VALID": 1721,
+        "M3_M4_both_VALID": 1718,
+        "M1_M4_all_four_VALID_sessions": 1714,
+        "securities_with_ge1_valid_adjacent_pair": 220,
+        "securities_with_ge1_all_four_valid_session": 217
+      },
+      "sig_svs": {
+        "sessions_considered": 5712,
+        "M1_M2_both_VALID": 2049,
+        "M2_M3_both_VALID": 2052,
+        "M3_M4_both_VALID": 2064,
+        "M1_M4_all_four_VALID_sessions": 2039,
+        "securities_with_ge1_valid_adjacent_pair": 274,
+        "securities_with_ge1_all_four_valid_session": 272
+      },
+      "sig_va": {
+        "sessions_considered": 5712,
+        "M1_M2_both_VALID": 2049,
+        "M2_M3_both_VALID": 2052,
+        "M3_M4_both_VALID": 2064,
+        "M1_M4_all_four_VALID_sessions": 2039,
+        "securities_with_ge1_valid_adjacent_pair": 274,
+        "securities_with_ge1_all_four_valid_session": 272
+      },
+      "bar_gap_range": {
+        "sessions_considered": 5712,
+        "M1_M2_both_VALID": 2227,
+        "M2_M3_both_VALID": 2286,
+        "M3_M4_both_VALID": 2333,
+        "M1_M4_all_four_VALID_sessions": 2207,
+        "securities_with_ge1_valid_adjacent_pair": 302,
+        "securities_with_ge1_all_four_valid_session": 283
+      }
+    }
+  },
+  "5_NOTE": "Support geometry only. No sequence claims, no outcome tests, no combination search.",
+  "6_STRUCTURAL_CHECKS": {
+    "rsi_14": {
+      "min_age": 14,
+      "VALID_below_min_age": 0,
+      "VALID_on_non_COMPLETE_bar": 0,
+      "verdict": "PASS"
+    },
+    "bar_gap_range": {
+      "min_age": 14,
+      "VALID_below_min_age": 0,
+      "VALID_on_non_COMPLETE_bar": 0,
+      "verdict": "PASS"
+    },
+    "sig_svs": {
+      "min_age": 21,
+      "VALID_below_min_age": 0,
+      "VALID_on_non_COMPLETE_bar": 0,
+      "verdict": "PASS"
+    },
+    "sig_va": {
+      "min_age": 21,
+      "VALID_below_min_age": 0,
+      "VALID_on_non_COMPLETE_bar": 0,
+      "verdict": "PASS"
+    },
+    "sig_buy": {
+      "min_age": 50,
+      "VALID_below_min_age": 0,
+      "VALID_on_non_COMPLETE_bar": 0,
+      "verdict": "PASS"
+    },
+    "sig_3g": {
+      "min_age": 51,
+      "VALID_below_min_age": 0,
+      "VALID_on_non_COMPLETE_bar": 0,
+      "verdict": "PASS"
+    }
+  },
+  "6_NOTE": "Re-derived independently from A.bars in this census; not inherited from production acceptance.",
+  "7_SIG_BUY_SPECIAL": {
+    "scope": "FULL WINDOW (all session_dates) — matches the production diagnostic scope",
+    "AVAILABLE_VALID": 4679000,
+    "INITIALIZATION_total": 245412,
+    "explained_by_depth_41_49": 245242,
+    "residual_beyond_depth": 170,
+    "UNAVAILABLE_REQUIRED_HISTORY": 5693774,
+    "UNAVAILABLE_CURRENT": 4827268,
+    "production_diagnostic": {
+      "INITIALIZATION_total": 245412,
+      "depth_41_49": 245242,
+      "residual": 170
+    },
+    "reconciles": true,
+    "raw_crosstab": "DEFERRED to 69-feature consolidation; raw MUST come from pre-cooldown buy_raw = upmove_ok & break_gate. FORBIDDEN: derive from buy_2809, any post-cooldown surface, or invert cooldown.",
+    "residual_recoverable_from_persisted_surface": false,
+    "residual_note": "the persisted surface stores the availability CLASS, not the admissible-state set, so the residual cannot be split into EMA-invalid vs cooldown-ambiguous from d6 alone. The split was established in production using the sig_3g reference (INIT at age>=51 = 0)."
+  },
+  "8_NUMERIC_CHARACTERIZATION": {
+    "rsi_14": {
+      "count": 6373690,
+      "p10": 31.1,
+      "p25": 40.3,
+      "median": 50.5,
+      "p75": 60.6,
+      "p90": 69.7
+    },
+    "bar_gap_range": {
+      "STORED_TYPE": "VARCHAR (categorical) — persisted in sval, not dval",
+      "numeric_percentiles": "NOT APPLICABLE — the column is categorical; no numeric summary is invented",
+      "category_counts": {
+        "N": 4799032,
+        "C": 657950,
+        "V": 500841,
+        "G1-N": 189740,
+        "G3-V": 156005,
+        "G1-C": 24745,
+        "G1-V": 17732,
+        "G2-V": 12679,
+        "G3-N": 9817,
+        "G2-N": 4890,
+        "G2-C": 256,
+        "G3-C": 3
+      },
+      "distinct_categories": 12
+    }
+  },
+  "8_NOTE": "No threshold search, no bin search, no outcome conditioning, no \"best\" levels, no inferential claim.",
+  "9_HOLDOUT_INTERPRETATION_GUARD": {
+    "holdout_sessions": 12,
+    "counts_are": "episode / opportunity counts, NOT independent temporal replications",
+    "NOT_statistical_power": "large row counts inside 12 sessions do not create independent replication",
+    "DEV_HOLDOUT_comparison": "fire-rate similarity or difference between DEV and HOLDOUT is NOT evidence of predictive performance and is not interpreted here",
+    "zero_denominator_policy": "reported as 'N.A. (denominator 0)', NEVER as 0%"
+  },
+  "DEGENERATE_CONCENTRATION_FLAGS": {
+    "top10pct_bucket_size": 48,
+    "flagged": {
+      "HOLDOUT.sig_buy": {
+        "securities_with_ge1_fire": 39,
+        "top10pct_bucket_size": 48,
+        "reported_share": 100.0,
+        "DEGENERATE": true,
+        "reason": "firing securities <= bucket size, so the share is 100% BY CONSTRUCTION and carries no concentration information"
+      }
+    },
+    "rule": "when the count of firing securities is <= the top-10% bucket size, FIRE concentration is 100% by construction and must not be read as concentration evidence"
+  },
+  "DESCRIPTIVE_OBSERVATIONS_NOT_INTERPRETED": {
+    "statement": "the following are recorded so a later reader does NOT mistake them for edge. No mechanism was tested; no inferential claim is made.",
+    "sig_3g_M1_asymmetry": {
+      "DEV": "M1 4.535% vs M2/M3/M4 ~0.000-0.001%",
+      "HOLDOUT": "M1 6.043% vs M2/M3/M4 0.000%",
+      "status": "DESCRIPTIVE ONLY",
+      "untested_mechanism_candidate": "sig_3g is a cross-above of EMA9/20/50; at the session's first bar the prior bar is the previous session's close, so an overnight gap can satisfy the cross condition. This is a SESSION-BOUNDARY STRUCTURAL CANDIDATE, explicitly NOT tested and NOT claimed."
+    },
+    "sig_svs_intraday_profile": {
+      "DEV": "M1 0.144% rising to M3 4.157%",
+      "status": "DESCRIPTIVE ONLY",
+      "untested_mechanism_candidate": "volume-ratio crossover against a rolling-20 mean spanning the session boundary; NOT tested, NOT claimed."
+    },
+    "support_bimodality": {
+      "observation": "securities tend to have either near-full or near-zero valid support (DEV p10 ~0.2-0.9% vs p90 ~95-98%)",
+      "status": "DESCRIPTIVE ONLY",
+      "relevance": "a median valid% alone would misrepresent this distribution; percentiles are reported for that reason"
+    }
+  },
+  "STANDING_RULES_REAFFIRMED": [
+    "NULL != FALSE",
+    "UNAVAILABLE != FALSE",
+    "a missing observation is not evidence of a state transition",
+    "elapsed time is not evidence an event did not occur",
+    "value conformance on fully observed histories is insufficient for an availability-aware producer",
+    "availability support != fire support",
+    "row count != independent evidence",
+    "descriptive observations must not be upgraded into inferential claims"
+  ],
+  "NEXT_STAGE_NOT_STARTED": [
+    "69-column durable consolidation",
+    "support-floor selection",
+    "searchable registry",
+    "k calculation",
+    "multiplicity freeze",
+    "synthetic-Y",
+    "real Y"
+  ]
+}

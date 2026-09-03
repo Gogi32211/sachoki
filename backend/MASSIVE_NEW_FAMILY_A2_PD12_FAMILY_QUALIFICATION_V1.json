@@ -1,0 +1,143 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_A2_PD12_FAMILY_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "VERDICT": "A2 FAMILY QUALIFIED",
+  "family": "pd12",
+  "columns": 12,
+  "authority": {
+    "producer": "MASSIVE_NEW_FAMILY_PD_12_PRODUCTION_V1",
+    "binds": [
+      "0e33b4f878194ac7 (PD dependency graph)",
+      "77e7113b174129ac (B1 EMA34/89)"
+    ],
+    "authority_reconciliation": "MASSIVE_NEW_FAMILY_EMA3489_AUTHORITY_RECONCILIATION_V1 · 574d3c48e04305d5"
+  },
+  "code_binding": {
+    "module": "backend/forward_a2_producers.py",
+    "sha256": "c5b0a20da829dfd575445e783f3c2b4f0b29226674e1885d2505c987e864890f",
+    "relationship": "TRANSCRIBED VERBATIM. pd12.py is a top-level script with no callable core; importing it would execute a full production run against hard-coded scratchpad paths, so exact reuse is technically impossible. The transcription is PROVEN by exact replay, not asserted."
+  },
+  "HISTORICAL_REPLAY": {
+    "expected_rows": 185345448,
+    "rebuilt_rows": 185345448,
+    "except_all": "0 / 0",
+    "method": "PARTITIONED BY k (exactly equivalent to monolithic)",
+    "why_partitioned": "the monolithic form spilled 23 GB of temp and was abandoned for DISK SAFETY, not for a weaker comparison. k is a column of every row and both sides partition identically, so per-partition multiset differences sum to the monolithic one exactly.",
+    "schema_match": true,
+    "value_mismatches": 0,
+    "availability_mismatches": 0,
+    "build_s": 118
+  },
+  "INCREMENTALITY": {
+    "splits_tested": 5,
+    "mismatches": "0 on every split",
+    "warm_start_state_authority": "NONE REQUIRED — pd12_core is ROW-LOCAL",
+    "ATTRIBUTION_CORRECTION": {
+      "class": "WORDING",
+      "what_I_filed_under_pd12": "the segment-length census as pd12's incremental cost",
+      "correct": "pd12 needs NO open-segment replay at all. Its incrementality is: append newly available rows once the required EMA states already exist. The 772,433 open-segment bars (7.27%) are an A2-STACK figure carried by the upstream EMA producer, NOT a pd12 recomputation requirement.",
+      "census_retained_as": "A2 stack characterisation"
+    }
+  },
+  "SEGMENT_CENSUS_A2_STACK": {
+    "segments": 1133943,
+    "p50": 2,
+    "p90": 13,
+    "p99": 94,
+    "max": 32484,
+    "mean": 9.4,
+    "tail": "0.42% of segments hold 39.2% of all COMPLETE bars",
+    "open_segment": {
+      "p50": 8,
+      "p90": 3129,
+      "max": 32484,
+      "total_bars": 772433,
+      "of_complete_bars": 10618186,
+      "pct": 7.27
+    },
+    "belongs_to": "the upstream stateful producers (EMA, and later stageC4 / STAGE_D_R2), not pd12"
+  },
+  "RESTART_IDEMPOTENCY": {
+    "basic": {
+      "partial_output_rejected": true,
+      "rerun_digest_identical": true,
+      "duplicate_key_rows": 0,
+      "VERDICT": "PASS"
+    },
+    "READABLE_PARTIAL_OUTPUT_fixture": {
+      "total": 15,
+      "passed": 15,
+      "VERDICT": "PASS",
+      "mechanism_added": "A2_PARTITION_COMPLETION_V1 — a partition is COMPLETE only on run_id + partition identity + family + byte size + output digest + row reconciliation + an explicit COMPLETED marker. 'file exists and parquet is readable' is NOT completion.",
+      "atomicity": "data written to .tmp, fsync, atomic rename; the old marker is removed BEFORE the rewrite so a crash can never leave a marker outliving its data",
+      "cases": [
+        "honest write is COMPLETE",
+        "crash artefact is genuinely READABLE and correctly typed",
+        "readable partial is NOT accepted as COMPLETE",
+        "rejection reason is digest/size reconciliation, not readability",
+        "no marker -> NOT COMPLETE (file exists and is readable)",
+        "marker claiming COMPLETED cannot rescue wrong data",
+        "recovery restores COMPLETE",
+        "recovered digest equals the honest write",
+        "no duplicate rows after recovery",
+        "write refuses a short partition",
+        "refused write leaves the prior bytes intact and internally COMPLETE",
+        "but it is NOT CURRENT for this run (stale-run guard)",
+        "after this run writes it, it IS current",
+        "family mismatch rejected",
+        "row reconciliation mismatch rejected"
+      ]
+    }
+  },
+  "FIXTURE_EXPECTATION_CORRECTED": {
+    "disclosure": "one fixture assertion was CHANGED AFTER IT FAILED. Disclosed deliberately because this is the exact shape of fitting a test to its result.",
+    "original_assertion": "'a refused write leaves the partition INCOMPLETE, not silently current'",
+    "why_it_was_wrong": "a rejected short write must NOT destroy validated prior data. Leaving the good bytes intact is correct behaviour, and the original expectation would have made the safe behaviour a failure.",
+    "what_was_NOT_done": "the assertion was not merely relaxed or deleted",
+    "what_WAS_done": "the real hazard behind it — a stale-but-internally-complete partition being adopted as THIS run's output, the STALE RESULT FILE READ AS CURRENT class — was addressed by ADDING a run_id currency guard to is_complete(). The fixture now asserts BOTH halves: the bytes stay internally COMPLETE, AND they are NOT CURRENT for a different run_id.",
+    "net": "the suite grew from 13 to 15 assertions and is strictly stronger than before"
+  },
+  "INPUT_ORDER": {
+    "canonical_behaviour": "the wrapper sorts by bar_start on load (ORDER BY) and reindexes EMA to the bar index; incidental order is never relied upon",
+    "reordered_then_canonicalised_mismatches": 0,
+    "VERDICT": "PASS"
+  },
+  "Y_BLINDNESS": {
+    "mechanism": "sys.addaudithook installed before any other import, raises on any open matching the forbidden set",
+    "forbidden_opens_attempted": 0,
+    "VERDICT": "PASS",
+    "also_armed_in_the_partial_fixture": true
+  },
+  "STATUS_TABLE": {
+    "HISTORICAL_EXACTNESS": "PASS",
+    "INCREMENTAL_EQUIVALENCE": "PASS",
+    "SCHEMA_CONFORMANCE": "PASS",
+    "AVAILABILITY_CONFORMANCE": "PASS",
+    "ORDER_INVARIANCE": "PASS",
+    "RESTART_IDEMPOTENCY": "PASS",
+    "Y_BLINDNESS": "PASS",
+    "STATUS": "A2 FAMILY QUALIFIED"
+  },
+  "DEFECTS_FOUND_AND_FIXED_IN_MY_OWN_WRAPPER": [
+    {
+      "defect": "missing required EMA column raised a bare KeyError instead of A2Hold",
+      "fix": "explicit upstream_column_absent guard",
+      "caught_by": "negative fixture"
+    },
+    {
+      "defect": "value emitted as BIGINT; the frozen table declares TINYINT",
+      "note": "values were identical (EXCEPT ALL 0/0 after DuckDB cast) but the SCHEMA differed",
+      "fix": "pd.array(dtype='Int8')",
+      "caught_by": "schema comparison; the first run was NOT declared PASS"
+    },
+    {
+      "defect": "completion decided by file readability alone",
+      "fix": "A2_PARTITION_COMPLETION_V1 + run_id currency",
+      "caught_by": "the READABLE_PARTIAL_OUTPUT fixture the caller required"
+    }
+  ],
+  "NEXT": "stageC4, then PHASE1_R1, then STAGE_D_R2 last — STAGE_D_R2 carries the only cross-segment state (sig_buy cooldown over the full series)"
+}

@@ -1,0 +1,72 @@
+{
+  "report_id": "STUDIO_PRE_MIGRATION_ROLLBACK_ARCHIVE_V1",
+  "status": "VERIFIED",
+  "classification": {
+    "what_this_is": "ROLLBACK ARCHIVE",
+    "what_this_is_not": "DISASTER-RECOVERY BACKUP",
+    "reason": "canonical data and this archive are on the SAME physical device (QUANT_RESEARCH). Physical failure of that SSD loses both.",
+    "protects_against": [
+      "DuckDB corruption",
+      "a bad update",
+      "a code bug",
+      "accidental deletion",
+      "needing the pre-migration state back"
+    ],
+    "does_not_protect_against": [
+      "physical failure of the QUANT_RESEARCH SSD"
+    ],
+    "binding": "this report must never be cited as evidence that the data is redundantly stored"
+  },
+  "source": {
+    "path": "/Users/sachoki/Desktop/sachoki-desktop/data.INTERNAL_BACKUP_PRE_EXTERNAL_MIGRATION",
+    "verification": {
+      "files_expected": 162,
+      "files_present": 162,
+      "bytes": 89778107215,
+      "missing": 0,
+      "extra": 0,
+      "size_mismatches": 0,
+      "sha256_mismatches": 0,
+      "detail": [],
+      "clean": true
+    }
+  },
+  "archive": {
+    "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24",
+    "verification": {
+      "files_expected": 162,
+      "files_present": 162,
+      "bytes": 89778107215,
+      "missing": 0,
+      "extra": 0,
+      "size_mismatches": 0,
+      "sha256_mismatches": 0,
+      "detail": [],
+      "clean": true
+    }
+  },
+  "manifest": {
+    "artifact": "SOURCE_POST_COPY.json",
+    "tree_digest": "fb3766e99a46beb5b12eee206db753d5efed65eccfba542f1125a197d8aa4e32",
+    "files": 162,
+    "bytes": 89778107215
+  },
+  "comparison": "FULL — all 162 files hashed on BOTH sides; a spot check was adequate for progress reporting, but this is the artifact that would license deleting 84 GB",
+  "both_sides_checked": "the external copy matches the manifest AND the internal source is still intact — different claims, and only the second makes deletion safe to consider",
+  "internal_backup_state": "RETAINED — nothing has been deleted",
+  "deletion_authorised": false,
+  "deletion_note": "this artifact verifies the copy. It does NOT authorise deleting the internal 84 GB; that remains a separate, explicitly-approved step.",
+  "elapsed_sec": 141.8,
+  "acceptance": {
+    "archive_files_162": true,
+    "archive_bytes_match": true,
+    "archive_no_missing": true,
+    "archive_no_extra": true,
+    "archive_no_size_mismatch": true,
+    "archive_no_sha_mismatch": true,
+    "internal_source_still_intact": true,
+    "archive_on_external_device": true
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 12:32 +04"
+}

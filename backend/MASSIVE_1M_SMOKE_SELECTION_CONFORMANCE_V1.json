@@ -1,0 +1,125 @@
+{
+  "report_id": "MASSIVE_1M_SMOKE_SELECTION_CONFORMANCE_V1",
+  "status": "SMOKE_SELECTION_CONFORMANCE_HOLD",
+  "spec": {
+    "artifact": "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V1.json",
+    "digest": "e11058369d17aea3",
+    "frozen_selection": [
+      "2024-05-15",
+      "2024-11-29",
+      "2023-06-07",
+      "2023-01-05",
+      "2024-04-02"
+    ]
+  },
+  "purpose": "verify each frozen smoke case actually instantiates the semantic state it was selected to test, BEFORE the smoke runs",
+  "cases": {
+    "2024-05-15": {
+      "claim": "normal full session; boundary bars; extended hours; sparse names",
+      "measured": {
+        "xnys_lattice": 390,
+        "session": "09:30-16:00",
+        "aapl_regular": 390,
+        "boundary_bars": 1,
+        "extended_bars": 267,
+        "sparse_securities": 343
+      },
+      "instantiates": true
+    },
+    "2024-11-29": {
+      "claim": "early close (210 slots); boundary bar at 13:00 ET",
+      "measured": {
+        "xnys_lattice": 210,
+        "session": "09:30-13:00",
+        "aapl_regular": 210,
+        "boundary_bars": 1,
+        "extended_bars": 143,
+        "sparse_securities": 298
+      },
+      "instantiates": true
+    },
+    "2023-06-07": {
+      "claim": "frozen rename-boundary UNOBSERVED case (FISV/FI)",
+      "measured": {
+        "xnys_lattice": 390,
+        "fisv_raw_ingest_state": "UNOBSERVED",
+        "v6_state": [
+          "REGULAR_WAY",
+          "FISV"
+        ]
+      },
+      "instantiates": true
+    },
+    "2023-01-05": {
+      "claim": "NOT_YET_REGULAR_WAY securities present",
+      "measured": {
+        "securities_not_yet_regular_way": 18,
+        "sample": [
+          "BG",
+          "BLK",
+          "CRH",
+          "FDXF",
+          "FERG",
+          "GEV",
+          "HONA",
+          "KVUE"
+        ],
+        "note": "the spec's parenthetical named GEHC, which is actually REGULAR_WAY on this date; the fixture CLAIM is that NOT_YET securities are present, and 18 are"
+      },
+      "instantiates": true
+    },
+    "2024-04-02": {
+      "claim": "WHEN_ISSUED interval adjacent (GEV/SOLV spin-offs)",
+      "measured": {
+        "GEV": {
+          "state_on_2024_04_02": [
+            "REGULAR_WAY",
+            "GEV"
+          ],
+          "state_on_2024_04_01": [
+            "WHEN_ISSUED",
+            "GEVw"
+          ],
+          "when_issued_interval": "GEVw 2024-04-01..2024-04-01"
+        },
+        "SOLV": {
+          "state_on_2024_04_02": [
+            "REGULAR_WAY",
+            "SOLV"
+          ],
+          "state_on_2024_04_01": [
+            "WHEN_ISSUED",
+            "SOLVw"
+          ],
+          "when_issued_interval": "SOLVw 2024-04-01..2024-04-01"
+        }
+      },
+      "instantiates": false,
+      "failure": "both securities are REGULAR_WAY on 2024-04-02; their WHEN_ISSUED intervals are 2024-04-01",
+      "why_it_matters": "a WHEN_ISSUED_EXCLUDED assertion would pass on this session without ever exercising a when-issued row — the fixture would be green and untested",
+      "spec_wording_admits_it": "the frozen rationale says 'WHEN_ISSUED interval ADJACENT'; adjacency is not instantiation"
+    }
+  },
+  "failing_cases": [
+    "2024-04-02"
+  ],
+  "remedy": {
+    "required": "an explicit builder-spec amendment with a NEW digest, then re-run the smoke against the corrected frozen selection",
+    "forbidden": "substituting 2024-04-01 now, mid-gate, with the target already in view — correcting a frozen test set at the moment of use is how precommitment is lost",
+    "candidate_for_the_amendment": "2024-04-01 is the session on which GEV and SOLV are actually WHEN_ISSUED; recorded as a CANDIDATE for the amendment to consider, not as an adopted substitution"
+  },
+  "smoke_executed": false,
+  "scratch_written": false,
+  "production_build": "HOLD",
+  "source_mutations": {
+    "raw_archive": 0,
+    "lineage_v6": 0,
+    "identity_amendment": 0,
+    "derived_semantics": 0,
+    "boundary_amendment": 0,
+    "snapshot": 0,
+    "note": "this check is read-only"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 13:51 +04"
+}

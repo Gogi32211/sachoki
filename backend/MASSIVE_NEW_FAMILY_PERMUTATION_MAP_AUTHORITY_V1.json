@@ -1,0 +1,127 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "binds": {
+    "inferential_prespec": "8f112d7e760953b5",
+    "multiplicity_universe": "a9852e1e4a9495c3",
+    "registry": "6900f9d3cf6f13e5",
+    "k": 20751
+  },
+  "PRIMITIVE": {
+    "unit": "WHOLE SESSION-DATE PAYLOAD BLOCK",
+    "not": "individual security-row",
+    "not_either": "per-claim label permutation"
+  },
+  "MAP": {
+    "one_pi_per": "session_length_class, per draw",
+    "classes": [
+      "FULL_REGULAR",
+      "EARLY_CLOSE"
+    ],
+    "THE_SAME_pi_IS_USED_ACROSS": [
+      "all 476 securities",
+      "ALL THREE position pairs",
+      "all 20,751 claims"
+    ],
+    "formal": "for p in {M1->M2, M2->M3, M3->M4}:  payload_p(s,d) <- payload_p(s, pi_class(d))",
+    "position_identity": "PRESERVED — an M1->M2 outcome is only ever replaced by an M1->M2 outcome from another date",
+    "WHY_NOT_PER_POSITION_MAPS": {
+      "rejected": "a separate pi per position_pair",
+      "defect": "it would separate the Y values of DIFFERENT intraday horizons on the SAME real date, destroying cross-position same-date dependence",
+      "direction_of_error": "anti-conservative — a narrower family-wide max-stat null"
+    }
+  },
+  "DEPENDENCE_AXES_PRESERVED": [
+    "security identity (Y never crosses securities)",
+    "same-date CROSS-SECURITY shock",
+    "same-date CROSS-POSITION shock",
+    "position identity",
+    "session-length class",
+    "one shared family-wide randomisation per draw"
+  ],
+  "LESSON_SCOPE_OF_SHARED": {
+    "observation": "the scope of 'shared' was found too narrow THREE times",
+    "history": [
+      "per-claim independent permutation — would destroy cross-claim dependence",
+      "per-security independent date maps — would destroy cross-security same-date dependence",
+      "per-position-pair maps — would destroy cross-position same-date dependence"
+    ],
+    "RULE": "'shared' must be stated by ENUMERATING every dependence axis it spans, never asserted as a single adjective"
+  },
+  "PAYLOAD": {
+    "definition": "(Y_availability, Y_value) MOVE TOGETHER as one payload",
+    "why": "availability is part of the data-generating payload; separating it would break the date block",
+    "consequence_accepted": "per-claim available N VARIES across draws"
+  },
+  "ACTIVE_WINDOW": {
+    "definition": "frozen listing / source-observability span",
+    "AUTHORITY_MUST_BE_Y_INDEPENDENT": true,
+    "derived_from": "X-side coverage only (presence of COMPLETE opening-hour bars); known before any Y exposure",
+    "FORBIDDEN_DEFINITION": "first/last AVAILABLE Y",
+    "INTERNAL_GAPS": {
+      "rule": "an internal missing day is NOT an active-window boundary",
+      "handling": "interior gaps remain represented through payload availability"
+    }
+  },
+  "PARTICIPATION_RULE": {
+    "episode (s,d) participates in draw b IFF": [
+      "1. X evaluable at (s,d)  [FIXED across draws]",
+      "2. d in active_window(s)",
+      "3. pi_b(d) in active_window(s)   <- listing guard",
+      "4. mapped payload (s, pi_b(d)).availability = AVAILABLE"
+    ],
+    "self_neutralising_note": "X availability gates participation, so a payload permuted into an X-unavailable slot is never read; the listing artefact is therefore bounded"
+  },
+  "TRIMMING": {
+    "status": "FORBIDDEN",
+    "measured_cost": "trimming to the common active window (2024-06-10 .. 2026-05-01) would drop 767 of 1,242 DEV dates (61.76%)",
+    "verdict": "that would be a population REDESIGN merely to obtain a balanced panel",
+    "measured_alternative": "out-of-window slots are only 3,596 of 596,251 (0.6%); 346/476 securities span the full range"
+  },
+  "UNDEFINED_DRAW_MECHANICS": {
+    "REJECTED_RULE": {
+      "rule": "exclude T_j^(b) from M_b only on the draws where claim j is undefined",
+      "defect": "M_b would then be a maximum over a VARYING family size (e.g. 20,751 / 20,744 / 20,730)",
+      "direction_of_error": "pulls the max-stat null systematically DOWNWARD on those draws — anti-conservative"
+    },
+    "FROZEN_RULE": {
+      "name": "PERMUTATION_STABILITY_GATE",
+      "requirement": "a claim must be DEFINED on 200/200 SCALE draws AND 1800/1800 NULL draws",
+      "if_any_draw_undefined": {
+        "status": "PERMUTATION_SUPPORT_UNSTABLE",
+        "p_adj": 1,
+        "promotion_eligible": false,
+        "max_stat_treatment": "T_j^(b) = -inf on ALL draws, not merely the undefined ones",
+        "registry": "claim is NOT deleted; registered k remains 20,751 — it is inferentially untestable under this frozen mechanism"
+      },
+      "same_for_degenerate_scale": {
+        "trigger": "s_j <= 0 or non-finite",
+        "status": "DEGENERATE_NULL_SCALE",
+        "p_adj": 1,
+        "promotion_eligible": false,
+        "max_stat_treatment": "T_j^(b) = -inf on ALL draws"
+      },
+      "result": "every M_b is computed over one and the same STABLE test set — fixed family dimension"
+    }
+  },
+  "REQUIRED_DIAGNOSTICS": {
+    "per_claim": [
+      "defined_scale_draws",
+      "defined_null_draws",
+      "min / median / max available N",
+      "min / median / max positive N",
+      "min / median / max non-positive N"
+    ],
+    "status": "DIAGNOSTICS ONLY — never a source of a new threshold"
+  },
+  "REGISTERED_K": {
+    "value": 20751,
+    "unchanged_by": [
+      "undefined draws",
+      "degenerate scale",
+      "permutation instability"
+    ]
+  }
+}

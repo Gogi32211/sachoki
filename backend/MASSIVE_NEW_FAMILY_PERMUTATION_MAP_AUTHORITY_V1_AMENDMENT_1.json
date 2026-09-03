@@ -1,0 +1,85 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_1",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1",
+    "parent_digest": "ccdaa6a6f08e8588",
+    "parent_not_rewritten": true,
+    "nature": "SUBSTANTIVE — the null mechanism changes"
+  },
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "GAP_IDENTIFIED": {
+    "defect": "the parent permuted FULL_REGULAR dates ARBITRARILY across the whole DEV period",
+    "implicit_assumption": "date blocks are exchangeable across the entire DEV period, conditional on session_length_class",
+    "why_that_is_strong": "volatility / regime / market structure change over time. ATR normalisation reduces the problem but does NOT establish exchangeability.",
+    "worked_example": "a claim concentrated in a 2022 regime, whose Y_ATR distribution also differs in 2022, would have its 2022 Y blocks thrown into 2025 under the null — cross-sectional dependence preserved, TEMPORAL dependence destroyed",
+    "why_the_smoke_could_not_catch_it": "the synthetic Y was constructed by us, so temporal exchangeability held there by construction",
+    "status_of_parent": "the parent's cross-sectional guarantees remain correct and are RETAINED"
+  },
+  "NEW_MAP": {
+    "FULL_REGULAR": {
+      "rule": "within each calendar year-month independently, ONE uniform cyclic offset per draw",
+      "construction": "pi(idx[i]) = idx[(i + offset_m) % k], where idx = that month's ordered FULL_REGULAR dates",
+      "SHARED_ACROSS": [
+        "all 476 securities",
+        "all 3 position pairs",
+        "all 20,751 claims"
+      ]
+    },
+    "EARLY_CLOSE": {
+      "rule": "IDENTITY — pi(d) = d",
+      "not_randomised_in_V1": true,
+      "why": "only 10 such dates across 5 years; permuting them freely would reinstate exactly the exchangeability problem this amendment fixes",
+      "they_remain": "in the primary population and in observed theta"
+    }
+  },
+  "PRESERVED_SIMULTANEOUSLY": [
+    "security identity",
+    "same-date cross-security shock",
+    "same-date cross-position structure",
+    "local calendar / regime context",
+    "within-month serial ordering (cyclically)",
+    "session-length class",
+    "one shared family-wide map"
+  ],
+  "MEASURED_STRUCTURE": {
+    "DEV_months": 61,
+    "FULL_dates_per_month": {
+      "min": 4,
+      "p10": 19,
+      "median": 21,
+      "max": 23
+    },
+    "months_with_fewer_than_2_FULL_dates": 0,
+    "distinct_maps_per_draw": "~21^61 — no shortage of draws",
+    "dates_moved_by_a_canonical_draw": "1,117 of 1,254"
+  },
+  "STATED_LIMITATION_EARLY_CLOSE_IDENTITY": {
+    "un_randomised_episode_mass": "23,780 of 2,952,695 DEV opening-hour rows = 0.805%",
+    "consequence": "those episodes contribute the SAME value to theta_obs and to every theta^(b); s_j therefore measures the variability of the RANDOMISED FULL part only",
+    "coherence": "the fixed contribution appears in both theta_obs and c_j and largely cancels in the numerator",
+    "honest_direction": "the residual pressure is ANTI-conservative and is bounded by the 0.805% share — recorded as a number, NOT dismissed as negligible"
+  },
+  "NEW_GUARDS": {
+    "guard_time_locality": "pi(d) must lie in the SAME calendar month as d, for FULL dates",
+    "guard_cyclic_structure": "within a month the offset must be CONSTANT — an arbitrary within-month permutation is a violation",
+    "guard_early_close_identity": "pi(d) == d for every EARLY_CLOSE date"
+  },
+  "NEW_NEGATIVE_FIXTURES": {
+    "N12": "global cross-month permutation -> FAIL_TIME_LOCALITY",
+    "N13": "arbitrary within-month permutation -> FAIL_CYCLIC_STRUCTURE",
+    "N14": "EARLY_CLOSE randomised -> FAIL_EARLY_CLOSE_IDENTITY",
+    "N4_parent_map": "the PARENT's global map itself FAILS guard_time_locality — confirming the amendment is substantive, not cosmetic"
+  },
+  "GUARD_RESULTS": "14 / 14 PASS (7 positive, 4 negative, 3 determinism)",
+  "LESSON": {
+    "statement": "alongside the scope of SHARED, the scope of EXCHANGEABLE must also be named",
+    "history": "cross-sectional dependence was secured across three iterations (per-claim, per-security, per-position); TEMPORAL dependence needed the same treatment and had been left implicit"
+  },
+  "REQUIRED_NEXT": [
+    "re-run the synthetic map/stat smoke under this map",
+    "exact runtime optimisation with reference-vs-fast equivalence BEFORE real Y",
+    "only then FIRST REAL Y"
+  ]
+}

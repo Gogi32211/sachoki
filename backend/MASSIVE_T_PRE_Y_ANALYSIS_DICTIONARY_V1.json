@@ -1,0 +1,155 @@
+{
+  "report_id": "MASSIVE_T_PRE_Y_ANALYSIS_DICTIONARY_V1",
+  "status": "HOLD",
+  "hold_reason": "two execution-critical components of the historical estimand are not portable to Massive as written",
+  "task_class": "PRE_Y_DICTIONARY_RECOVERY",
+  "bindings": {
+    "MASSIVE_T1_EPISODE_RULE_AUTHORITY_DECISION_V1.json": "6d733e1fa3bf3c3d",
+    "MASSIVE_T1_EPISODE_TEMPORAL_SEMANTICS_V1.json": "819329bf48bd7175",
+    "MASSIVE_T1_DAILY_ANCHOR_MATERIALIZER_PROVENANCE_V1_QUALIFICATION.json": "ded5c340dfb9fd6a",
+    "MASSIVE_T1_DAILY_EPISODE_ANCHOR_PORT_V1.json": "26e7eda6ffd22a95",
+    "MASSIVE_T1_OPENING_HOUR_SUPPORT_MAP_V1.json": "c47f6decfd4cd7af",
+    "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1_CORRECTION_REBIND.json": "d90a9c3a20f9a838",
+    "MASSIVE_T_FEATURE_PRODUCTION_V1.json": "ccdb0e35490794da",
+    "MASSIVE_T1_HISTORICAL_EPISODE_POPULATION_PRESERVATION_V1.json": "4a19b83f40adc6cc",
+    "T1_OUTCOME_SPEC_V1.json": null,
+    "T1_15M_ESTIMAND_V1.json": null,
+    "T1_15M_PRESPEC_V1.json": "71d49dcde8921eb3",
+    "T1_15M_X_ONLY_V1.json": null
+  },
+  "current_population": {
+    "security_cohort": 476,
+    "massive_native_t1_anchor_sessions": 8588,
+    "opening_hour_support": 8588,
+    "historical_positive_overlap": {
+      "value": 8117,
+      "status": "DIAGNOSTIC_ONLY"
+    },
+    "massive_positive_not_in_preserved_set": {
+      "value": 471,
+      "status": "NOT_HISTORICAL_FALSE"
+    },
+    "primary_population": "8,588 — NOT the historical intersection"
+  },
+  "recovered_exactly": {
+    "outcome": {
+      "signal": "canonical T1 daily close",
+      "decision": "after T1 session close",
+      "entry_semantics": "NEXT_SESSION_OPEN_V1",
+      "primary": "MFE_10D percent",
+      "secondary_registered": "MFE_ATR_10D",
+      "descriptive_only": [
+        "MAE_10D percent",
+        "terminal R_10D percent"
+      ],
+      "not_promotion_paths": [
+        "MAE_10D",
+        "R_10D"
+      ],
+      "exit_policy": "NONE",
+      "formulas": {
+        "MFE": "max(High_j/EntryOpen - 1)",
+        "MAE": "min(Low_j/EntryOpen - 1)",
+        "R": "Close_h/EntryOpen - 1"
+      },
+      "builder": "t5_outcomes.build_outcomes — REUSED byte-identical, output path overridden; a second implementation of entry/maturity semantics is how families drift"
+    },
+    "population_filters": [
+      "path_status_10d == AVAILABLE (STATUS only, no value)",
+      "n20 >= 20 prior sessions"
+    ],
+    "anchors": {
+      "measured_at": "T-2 close, strictly before the window opens",
+      "liquidity": "median(close*volume) over 20 rows",
+      "volatility": "atr_14 / close",
+      "dedup": "row_number by universe preference sp500<nasdaq<russell2k, rn=1"
+    },
+    "blocks": {
+      "rule": "block = t5_date | liq_half | vol_half",
+      "halves": "median split by rank WITHIN each decision date",
+      "historical_block_count": 5062
+    },
+    "statistic": "one-sided Z_rank = R_s / sqrt(V_s), bounded blockwise Mann-Whitney / AUC, analytically studentized",
+    "direction": "one-sided positive",
+    "multiplicity": "search-wide max Z_rank over all k claims, ONE permutation mapping applied to every claim",
+    "n_perm": 999,
+    "promotion": "Z_rank_obs > p95( max-null Z_rank ) from THIS run's own permutations, STRICTLY greater",
+    "raw_theta": "magnitude only; never a promotion criterion",
+    "grammar": {
+      "scope": "OPENING HOUR ONLY",
+      "position_families": [
+        "M1→M2",
+        "M2→M3",
+        "M3→M4"
+      ],
+      "grammar": "position-anchored 2-bar claims only",
+      "excluded": "the 3-bar grammar (million-claim scale) is NOT in T1 V1",
+      "evidence_status": "a SEPARATE localization family; NOT independent evidence from 1H — same episode universe, same outcome"
+    }
+  },
+  "temporal_reading_refined": {
+    "anchor_known_at": "D close",
+    "opening_hour_features_known_by": "D close",
+    "entry": "D+1 open (NEXT_SESSION_OPEN_V1)",
+    "consequence": "every X input precedes the decision point; there is no lookahead in the outcome path",
+    "classification_retained": "POST_EXPOSURE_SESSION_LOCALIZATION — the anchor is still not knowable at M1",
+    "correction": "an earlier phrasing risked implying the construct is unimplementable; it is not — it is simply not decidable at M1"
+  },
+  "execution_critical_gaps": [
+    {
+      "id": "BLOCKING_VARIABLE_NOT_PORTABLE",
+      "what": "anchors() sets vol_anchor = atr_14 / close, read from legacy bars at the T-2 close",
+      "why_blocked": "the Massive coarse layer carries only OHLCV and coverage fields — there is no atr_14",
+      "requires": "a Massive-native ATR-14 whose definition provably matches the legacy column",
+      "forbidden": "substituting a plausible ATR — that would be inventing a blocking variable",
+      "also_affects": "MFE_ATR_10D, the registered secondary characterization"
+    },
+    {
+      "id": "CLAIM_LAYER_ABSENT_ON_MASSIVE",
+      "what": "the historical family is 157 searchable tokens over three position families, k_final_candidate 35715",
+      "why_blocked": "those claims are evaluated on the legacy 15m TOKEN surface; Massive has T states but not that token layer",
+      "consequence": "the family cannot be enumerated, so multiplicity cannot be bound to a member count",
+      "forbidden": "registering the three position pairs as three tests — the historical family was never three tests"
+    }
+  ],
+  "not_blockers": [
+    "the population — 8,588 anchors with complete exact opening-hour support",
+    "the outcome formula",
+    "the entry semantics",
+    "the blocking RULE",
+    "the statistic and multiplicity PROCEDURE"
+  ],
+  "forbidden_if_resumed": [
+    "using 8,117 historical overlap as the primary population",
+    "adding the 3-bar grammar (excluded from V1)",
+    "adding M1->M3, M1->M4 or any unregistered pair",
+    "treating a position pair as a T-state transition",
+    "opening an all-session or all-12-label search",
+    "appending EMA or RVOL conditions absent from the historical prespec",
+    "collapsing NONE into UNAVAILABLE",
+    "calling the preserved-set complement a historical negative",
+    "promoting the 1D anchor to a standalone hypothesis",
+    "resetting the historical exposure ledger"
+  ],
+  "historical_provenance": [
+    "PREVIOUSLY_EXPOSED_HYPOTHESIS",
+    "CURRENT_PRE_REGISTERED_SOURCE_COHORT_PORT",
+    "REPLICATION_LIKE"
+  ],
+  "independence_limitation": "a SEPARATE localization family; NOT independent evidence from 1H — same episode universe, same outcome",
+  "z_firewall": "HOLD — this dictionary is T1-only",
+  "y_firewall": {
+    "y_values_read": 0,
+    "future_bars_read": 0,
+    "theta_computed": 0,
+    "permutations_run": 0
+  },
+  "y_exposed": 0,
+  "analysis_writes": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "next_required": [
+    "port ATR-14 to Massive 1D with a definition proven to match the legacy atr_14 column, OR register a different blocking variable pre-Y",
+    "build the Massive 15m token layer, or register a different claim family with its own multiplicity treatment"
+  ],
+  "sealed_at": "2026-08-27 10:23 +04"
+}

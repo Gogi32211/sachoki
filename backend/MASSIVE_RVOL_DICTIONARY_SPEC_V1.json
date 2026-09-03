@@ -1,0 +1,291 @@
+{
+  "spec_id": "MASSIVE_RVOL_DICTIONARY_SPEC_V1",
+  "status": "MASSIVE_RVOL_DICTIONARY_SPEC_V1_FROZEN",
+  "task_class": "SPECIFICATION_ONLY",
+  "scope": "RVOL ONLY — the EMA family is specified and frozen separately in MASSIVE_COARSE_EMA_FEATURE_SPEC_V1; no EMA parameter is referenced here",
+  "resolves": {
+    "artifact": "MASSIVE_EMA_RVOL_FEATURE_SPEC_V2",
+    "digest": "3228c4025dbfcc39",
+    "disposition": "IMMUTABLE HOLD — not edited",
+    "undeclared_parameters_then": 9,
+    "parameters_declared_now": 10,
+    "tenth": "zero-denominator handling, which surfaced during this freeze and was not among the original nine"
+  },
+  "authoritative_inputs": {
+    "MASSIVE_1M_STATE_TRANSITION_V1": {
+      "cited": "d73a88d836f36eea",
+      "actual": "d73a88d836f36eea",
+      "match": true
+    },
+    "MASSIVE_1M_DATA_CONTRACT_AMENDMENT_V1": {
+      "cited": "8aaef7196c420136",
+      "actual": "8aaef7196c420136",
+      "match": true
+    },
+    "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1": {
+      "cited": "5591685cfa33b62a",
+      "actual": "5591685cfa33b62a",
+      "match": true
+    },
+    "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1": {
+      "cited": "6ec73d5f462761f0",
+      "actual": "6ec73d5f462761f0",
+      "match": true
+    },
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": {
+      "cited": "7c0a5ad6b17d7ae0",
+      "actual": "7c0a5ad6b17d7ae0",
+      "match": true
+    },
+    "MASSIVE_EMA_RVOL_FEATURE_SPEC_V2": {
+      "cited": "3228c4025dbfcc39",
+      "actual": "3228c4025dbfcc39",
+      "match": true
+    },
+    "MASSIVE_1M_PROBE_SPEC_V1": {
+      "cited": null,
+      "actual": "a162b31502019df1",
+      "match": true
+    },
+    "MASSIVE_1M_CLOSE_BOUNDARY_AMENDMENT_V1": {
+      "cited": null,
+      "actual": "a8c4c7fc3ef17c93",
+      "match": true
+    }
+  },
+  "families": [
+    "slot-RVOL",
+    "CUM-RVOL"
+  ],
+  "classification": "CURRENT_PROGRAM_PRE_REGISTERED",
+  "pre_registered_before_y": true,
+  "y_exposed": 0,
+  "decisions": [
+    {
+      "n": 1,
+      "parameter": "baseline_lookback",
+      "value": "20 prior eligible sessions, same security_key_v1, same session type"
+    },
+    {
+      "n": 2,
+      "parameter": "baseline_statistic",
+      "value": "arithmetic mean",
+      "explicitly_not": [
+        "median",
+        "trimmed mean"
+      ],
+      "rationale": "an 'expected volume' baseline; the mean preserves the additive interpretation that CUM-RVOL also relies on"
+    },
+    {
+      "n": 3,
+      "parameter": "minimum_valid_sample_count",
+      "value": 15,
+      "rule": "< 15 valid prior observations at that slot -> UNAVAILABLE",
+      "never": "lowered security by security to raise availability"
+    },
+    {
+      "n": 4,
+      "parameter": "current_session_excluded",
+      "value": true,
+      "rule": "the baseline is strictly prior-only; the current session may never enter its own denominator"
+    },
+    {
+      "n": 5,
+      "parameter": "window",
+      "value": "fixed trailing rolling 20",
+      "explicitly_not": "expanding",
+      "rule": "at most the last 20 matching prior eligible sessions"
+    },
+    {
+      "n": 6,
+      "parameter": "slot_granularity",
+      "value": "1 regular-session minute, session-open-relative position (slot_1, slot_2, ...)",
+      "explicitly_not": "coarse interval position",
+      "charter_position": "this remains charter-authorised 1m CLOCK measurement, not a 1m-native signal family"
+    },
+    {
+      "n": 7,
+      "parameter": "cross_session_type_pooling",
+      "value": false,
+      "rule": "normal-session and early-close baselines are independent"
+    },
+    {
+      "n": 8,
+      "parameter": "cum_rvol_denominator",
+      "value": "arithmetic mean of prior-session CUMULATIVE volumes through the same slot",
+      "explicitly_not": "sum of per-slot means, which would be a shortcut",
+      "historical_sample_validity": "a prior session contributes only if its cumulative path from slot 1 through slot k is uninterrupted by any UNOBSERVED expected minute",
+      "same_policy": "last 20 same-session-type prior sessions, minimum 15 valid cumulative samples, arithmetic mean",
+      "current_session": "once the current cumulative path crosses an UNOBSERVED minute it carries the charter's contaminated/unavailable state from that point forward; missing volume is never 0"
+    },
+    {
+      "n": 9,
+      "parameter": "first_last_regular_slot",
+      "value": "INCLUDE NORMALLY + EXPLICIT NEUTRAL FLAG",
+      "flag": "boundary_print_attribution = UNRESOLVED",
+      "scope": {
+        "first_regular_minute": "included",
+        "last_regular_minute": "included",
+        "close_boundary_bar": "excluded — separate bar_scope",
+        "auction_claim": "NOT MADE"
+      },
+      "rationale": "real regular-session vendor volume exists there and no evidence identifies what fraction is an auction print; EXCLUDING them would be an equally unproven semantic assumption"
+    },
+    {
+      "n": 10,
+      "parameter": "zero_denominator_handling",
+      "value": "UNAVAILABLE / ZERO_BASELINE",
+      "explicitly_not": [
+        "0",
+        "infinity",
+        "1",
+        "bare numeric NULL without a reason"
+      ]
+    }
+  ],
+  "decision_provenance": "every value was supplied explicitly; no default, convention or 'standard' value was added",
+  "zero_denominator": {
+    "contract": {
+      "valid_sample_count >= 15 and baseline_mean > 0": {
+        "rvol": "numerator / baseline_mean",
+        "validity": "VALID"
+      },
+      "valid_sample_count >= 15 and baseline_mean == 0": {
+        "rvol_numeric_value": "NOT EMITTED",
+        "validity": "UNAVAILABLE",
+        "unavailable_reason": "ZERO_BASELINE"
+      }
+    },
+    "applies_to": [
+      "slot-RVOL",
+      "CUM-RVOL"
+    ],
+    "zero_samples_remain_valid": "the 15+ genuine observed zero-volume samples stay valid observations; they are NOT ejected from the baseline merely because their mean is 0",
+    "cases": {
+      "numerator == 0 and denominator == 0": "UNAVAILABLE / ZERO_BASELINE — never RVOL = 1, never 0",
+      "numerator > 0 and denominator == 0": "UNAVAILABLE / ZERO_BASELINE — never +infinity"
+    },
+    "retained_fields": [
+      "numerator_volume",
+      "baseline_value (= 0)",
+      "sample_count",
+      "excluded_unobserved_count",
+      "unavailable_reason"
+    ],
+    "epsilon_floor_forbidden": {
+      "examples": [
+        "max(mean, 1)",
+        "1e-9",
+        "any smoothing constant"
+      ],
+      "why": "an unregistered numerical regularization that silently converts an undefined ratio into a plausible-looking finite one"
+    }
+  },
+  "early_close_consequence": {
+    "finding": "early-close RVOL is UNAVAILABLE BY CONSTRUCTION in this V1 window",
+    "arithmetic": {
+      "early_close_sessions_in_window": 10,
+      "minimum_valid_prior_samples_required": 15,
+      "pooling_allowed": false,
+      "conclusion": "ten prior same-type sessions can never supply fifteen"
+    },
+    "classification": "PRE-REGISTERED DESIGN CONSEQUENCE, NOT AN IMPLEMENTATION DEFECT",
+    "accepted_tradeoff": "not pooling two different volume shapes into one baseline, and not inventing a lower minimum for early-close sessions",
+    "recorded_now_because": "it would otherwise be reported later as a bug"
+  },
+  "inherited_from_frozen_authority": {
+    "baseline_membership": "the per-slot baseline is computed over OBSERVED and STRUCTURAL_NO_TRADE minutes only; UNOBSERVED minutes are excluded from both numerator and denominator",
+    "cumulative_contamination": "a cumulative curve crossing an UNOBSERVED minute is flagged from that point forward for that session",
+    "mandatory_reporting": "every RVOL-family feature reports the count of excluded UNOBSERVED minutes alongside its value",
+    "unobserved_never_zero": "an UNOBSERVED minute is NEVER coerced to zero volume, in storage, in aggregation, or in any feature",
+    "structural_no_trade": {
+      "capability": "UNAVAILABLE",
+      "consequence": "the charter admits STRUCTURAL_NO_TRADE into the baseline, but this programme cannot prove its preconditions, so in practice the baseline is built from OBSERVED minutes only and the excluded count is reported"
+    }
+  },
+  "causality": {
+    "availability": "CLOSE_OF_BAR_T",
+    "no_future": [
+      "future session information",
+      "future minute",
+      "future cumulative volume",
+      "future outcome"
+    ],
+    "prior_only": "the current session never enters its own denominator"
+  },
+  "one_minute_role": {
+    "unchanged": true,
+    "amended": false,
+    "justification": "slot-RVOL and CUM-RVOL measure a session-level volume state and time when within the session it is reached — the permitted use of 1m under the charter"
+  },
+  "legacy_exclusions": {
+    "volume_over_rolling_20_bar_average": "LEGACY_REFERENCE_ONLY",
+    "legacy_thresholds": [
+      "1.4x",
+      "1.8x",
+      "2.0x"
+    ],
+    "classification": "LEGACY_REFERENCE_ONLY",
+    "importable": false,
+    "why": "occurrence in historical code is not pre-registration"
+  },
+  "thresholds": {
+    "emitted": "continuous quantities plus validity metadata only",
+    "threshold_search": false,
+    "inferred_from_legacy_code": false
+  },
+  "emitted_fields": [
+    "security_key_v1",
+    "session_date",
+    "slot_index",
+    "minute_ts",
+    "feature_information_available_at",
+    "rvol_family",
+    "numerator_volume",
+    "baseline_value",
+    "rvol_value",
+    "sample_count",
+    "excluded_unobserved_count",
+    "rvol_validity_state",
+    "unavailable_reason",
+    "boundary_print_attribution",
+    "session_type"
+  ],
+  "feature_validity_vs_cohort": {
+    "cohort": 476,
+    "rule": "a security stays in the frozen cohort even when RVOL is UNAVAILABLE",
+    "forbidden": "constructing a cleaner cohort from feature availability"
+  },
+  "governance_guard": {
+    "rule": "if implementation surfaces a further required semantic parameter that is neither in these ten decisions nor in the frozen charter, HOLD",
+    "never": "pick a value silently",
+    "precedent": "the tenth parameter was found exactly this way"
+  },
+  "acceptance": {
+    "families_charter_named": true,
+    "ten_parameters_declared": true,
+    "no_default_added": true,
+    "baseline_membership_inherited_verbatim": true,
+    "zero_denominator_explicit": true,
+    "epsilon_floor_forbidden": true,
+    "early_close_consequence_recorded": true,
+    "auction_attribution_unasserted": true,
+    "legacy_thresholds_excluded": true,
+    "one_minute_role_unchanged": true,
+    "no_ema_parameter_referenced": true,
+    "y_exposed_zero": true,
+    "rvol_production_writes_zero": true
+  },
+  "mutations": {
+    "charter": 0,
+    "cohort": 0,
+    "ema_spec": 0,
+    "coarse_production": 0,
+    "rvol_writes": 0,
+    "y_exposure": 0
+  },
+  "rvol_production_writes": 0,
+  "next_step": "RVOL feature smoke + label-free capability, then RVOL production. Not started here.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 00:15 +04"
+}

@@ -1,0 +1,73 @@
+{
+  "report_id": "MASSIVE_T_LEGACY_15M_MATERIALIZER_PROVENANCE_RESOLUTION_V1",
+  "status": "SAME_MATERIALIZER_CONFIRMED",
+  "task_class": "PROVENANCE_RESOLUTION_ONLY",
+  "target": "studio_15m.duckdb :: bars.t_sig",
+  "writer_chain": [
+    "update_all.sh -> derive_intraday.py --tf 15m",
+    "derive_intraday reads studio_15m_base.duckdb (LEAN base); for 15m the resample is IDENTITY ('base IS 15m')",
+    "build_intraday_db._process",
+    "main.api_bar_signals(tk, tf=tf, bars=len(df), universe=u, _df=df)",
+    "compute_all_signals -> signal_engine.compute_signals",
+    "studio_15m.duckdb :: bars.t_sig"
+  ],
+  "upstream_ohlc_surface": "studio_15m_base.duckdb :: bars (OHLCV only)",
+  "preprocessing": "identity resample for 15m; no transform before compute_signals",
+  "runtime_config": "producer defaults (api_bar_signals calls compute_signals(df) with no overrides)",
+  "decisive_measurement": {
+    "sample_securities": 60,
+    "common_bars": 1893031,
+    "deterministic_sample": true,
+    "A_vs_engine_on_LEAN_BASE": 1.0,
+    "A_vs_engine_on_ENRICHED_OWN_OHLC": 0.960849,
+    "enriched_ohlc_equals_base_ohlc": 0.345301,
+    "reading": "the canonical engine on the actual input surface reproduces the stored t_sig EXACTLY"
+  },
+  "classification": "SAME_MATERIALIZER_CONFIRMED",
+  "classification_rejected": [
+    "DIFFERENT_MATERIALIZER_CONFIRMED",
+    "HIDDEN_PREPROCESS_TRANSFORM_CONFIRMED",
+    "SAME_MATERIALIZER_DIFFERENT_INPUT_VINTAGE_CONFIRMED",
+    "PROVENANCE_UNRESOLVED"
+  ],
+  "my_error": {
+    "what": "I gave B the ENRICHED store's own OHLC column as the presumed input to its own t_sig",
+    "actual_input": "the LEAN base store",
+    "cost": "a 4-5% residual I was about to carry into the acceptability rebind as an unexplained provenance limitation",
+    "class_": "WRONG_INPUT_SURFACE_ASSUMED_FROM_COLOCATION",
+    "lesson": "co-location of a label and an OHLC column in one table does not mean that column produced that label"
+  },
+  "corrects": [
+    {
+      "artifact": "MASSIVE_T_LEGACY_15M_THREE_WAY_CONFORMANCE_V1",
+      "digest": "715765f2be4b8711",
+      "what": "A<->B and B<->C used the wrong legacy input surface",
+      "disposition": "RECOMPUTATION_REQUIRED — not edited"
+    },
+    {
+      "artifact": "MASSIVE_T_LEGACY_15M_TOKEN_POSITION_PORTABILITY_V1",
+      "digest": "f93999b9d10e0b0d",
+      "what": "A<->C objects are correct; interpretation changes because A is now provably engine(lean-base OHLC)",
+      "disposition": "INTERPRETATION_AMENDED — measurements stand"
+    },
+    {
+      "artifact": "MASSIVE_T_LEGACY_15M_OHLC_VINTAGE_DIAGNOSTIC_V1",
+      "digest": "e9b2e267b1dd6e75",
+      "what": "its UNRESOLVED verdict was correct; the residual it could not explain has a different cause entirely",
+      "disposition": "SUPERSEDED_BY_RESOLUTION"
+    }
+  ],
+  "consequence_for_authority": {
+    "canonical_15m_materializer": "signal_engine.py :: compute_signals via api_bar_signals",
+    "strength": "the strongest provenance evidence in the programme — exact reproduction, not statistical agreement",
+    "note": "the 15m materializer is the same producer already frozen for the daily surface"
+  },
+  "stop_rule": {
+    "bounded_pass": true,
+    "closed": true,
+    "further_archaeology_required": false
+  },
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-27 00:08 +04"
+}

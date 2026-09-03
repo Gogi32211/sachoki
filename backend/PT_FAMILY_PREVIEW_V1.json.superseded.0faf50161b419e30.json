@@ -1,0 +1,109 @@
+{
+  "spec_id": "PT_FAMILY_PREVIEW_V1",
+  "status": "BUILT",
+  "semantics": "lifted verbatim from the PT5 implementation: BASE = every canonical episode; 1H = at least one frozen overlap-cluster MEDOID matches; 15M = at least one frozen 15m representative; STRONG = both; the class ladder is exclusive",
+  "medoids_only": "within-cluster aliases never strengthen a preview",
+  "availability": "three-valued: AVAILABLE_TRUE / AVAILABLE_FALSE / UNAVAILABLE. A family with no 15m phase reports UNAVAILABLE, never FALSE.",
+  "provenance_states": [
+    "HISTORICAL",
+    "FORWARD_X_UNMATURED",
+    "FORWARD_MATURED_PENDING_ANALYSIS",
+    "FORWARD_EVIDENCE_ELIGIBLE",
+    "FORWARD_SOURCE_HOLD"
+  ],
+  "provenance_rule": "the server derives state from sealed artifacts; the browser must never infer evidence status from a date",
+  "not_for": [
+    "ranking",
+    "scoring",
+    "sorting",
+    "filtering",
+    "model input"
+  ],
+  "families": {
+    "T5": {
+      "rows": 195584,
+      "classes": {
+        "PT5_15M": 91123,
+        "PT5_1H": 524,
+        "PT5_BASE": 97610,
+        "PT5_STRONG": 6327
+      },
+      "provenance": {
+        "HISTORICAL": 195584
+      },
+      "phases": {
+        "BASE": "AVAILABLE",
+        "H1": "AVAILABLE",
+        "M15": "AVAILABLE",
+        "STRONG": "AVAILABLE"
+      },
+      "medoids": 4,
+      "membership_digest": "033ab7ff5a7d1f90",
+      "parquet": "pt5_signals.parquet",
+      "parquet_digest": "1d907eba401f8647"
+    },
+    "T9": {
+      "rows": 243562,
+      "classes": {
+        "PT9_1H": 9828,
+        "PT9_BASE": 233734
+      },
+      "provenance": {
+        "HISTORICAL": 243562
+      },
+      "phases": {
+        "BASE": "AVAILABLE",
+        "H1": "AVAILABLE",
+        "M15": "UNAVAILABLE",
+        "STRONG": "UNAVAILABLE"
+      },
+      "medoids": 4,
+      "membership_digest": "6bef8d6003fc0fac",
+      "parquet": "pt9_signals.parquet",
+      "parquet_digest": "14f4a736cf0b0ac8"
+    },
+    "T3": {
+      "rows": 213742,
+      "classes": {
+        "PT3_1H": 6461,
+        "PT3_BASE": 207281
+      },
+      "provenance": {
+        "HISTORICAL": 213742
+      },
+      "phases": {
+        "BASE": "AVAILABLE",
+        "H1": "AVAILABLE",
+        "M15": "UNAVAILABLE",
+        "STRONG": "UNAVAILABLE"
+      },
+      "medoids": 7,
+      "membership_digest": "92dd6d6fbf9ea2d1",
+      "parquet": "pt3_signals.parquet",
+      "parquet_digest": "dc9732867289c57c"
+    },
+    "T1": {
+      "rows": 220351,
+      "classes": {
+        "PT1_1H": 21280,
+        "PT1_BASE": 199071
+      },
+      "provenance": {
+        "HISTORICAL": 220351
+      },
+      "phases": {
+        "BASE": "AVAILABLE",
+        "H1": "AVAILABLE",
+        "M15": "UNAVAILABLE",
+        "STRONG": "UNAVAILABLE"
+      },
+      "medoids": 9,
+      "membership_digest": "4d2e60b16173ddc8",
+      "parquet": "pt1_signals.parquet",
+      "parquet_digest": "2bef869a4f2fb8a7"
+    }
+  },
+  "t5_treatment": "translated from the sealed pt5_signals.parquet, never recomputed",
+  "outcome_exposure": "NOT_EXPOSED",
+  "built_at": "2026-08-22 17:27 +04"
+}

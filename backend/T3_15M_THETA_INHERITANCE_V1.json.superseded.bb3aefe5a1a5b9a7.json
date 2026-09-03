@@ -1,0 +1,84 @@
+{
+  "spec_id": "T3_15M_THETA_INHERITANCE_V1",
+  "status": "FROZEN_BEFORE_HISTORICAL_EXPOSURE",
+  "family": "T3",
+  "decision": "A — INHERIT the exact T5-15m theta semantics, materialised here",
+  "why_not_undefined": {
+    "T3_has": [
+      "raw_theta role frozen pre-Y in T3_15M_ESTIMAND_V1",
+      "primary_outcome MFE_10D frozen",
+      "the estimand explicitly names the T5 15m precedent it mirrors",
+      "the formula is recoverable from that named precedent"
+    ],
+    "GANN_had": [
+      "no role",
+      "no formula",
+      "no precedent"
+    ],
+    "conclusion": "materialising an already-named precedent before Y is closing an implicit inheritance, not inventing a magnitude estimand. The two cases are not equivalent and are not treated as such."
+  },
+  "primary_outcome": "MFE_10D",
+  "theta_role": [
+    "MAGNITUDE ONLY",
+    "NEVER A PROMOTION CRITERION"
+  ],
+  "theta_formula": "theta = SUM_b w_b * median(y | treated in b) - SUM_b w_b * median(y | control in b)",
+  "weights": "w_b = n_t,b / N_T, where N_T is the treated count summed over OVERLAP blocks only",
+  "exact_semantics": {
+    "block": "t5_sequence_estimand.blocks — t5_date | liq_half | vol_half, where each half is split WITHIN the decision date by rank on the D-1 anchor",
+    "treated": "the claim's overlap-restricted membership: episodes carrying the claim that lie in blocks holding at least one treated AND one control row",
+    "control": "every non-treated episode in those same overlap blocks",
+    "overlap_restriction": "blocks with n_t == 0 or n_c == 0 are dropped — they carry no contrast and would make the weight undefined",
+    "weight_normalisation": "over overlap blocks only; the dropped blocks enter neither the numerator nor N_T",
+    "median_na_handling": "none required — y is asserted finite on the population before use (verified: 144,602 rows, 0 NaN). A non-finite y is a hard failure, not an imputation",
+    "degenerate_block_handling": "excluded by the overlap restriction above",
+    "survivor_definition": "Z_rank_obs > p95(max-null) from the run's own 999 permutations, STRICTLY greater",
+    "top_slice": "top 500 by frozen Z_rank",
+    "tie_handling": "ties on Z are broken by the SEALED CLAIM ORDER (j ascending)",
+    "mfe_direction_semantics": "MFE_10D is a single directional maximum favourable excursion for this family — NOT a direction-neutral pair as in GANN, so no component selection occurs"
+  },
+  "tightening_over_precedent": {
+    "what": "T5 selected its top slice with np.argsort(-Z)[:500]; numpy's default sort is NOT stable, so claims tied on Z were ordered arbitrarily and possibly differently on a rerun",
+    "T3_rule": "np.lexsort((j, -Z)) — ties broken by the sealed claim order",
+    "status": "a strict tightening of an UNDERSPECIFIED step, not a change of estimand",
+    "why_recorded": "'same as T5' would have silently inherited an unstable ordering"
+  },
+  "precedent": {
+    "implementation": "t5_15m_historical.theta_for",
+    "code_digest": "8d4c2e49fd05e27a",
+    "note": "the code hash is recorded as provenance only. The mathematical definition above is authoritative, so if the T5 implementation later changes, this estimand does not."
+  },
+  "implementation": {
+    "module": "t15m_theta.py",
+    "digest": "39e029ecd97207bf"
+  },
+  "conformance_gate": {
+    "hand_theta": 3.75,
+    "reference_theta": 3.75,
+    "implementation_theta": 3.75,
+    "treated_leg": 7.666666666667,
+    "control_leg": 3.916666666667,
+    "fixture": "3 blocks · treated [1,3,5]/[10,20]/[7] · control [2,4]/[4,6,8]/[1,2,3,100]",
+    "checks": {
+      "hand_vs_reference": true,
+      "reference_vs_implementation": true,
+      "treated_leg": true,
+      "control_leg": true,
+      "tie_break_is_sealed_j": true,
+      "tie_break_is_repeatable": true
+    },
+    "passed": true
+  },
+  "post_selection_status": {
+    "statement": "theta is conditional on post-inference selected claims",
+    "means": "theta describes magnitude among the registered survivor / top-rank characterization set",
+    "does_not": [
+      "provide independent confirmation",
+      "alter survivor status",
+      "constitute a second test"
+    ],
+    "direction_of_inference": "Z / registered inference -> survivor or rank; THEN selected set -> theta magnitude characterization. No arrow runs backwards — a large theta can never rescue a weak-Z claim."
+  },
+  "outcome_exposure": "NOT_EXPOSED — sealed before Y is opened",
+  "sealed_at": "2026-08-24 12:08 +04"
+}

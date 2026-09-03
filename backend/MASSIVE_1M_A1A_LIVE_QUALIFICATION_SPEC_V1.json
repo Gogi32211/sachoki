@@ -1,0 +1,91 @@
+{
+  "artifact": "MASSIVE_1M_A1A_LIVE_QUALIFICATION_SPEC_V1",
+  "status": "FROZEN_BEFORE_CALL",
+  "Y_EXPOSED": 0,
+  "CALL": {
+    "date": "2026-08-24",
+    "role": "DIAGNOSTIC HISTORICAL REFETCH",
+    "paid_vendor_calls": "ONE session",
+    "FORWARD_Y": "NOT TOUCHED",
+    "FORWARD_X": "NOT CREATED AS EVIDENCE",
+    "PRIMARY_USE": "FORBIDDEN"
+  },
+  "PRE_CALL_GUARDS": {
+    "1_original_vintage_digest_sealed": {
+      "manifest_sha256": "7f4d6f2894e1fa801e662d2c22c16190ec44da1c811a6f66644da1c8222cf37a",
+      "payload_sha256": "09ee800dcd54f62743195e322581444a19a42675b622d62e06ac8440e9d334fc",
+      "manifest_recorded_payload_sha256": "09ee800dcd54f62743195e322581444a19a42675b622d62e06ac8440e9d334fc",
+      "bytes": 4778210,
+      "rows": 205240,
+      "observed": 503,
+      "unobserved": 0,
+      "not_yet_regular_way": 0,
+      "ingested_at": "2026-08-25T03:21:22Z",
+      "truncated_members": 0
+    },
+    "2_original_path_not_written": "the diagnostic wrapper NEVER writes under the canonical root; destination is asserted to be outside it, and both original digests are re-verified AFTER the call",
+    "3_new_vintage_identity": {
+      "fields": [
+        "session_date",
+        "retrieval_timestamp",
+        "source_family",
+        "payload_digest"
+      ],
+      "backlink": "diagnostic_refetch_of = <original vintage payload digest>"
+    },
+    "4_existing_target": "if the target vintage already exists -> HARD FAIL, never overwrite"
+  },
+  "WRAPPER_RULE": {
+    "massive_ingest.py": "NOT MODIFIED. Its own resumability would in any case SKIP an already-complete session, so it cannot overwrite 2026-08-24 even if run.",
+    "diagnostic_wrapper": "reuses massive_ingest.lineage / ticker_for / fetch verbatim and mirrors the payload serialisation exactly, writing ONLY to diagnostic_refetch/<vintage_id>/",
+    "why_mirror_serialisation": "byte-level comparison is only meaningful if the serialisation is identical; any deviation would be misattributed to the vendor"
+  },
+  "CHECKS": [
+    "transport",
+    "request/query semantics",
+    "payload schema",
+    "adjusted=true",
+    "source family",
+    "identity resolution",
+    "frozen-476 allowlist",
+    "session/calendar/time",
+    "append-only vintage rule"
+  ],
+  "COMPARISON": {
+    "BYTE_LEVEL": [
+      "original payload digest",
+      "refetch payload digest",
+      "identical TRUE/FALSE"
+    ],
+    "SEMANTIC_LEVEL": [
+      "top-level schema",
+      "adjusted",
+      "source",
+      "session",
+      "securities set",
+      "per-security massive_ticker",
+      "truncated",
+      "minute timestamps",
+      "OHLCV values"
+    ]
+  },
+  "VERDICT_CLASSES": {
+    "PASS": "the frozen A1a ingest code path has been demonstrated live against the vendor on an already-evidentiary historical session, without modifying the authoritative original vintage",
+    "SOURCE_REVISION_OBSERVED": "schema / query / source semantics unchanged but some historical values differ — a vendor revision or backfill. DIAGNOSTIC ONLY. The original vintage remains the authoritative historical vintage and no completed inference changes.",
+    "SOURCE_REGIME_HOLD_conditions": [
+      "adjusted != true",
+      "source family changed",
+      "schema changed",
+      "a required field disappeared",
+      "an admitted member has truncated == true",
+      "identity cannot resolve"
+    ]
+  },
+  "WORDING_LIMIT": {
+    "permitted": "LIVE PATH QUALIFIED",
+    "FORBIDDEN": "vendor guaranteed unchanged for all future sessions",
+    "standing": "source-contract guards must run again on EVERY real forward ingest. 2026-08-24 proves live execution capability only.",
+    "note": "BYTE DIFFERENCE != automatically SOURCE_REGIME_CHANGE"
+  },
+  "CREDENTIALS": "api_key() is called; its value is never printed, logged, stored or written to any artifact"
+}

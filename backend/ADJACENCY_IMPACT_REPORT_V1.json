@@ -1,0 +1,201 @@
+{
+  "spec_id": "ADJACENCY_IMPACT_REPORT_V1",
+  "status": "X_ONLY",
+  "remediation_spec": "eceb57488f51b983",
+  "session_validity_amendment": "ca4f746019d9b123",
+  "calendar_source": "session_calendar_1h.parquet · 312c637c44d398d3",
+  "calendar_rule": "modal bar count across ALL TICKERS that traded the date, from the 1H store — the registered rule",
+  "families": {
+    "T5": {
+      "family": "T5",
+      "session_validity": {
+        "dates_examined": 1275,
+        "dates_where_family_modal_differs_from_calendar": 0,
+        "differing_dates": [],
+        "sessions": 246513,
+        "old_valid": 237833,
+        "corrected_valid": 237833,
+        "old_valid_to_corrected_invalid": 0,
+        "old_invalid_to_corrected_valid": 0,
+        "episodes_affected": 0,
+        "affected_examples": []
+      },
+      "corrected_input": {
+        "rows_old": 1659965,
+        "rows_corrected": 1659965,
+        "input_frames_bit_identical": true,
+        "invariant_D_admitted_gap_spanning_windows": 0
+      },
+      "grammar": {
+        "note": "no reusable enumerate_grammar entry point in this module; identity established at the input frame"
+      },
+      "branch": "A — evidence inputs identical"
+    },
+    "T9": {
+      "family": "T9",
+      "session_validity": {
+        "dates_examined": 1277,
+        "dates_where_family_modal_differs_from_calendar": 0,
+        "differing_dates": [],
+        "sessions": 321514,
+        "old_valid": 313818,
+        "corrected_valid": 313818,
+        "old_valid_to_corrected_invalid": 0,
+        "old_invalid_to_corrected_valid": 0,
+        "episodes_affected": 0,
+        "affected_examples": []
+      },
+      "corrected_input": {
+        "rows_old": 2190624,
+        "rows_corrected": 2190624,
+        "input_frames_bit_identical": true,
+        "invariant_D_admitted_gap_spanning_windows": 0
+      },
+      "grammar": {
+        "names_old": 980,
+        "names_corrected": 980,
+        "classes_old": 910,
+        "classes_corrected": 910,
+        "aliases_old": 70,
+        "aliases_corrected": 70,
+        "class_digest_old": "2362bc5debd55524",
+        "class_digest_corrected": "2362bc5debd55524",
+        "digest_identical": true,
+        "names_only_old": [],
+        "n_names_only_old": 0,
+        "names_only_corrected": [],
+        "n_names_only_corrected": 0,
+        "common": 980,
+        "membership_unchanged": 980,
+        "membership_changed": 0,
+        "support_changed": 0,
+        "support_delta_min": 0,
+        "support_delta_max": 0,
+        "membership_cells_added": 0,
+        "membership_cells_removed": 0,
+        "jaccard_on_changed_claims": {}
+      },
+      "branch": "A — evidence inputs identical"
+    },
+    "T3": {
+      "family": "T3",
+      "session_validity": {
+        "dates_examined": 1277,
+        "dates_where_family_modal_differs_from_calendar": 0,
+        "differing_dates": [],
+        "sessions": 291601,
+        "old_valid": 284294,
+        "corrected_valid": 284294,
+        "old_valid_to_corrected_invalid": 0,
+        "old_invalid_to_corrected_valid": 0,
+        "episodes_affected": 0,
+        "affected_examples": []
+      },
+      "corrected_input": {
+        "rows_old": 1984127,
+        "rows_corrected": 1984127,
+        "input_frames_bit_identical": true,
+        "invariant_D_admitted_gap_spanning_windows": 0
+      },
+      "grammar": {
+        "names_old": 945,
+        "names_corrected": 945,
+        "classes_old": 885,
+        "classes_corrected": 885,
+        "aliases_old": 60,
+        "aliases_corrected": 60,
+        "class_digest_old": "256825450ab04d28",
+        "class_digest_corrected": "256825450ab04d28",
+        "digest_identical": true,
+        "names_only_old": [],
+        "n_names_only_old": 0,
+        "names_only_corrected": [],
+        "n_names_only_corrected": 0,
+        "common": 945,
+        "membership_unchanged": 945,
+        "membership_changed": 0,
+        "support_changed": 0,
+        "support_delta_min": 0,
+        "support_delta_max": 0,
+        "membership_cells_added": 0,
+        "membership_cells_removed": 0,
+        "jaccard_on_changed_claims": {}
+      },
+      "branch": "A — evidence inputs identical"
+    },
+    "T1": {
+      "family": "T1",
+      "session_validity": {
+        "dates_examined": 1278,
+        "dates_where_family_modal_differs_from_calendar": 1,
+        "differing_dates": [
+          "2022-06-10"
+        ],
+        "sessions": 315869,
+        "old_valid": 309669,
+        "corrected_valid": 309669,
+        "old_valid_to_corrected_invalid": 1,
+        "old_invalid_to_corrected_valid": 1,
+        "episodes_affected": 2,
+        "affected_examples": [
+          {
+            "session_date": "2022-06-10",
+            "ticker": "BORR",
+            "episode_id": "166697c55abdb9ec",
+            "bars_in_session": 7,
+            "fam_modal": 2,
+            "cal_len": 7
+          },
+          {
+            "session_date": "2022-06-10",
+            "ticker": "INTG",
+            "episode_id": "000af9b16c472a02",
+            "bars_in_session": 2,
+            "fam_modal": 2,
+            "cal_len": 7
+          }
+        ]
+      },
+      "corrected_input": {
+        "rows_old": 2162044,
+        "rows_corrected": 2162049,
+        "input_frames_bit_identical": false,
+        "invariant_D_admitted_gap_spanning_windows": 0
+      },
+      "grammar": {
+        "names_old": 1002,
+        "names_corrected": 1002,
+        "classes_old": 929,
+        "classes_corrected": 929,
+        "aliases_old": 73,
+        "aliases_corrected": 73,
+        "class_digest_old": "5a0644342937593a",
+        "class_digest_corrected": "c8e4f2bebcf0a50f",
+        "digest_identical": false,
+        "names_only_old": [],
+        "n_names_only_old": 0,
+        "names_only_corrected": [],
+        "n_names_only_corrected": 0,
+        "common": 1002,
+        "membership_unchanged": 992,
+        "membership_changed": 10,
+        "support_changed": 10,
+        "support_delta_min": -1,
+        "support_delta_max": 1,
+        "membership_cells_added": 9,
+        "membership_cells_removed": 1,
+        "jaccard_on_changed_claims": {
+          "n": 10,
+          "min": 0.9991,
+          "q10": 0.9995,
+          "median": 0.9999,
+          "q90": 0.9999,
+          "max": 0.9999
+        }
+      },
+      "branch": "B — evidence inputs moved"
+    }
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome, Z, theta or survivor computed anywhere in this report",
+  "runtime_min": 60.3
+}

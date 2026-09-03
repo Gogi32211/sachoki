@@ -1,0 +1,161 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1",
+  "status": "SYNTHETIC_PIPELINE_QUALIFIED",
+  "EXPLICITLY_NOT": [
+    "STATISTIC_VALIDATED",
+    "POWER_VALIDATED",
+    "EVIDENCE_FOUND"
+  ],
+  "REAL_Y_ACCESS": "NONE",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "spec": {
+    "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_SPEC_V1",
+    "digest": "91b46aa46e9ecaa0"
+  },
+  "GATE_1_FABRICATED_FIXTURES": {
+    "result": "18 / 18 PASS",
+    "expected_values": "HAND-AUTHORED, not produced by the builder",
+    "F1_F2_F3": "entry idx 2/3/4, Y = 10.0 / 5.0 / 5.0",
+    "F4": "EARLY_CLOSE VALID (not censored), Y = 6.0",
+    "F5": "defect using right-bar CLOSE gives 30.0 vs correct next-bar OPEN 10.0",
+    "F6": "entry bar AND final bar both proven inside the path",
+    "F7": "missing interior bar -> PATH_UNAVAILABLE; the shortening defect silently returns VALID",
+    "F8": "ATR_PRIOR None / 0 / negative / nan / inf -> ATR_PRIOR_UNAVAILABLE (5/5)",
+    "F9": "previous session EARLY_CLOSE -> ATR from ITS OWN final bar (4.0), not hard-coded idx25",
+    "N11": "REAL OutcomeProvider raises at CONSTRUCTION time in smoke mode"
+  },
+  "GATE_2_MAP_AND_NEGATIVE_FIXTURES": {
+    "result": "19 / 19 PASS",
+    "positive_guards": [
+      "one shared vector",
+      "true permutation",
+      "FULL->FULL and EARLY->EARLY only",
+      "cross-security sync",
+      "cross-position sync",
+      "payload atomicity",
+      "active-window guard",
+      "fixed max-stat set"
+    ],
+    "negative_fixtures_all_REJECTED": {
+      "N1": "FAIL_SHARED_MAP",
+      "N2": "FAIL_CROSS_SECURITY_DATE_SYNC",
+      "N3": "FAIL_CROSS_POSITION_DATE_SYNC",
+      "N4": "FAIL_SESSION_LENGTH_STRATUM",
+      "N5": "FAIL_PAYLOAD_ATOMICITY",
+      "N6": "FAIL_ACTIVE_WINDOW",
+      "N7": "FAIL_FIXED_MAX_SET"
+    },
+    "substreams": [
+      "SCALE != NULL",
+      "CI and SMOKE distinct",
+      "CI/SMOKE do not disturb NULL draws"
+    ]
+  },
+  "GATE_2_FULL_REGISTRY_RUN": {
+    "exit_code": 0,
+    "X": "REAL frozen registry",
+    "Y": "SYNTHETIC SHA-256 keyed uniforms",
+    "episodes": 596251,
+    "DEV_episodes": 590539,
+    "securities": 476,
+    "dates": 1254,
+    "FULL_REGULAR_dates": 1244,
+    "EARLY_CLOSE_dates": 10,
+    "synthetic_Y_range": [
+      0.0412,
+      1.0693
+    ],
+    "synthetic_availability_pct": 99.01,
+    "runtime": "~58 s per draw, 51 draws",
+    "results": {
+      "K": 20751,
+      "stable": 20751,
+      "unstable": 0,
+      "B_SCALE": 20,
+      "B_NULL": 30,
+      "p_adj_min": 0.6774193548387096,
+      "p_adj_max": 1.0,
+      "p_zero": 0,
+      "monotone_violations": 0,
+      "grid_ok": true,
+      "M_matches_max": true,
+      "fixed_max_set": true,
+      "defined_scale_min": 20,
+      "defined_null_min": 30
+    },
+    "reading": {
+      "K": "20,751 claims produced",
+      "stable": "20,751 — every claim defined on 20/20 SCALE and 30/30 NULL draws",
+      "fixed_max_set": "true — every M_b taken over the SAME index set",
+      "p_grid": "all p_adj on the {1/31 .. 31/31} grid",
+      "p_zero": 0,
+      "monotone_violations": 0,
+      "p_adj_min": 0.677,
+      "NOT_A_CRITERION": "in a pure-null synthetic world no claim is significant. Per the frozen spec, smoke PASS/FAIL does NOT depend on whether any claim reached significance."
+    }
+  },
+  "GATE_2B_REPLAY_CI_CAPABILITY": {
+    "result": "13 / 13 PASS",
+    "deterministic_replay": "all 20 SCALE and 30 NULL map digests reproduce; 50 distinct maps; SCALE/NULL disjoint",
+    "two_way_CI": {
+      "security_multiplicities": 476,
+      "date_multiplicities": 1254,
+      "independent": true,
+      "deterministic": true,
+      "weighted_median_path": "executes",
+      "negative": "security-only weights REJECTED by TWO_WAY_CLUSTER_GUARD"
+    }
+  },
+  "INJECTED_EFFECT_CAPABILITY": {
+    "STATUS": "CAPABILITY_DIAGNOSTIC_ONLY",
+    "claim_selection": "first 5 claim IDs under SHA256 ordering — outcome-independent",
+    "null_max_stat": {
+      "min": 5.738,
+      "max": 9.786,
+      "median": 7.837
+    },
+    "observed": {
+      "uplift_0_sd": "0/5",
+      "uplift_2_sd": "0/5",
+      "uplift_5_sd": "0/5",
+      "uplift_10_sd": "3/5"
+    },
+    "what_this_SHOWS": "the machinery propagates an injected effect end-to-end into p_adj — the path works",
+    "what_this_DOES_NOT_SHOW": [
+      "power",
+      "sensitivity",
+      "a real-world detectable effect size",
+      "any calibration of B_SCALE, B_NULL or the studentization"
+    ],
+    "why_the_bar_is_high_here": "with B_NULL = 30 smoke draws the upper tail of M is estimated from only 30 values, and the maximum over 20,751 studentized statistics is inherently large. This is a property of the SMOKE's tiny B, NOT of the frozen inferential design.",
+    "FORBIDDEN": "using this diagnostic to reshape B, the studentization, or the promotion gate so the fixture wins"
+  },
+  "FINAL_ACCEPTANCE": {
+    "FABRICATED OUTCOME FIXTURES": "PASS",
+    "FULL REGISTRY ROW/CLAIM COUNTS": "PASS",
+    "REAL-Y EXPOSURE GUARD": "PASS",
+    "DATE-BLOCK MAP": "PASS",
+    "CROSS-SECURITY SYNC": "PASS",
+    "CROSS-POSITION SYNC": "PASS",
+    "SESSION-CLASS STRATIFICATION": "PASS",
+    "ATOMIC AVAILABILITY PAYLOAD": "PASS",
+    "ACTIVE-WINDOW GUARD": "PASS",
+    "FIXED MAX-STAT SET": "PASS",
+    "STUDENTIZATION PATH": "PASS",
+    "PLUS-ONE / TIE RULE": "PASS",
+    "DETERMINISTIC REPLAY": "PASS",
+    "TWO-WAY CI PLUMBING": "PASS",
+    "ALL NEGATIVE FIXTURES": "FAIL-BEFORE-FIX / PASS-AFTER-FIX"
+  },
+  "TOTALS": {
+    "gate1": "18/18",
+    "gate2_map": "19/19",
+    "gate2b": "13/13",
+    "full_run_invariants": "8/8"
+  },
+  "GATE_OPENED": "FIRST REAL Y",
+  "NOT_STARTED": [
+    "real Y"
+  ]
+}

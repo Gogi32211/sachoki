@@ -1,0 +1,29 @@
+{
+  "artifact": "MASSIVE_15M_RSI14_RESIDUAL_AUTHORITY_V1_AMENDMENT_1",
+  "amends": "ea7159d9fe961c83",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "the sealed eligibility_input said the 4,777 development-window mismatches are ALL incremental-regime. That is arithmetically false: the 136 META head-convergence cells are in 2022, hence also inside the development window (<= 2026-08-06).",
+  "superseded_claim": "DEV mismatches = all incremental regime",
+  "VERIFIED_DECOMPOSITION": {
+    "TOTAL": 5033,
+    "Block A - META head-convergence": 136,
+    "Block B - 2026 incremental": 4897,
+    "DEV (<= 2026-08-06)": 4777,
+    "DEV / META head-convergence": 136,
+    "DEV / incremental regime": 4641,
+    "HOLDOUT (>= 2026-08-07)": 256,
+    "HOLDOUT / META head-convergence": 0,
+    "HOLDOUT / incremental regime": 256
+  },
+  "arithmetic_check": "136 + 4,897 = 5,033 ; 136 + 4,641 = 4,777 ; 4,641 + 256 = 4,897 — closes",
+  "WHY_IT_MATTERS": "the development window contains TWO distinct causes with different remedies. They must not be collapsed into one exclusion rule.",
+  "TWO_CAUSES": {
+    "HEAD_CONVERGENCE": "per-ticker enriched series head later than base; decays to zero; affects every EWM/RMA-seeded feature; remedied by seeding from the base head or discarding the head segment",
+    "INCREMENTAL_MATERIALIZATION_REGIME": "from 2026-07-06; does not decay; remedied only by regime-aware handling"
+  },
+  "unchanged": [
+    "INTERIOR_UNEXPLAINED = 0 across 2023, 2024 and 2025",
+    "VERDICT RESIDUAL_FULLY_CHARACTERIZED"
+  ]
+}

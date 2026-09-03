@@ -1,0 +1,104 @@
+{
+  "amendment_id": "MASSIVE_T_PORT_CONFORMANCE_DIAGNOSTIC_SCOPE_AMENDMENT_V2",
+  "status": "MASSIVE_T_PORT_CONFORMANCE_DIAGNOSTIC_SCOPE_AMENDMENT_V2_FROZEN",
+  "task_class": "LIMITATION_CORRECTION_ONLY",
+  "amends": {
+    "artifact": "MASSIVE_T_PORT_CONFORMANCE_DIAGNOSTIC_SCOPE_AMENDMENT_V1",
+    "digest": "c6358576c5c9411b",
+    "disposition": "FROZEN — NOT edited",
+    "scope_of_supersession": "its 15m feed-divergence LIMITATION only; its research/diagnostic timeframe registry is unchanged"
+  },
+  "superseded_limitation": {
+    "old": "15M_LEGACY_VS_MASSIVE_FEED_DIVERGENCE = NOT_ESTIMABLE_FROM_AVAILABLE_MATCHED_DATA",
+    "why_the_premise_failed": "the premise (bars is structurally daily) is TRUE and still proven; the inference from it was wrong, because this comparison runs the canonical engine on BOTH sides and never needed a legacy T column — and a legacy 15m OHLC store existed all along",
+    "error_class": "TWO_CLAIMS_COLLAPSED_INTO_ONE + SEARCH_STOPPED_TOO_EARLY"
+  },
+  "new_frozen_limitation": {
+    "LEGACY_15M_MATERIALIZED_T_POPULATION": "DOES_NOT_EXIST",
+    "LEGACY_15M_MATERIALIZED_POPULATION_EQUIVALENCE": "NOT_ESTIMABLE",
+    "SAME_CANONICAL_ENGINE_CROSS_SOURCE_15M_DIVERGENCE": "ESTIMATED",
+    "authority": {
+      "artifact": "MASSIVE_T_15M_SOURCE_DIVERGENCE_DIAGNOSTIC_V1",
+      "digest": "53c92f9df3b40d26"
+    },
+    "matched_bars": 10458803,
+    "matched_securities": 473,
+    "t_agreement": 0.945539,
+    "t_divergence": 0.054461,
+    "predecessor_also_matched_agreement": 0.945767,
+    "support_loss_by_reason": {
+      "no_legacy_ticker": 3,
+      "ts_only_in_legacy": 461887,
+      "ts_only_in_massive": 158749,
+      "massive_not_complete": 4730450
+    }
+  },
+  "does_not_establish": [
+    "same historical materialized T population",
+    "legacy 15m label reproduction",
+    "feed equivalence",
+    "independent replication"
+  ],
+  "one_d_diagnostic_demoted": {
+    "was": "the only cross-source evidence available",
+    "now": "SECONDARY_SUPPORTING_DIAGNOSTIC",
+    "one_d_t_agreement": 0.975711,
+    "fifteen_m_t_agreement": 0.945539,
+    "why_it_matters": "direct 15m divergence is 5.4461% against 2.4% at 1D, so carrying the 1D figure across would have HALVED the real effect; the no-imputation rule was load-bearing, not bookkeeping"
+  },
+  "position_decomposition": {
+    "values": {
+      "M1": 0.994089,
+      "M2": 0.927812,
+      "M3": 0.942634,
+      "M4": 0.959324,
+      "SESSION_FINAL": 0.950822,
+      "OTHER": 0.943254
+    },
+    "why_recorded": "the registered historical study is opening-hour anchored on M1->M2 / M2->M3 / M3->M4, and agreement is markedly uneven across exactly those positions",
+    "interpretation": "X_SIDE_FACT_ONLY — no outcome interpretation is attached",
+    "outcome_interpretation_forbidden": true
+  },
+  "body_size_decomposition": {
+    "body_0": 0.99899,
+    "body_le_1c": 0.960978,
+    "body_le_10c": 0.954382,
+    "body_gt_10c": 0.937283
+  },
+  "attribution": {
+    "INPUT_VINTAGE_DIFFERENCE": "PLAUSIBLE / STRONGLY_SUGGESTED",
+    "confirmed": false,
+    "what_would_confirm": "joining a split / spin-off / symbol-history authority to the differing rows at row level",
+    "observation": "~1.1% of matched bars differ by more than one cent, clustering the same way they did at 1D",
+    "UNRESOLVED_remains_valid": true,
+    "forbidden": "calling it 'rounding' or 'noise'"
+  },
+  "my_defect_recorded": {
+    "defect": "the first run of the 15m diagnostic matched ZERO bars and sealed anyway",
+    "cause": "legacy timestamps are datetime64[us] and were divided as if nanoseconds, yielding SECONDS against the store's MILLISECONDS — a 1000x unit mismatch",
+    "severity": "FAIL_OPEN — a diagnostic that matches nothing is a harness defect, not a measurement",
+    "retained_artifact": "MASSIVE_T_15M_SOURCE_DIVERGENCE_DIAGNOSTIC_V1.json.superseded.4f546fe5d8a89675.json",
+    "retained_status": "INVALID_ZERO_SUPPORT / SUPERSEDED — not deleted, not overwritten",
+    "fix": "explicit conversion through datetime64[ms] so the unit cannot depend on the source resolution",
+    "new_negative_fixture": {
+      "id": "N_ZERO_MATCHED_SUPPORT",
+      "rule": "matched_support == 0 => HOLD, sealing forbidden",
+      "implemented": true
+    }
+  },
+  "unchanged_from_v1": [
+    "research port timeframe 15m ONLY",
+    "1D remains DIAGNOSTIC_ONLY_NOT_HYPOTHESIS_REGISTRATION",
+    "the six forbidden consequences",
+    "research_family_enlarged = False",
+    "SESSION_CLOSE_BOUNDARY_BAR stays neutral"
+  ],
+  "research_family_enlarged": false,
+  "port_hash_unchanged": "0ca86eeb1f8ee8fe",
+  "production_rebuild_required": false,
+  "why_no_rebuild": "the diagnostic changed no engine, no port hash, no config and no Massive input semantics; T production remains byte-valid",
+  "downstream_authorization": "HOLD until the acceptability rebind",
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 20:09 +04"
+}

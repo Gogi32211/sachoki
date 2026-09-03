@@ -1,0 +1,96 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_A1B_PRODUCTION_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "scope": "A1b ONLY — canonical 1m base -> 15m Stage-A. END-TO-END A1 is NOT qualified: A1a forward execution qualification is still owed.",
+  "WRAPPER": {
+    "file": "backend/forward_stagea_a1b.py",
+    "sha256": "0c15f251e2c108f352ee12abf3a0768f8d9c44eb29d7e1145dbcb2306e9e199c",
+    "lines": 100,
+    "wraps_not_rewrites": "imports CoarseAggregatorV1 from the frozen coarse_aggregator_v1 and calls aggregate() + validate(). It defines NO interval geometry, NO coverage_state rule, NO OHLCV aggregation.",
+    "wrapper_responsibilities": [
+      "frozen-476 allowlist",
+      "path routing",
+      "orchestration",
+      "10-column projection"
+    ],
+    "source_path_guard": "PASSED THROUGH UNTOUCHED — a caller pointing outside the production 1m base is refused by the parent producer exactly as historically",
+    "allowlist_placement_rationale": "the aggregator RAISES on a non-cohort key (GUARD cohort_admission). That is anti-contamination, not admission policy. The forward contract says raw data MAY exist for other securities and is simply NOT ADMITTED, so the filter must precede the aggregator — otherwise every forward session containing a new S&P name would hard-fail."
+  },
+  "PARENT_AUTHORITY": "MASSIVE_1M_COARSE_PRODUCER_CODE_AUTHORITY_V1 · a829902a50056c01",
+  "COHORT": {
+    "file": "massive_new_family_runtime/FORWARD_COHORT_476_security_key_v1.txt",
+    "digest_checked_at_load": "2d1ec872dcf74df4",
+    "n": 476,
+    "hard_fail_on": [
+      "missing file",
+      "digest mismatch",
+      "size != 476",
+      "a key not 64 hex chars"
+    ]
+  },
+  "FULL_HISTORICAL_REGRESSION": {
+    "sampling": "NONE — all 1,254 sessions rebuilt",
+    "path": "production 1m base -> A1b wrapper -> 15m projection",
+    "rebuilt_rows": 15445454,
+    "sealed_rows": 15445454,
+    "O_minus_R": 0,
+    "R_minus_O": 0,
+    "keys": 476,
+    "dates": 1254,
+    "errors": 0,
+    "rejected_rows": 0,
+    "elapsed_s": 88,
+    "VERDICT": "EXACT",
+    "ordering": "row ORDER was free; ROW MULTISET and VALUE semantics are exact"
+  },
+  "BOUNDARY_FIXTURES": {
+    "fixtures": 9,
+    "assertions": 28,
+    "passed": 28,
+    "VERDICT": "PASS",
+    "detail": {
+      "1_normal_full_session": "390 min · 26 intervals 0..25 · bar_start == open + i*15min for EVERY i · COMPLETE 8,471/12,350",
+      "2_early_close": "2024-11-29, 210 min · 14 intervals · max bar_start + 15m == session close exactly, so a post-close interval is UNCONSTRUCTIBLE, not merely forbidden",
+      "3_missing_interior_1m": "interval 6 -> UNOBSERVED_CONTAMINATED · OHLCV all NULL · EXACTLY 1 interval flipped",
+      "4_missing_opening_minute": "interval 0 contaminated · interval_index NOT shifted (still 0..25) · bar_start of interval 0 unchanged",
+      "5_missing_final_minute": "interval 25 contaminated · all 26 intervals retained · no shortened path",
+      "6_partial_interval": "k=0 -> COMPLETE; k in {1,2,7,14,15} -> UNOBSERVED_CONTAMINATED. Only two labels exist; there is NO partial-specific state. is_stub is unconstructible at 15m since 390/15=26 and 210/15=14.",
+      "7_ticker_rename": "neither minute_states nor the stage-A output carries a ticker column at all; admission is on security_key_v1 alone",
+      "8_STRUCTURAL_NO_TRADE": "POSITIVE: injecting the state makes the producer RAISE AggHold and emit NOTHING. NEGATIVE: OBSERVED/UNOBSERVED only does not fire the guard.",
+      "9_unresolved_identity": "a non-member key is DROPPED by the allowlist (390 rows, 1 key), is absent from the output, and — re-verified by an independent two-way EXCEPT ALL — the member rows are byte-for-byte the SAME multiset as the unpolluted run. Not mapped, not substituted."
+    }
+  },
+  "STRUCTURAL_NO_TRADE_STATUS": {
+    "HISTORICAL_OBSERVATIONAL_SUPPORT": 0,
+    "and_always_will_be": "by construction — the producer cannot emit it",
+    "FAIL_CLOSED_GUARD_QUALIFICATION": "PASS (positive and negative sides both exercised)",
+    "FORBIDDEN_WORDING": "historically validated"
+  },
+  "DECLARED_LIMITATIONS": [
+    {
+      "limitation": "the regression read the PRODUCTION 1m base on the external volume, NOT the persisted copy",
+      "why": "coarse_aggregator_v1.aggregate() raises AggHold if realpath(source_root) != realpath(DERIVED_ROOT). Reading the persisted copy through the producer would require defeating that guard.",
+      "what_was_NOT_done": "the guard was NOT bypassed, patched, or worked around",
+      "CONSEQUENCE": "the 4.83 GB persisted 1m base is a RECONSTRUCTION ARCHIVE, not a drop-in production source. Restoring from it means restoring it TO the production path, or amending the producer — which would be a change to frozen bytes and is out of scope here.",
+      "status": "REPORTED, not resolved"
+    },
+    {
+      "limitation": "fixtures mutate REAL sessions; they do not synthesise a novel calendar",
+      "consequence": "only the two XNYS session lengths that actually occur (390, 210) are exercised"
+    },
+    {
+      "limitation": "A1b qualification says nothing about whether NEW 1m minutes can be produced forward",
+      "pointer": "MASSIVE_NEW_FAMILY_A1A_FORWARD_QUALIFICATION_GATE_V1 · c12067c4e62cac83"
+    }
+  ],
+  "GATE_RESULT": {
+    "A1b_development": "COMPLETE",
+    "A1b_9_boundary_fixtures": "PASS 28/28",
+    "A1b_full_historical_regression": "PASS — EXACT 0/0 on 15,445,454 rows",
+    "A1b_frozen_476_allowlist": "PASS",
+    "A1b_STRUCTURAL_NO_TRADE_guard": "PASS",
+    "A1b_PRODUCTION_QUALIFICATION": "PASS",
+    "END_TO_END_A1": "NOT QUALIFIED — blocked on A1a (canonical_1m raw persistence + forward execution qualification)"
+  }
+}

@@ -1,0 +1,722 @@
+{
+  "report_id": "MASSIVE_1M_UNOBSERVED_FIVE_DIAGNOSIS_V1",
+  "status": "DIAGNOSED",
+  "provenance_rule": {
+    "immutable": "the ingest manifests keep recording these five sessions as UNOBSERVED; this diagnosis does not and cannot rewrite them",
+    "evidence_class": "NEW-VINTAGE DIAGNOSTIC EVIDENCE — gathered later, under a different entitlement window and vendor state. It EXPLAINS the original observation; it does not replace it.",
+    "no_retry": "each (ticker, session) was requested ONCE. Retrying until a convenient answer appeared would manufacture a 'legitimate empty' out of a transport failure, and those are two of the states being distinguished."
+  },
+  "hypothesis_discipline": "all five fall on the last session of an old ticker's V6 interval, which makes boundary mismatch the obvious reading. Clustering near renames is a reason to look, not a finding — each case is classified on its own evidence.",
+  "summary": {
+    "SOURCE_REFERENCE_INCONSISTENT": 5
+  },
+  "cases": [
+    {
+      "security": "FISV",
+      "session": "2023-06-07",
+      "cik": "0000798354",
+      "v6_intervals": [
+        [
+          "FISV",
+          "2021-08-25",
+          "2023-06-07"
+        ],
+        [
+          "FI",
+          "2023-06-08",
+          "2025-11-10"
+        ],
+        [
+          "FISV",
+          "2025-11-11",
+          "2026-08-24"
+        ]
+      ],
+      "old_ticker": "FISV",
+      "successor_ticker": "FI",
+      "original_observation": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "FISV",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T00:49:23Z"
+      },
+      "aggs": {
+        "FI": {
+          "2023-06-05": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-06-06": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-06-07": {
+            "http": 200,
+            "bars": 398,
+            "rth": 385,
+            "first_open": 114.99,
+            "last_close": 115.9,
+            "transport": false
+          },
+          "2023-06-08": {
+            "http": 200,
+            "bars": 396,
+            "rth": 389,
+            "first_open": 115.8,
+            "last_close": 115.29,
+            "transport": false
+          },
+          "2023-06-09": {
+            "http": 200,
+            "bars": 391,
+            "rth": 389,
+            "first_open": 115.75,
+            "last_close": 116.82,
+            "transport": false
+          }
+        },
+        "FISV": {
+          "2023-06-05": {
+            "http": 200,
+            "bars": 393,
+            "rth": 390,
+            "first_open": 114.01,
+            "last_close": 112.23,
+            "transport": false
+          },
+          "2023-06-06": {
+            "http": 200,
+            "bars": 412,
+            "rth": 390,
+            "first_open": 112.49,
+            "last_close": 114.65,
+            "transport": false
+          },
+          "2023-06-07": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-06-08": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-06-09": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          }
+        }
+      },
+      "adjacent_sessions": [
+        "2023-06-05",
+        "2023-06-06",
+        "2023-06-07",
+        "2023-06-08",
+        "2023-06-09"
+      ],
+      "reference_on_session": {
+        "http": 200,
+        "tickers": [
+          "FISV"
+        ],
+        "share_class_figis": [
+          "BBG001S5R6Q4"
+        ]
+      },
+      "reference_next_session": {
+        "http": 200,
+        "tickers": [],
+        "share_class_figis": []
+      },
+      "classification": "SOURCE_REFERENCE_INCONSISTENT"
+    },
+    {
+      "security": "EG",
+      "session": "2023-07-10",
+      "cik": "0001095073",
+      "v6_intervals": [
+        [
+          "RE",
+          "2021-08-25",
+          "2023-07-10"
+        ],
+        [
+          "EG",
+          "2023-07-11",
+          "2026-08-24"
+        ]
+      ],
+      "old_ticker": "RE",
+      "successor_ticker": "EG",
+      "original_observation": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "RE",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T00:53:08Z"
+      },
+      "aggs": {
+        "EG": {
+          "2023-07-06": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-07-07": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-07-10": {
+            "http": 200,
+            "bars": 141,
+            "rth": 139,
+            "first_open": 349.83,
+            "last_close": 347.06,
+            "transport": false
+          },
+          "2023-07-11": {
+            "http": 200,
+            "bars": 183,
+            "rth": 182,
+            "first_open": 348.8,
+            "last_close": 351.82,
+            "transport": false
+          },
+          "2023-07-12": {
+            "http": 200,
+            "bars": 204,
+            "rth": 202,
+            "first_open": 353.53,
+            "last_close": 352.64,
+            "transport": false
+          }
+        },
+        "RE": {
+          "2023-07-06": {
+            "http": 200,
+            "bars": 298,
+            "rth": 296,
+            "first_open": 339.97,
+            "last_close": 341.28,
+            "transport": false
+          },
+          "2023-07-07": {
+            "http": 200,
+            "bars": 210,
+            "rth": 209,
+            "first_open": 346.83,
+            "last_close": 351.28,
+            "transport": false
+          },
+          "2023-07-10": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-07-11": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-07-12": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          }
+        }
+      },
+      "adjacent_sessions": [
+        "2023-07-06",
+        "2023-07-07",
+        "2023-07-10",
+        "2023-07-11",
+        "2023-07-12"
+      ],
+      "reference_on_session": {
+        "http": 200,
+        "tickers": [
+          "RE"
+        ],
+        "share_class_figis": []
+      },
+      "reference_next_session": {
+        "http": 200,
+        "tickers": [],
+        "share_class_figis": []
+      },
+      "classification": "SOURCE_REFERENCE_INCONSISTENT"
+    },
+    {
+      "security": "COR",
+      "session": "2023-08-30",
+      "cik": "0001140859",
+      "v6_intervals": [
+        [
+          "ABC",
+          "2021-08-25",
+          "2023-08-30"
+        ],
+        [
+          "COR",
+          "2023-08-31",
+          "2026-08-24"
+        ]
+      ],
+      "old_ticker": "ABC",
+      "successor_ticker": "COR",
+      "original_observation": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "ABC",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T00:59:43Z"
+      },
+      "aggs": {
+        "ABC": {
+          "2023-08-28": {
+            "http": 200,
+            "bars": 372,
+            "rth": 371,
+            "first_open": 179.75,
+            "last_close": 180.39,
+            "transport": false
+          },
+          "2023-08-29": {
+            "http": 200,
+            "bars": 336,
+            "rth": 334,
+            "first_open": 180.93,
+            "last_close": 179.98,
+            "transport": false
+          },
+          "2023-08-30": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-08-31": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-09-01": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          }
+        },
+        "COR": {
+          "2023-08-28": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-08-29": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2023-08-30": {
+            "http": 200,
+            "bars": 351,
+            "rth": 349,
+            "first_open": 180.49,
+            "last_close": 178.9,
+            "transport": false
+          },
+          "2023-08-31": {
+            "http": 200,
+            "bars": 383,
+            "rth": 378,
+            "first_open": 179.49,
+            "last_close": 175.98,
+            "transport": false
+          },
+          "2023-09-01": {
+            "http": 200,
+            "bars": 392,
+            "rth": 387,
+            "first_open": 175.98,
+            "last_close": 174.96,
+            "transport": false
+          }
+        }
+      },
+      "adjacent_sessions": [
+        "2023-08-28",
+        "2023-08-29",
+        "2023-08-30",
+        "2023-08-31",
+        "2023-09-01"
+      ],
+      "reference_on_session": {
+        "http": 200,
+        "tickers": [
+          "ABC"
+        ],
+        "share_class_figis": [
+          "BBG001S8X7P0"
+        ]
+      },
+      "reference_next_session": {
+        "http": 200,
+        "tickers": [],
+        "share_class_figis": []
+      },
+      "classification": "SOURCE_REFERENCE_INCONSISTENT"
+    },
+    {
+      "security": "DOC",
+      "session": "2024-03-04",
+      "cik": "0000765880",
+      "v6_intervals": [
+        [
+          "PEAK",
+          "2021-08-25",
+          "2024-03-04"
+        ],
+        [
+          "DOC",
+          "2024-03-05",
+          "2026-08-24"
+        ]
+      ],
+      "old_ticker": "PEAK",
+      "successor_ticker": "DOC",
+      "original_observation": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "PEAK",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T01:22:56Z"
+      },
+      "aggs": {
+        "DOC": {
+          "2024-02-29": {
+            "http": 200,
+            "bars": 403,
+            "rth": 385,
+            "first_open": 11.28,
+            "last_close": 11.24,
+            "transport": false
+          },
+          "2024-03-01": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2024-03-04": {
+            "http": 200,
+            "bars": 398,
+            "rth": 390,
+            "first_open": 16.89,
+            "last_close": 16.85,
+            "transport": false
+          },
+          "2024-03-05": {
+            "http": 200,
+            "bars": 395,
+            "rth": 390,
+            "first_open": 16.78,
+            "last_close": 17.04,
+            "transport": false
+          },
+          "2024-03-06": {
+            "http": 200,
+            "bars": 393,
+            "rth": 390,
+            "first_open": 17.18,
+            "last_close": 17.2911,
+            "transport": false
+          }
+        },
+        "PEAK": {
+          "2024-02-29": {
+            "http": 200,
+            "bars": 412,
+            "rth": 390,
+            "first_open": 16.64,
+            "last_close": 16.76,
+            "transport": false
+          },
+          "2024-03-01": {
+            "http": 200,
+            "bars": 407,
+            "rth": 390,
+            "first_open": 16.9,
+            "last_close": 17.1,
+            "transport": false
+          },
+          "2024-03-04": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2024-03-05": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2024-03-06": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          }
+        }
+      },
+      "adjacent_sessions": [
+        "2024-02-29",
+        "2024-03-01",
+        "2024-03-04",
+        "2024-03-05",
+        "2024-03-06"
+      ],
+      "reference_on_session": {
+        "http": 200,
+        "tickers": [
+          "PEAK"
+        ],
+        "share_class_figis": [
+          "BBG001S5RTS2"
+        ]
+      },
+      "reference_next_session": {
+        "http": 200,
+        "tickers": [
+          "DOC"
+        ],
+        "share_class_figis": [
+          "BBG001S5RTS2"
+        ]
+      },
+      "classification": "SOURCE_REFERENCE_INCONSISTENT"
+    },
+    {
+      "security": "EXE",
+      "session": "2024-10-02",
+      "cik": "0000895126",
+      "v6_intervals": [
+        [
+          "CHK",
+          "2021-08-25",
+          "2024-10-02"
+        ],
+        [
+          "EXE",
+          "2024-10-03",
+          "2026-08-24"
+        ]
+      ],
+      "old_ticker": "CHK",
+      "successor_ticker": "EXE",
+      "original_observation": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "CHK",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T01:49:46Z"
+      },
+      "aggs": {
+        "EXE": {
+          "2024-09-30": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2024-10-01": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2024-10-02": {
+            "http": 200,
+            "bars": 384,
+            "rth": 383,
+            "first_open": 83.35,
+            "last_close": 83.24,
+            "transport": false
+          },
+          "2024-10-03": {
+            "http": 200,
+            "bars": 395,
+            "rth": 390,
+            "first_open": 83.747,
+            "last_close": 85.2,
+            "transport": false
+          },
+          "2024-10-04": {
+            "http": 200,
+            "bars": 405,
+            "rth": 390,
+            "first_open": 84.73,
+            "last_close": 86,
+            "transport": false
+          }
+        },
+        "CHK": {
+          "2024-09-30": {
+            "http": 200,
+            "bars": 400,
+            "rth": 390,
+            "first_open": 82.56,
+            "last_close": 82.24,
+            "transport": false
+          },
+          "2024-10-01": {
+            "http": 200,
+            "bars": 391,
+            "rth": 390,
+            "first_open": 81.89,
+            "last_close": 81.46,
+            "transport": false
+          },
+          "2024-10-02": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2024-10-03": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          },
+          "2024-10-04": {
+            "http": 200,
+            "bars": 0,
+            "rth": 0,
+            "first_open": null,
+            "last_close": null,
+            "transport": false
+          }
+        }
+      },
+      "adjacent_sessions": [
+        "2024-09-30",
+        "2024-10-01",
+        "2024-10-02",
+        "2024-10-03",
+        "2024-10-04"
+      ],
+      "reference_on_session": {
+        "http": 200,
+        "tickers": [
+          "CHK"
+        ],
+        "share_class_figis": [
+          "BBG00Z6DX607"
+        ]
+      },
+      "reference_next_session": {
+        "http": 200,
+        "tickers": [
+          "EXE"
+        ],
+        "share_class_figis": [
+          "BBG00Z6DX607"
+        ]
+      },
+      "classification": "SOURCE_REFERENCE_INCONSISTENT"
+    }
+  ],
+  "boundary_implication": {
+    "confirmed_count": 0,
+    "securities": [],
+    "meaning": "where confirmed, SECURITY IDENTITY and VENDOR SOURCE-TICKER ACCESS diverge for one session: V6 still assigns the old ticker while the vendor already serves the successor string for the same issuer",
+    "v6_not_rewritten": "MASSIVE_TICKER_LINEAGE_V6 is NOT modified. If a rule is needed it belongs in a separate narrow artifact stating which vendor ticker accesses the security on the affected boundary session.",
+    "next_artifact": "MASSIVE_SOURCE_TICKER_BOUNDARY_AMENDMENT_V1 (only if warranted)"
+  },
+  "blocks": "MASSIVE_1M_DERIVED_SEMANTICS_AMENDMENT_V1 cannot FREEZE while any case remains UNRESOLVED in a way that could change expected-coverage semantics",
+  "derived_layer": "NOT CREATED — no densification, zero-fill, EMA, RVOL, T/Z or higher-timeframe output was produced",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 12:57 +04"
+}

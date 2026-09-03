@@ -1,0 +1,506 @@
+{
+  "spec_id": "MASSIVE_SOURCE_TICKER_BOUNDARY_AMENDMENT_V1",
+  "status": "FROZEN",
+  "purpose": "record vendor source-ticker ACCESS behaviour for five already-diagnosed rename-boundary security-sessions",
+  "separates": {
+    "security_identity": "who the security is — established by CIK",
+    "source_ticker_access": "which string the vendor answers to — established by the aggregates endpoint",
+    "evidence_vintage": "when the answer was obtained — original ingest vs later diagnostic retrieval"
+  },
+  "the_claim": {
+    "supported": "At diagnostic retrieval time, Massive aggregates returned bars under the same-CIK successor ticker for the affected boundary session while reference-by-date continued to identify the predecessor ticker for that date.",
+    "NOT_supported": "The vendor had already switched at original ingest time.",
+    "why": "that is a claim about a moment nobody sampled. The entitlement window and the vendor's state have both moved since the original ingest, and no evidence here reaches back to that timestamp."
+  },
+  "evidence_hierarchy": {
+    "primary": "SAME ISSUER CIK, established by the frozen V6 identity construction",
+    "corroborative": "price continuity across the predecessor/successor boundary",
+    "explicitly": "price continuity ALONE is NOT sufficient issuer-identity evidence; the ratios are recorded but are not the proof",
+    "ratios": {
+      "FISV": 1.003,
+      "EG": 0.9959,
+      "COR": 1.0028,
+      "DOC": 0.9877,
+      "EXE": 1.0232
+    }
+  },
+  "vintage_discipline": {
+    "original_archive_authoritative": "the archived ingest observations remain authoritative for their own vintage",
+    "all_five_original_state": "UNOBSERVED",
+    "new_evidence_class": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE",
+    "relation": "it may EXPLAIN the original observation; it does not replace it"
+  },
+  "scope": {
+    "evidence_bound_to": "these five cases only",
+    "no_generalization": "no `effective_date - 1` offset and no `successor_on_previous_session` rule is created",
+    "unknown": "whether other V6 renames share this one-session reference lag is untested; generalising from five observations would be inventing a rule out of a sample",
+    "requires": "a separately authorised broader conformance study"
+  },
+  "cases": [
+    {
+      "security": "FISV",
+      "security_cik": "0000798354",
+      "predecessor_ticker": "FISV",
+      "successor_ticker": "FI",
+      "xnys_session": "2023-06-07",
+      "v6_interval_assignment": [
+        [
+          "FISV",
+          "2021-08-25",
+          "2023-06-07"
+        ],
+        [
+          "FI",
+          "2023-06-08",
+          "2025-11-10"
+        ],
+        [
+          "FISV",
+          "2025-11-11",
+          "2026-08-24"
+        ]
+      ],
+      "v6_assigns_on_this_session": "FISV",
+      "reference_by_date": {
+        "result": [
+          "FISV"
+        ],
+        "http": 200,
+        "share_class_figis": [
+          "BBG001S5R6Q4"
+        ],
+        "still_reports_predecessor": true
+      },
+      "aggregates": {
+        "endpoint": "/v2/aggs/ticker/{ticker}/range/1/minute/{d}/{d}",
+        "params": {
+          "adjusted": "true",
+          "limit": 50000
+        },
+        "adjusted_flag": true,
+        "predecessor_rth_rows": 0,
+        "successor_rth_rows": 385,
+        "predecessor_prior_sessions": {
+          "2023-06-05": 390,
+          "2023-06-06": 390
+        },
+        "successor_prior_sessions": {
+          "2023-06-05": 0,
+          "2023-06-06": 0
+        },
+        "predecessor_following_sessions": {
+          "2023-06-08": 0,
+          "2023-06-09": 0
+        },
+        "successor_following_sessions": {
+          "2023-06-08": 389,
+          "2023-06-09": 389
+        }
+      },
+      "price_continuity": {
+        "old_last_close_prev_session": 114.65,
+        "successor_first_open_session": 114.99,
+        "prev_session": "2023-06-06",
+        "ratio": 1.003,
+        "band": [
+          0.9,
+          1.1
+        ],
+        "rationale": "a rename does not move the price; continuity across the boundary is independent evidence that both strings address one security"
+      },
+      "original_ingest_state": "UNOBSERVED",
+      "original_ingest_record": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "FISV",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T00:49:23Z"
+      },
+      "diagnostic_classification": "LINEAGE_SOURCE_BOUNDARY_MISMATCH_CONFIRMED",
+      "identity_proof": "SAME_CIK",
+      "price_continuity_role": "CORROBORATIVE_ONLY"
+    },
+    {
+      "security": "EG",
+      "security_cik": "0001095073",
+      "predecessor_ticker": "RE",
+      "successor_ticker": "EG",
+      "xnys_session": "2023-07-10",
+      "v6_interval_assignment": [
+        [
+          "RE",
+          "2021-08-25",
+          "2023-07-10"
+        ],
+        [
+          "EG",
+          "2023-07-11",
+          "2026-08-24"
+        ]
+      ],
+      "v6_assigns_on_this_session": "RE",
+      "reference_by_date": {
+        "result": [
+          "RE"
+        ],
+        "http": 200,
+        "share_class_figis": [],
+        "still_reports_predecessor": true
+      },
+      "aggregates": {
+        "endpoint": "/v2/aggs/ticker/{ticker}/range/1/minute/{d}/{d}",
+        "params": {
+          "adjusted": "true",
+          "limit": 50000
+        },
+        "adjusted_flag": true,
+        "predecessor_rth_rows": 0,
+        "successor_rth_rows": 139,
+        "predecessor_prior_sessions": {
+          "2023-07-06": 296,
+          "2023-07-07": 209
+        },
+        "successor_prior_sessions": {
+          "2023-07-06": 0,
+          "2023-07-07": 0
+        },
+        "predecessor_following_sessions": {
+          "2023-07-11": 0,
+          "2023-07-12": 0
+        },
+        "successor_following_sessions": {
+          "2023-07-11": 182,
+          "2023-07-12": 202
+        }
+      },
+      "price_continuity": {
+        "old_last_close_prev_session": 351.28,
+        "successor_first_open_session": 349.83,
+        "prev_session": "2023-07-07",
+        "ratio": 0.9959,
+        "band": [
+          0.9,
+          1.1
+        ],
+        "rationale": "a rename does not move the price; continuity across the boundary is independent evidence that both strings address one security"
+      },
+      "original_ingest_state": "UNOBSERVED",
+      "original_ingest_record": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "RE",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T00:53:08Z"
+      },
+      "diagnostic_classification": "LINEAGE_SOURCE_BOUNDARY_MISMATCH_CONFIRMED",
+      "identity_proof": "SAME_CIK",
+      "price_continuity_role": "CORROBORATIVE_ONLY"
+    },
+    {
+      "security": "COR",
+      "security_cik": "0001140859",
+      "predecessor_ticker": "ABC",
+      "successor_ticker": "COR",
+      "xnys_session": "2023-08-30",
+      "v6_interval_assignment": [
+        [
+          "ABC",
+          "2021-08-25",
+          "2023-08-30"
+        ],
+        [
+          "COR",
+          "2023-08-31",
+          "2026-08-24"
+        ]
+      ],
+      "v6_assigns_on_this_session": "ABC",
+      "reference_by_date": {
+        "result": [
+          "ABC"
+        ],
+        "http": 200,
+        "share_class_figis": [
+          "BBG001S8X7P0"
+        ],
+        "still_reports_predecessor": true
+      },
+      "aggregates": {
+        "endpoint": "/v2/aggs/ticker/{ticker}/range/1/minute/{d}/{d}",
+        "params": {
+          "adjusted": "true",
+          "limit": 50000
+        },
+        "adjusted_flag": true,
+        "predecessor_rth_rows": 0,
+        "successor_rth_rows": 349,
+        "predecessor_prior_sessions": {
+          "2023-08-28": 371,
+          "2023-08-29": 334
+        },
+        "successor_prior_sessions": {
+          "2023-08-28": 0,
+          "2023-08-29": 0
+        },
+        "predecessor_following_sessions": {
+          "2023-08-31": 0,
+          "2023-09-01": 0
+        },
+        "successor_following_sessions": {
+          "2023-08-31": 378,
+          "2023-09-01": 387
+        }
+      },
+      "price_continuity": {
+        "old_last_close_prev_session": 179.98,
+        "successor_first_open_session": 180.49,
+        "prev_session": "2023-08-29",
+        "ratio": 1.0028,
+        "band": [
+          0.9,
+          1.1
+        ],
+        "rationale": "a rename does not move the price; continuity across the boundary is independent evidence that both strings address one security"
+      },
+      "original_ingest_state": "UNOBSERVED",
+      "original_ingest_record": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "ABC",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T00:59:43Z"
+      },
+      "diagnostic_classification": "LINEAGE_SOURCE_BOUNDARY_MISMATCH_CONFIRMED",
+      "identity_proof": "SAME_CIK",
+      "price_continuity_role": "CORROBORATIVE_ONLY"
+    },
+    {
+      "security": "DOC",
+      "security_cik": "0000765880",
+      "predecessor_ticker": "PEAK",
+      "successor_ticker": "DOC",
+      "xnys_session": "2024-03-04",
+      "v6_interval_assignment": [
+        [
+          "PEAK",
+          "2021-08-25",
+          "2024-03-04"
+        ],
+        [
+          "DOC",
+          "2024-03-05",
+          "2026-08-24"
+        ]
+      ],
+      "v6_assigns_on_this_session": "PEAK",
+      "reference_by_date": {
+        "result": [
+          "PEAK"
+        ],
+        "http": 200,
+        "share_class_figis": [
+          "BBG001S5RTS2"
+        ],
+        "still_reports_predecessor": true
+      },
+      "aggregates": {
+        "endpoint": "/v2/aggs/ticker/{ticker}/range/1/minute/{d}/{d}",
+        "params": {
+          "adjusted": "true",
+          "limit": 50000
+        },
+        "adjusted_flag": true,
+        "predecessor_rth_rows": 0,
+        "successor_rth_rows": 390,
+        "predecessor_prior_sessions": {
+          "2024-02-29": 390,
+          "2024-03-01": 390
+        },
+        "successor_prior_sessions": {
+          "2024-02-29": 385,
+          "2024-03-01": 0
+        },
+        "predecessor_following_sessions": {
+          "2024-03-05": 0,
+          "2024-03-06": 0
+        },
+        "successor_following_sessions": {
+          "2024-03-05": 390,
+          "2024-03-06": 390
+        }
+      },
+      "price_continuity": {
+        "old_last_close_prev_session": 17.1,
+        "successor_first_open_session": 16.89,
+        "prev_session": "2024-03-01",
+        "ratio": 0.9877,
+        "band": [
+          0.9,
+          1.1
+        ],
+        "rationale": "a rename does not move the price; continuity across the boundary is independent evidence that both strings address one security"
+      },
+      "original_ingest_state": "UNOBSERVED",
+      "original_ingest_record": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "PEAK",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T01:22:56Z"
+      },
+      "diagnostic_classification": "LINEAGE_SOURCE_BOUNDARY_MISMATCH_CONFIRMED",
+      "identity_proof": "SAME_CIK",
+      "price_continuity_role": "CORROBORATIVE_ONLY"
+    },
+    {
+      "security": "EXE",
+      "security_cik": "0000895126",
+      "predecessor_ticker": "CHK",
+      "successor_ticker": "EXE",
+      "xnys_session": "2024-10-02",
+      "v6_interval_assignment": [
+        [
+          "CHK",
+          "2021-08-25",
+          "2024-10-02"
+        ],
+        [
+          "EXE",
+          "2024-10-03",
+          "2026-08-24"
+        ]
+      ],
+      "v6_assigns_on_this_session": "CHK",
+      "reference_by_date": {
+        "result": [
+          "CHK"
+        ],
+        "http": 200,
+        "share_class_figis": [
+          "BBG00Z6DX607"
+        ],
+        "still_reports_predecessor": true
+      },
+      "aggregates": {
+        "endpoint": "/v2/aggs/ticker/{ticker}/range/1/minute/{d}/{d}",
+        "params": {
+          "adjusted": "true",
+          "limit": 50000
+        },
+        "adjusted_flag": true,
+        "predecessor_rth_rows": 0,
+        "successor_rth_rows": 383,
+        "predecessor_prior_sessions": {
+          "2024-09-30": 390,
+          "2024-10-01": 390
+        },
+        "successor_prior_sessions": {
+          "2024-09-30": 0,
+          "2024-10-01": 0
+        },
+        "predecessor_following_sessions": {
+          "2024-10-03": 0,
+          "2024-10-04": 0
+        },
+        "successor_following_sessions": {
+          "2024-10-03": 390,
+          "2024-10-04": 390
+        }
+      },
+      "price_continuity": {
+        "old_last_close_prev_session": 81.46,
+        "successor_first_open_session": 83.35,
+        "prev_session": "2024-10-01",
+        "ratio": 1.0232,
+        "band": [
+          0.9,
+          1.1
+        ],
+        "rationale": "a rename does not move the price; continuity across the boundary is independent evidence that both strings address one security"
+      },
+      "original_ingest_state": "UNOBSERVED",
+      "original_ingest_record": {
+        "manifest": true,
+        "state": "UNOBSERVED",
+        "stored": {
+          "massive_ticker": "CHK",
+          "rows": 0,
+          "http_status": 200
+        },
+        "ingested_at": "2026-08-25T01:49:46Z"
+      },
+      "diagnostic_classification": "LINEAGE_SOURCE_BOUNDARY_MISMATCH_CONFIRMED",
+      "identity_proof": "SAME_CIK",
+      "price_continuity_role": "CORROBORATIVE_ONLY"
+    }
+  ],
+  "semantic_consequence": {
+    "frozen": "a no-bar response for a ticker assigned by reference lineage is NOT sufficient evidence of STRUCTURAL_NO_TRADE",
+    "rule": "REFERENCE_TICKER_NO_BAR does not imply SECURITY_NO_TRADE",
+    "prerequisite": "ticker-access correctness is a PREREQUISITE to interpreting absence at all",
+    "for_these_five": {
+      "STRUCTURAL_NO_TRADE": "FORBIDDEN",
+      "LEGITIMATE_EMPTY": "NOT SUPPORTED",
+      "original_archive_state": "UNOBSERVED",
+      "diagnostic_explanation": "SOURCE_TICKER_BOUNDARY_MISMATCH"
+    },
+    "consequence_for_phase_b": "REGULAR_WAY eligibility alone no longer licenses calling a missing bar STRUCTURAL_NO_TRADE; source-ticker access validity must be established first"
+  },
+  "no_data_repair": {
+    "authorised": false,
+    "statement": "this artifact does NOT authorise the derived layer to consume the new-vintage successor bars",
+    "state": "the five security-sessions remain UNOBSERVED in the canonical raw-vintage evidence layer",
+    "scale": "5 of 630,762 pairs",
+    "if_needed_later": "stop and open MIXED_VINTAGE_SOURCE_SUPPLEMENTATION, which must decide explicitly whether supplementation is allowed, how vintage is labelled, whether supplemented bars may enter inferential research, whether analyses must run both with and without them, and how provenance propagates",
+    "not_decided_here": true
+  },
+  "recording_limitation": "response body digests were not captured during the diagnostic retrieval and are therefore not recorded; row counts, HTTP status, parameters and retrieval time are",
+  "retrieval_time": "2026-08-25 12:59 +04",
+  "sources": {
+    "diagnosis": {
+      "artifact": "MASSIVE_1M_UNOBSERVED_FIVE_DIAGNOSIS_V1.json",
+      "digest": "953733ccea57eaaa"
+    },
+    "lineage": {
+      "artifact": "MASSIVE_TICKER_LINEAGE_V6.json",
+      "digest": "8c961aa3a0c67934"
+    },
+    "raw_integrity": {
+      "artifact": "MASSIVE_1M_RAW_INTEGRITY_V1.json",
+      "digest": "a099079c0409feaf"
+    }
+  },
+  "provenance_recheck": {
+    "2023-06-07:FISV": "UNOBSERVED",
+    "2023-07-10:EG": "UNOBSERVED",
+    "2023-08-30:COR": "UNOBSERVED",
+    "2024-03-04:DOC": "UNOBSERVED",
+    "2024-10-02:EXE": "UNOBSERVED"
+  },
+  "acceptance": {
+    "same_cik_identity_all_five": true,
+    "predecessor_no_bar_on_session": true,
+    "successor_bars_present_on_session": true,
+    "reference_still_reports_predecessor": true,
+    "original_unobserved_provenance_unchanged": true,
+    "v6_unchanged": true,
+    "canonical_raw_archive_unchanged": true,
+    "no_generalized_rename_offset_rule": true,
+    "no_new_vintage_bar_inserted": true,
+    "distinguishes_identity_access_vintage": true
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 13:05 +04"
+}

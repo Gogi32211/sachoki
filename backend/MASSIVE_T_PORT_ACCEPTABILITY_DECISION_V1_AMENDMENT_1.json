@@ -1,0 +1,197 @@
+{
+  "amendment_id": "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1_AMENDMENT_1",
+  "status": "ACCEPT_FOR_REPLICATION_LIKE_SOURCE_PORT",
+  "task_class": "ACCEPTABILITY_REBIND_ONLY",
+  "amends": {
+    "artifact": "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1",
+    "digest": "4c9b15eb8cfed786",
+    "disposition": "FROZEN — not edited",
+    "why": "that decision was computed against port hash 5ab5390171e0d5d2, which AMENDMENT_3 necessarily changed"
+  },
+  "rebound_to": {
+    "port_implementation_hash": "0ca86eeb1f8ee8fe",
+    "previous_port_hash": "5ab5390171e0d5d2",
+    "smoke": {
+      "artifact": "MASSIVE_T_PORT_SMOKE_FEED_CONFORMANCE_V1",
+      "digest": "49eb9658eda72773",
+      "status": "MASSIVE_T_PORT_SMOKE_FEED_CONFORMANCE_V1_PASS"
+    },
+    "harness_hash": "3c8f612b7f29eccb",
+    "amendment_3": "a5edf6e6806d4e0b"
+  },
+  "hard_requirements": [
+    {
+      "requirement": "same-input semantic verification EXACT",
+      "met": true
+    },
+    {
+      "requirement": "independent implementation agreement exact",
+      "met": true
+    },
+    {
+      "requirement": "the two implementations agree on AMENDMENT_3 precedence",
+      "met": true
+    },
+    {
+      "requirement": "N_START_DOUBLE_FAILURE",
+      "met": true
+    },
+    {
+      "requirement": "N_EXISTING_PRIOR_DOUBLE_FAILURE",
+      "met": true
+    },
+    {
+      "requirement": "priority semantics exact",
+      "met": true
+    },
+    {
+      "requirement": "state mapping exact",
+      "met": true
+    },
+    {
+      "requirement": "session-continuous semantics exact",
+      "met": true
+    },
+    {
+      "requirement": "FALSE vs UNAVAILABLE preserved",
+      "met": true
+    },
+    {
+      "requirement": "supplemental / new-vintage leakage = 0",
+      "met": true
+    },
+    {
+      "requirement": "no Z-family leakage",
+      "met": true
+    },
+    {
+      "requirement": "research timeframe still 15m alone",
+      "met": true
+    },
+    {
+      "requirement": "canonical config unchanged during the run",
+      "met": true
+    },
+    {
+      "requirement": "Y_EXPOSED = 0",
+      "met": true
+    },
+    {
+      "requirement": "all fixtures ran and passed",
+      "met": true
+    }
+  ],
+  "hard_requirements_met": true,
+  "unchanged_invariants": [
+    {
+      "quantity": "Layer 1 producer_vs_port",
+      "before": 0,
+      "after": 0,
+      "unchanged": true
+    },
+    {
+      "quantity": "Layer 1 port_vs_verifier",
+      "before": 0,
+      "after": 0,
+      "unchanged": true
+    },
+    {
+      "quantity": "Layer 1 producer_vs_verifier",
+      "before": 0,
+      "after": 0,
+      "unchanged": true
+    },
+    {
+      "quantity": "T evaluable",
+      "before": 9484243,
+      "after": 9484243,
+      "unchanged": true
+    },
+    {
+      "quantity": "T fired",
+      "before": 4705795,
+      "after": 4705795,
+      "unchanged": true
+    },
+    {
+      "quantity": "current COMPLETE",
+      "before": 10618186,
+      "after": 10618186,
+      "unchanged": true
+    },
+    {
+      "quantity": "zero-evaluable securities",
+      "before": 0,
+      "after": 0,
+      "unchanged": true
+    },
+    {
+      "quantity": "twelve T state counts",
+      "before": "(12 counts)",
+      "after": "(12 counts)",
+      "unchanged": true
+    }
+  ],
+  "invariants_hold": true,
+  "authorised_change_only": {
+    "what_moved": "availability-reason classification only",
+    "unavailable_required_history_delta": 189,
+    "unavailable_current_input_delta": -189,
+    "expected_by_amendment_3": {
+      "unavailable_required_history": 189,
+      "unavailable_current_input": -189
+    },
+    "matches_expectation": true,
+    "expectation_was": "A CROSS-CHECK, never fed into the run"
+  },
+  "allowed_claim": {
+    "text": "The same canonical legacy T materializer semantics are executed on Massive 15m source data under a pre-registered source-port contract.",
+    "provenance": [
+      "PREVIOUSLY_EXPOSED_HYPOTHESIS",
+      "CURRENT_PRE_REGISTERED_SOURCE_PORT",
+      "REPLICATION_LIKE"
+    ]
+  },
+  "forbidden_claims": [
+    "NEW_DISCOVERY",
+    "INDEPENDENT_REPLICATION",
+    "SAME_MATERIALIZED_POPULATION",
+    "LEGACY_15M_POPULATION_REPRODUCED",
+    "FEED_EQUIVALENCE_PROVEN"
+  ],
+  "accepted_object": {
+    "is_": "T_MASSIVE_PORT",
+    "is_not": "RECONSTRUCTED_LEGACY_15M_T",
+    "because": "the same canonical semantic program can produce different T labels when its X-side source representation differs; that is not automatically a defect"
+  },
+  "fifteen_minute_feed_divergence": {
+    "frozen_for_v1": "NOT_ESTIMABLE_FROM_AVAILABLE_MATCHED_DATA",
+    "reason": "the legacy canonical materialization is structurally 1D only; there is no matched legacy 15m T population",
+    "forbidden": [
+      "copying the 1D 97.5711% agreement to 15m",
+      "scaling it",
+      "treating it as an approximate 15m rate",
+      "describing it as 'likely similar'",
+      "using it to correct 15m T labels"
+    ]
+  },
+  "limitation_statement": "The Massive T port is semantically exact with respect to the proven canonical legacy materializer on identical inputs. It is evaluated on Massive 15m data, for which no matched legacy 15m materialization exists. Therefore source-induced differences in the 15m T population cannot be directly estimated from legacy data. The port is suitable for a replication-like source-port study, but not for a claim of historical 15m population equivalence.",
+  "carried_forward_unchanged": [
+    "allowed claim and provenance classification",
+    "forbidden claims",
+    "15m feed non-estimability",
+    "multiplicity ledger status",
+    "no evaluability threshold invented",
+    "canonical config frozen"
+  ],
+  "authorizes": "MASSIVE_T_FEATURE_PRODUCTION_V1 as a SEPARATE gate, on port hash 0ca86eeb1f8ee8fe",
+  "does_not_authorize": [
+    "Z",
+    "the final T/Z analysis dictionary",
+    "Y exposure"
+  ],
+  "y_exposed": 0,
+  "t_production_writes": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 16:02 +04"
+}

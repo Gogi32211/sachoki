@@ -1,0 +1,301 @@
+{
+  "spec_id": "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_1",
+  "status": "HOLD",
+  "verdict_reason": "no authoritative point-in-time tick-size source exists in any project authority, and under the frozen NO FALLBACK rule mintick therefore cannot be bound",
+  "task_class": "SPECIFICATION_AMENDMENT_ONLY",
+  "supplements": {
+    "base_spec": "MASSIVE_T_FEATURE_PORT_SPEC_V1",
+    "digest": "545d293b4f1e4653",
+    "modified": false,
+    "relationship": "additional binding authority; the base spec is not edited"
+  },
+  "binds": {
+    "recovery": "7d00e3908feb26d5",
+    "pine_source": "696f40d730662a60",
+    "coarse_production": "6ec73d5f462761f0"
+  },
+  "mintick": {
+    "authority_inventory": {
+      "searched": [
+        {
+          "source": "studio_analytics.duckdb (legacy daily)",
+          "result": "no tick/increment column; the only matches are the substring inside 'ticker'"
+        },
+        {
+          "source": "studio_15m.duckdb (legacy 15m, 418 columns)",
+          "result": "no tick column"
+        },
+        {
+          "source": "Massive /v3/reference/tickers archived responses",
+          "fields": [
+            "active",
+            "cik",
+            "composite_figi",
+            "currency_name",
+            "last_updated_utc",
+            "locale",
+            "market",
+            "name",
+            "primary_exchange",
+            "share_class_figi",
+            "ticker",
+            "type"
+          ],
+          "result": "no trading-increment field"
+        },
+        {
+          "source": "frozen project reference tables with effective dates",
+          "result": "none carrying tick size"
+        }
+      ],
+      "authoritative_pit_source_found": false,
+      "forbidden_inferences_not_used": [
+        "number of OHLC decimals",
+        "observed price differences",
+        "minimum historical price change",
+        "ticker",
+        "price level",
+        "the 0.01 convention"
+      ]
+    },
+    "binding_model_required": [
+      "security_key_v1",
+      "effective_from",
+      "effective_to",
+      "mintick_value",
+      "mintick_source",
+      "mintick_source_digest",
+      "mintick_authority_status"
+    ],
+    "resolution_key": "security identity AND bar timestamp, never ticker string alone",
+    "missing_policy": {
+      "rule": "NO FALLBACK",
+      "on_unresolved": "T availability = UNAVAILABLE_MINTICK",
+      "forbidden": [
+        "0.01",
+        "0.001",
+        "1e-10",
+        "nearest known tick size",
+        "current tick size",
+        "decimal precision",
+        "security-class default"
+      ],
+      "not_false": "UNAVAILABLE_MINTICK != FALSE",
+      "excluded_from": "conformance denominators requiring executable T"
+    },
+    "temporal": {
+      "treated_as": "potentially time-varying",
+      "single_current_value_backfill": "FORBIDDEN without continuity evidence",
+      "window": "2021-2026"
+    },
+    "pine_binding": "prevBodySafe = math.max(prevBody, syminfo.mintick), with the resolved point-in-time value and no numerical surrogate, epsilon or floor",
+    "exposure_measurement": {
+      "question": "how often does mintick actually bind on Massive data",
+      "method": "prevBody = |prev close - prev open| over COMPLETE 15m bars with an available prior COMPLETE bar",
+      "sample": "12 sessions spread across the window",
+      "qualifying_bars": 95263,
+      "prev_body_under_1_cent": {
+        "count": 5727,
+        "share": 0.0601
+      },
+      "prev_body_under_a_tenth_cent": {
+        "count": 1531,
+        "share": 0.0161
+      },
+      "prev_body_exactly_zero": {
+        "count": 1442,
+        "share": 0.0151
+      },
+      "legacy_contrast": "legacy prices are stored to two decimals, so a legacy prior body is either 0 or at least $0.01; the exposure is a MASSIVE-side problem created by full precision",
+      "why_it_matters": "mintick sets the denominator of bodyRatioOk, which gates fullyEngulfs, which decides T4 and T6 — ranks 1 and 2 in the priority chain, preempting every state beneath them",
+      "plain_statement": "roughly one bar in seventeen would have its T label decided by a number the project cannot source",
+      "consequence_of_guessing": "choosing $0.01 would silently author the outcome on ~6% of the population, and that authorship would then appear in the report as feed divergence"
+    },
+    "status": "UNRESOLVED — no authoritative source exists"
+  },
+  "timestamp_alignment": {
+    "status": "RESOLVED",
+    "legacy": {
+      "store": "studio_15m.duckdb",
+      "column": "date",
+      "dtype": "TIMESTAMP",
+      "bars_per_session": 26,
+      "evidence": {
+        "summer": "2024-05-15 runs 13:30 .. 19:45",
+        "winter": "2024-01-16 runs 14:30 .. 20:45",
+        "inference": "a fixed offset cannot produce both; only UTC storage of an 09:30 ET open can. 13:30 UTC = 09:30 EDT, 14:30 UTC = 09:30 EST."
+      },
+      "convention": "bar START, stored in UTC"
+    },
+    "massive": {
+      "authority": "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1",
+      "digest": "6ec73d5f462761f0",
+      "fields": [
+        "bar_start",
+        "bar_end",
+        "feature_information_available_at"
+      ],
+      "convention": "left-closed, left-labelled; bar_start is epoch ms UTC"
+    },
+    "alignment_rule": "legacy.date == Massive.bar_start, exact equality",
+    "verified_on": {
+      "security": "AAPL",
+      "session": "2024-05-15",
+      "legacy": [
+        "13:30",
+        "13:45",
+        "14:00"
+      ],
+      "massive": [
+        "13:30",
+        "13:45",
+        "14:00"
+      ]
+    },
+    "forbidden": [
+      "nearest timestamp",
+      "±15 minute tolerance",
+      "fuzzy matching",
+      "best-overlap matching",
+      "alignment chosen to maximise agreement"
+    ],
+    "session_boundaries": "the 26-bar structure holds on both sampled sessions; early-close and open/final-interval behaviour must still be verified across all sessions in smoke"
+  },
+  "price_basis": {
+    "status": "INDICATIVE_COMPARABLE — measurement required at scale",
+    "evidence": {
+      "security": "AAPL",
+      "session": "2024-05-15",
+      "pairs": [
+        {
+          "bar": "13:30",
+          "legacy_close": 187.91,
+          "massive_close": 187.9132
+        },
+        {
+          "bar": "14:00",
+          "legacy_open": 188.85,
+          "massive_open": 188.8521
+        },
+        {
+          "bar": "14:00",
+          "legacy_close": 189.37,
+          "massive_close": 189.3713
+        }
+      ],
+      "reading": "legacy is Massive rounded to two decimals — same basis, different precision"
+    },
+    "corroborates": "the recovery artifact's daily-level STORAGE_PRECISION_ROUNDING finding, now seen at 15m",
+    "consequence": "PRICE_BASIS_DIFFERENCE and SOURCE_FEED_OHLC_DIFFERENCE remain separable",
+    "limitation": "one security, one session, three bars — indicative only; the taxonomy PRICE_BASIS_CONFIRMED_COMPARABLE / PRICE_BASIS_DIFFERENCE / PRICE_BASIS_UNRESOLVED must be assigned by measurement in smoke",
+    "no_ad_hoc_normalization": {
+      "forbidden": [
+        "rescaling one source to match the other",
+        "reverse-engineering split factors from price ratios",
+        "normalising by agreement maximisation",
+        "rounding Massive OHLC to legacy precision as primary input",
+        "adjusting legacy OHLC to improve label agreement"
+      ],
+      "primary_diagnostic": "native-source comparison"
+    }
+  },
+  "z7_internal": {
+    "classification": "T_INTERNAL_SUPPORTING_PREDICATE",
+    "why_computed": "recovered T semantics require prev1IsBear = (close[1] < open[1]) OR Z7_raw[1]",
+    "allowed": "exact T dependency evaluation only; an internal diagnostic value may be retained for verifier inspection",
+    "forbidden": [
+      "research-facing Z output",
+      "bearCode output",
+      "Z-state materialisation",
+      "Z transition",
+      "Z candidate family",
+      "Z conditioning variable",
+      "Z result",
+      "appearance in the research-facing feature registry"
+    ],
+    "does_not_alter": "Z_STATUS = HOLD / DISCOVERY_EVIDENCE_ONLY",
+    "request_for_z_output": "FAIL"
+  },
+  "added_negative_fixtures": {
+    "count": 11,
+    "required": [
+      "missing mintick yields UNAVAILABLE_MINTICK",
+      "a 0.01 fallback is rejected",
+      "a decimal-derived mintick is rejected",
+      "current-only tick metadata cannot be backfilled historically without continuity evidence",
+      "a wrong effective-dated mintick changes the boundary predicate and is detected",
+      "an ambiguous legacy timestamp convention yields HOLD",
+      "nearest-timestamp matching is rejected",
+      "a price-basis-unresolved observation cannot be labelled pure SOURCE_FEED_OHLC_DIFFERENCE",
+      "ad-hoc price normalisation is rejected",
+      "Z7_raw can support T internally",
+      "Z7_raw cannot become research-facing Z output"
+    ]
+  },
+  "resolved_items": [
+    "timestamp alignment",
+    "price-basis relationship",
+    "Z7_raw classification"
+  ],
+  "unresolved_items": [
+    "Massive-port syminfo.mintick binding",
+    "point-in-time mintick temporality"
+  ],
+  "decision_required": {
+    "summary": "mintick has no source in this project, and it decides the T label on roughly 6% of Massive bars",
+    "options": [
+      {
+        "id": "A",
+        "name": "admit an external regulatory authority as the tick source",
+        "detail": "US equity minimum increments are set by rule rather than by vendor metadata; adopting that as the authority would need it named, versioned and frozen like any other source",
+        "effect": "mintick becomes resolvable and the port executes",
+        "note": "this ADDS an authority the project has not previously used — it is a real provenance decision, not a lookup",
+        "recommended": null
+      },
+      {
+        "id": "B",
+        "name": "accept UNAVAILABLE_MINTICK where it binds",
+        "detail": "T is executable only on the ~94% of bars where prevBody is large enough that mintick cannot change prevBodySafe",
+        "effect": "the port runs with an explicit, measured availability hole concentrated exactly on small-bodied bars",
+        "caveat": "that hole is not random — it selects against low-volatility and low-priced bars, which is itself a population statement that must be reported",
+        "recommended": null
+      },
+      {
+        "id": "C",
+        "name": "hold the port until a vendor tick source is obtained",
+        "effect": "no T port until authoritative point-in-time increment data exists",
+        "recommended": null
+      }
+    ],
+    "not_chosen_here": "I am not selecting among these; each changes what the study population means"
+  },
+  "acceptance": {
+    "base_spec_unchanged": true,
+    "authoritative_mintick_source_identified": false,
+    "no_implicit_or_fallback_mintick": true,
+    "historical_mintick_temporality_resolved": false,
+    "timestamp_alignment_deterministic": true,
+    "price_basis_relationship_classified": true,
+    "z7_classified_internal_support": true,
+    "t_production_writes_zero": true,
+    "z_remains_unregistered": true,
+    "y_exposed_zero": true
+  },
+  "failed_acceptance": [
+    "authoritative_mintick_source_identified",
+    "historical_mintick_temporality_resolved"
+  ],
+  "mutations": {
+    "base_spec": 0,
+    "recovery_artifact": 0,
+    "coarse_production": 0,
+    "cohort": 0,
+    "t_production_writes": 0,
+    "z_research_outputs": 0,
+    "y_exposure": 0
+  },
+  "y_exposed": 0,
+  "smoke_may_begin": false,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 08:03 +04"
+}

@@ -1,0 +1,125 @@
+{
+  "artifact": "MASSIVE_T1_15M_COMBO_PD_PORT_SEMANTICS_DECISION_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": {
+    "conformance": "2ff742f7eca5ff31",
+    "conformance_amendment": "a2ac1bfd9345cc0e",
+    "residual": "fc2542395bc6dd18",
+    "vintage_bind": "e1d9a251ea58a65f",
+    "archaeology": "bb3bae0219505239"
+  },
+  "VERDICT": "ACCEPT_FULL_HISTORY_SEMANTIC_PORT_WITH_ENUMERATED_HISTORICAL_MATERIALIZATION_DIVERGENCE",
+  "not_a_pass": "this is deliberately NOT recorded as a plain PASS, and NOT as an exact historical materializer port",
+  "PORT_SEMANTICS": {
+    "ema_state": "full-history",
+    "series": "continuous chronological per (ticker, universe)",
+    "incremental_warmup_truncation": "NONE — the 45-day truncation is a historical pipeline execution artifact and is deliberately NOT reproduced",
+    "definitions": "the 12 empirically established column formulas (see 2ff742f7eca5ff31 ESTABLISHED_DEFINITION)"
+  },
+  "HISTORICAL_MATERIALIZATION": "MIXED execution regime — full-history for 96.646% of store rows, 45-day incremental warmup for 3.354%",
+  "KNOWN_DIVERGENCE": {
+    "claim_relevant_cells": 3,
+    "IMMUTABLE_MANIFEST": [
+      {
+        "ticker": "HOOD",
+        "session": "2026-07-14",
+        "slot": "M1",
+        "token": "D66",
+        "column": "sig_d66",
+        "full_history": 1,
+        "historical_stored": 0
+      },
+      {
+        "ticker": "EYE",
+        "session": "2026-07-14",
+        "slot": "M2",
+        "token": "D66",
+        "column": "sig_d66",
+        "full_history": 1,
+        "historical_stored": 0
+      },
+      {
+        "ticker": "RKTO",
+        "session": "2026-07-31",
+        "slot": "M4",
+        "token": "P66",
+        "column": "sig_p66",
+        "full_history": 0,
+        "historical_stored": 1
+      }
+    ],
+    "affected_final_members": 225,
+    "total_members": 35587,
+    "share": "0.63%",
+    "max_membership_delta": "1 episode per affected member",
+    "breakdown": {
+      "D66@M1": 67,
+      "D66@M2": 104,
+      "P66@M4": 54
+    }
+  },
+  "NOT_A_TOLERANCE": {
+    "statement": "no threshold is established by this decision",
+    "forbidden_readings": [
+      "<= 1 episode difference is acceptable",
+      "<= 1% member difference is acceptable",
+      "0.63% is small therefore forgiven"
+    ],
+    "correct_reading": "pre-Y X-forensics found a CONFIRMED execution-regime defect in the historical materializer. The port is frozen in advance to canonical full-history semantics and the historical divergence is fully enumerated.",
+    "future_rule": "a fourth unexplained divergence is NOT covered by this decision and triggers HOLD"
+  },
+  "HISTORICAL_RESULTS_UNCHANGED": {
+    "rule": "historical theta / z_obs / survivor remain bound to HISTORICAL_MIXED_MATERIALIZATION",
+    "forbidden": "recomputing any historical Y under corrected P/D semantics in this branch",
+    "reason": "losing this separation would misrepresent the prior research as having been run on a different X surface"
+  },
+  "FAMILY_AUTHORITY": {
+    "k": 35587,
+    "preserved_by": "the frozen historical claim_order registry, which IS the family authority",
+    "NOT_re_derived": "support floors and k-closure are NOT re-run under full-history semantics — that would be a NEW selection (N8/N9)",
+    "verified_in_this_gate": false,
+    "honest_note": "no alias-class or k-closure recomputation was performed; k is preserved by registry authority, not by re-derivation under the new semantics"
+  },
+  "CLASSIFICATION": {
+    "accepted": "replication-like port of the preserved historical claim family, using pre-Y recovered canonical full-history token semantics, with an explicitly enumerated historical materialization divergence",
+    "forbidden_claims": [
+      "bit-identical historical X reconstruction",
+      "exact historical materializer replication",
+      "identical historical claim memberships"
+    ],
+    "permitted_claims": [
+      "same 35,587 registered claim family",
+      "same token grammar",
+      "same estimand",
+      "same blocking",
+      "same multiplicity",
+      "pre-Y frozen semantic repair on the identified P/D materialization defect"
+    ]
+  },
+  "D_DICTIONARY_SECTION": {
+    "section": "HISTORICAL_X_MATERIALIZATION_DEVIATION",
+    "affected_tokens": "12 P/D columns",
+    "claim_relevant_divergent_cells": 3,
+    "affected_registered_members": 225,
+    "cause": "CONFIRMED_INCREMENTAL_WARMUP_REGIME_DIVERGENCE (derive_intraday.py _INCR_WARMUP_DAYS=45)",
+    "current_port_treatment": "canonical full-history semantics",
+    "historical_result_treatment": "unchanged; original mixed-regime materialization retained",
+    "kind": "provenance fact, NOT a sensitivity result"
+  },
+  "PD_STATUS": {
+    "definition_semantics": "RESOLVED",
+    "historical_materialization_behavior": "RESOLVED",
+    "divergence_mechanism": "CONFIRMED",
+    "original_writer_module": "NOT_RECOVERED (non-blocking)",
+    "port_semantics_authority": "ACCEPTED",
+    "port_status": "PORT_GATE_REQUIRED",
+    "final_members_unblocked": 5187
+  },
+  "REMAINING_AUTHORITY_BLOCKERS": [
+    "sig_3g / sig_buy / sig_svs — dual-path provenance ambiguity",
+    "sig_va — external chart-token authority"
+  ],
+  "branch_B_closed": "run-boundary archaeology discontinued: reproducing it would copy a historical pipeline defect, and run boundaries are not preserved"
+}

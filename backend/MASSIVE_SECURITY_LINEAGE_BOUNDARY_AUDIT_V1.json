@@ -1,0 +1,3394 @@
+{
+  "report_id": "MASSIVE_SECURITY_LINEAGE_BOUNDARY_AUDIT_V1",
+  "status": "SECURITY_LINEAGE_BOUNDARY_AUDIT_COMPLETE",
+  "purpose": "exact or explicitly bounded temporal transition intervals for the eight known lineage-truncation securities. BOUNDARIES ONLY.",
+  "does_not": [
+    "rediscover continuity",
+    "create V7",
+    "modify V6",
+    "promote supplemental quarantine data",
+    "write derived data"
+  ],
+  "references": {
+    "v6": {
+      "artifact": "MASSIVE_TICKER_LINEAGE_V6.json",
+      "digest": "8c961aa3a0c67934"
+    },
+    "registrant_diagnosis": {
+      "artifact": "MASSIVE_REGISTRANT_CONTINUITY_DIAGNOSIS_V1.json",
+      "digest": "b0bbf015e5ff693b"
+    },
+    "primary_evidence": {
+      "artifact": "MASSIVE_LINEAGE_PRIMARY_EVIDENCE_RESOLUTION_V1.json",
+      "digest": "9a95328aa59a678e"
+    },
+    "apo": {
+      "artifact": "APO_PRIMARY_SECURITY_CONTINUITY_RESOLUTION_V1.json",
+      "digest": "b98ab1801c60b84a"
+    },
+    "supplemental": {
+      "artifact": "MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1.json",
+      "digest_live": "e8c8a648923e22a3",
+      "digest_cited_in_gate": "2f372b2f0fab898f",
+      "reconciliation": "the cited digest is the SUPERSEDED seal, retained on disk as MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1.json.superseded.2f372b2f0fab898f.json. The live artifact is e8c8a648923e22a3, which differs only by the added digest_coverage block. Recorded rather than silently substituted.",
+      "digest_contract": {
+        "payloads_with_sha256_at_creation": "5069/5069",
+        "independent_rehash_sample": 40,
+        "mismatches": 0,
+        "verdict_not_in_dispute": true
+      }
+    }
+  },
+  "frozen_continuity_inputs": {
+    "J": "CONTINUITY_CONFIRMED",
+    "BG": "CONTINUITY_CONFIRMED",
+    "LH": "CONTINUITY_CONFIRMED",
+    "FERG": "CONTINUITY_CONFIRMED",
+    "BLK": "SECURITY_CONTINUITY_CONFIRMED",
+    "XOM": "SECURITY_CONTINUITY_CONFIRMED",
+    "CRH": "CONTINUITY_CONFIRMED_WITH_INSTRUMENT_TRANSITION",
+    "APO": "SECURITY_CONTINUITY_CONFIRMED"
+  },
+  "continuity_reopened": false,
+  "contradictory_primary_evidence_found": false,
+  "apo_semantic_caveat": {
+    "security_continuity": true,
+    "economic_composition_continuity": false,
+    "binding": "APO continuity is security-HOLDER continuity, not unchanged-business continuity. economic_composition_transition is carried as a separate attribute and must not be absorbed into CONTINUITY_CONFIRMED.",
+    "boundary_legal": "2022-01-01 01:00 ET",
+    "boundary_trading": "first successor XNYS session 2022-01-03, stated in the 8-K12B",
+    "precision": "EXACT_XNYS_SESSION"
+  },
+  "method": {
+    "per_attribute_independent_bisection": true,
+    "shared_response_cache": true,
+    "monotonicity_verified": true,
+    "unfiltered_reference_query": true,
+    "why_unfiltered": "V6's type=='CS' predicate is the defect that erased CRH's ADR period; an audit inheriting it could not see the transition",
+    "stop_rule": "bisection halts once adjacent sessions bracket the change",
+    "aggregate_access_source": "supplemental quarantine manifests — no new requests, because re-asking would measure today's entitlement window and burn the perishable end for nothing"
+  },
+  "precision_vocabulary": [
+    "EXACT_XNYS_SESSION",
+    "EXACT_XNYS_SESSION_PAIR",
+    "BETWEEN_TWO_XNYS_SESSIONS",
+    "CALENDAR_DATE_ONLY",
+    "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED",
+    "BOUNDED_DATE_INTERVAL",
+    "NO_TRANSITION_IN_WINDOW",
+    "UNRESOLVED_NON_MONOTONE",
+    "NOT_AUDITED"
+  ],
+  "no_attribute_collapse": {
+    "rule": "the security-level continuity classification sits ABOVE cik, figi, ticker and instrument_type; none of them is promoted to master identity",
+    "attributes_measured_independently": [
+      "cik",
+      "share_class_figi",
+      "composite_figi",
+      "ticker",
+      "type",
+      "name"
+    ],
+    "forced_to_share_a_timestamp": false
+  },
+  "entitlement_rule": {
+    "session": "2021-08-25",
+    "state": "ENTITLEMENT_UNAVAILABLE for all eight",
+    "binding": "ENTITLEMENT_UNAVAILABLE != no data != not listed != predecessor state; no boundary is inferred from it"
+  },
+  "boundary_counts": {
+    "exact_boundaries": 25,
+    "bounded_boundaries": 0,
+    "unresolved_boundaries": 0
+  },
+  "headline_finding": {
+    "claim": "V6's truncation was caused ENTIRELY by identity filtering, not at all by data availability",
+    "evidence": "across all eight securities the vendor served aggregates on every single session from the window start up to the day before the V6 coverage start — zero empty sessions, zero access transitions. The only non-served session is 2021-08-25, and that is the rolling entitlement boundary, not a lineage boundary.",
+    "security_sessions_truncated": 5069,
+    "of_which_unavailable": 0,
+    "largest_loss": [
+      "XOM",
+      1252
+    ],
+    "consequence": "the data was always retrievable; a filter predicate hid it. This is why the boundary audit had to be run on an UNFILTERED reference query."
+  },
+  "attribute_independence": {
+    "demonstrated": true,
+    "statement": "the eleven dimensions do not share a date, and forcing them to would be the V6 defect repeated",
+    "worked_example": {
+      "security": "BLK",
+      "legal_effective": "2024-10-01",
+      "share_class_figi_switch": "2024-10-02",
+      "cik_switch": "2024-10-03",
+      "ticker": "unchanged",
+      "aggregate_access": "no transition",
+      "v6_anchor": "2025-01-02",
+      "distinct_dates": 4,
+      "reading": "not a contradiction — four different questions with four different correct answers"
+    },
+    "securities_with_multiple_distinct_vendor_dates": [
+      "BG",
+      "FERG",
+      "BLK",
+      "XOM"
+    ],
+    "ticker_stable_across_all_eight": true,
+    "instrument_type_changed_only_for": [
+      "CRH"
+    ]
+  },
+  "corroboration": {
+    "crh": {
+      "filed_statement": "2023-09-25, stated prospectively in a 424B7 filed 2023-09-20",
+      "vendor_reference_switch": "2023-09-25 (type ADRC -> CS, independently bisected)",
+      "agreement": true,
+      "binding": "the vendor switch CORROBORATES the filed date but does not PROVE the legal event; the legal precision stays CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED. Two sources answering their own questions and agreeing is not one source answering both."
+    },
+    "apo": {
+      "filed_statement": "first successor session 2022-01-03, stated retrospectively in the 8-K12B",
+      "vendor_reference_switch": "2022-01-03",
+      "v6_anchor": "2022-01-03",
+      "agreement": true,
+      "note": "V6's anchor happens to be correct here. That is a coincidence of the quarterly grid, not evidence that V6's method was sound."
+    }
+  },
+  "securities": [
+    {
+      "security_key_v1": "d9c8cefaa04dbb32cdcc729f63d0f98a53df59e82aadc1beb654d8d0393d5e29",
+      "current_ticker": "APO",
+      "continuity_classification": "SECURITY_CONTINUITY_CONFIRMED",
+      "continuity_reopened": false,
+      "economic_composition_transition": {
+        "present": true,
+        "security_continuity": true,
+        "economic_composition_continuity": false,
+        "boundary": "2022-01-01 legal / first successor session 2022-01-03",
+        "precision": "EXACT_XNYS_SESSION",
+        "detail": "successor HoldCo combines Apollo (AAM) and Athene (AHL); AHL shareholders received the same successor stock at 1.149. The listed-security lineage is 1:1 and continuous; the issuer's economic composition is not.",
+        "must_not": "be represented as unchanged composition merely because the security lineage is continuous"
+      },
+      "v6_original_boundary": "2022-01-03",
+      "v6_boundary_is_anchor_not_event": true,
+      "v6_anchor_displacement_sessions": {
+        "cik": 0,
+        "share_class_figi": 0,
+        "composite_figi": 0,
+        "legal_effective": 0
+      },
+      "legal_boundary": {
+        "effective_date": "2022-01-01",
+        "effective_time": "01:00 ET (AAM) / 01:01 ET (AHL)",
+        "precision": "EXACT_DATE_AND_TIME",
+        "first_successor_session_stated": "2022-01-03",
+        "session_precision": "EXACT_XNYS_SESSION",
+        "instrument": "8-K12B",
+        "filed": "2022-01-03",
+        "accession": "0001193125-22-000274",
+        "sha256": "7cbaf800866e0819",
+        "document": "APO_8kclose_20220103_7cbaf800.htm",
+        "quotes": [
+          "On January 1, 2022 (the “Merger Effective Date”), Apollo Asset Management, Inc. (f/k/a Apollo Global Management, Inc.) ... and Athene Holding Ltd ... completed the previously announced merger transactions",
+          "Effective as of 1:00 a.m. Eastern Time on the Merger Effective Date (the “AAM Merger Effective Time”)",
+          "This Current Report ... establishes AGM as the successor issuer to AAM and AHL pursuant to Rule 12g-3(c)",
+          "As of the open of trading on January 3, 2022, AGM Shares will trade on the NYSE under the ticker symbol “APO.”",
+          "each issued and outstanding share of Class A common stock ... of AAM ... was converted automatically into the right to receive one AGM Share"
+        ],
+        "naming_hazard": "the 424B3 calls the PREDECESSOR “AGM”; the 8-K12B calls the SUCCESSOR “AGM” and renames the predecessor “AAM” (Apollo Asset Management). Same economics, inverted labels — recorded so a later reader does not mis-bind the two documents.",
+        "supersedes_note": "this 8-K12B is retrospective and definitive; the 424B3 was prospective. The 1:1 conversion is unchanged between them."
+      },
+      "vendor_reference_boundaries": {
+        "cik": {
+          "attribute": "cik",
+          "value_before": "0001411494",
+          "value_after": "0001858681",
+          "last_session_state_before": "2021-12-31",
+          "first_session_state_after": "2022-01-03",
+          "probes": 7,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2021-10-27",
+              "observed": "0001411494",
+              "expected": "0001411494",
+              "ok": true
+            }
+          ]
+        },
+        "share_class_figi": {
+          "attribute": "share_class_figi",
+          "value_before": "BBG001T183G1",
+          "value_after": "BBG00ZNLTFL2",
+          "last_session_state_before": "2021-12-31",
+          "first_session_state_after": "2022-01-03",
+          "probes": 7,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2021-10-27",
+              "observed": "BBG001T183G1",
+              "expected": "BBG001T183G1",
+              "ok": true
+            }
+          ]
+        },
+        "composite_figi": {
+          "attribute": "composite_figi",
+          "value_before": "BBG006T7HJF3",
+          "value_after": "BBG00ZNLTFK3",
+          "last_session_state_before": "2021-12-31",
+          "first_session_state_after": "2022-01-03",
+          "probes": 7,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2021-10-27",
+              "observed": "BBG006T7HJF3",
+              "expected": "BBG006T7HJF3",
+              "ok": true
+            }
+          ]
+        },
+        "ticker": {
+          "attribute": "ticker",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "APO",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2022-01-03"
+          ]
+        },
+        "type": {
+          "attribute": "type",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CS",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2022-01-03"
+          ]
+        },
+        "name": {
+          "attribute": "name",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "Apollo Global Management, Inc.",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2022-01-03"
+          ]
+        }
+      },
+      "vendor_aggregate_access": {
+        "source": "SUPPLEMENTAL_QUARANTINE",
+        "available": true,
+        "vintage": "SUPPLEMENTAL_QUARANTINE_RETRIEVAL_VINTAGE",
+        "sessions_examined": 90,
+        "sessions_with_bars": 89,
+        "sessions_empty": 0,
+        "entitlement_unavailable": 1,
+        "entitlement_dates": [
+          "2021-08-25"
+        ],
+        "earliest_session_with_bars": "2021-08-26",
+        "latest_session_with_bars": "2021-12-31",
+        "session_before_v6_start": "2022-01-03",
+        "transition": "NO_ACCESS_TRANSITION_IN_WINDOW",
+        "empty_sessions": [],
+        "interpretation": "aggregate access is a VENDOR-DATA question and is answered only by vendor evidence; it does not speak to listing or legal status",
+        "entitlement_rule": "ENTITLEMENT_UNAVAILABLE is not absence of data and is never read as predecessor state"
+      },
+      "search_window": {
+        "start": "2021-08-25",
+        "end": "2022-01-03",
+        "sessions": 91,
+        "endpoint_filter": "NONE — deliberately unfiltered; V6's type=='CS' predicate is the defect under audit"
+      },
+      "gap_overlap": {
+        "gap_sessions": 0,
+        "overlap_sessions": 0,
+        "expectation": "0 for an ordinary continuity transition",
+        "satisfied": true,
+        "meaning": "sessions between the last vendor-served predecessor session and the V6 coverage start"
+      },
+      "evidence": {
+        "primary_documents": [
+          {
+            "form": "8-K12B",
+            "accession": "0001193125-22-000274",
+            "sha256": "7cbaf800866e0819",
+            "document": "APO_8kclose_20220103_7cbaf800.htm",
+            "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+          }
+        ],
+        "diagnostic_vendor": {
+          "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+          "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+        },
+        "supplemental_quarantine": {
+          "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1/APO",
+          "role": "vendor-access diagnostic only",
+          "promoted_to_canonical": false
+        }
+      },
+      "known_uncertainty": []
+    },
+    {
+      "security_key_v1": "b0d5adffa22717ca1f6d426e9ef34343a1ed10ae4919ee0c21e37297545de2e4",
+      "current_ticker": "J",
+      "continuity_classification": "CONTINUITY_CONFIRMED",
+      "continuity_reopened": false,
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "v6_original_boundary": "2022-10-03",
+      "v6_boundary_is_anchor_not_event": true,
+      "v6_anchor_displacement_sessions": {
+        "share_class_figi": 24,
+        "composite_figi": 24,
+        "name": 24
+      },
+      "legal_boundary": {
+        "effective_date": null,
+        "precision": "NOT_AUDITED",
+        "why": "continuity for J/BG/LH/FERG was established via a stable identifier bridge, not via filings. The gate scopes these four to identifier and vendor boundaries only, so no legal date was sought."
+      },
+      "vendor_reference_boundaries": {
+        "cik": {
+          "attribute": "cik",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "0000052988",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2022-10-03"
+          ]
+        },
+        "share_class_figi": {
+          "attribute": "share_class_figi",
+          "value_before": "BBG001S5SGC6",
+          "value_after": "BBG019C1BQS3",
+          "last_session_state_before": "2022-08-26",
+          "first_session_state_after": "2022-08-29",
+          "probes": 8,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2022-02-24",
+              "observed": "BBG001S5SGC6",
+              "expected": "BBG001S5SGC6",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2022-09-15",
+              "observed": "BBG019C1BQS3",
+              "expected": "BBG019C1BQS3",
+              "ok": true
+            }
+          ]
+        },
+        "composite_figi": {
+          "attribute": "composite_figi",
+          "value_before": "BBG000BMFFQ0",
+          "value_after": "BBG019C1BQR4",
+          "last_session_state_before": "2022-08-26",
+          "first_session_state_after": "2022-08-29",
+          "probes": 8,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2022-02-24",
+              "observed": "BBG000BMFFQ0",
+              "expected": "BBG000BMFFQ0",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2022-09-15",
+              "observed": "BBG019C1BQR4",
+              "expected": "BBG019C1BQR4",
+              "ok": true
+            }
+          ]
+        },
+        "ticker": {
+          "attribute": "ticker",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "J",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2022-10-03"
+          ]
+        },
+        "type": {
+          "attribute": "type",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CS",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2022-10-03"
+          ]
+        },
+        "name": {
+          "attribute": "name",
+          "value_before": "Jacobs Engineering Group",
+          "value_after": "Jacobs Solutions Inc.",
+          "last_session_state_before": "2022-08-26",
+          "first_session_state_after": "2022-08-29",
+          "probes": 8,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2022-02-24",
+              "observed": "Jacobs Engineering Group",
+              "expected": "Jacobs Engineering Group",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2022-09-15",
+              "observed": "Jacobs Solutions Inc.",
+              "expected": "Jacobs Solutions Inc.",
+              "ok": true
+            }
+          ]
+        }
+      },
+      "vendor_aggregate_access": {
+        "source": "SUPPLEMENTAL_QUARANTINE",
+        "available": true,
+        "vintage": "SUPPLEMENTAL_QUARANTINE_RETRIEVAL_VINTAGE",
+        "sessions_examined": 278,
+        "sessions_with_bars": 277,
+        "sessions_empty": 0,
+        "entitlement_unavailable": 1,
+        "entitlement_dates": [
+          "2021-08-25"
+        ],
+        "earliest_session_with_bars": "2021-08-26",
+        "latest_session_with_bars": "2022-09-30",
+        "session_before_v6_start": "2022-10-03",
+        "transition": "NO_ACCESS_TRANSITION_IN_WINDOW",
+        "empty_sessions": [],
+        "interpretation": "aggregate access is a VENDOR-DATA question and is answered only by vendor evidence; it does not speak to listing or legal status",
+        "entitlement_rule": "ENTITLEMENT_UNAVAILABLE is not absence of data and is never read as predecessor state"
+      },
+      "search_window": {
+        "start": "2021-08-25",
+        "end": "2022-10-03",
+        "sessions": 279,
+        "endpoint_filter": "NONE — deliberately unfiltered; V6's type=='CS' predicate is the defect under audit"
+      },
+      "gap_overlap": {
+        "gap_sessions": 0,
+        "overlap_sessions": 0,
+        "expectation": "0 for an ordinary continuity transition",
+        "satisfied": true,
+        "meaning": "sessions between the last vendor-served predecessor session and the V6 coverage start"
+      },
+      "evidence": {
+        "primary_documents": [],
+        "diagnostic_vendor": {
+          "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+          "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+        },
+        "supplemental_quarantine": {
+          "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1/J",
+          "role": "vendor-access diagnostic only",
+          "promoted_to_canonical": false
+        }
+      },
+      "known_uncertainty": [
+        "no legal effective date sought — continuity rests on an identifier bridge"
+      ]
+    },
+    {
+      "security_key_v1": "a45d3c9e35ec52dba2e6885f9653e8b83e9fba31d2a489aada720147a6e92c80",
+      "current_ticker": "CRH",
+      "continuity_classification": "CONTINUITY_CONFIRMED_WITH_INSTRUMENT_TRANSITION",
+      "continuity_reopened": false,
+      "economic_composition_transition": {
+        "present": true,
+        "security_continuity": true,
+        "economic_composition_continuity": true,
+        "instrument_representation_change": "ADRC -> CS",
+        "detail": "same research security, different instrument representation. ADR history must NOT be retrospectively relabelled CS.",
+        "precision": "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED"
+      },
+      "v6_original_boundary": "2023-10-02",
+      "v6_boundary_is_anchor_not_event": true,
+      "v6_anchor_displacement_sessions": {
+        "share_class_figi": 5,
+        "composite_figi": 5,
+        "type": 5,
+        "legal_effective": 5
+      },
+      "legal_boundary": {
+        "effective_date": "2023-09-25",
+        "effective_time": null,
+        "precision": "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED",
+        "first_successor_session_stated": "2023-09-25",
+        "session_precision": "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED",
+        "instrument": "424B7",
+        "filed": "2023-09-20",
+        "accession": "0001193125-23-238082",
+        "sha256": "68206e0ac8755f0d",
+        "document": "CRH_424b7_68206e0a.htm",
+        "quotes": [
+          "Our American Depositary Shares, each representing one Ordinary Share (the “ADS”) are listed on the New York Stock Exchange (“NYSE”) under the symbol “CRH”.",
+          "On September 25, 2023, the ADSs will be cancelled and delisted from the NYSE and our Ordinary Shares will become listed on the NYSE under the symbol “CRH”."
+        ],
+        "caveat": "stated PROSPECTIVELY in a filing dated five days earlier. It is a filed statement of intent, not a confirmation that it occurred on that date. Precision is deliberately NOT upgraded to EXACT_XNYS_SESSION."
+      },
+      "vendor_reference_boundaries": {
+        "cik": {
+          "attribute": "cik",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "0000849395",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2023-10-02"
+          ]
+        },
+        "share_class_figi": {
+          "attribute": "share_class_figi",
+          "value_before": "BBG001S5VPG8",
+          "value_after": null,
+          "last_session_state_before": "2023-09-22",
+          "first_session_state_after": "2023-09-25",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2022-09-08",
+              "observed": "BBG001S5VPG8",
+              "expected": "BBG001S5VPG8",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2023-09-27",
+              "observed": null,
+              "expected": null,
+              "ok": true
+            }
+          ]
+        },
+        "composite_figi": {
+          "attribute": "composite_figi",
+          "value_before": "BBG000BBLR09",
+          "value_after": null,
+          "last_session_state_before": "2023-09-22",
+          "first_session_state_after": "2023-09-25",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2022-09-08",
+              "observed": "BBG000BBLR09",
+              "expected": "BBG000BBLR09",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2023-09-27",
+              "observed": null,
+              "expected": null,
+              "ok": true
+            }
+          ]
+        },
+        "ticker": {
+          "attribute": "ticker",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CRH",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2023-10-02"
+          ]
+        },
+        "type": {
+          "attribute": "type",
+          "value_before": "ADRC",
+          "value_after": "CS",
+          "last_session_state_before": "2023-09-22",
+          "first_session_state_after": "2023-09-25",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2022-09-08",
+              "observed": "ADRC",
+              "expected": "ADRC",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2023-09-27",
+              "observed": "CS",
+              "expected": "CS",
+              "ok": true
+            }
+          ]
+        },
+        "name": {
+          "attribute": "name",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CRH Public Limited Company",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2023-10-02"
+          ]
+        }
+      },
+      "vendor_aggregate_access": {
+        "source": "SUPPLEMENTAL_QUARANTINE",
+        "available": true,
+        "vintage": "SUPPLEMENTAL_QUARANTINE_RETRIEVAL_VINTAGE",
+        "sessions_examined": 528,
+        "sessions_with_bars": 527,
+        "sessions_empty": 0,
+        "entitlement_unavailable": 1,
+        "entitlement_dates": [
+          "2021-08-25"
+        ],
+        "earliest_session_with_bars": "2021-08-26",
+        "latest_session_with_bars": "2023-09-29",
+        "session_before_v6_start": "2023-10-02",
+        "transition": "NO_ACCESS_TRANSITION_IN_WINDOW",
+        "empty_sessions": [],
+        "interpretation": "aggregate access is a VENDOR-DATA question and is answered only by vendor evidence; it does not speak to listing or legal status",
+        "entitlement_rule": "ENTITLEMENT_UNAVAILABLE is not absence of data and is never read as predecessor state"
+      },
+      "search_window": {
+        "start": "2021-08-25",
+        "end": "2023-10-02",
+        "sessions": 529,
+        "endpoint_filter": "NONE — deliberately unfiltered; V6's type=='CS' predicate is the defect under audit"
+      },
+      "gap_overlap": {
+        "gap_sessions": 0,
+        "overlap_sessions": 0,
+        "expectation": "0 for an ordinary continuity transition",
+        "satisfied": true,
+        "meaning": "sessions between the last vendor-served predecessor session and the V6 coverage start"
+      },
+      "evidence": {
+        "primary_documents": [
+          {
+            "form": "424B7",
+            "accession": "0001193125-23-238082",
+            "sha256": "68206e0ac8755f0d",
+            "document": "CRH_424b7_68206e0a.htm",
+            "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+          }
+        ],
+        "diagnostic_vendor": {
+          "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+          "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+        },
+        "supplemental_quarantine": {
+          "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1/CRH",
+          "role": "vendor-access diagnostic only",
+          "promoted_to_canonical": false
+        }
+      },
+      "known_uncertainty": [
+        "stated PROSPECTIVELY in a filing dated five days earlier. It is a filed statement of intent, not a confirmation that it occurred on that date. Precision is deliberately NOT upgraded to EXACT_XNYS_SESSION."
+      ]
+    },
+    {
+      "security_key_v1": "efdc8c73e47572a689dbc12da00e9bf1fc8041531752a96bb12c6fde9349b635",
+      "current_ticker": "BG",
+      "continuity_classification": "CONTINUITY_CONFIRMED",
+      "continuity_reopened": false,
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "v6_original_boundary": "2024-01-02",
+      "v6_boundary_is_anchor_not_event": true,
+      "v6_anchor_displacement_sessions": {
+        "cik": 36,
+        "name": 41
+      },
+      "legal_boundary": {
+        "effective_date": null,
+        "precision": "NOT_AUDITED",
+        "why": "continuity for J/BG/LH/FERG was established via a stable identifier bridge, not via filings. The gate scopes these four to identifier and vendor boundaries only, so no legal date was sought."
+      },
+      "vendor_reference_boundaries": {
+        "cik": {
+          "attribute": "cik",
+          "value_before": "0001144519",
+          "value_after": "0001996862",
+          "last_session_state_before": "2023-11-07",
+          "first_session_state_after": "2023-11-08",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2022-09-30",
+              "observed": "0001144519",
+              "expected": "0001144519",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2023-12-05",
+              "observed": "0001996862",
+              "expected": "0001996862",
+              "ok": true
+            }
+          ]
+        },
+        "share_class_figi": {
+          "attribute": "share_class_figi",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": null,
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-01-02"
+          ]
+        },
+        "composite_figi": {
+          "attribute": "composite_figi",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": null,
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-01-02"
+          ]
+        },
+        "ticker": {
+          "attribute": "ticker",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "BG",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-01-02"
+          ]
+        },
+        "type": {
+          "attribute": "type",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CS",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-01-02"
+          ]
+        },
+        "name": {
+          "attribute": "name",
+          "value_before": "Bunge Limited",
+          "value_after": "Bunge Global SA",
+          "last_session_state_before": "2023-10-31",
+          "first_session_state_after": "2023-11-01",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2022-09-27",
+              "observed": "Bunge Limited",
+              "expected": "Bunge Limited",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2023-11-30",
+              "observed": "Bunge Global SA",
+              "expected": "Bunge Global SA",
+              "ok": true
+            }
+          ]
+        }
+      },
+      "vendor_aggregate_access": {
+        "source": "SUPPLEMENTAL_QUARANTINE",
+        "available": true,
+        "vintage": "SUPPLEMENTAL_QUARANTINE_RETRIEVAL_VINTAGE",
+        "sessions_examined": 591,
+        "sessions_with_bars": 590,
+        "sessions_empty": 0,
+        "entitlement_unavailable": 1,
+        "entitlement_dates": [
+          "2021-08-25"
+        ],
+        "earliest_session_with_bars": "2021-08-26",
+        "latest_session_with_bars": "2023-12-29",
+        "session_before_v6_start": "2024-01-02",
+        "transition": "NO_ACCESS_TRANSITION_IN_WINDOW",
+        "empty_sessions": [],
+        "interpretation": "aggregate access is a VENDOR-DATA question and is answered only by vendor evidence; it does not speak to listing or legal status",
+        "entitlement_rule": "ENTITLEMENT_UNAVAILABLE is not absence of data and is never read as predecessor state"
+      },
+      "search_window": {
+        "start": "2021-08-25",
+        "end": "2024-01-02",
+        "sessions": 592,
+        "endpoint_filter": "NONE — deliberately unfiltered; V6's type=='CS' predicate is the defect under audit"
+      },
+      "gap_overlap": {
+        "gap_sessions": 0,
+        "overlap_sessions": 0,
+        "expectation": "0 for an ordinary continuity transition",
+        "satisfied": true,
+        "meaning": "sessions between the last vendor-served predecessor session and the V6 coverage start"
+      },
+      "evidence": {
+        "primary_documents": [],
+        "diagnostic_vendor": {
+          "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+          "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+        },
+        "supplemental_quarantine": {
+          "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1/BG",
+          "role": "vendor-access diagnostic only",
+          "promoted_to_canonical": false
+        }
+      },
+      "known_uncertainty": [
+        "no legal effective date sought — continuity rests on an identifier bridge"
+      ]
+    },
+    {
+      "security_key_v1": "d6e3f76caa9241a4332830299b5758bcd1649ff2191434009289a2972b58f5c9",
+      "current_ticker": "LH",
+      "continuity_classification": "CONTINUITY_CONFIRMED",
+      "continuity_reopened": false,
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "v6_original_boundary": "2024-07-01",
+      "v6_boundary_is_anchor_not_event": true,
+      "v6_anchor_displacement_sessions": {
+        "share_class_figi": 28,
+        "composite_figi": 28,
+        "name": 28
+      },
+      "legal_boundary": {
+        "effective_date": null,
+        "precision": "NOT_AUDITED",
+        "why": "continuity for J/BG/LH/FERG was established via a stable identifier bridge, not via filings. The gate scopes these four to identifier and vendor boundaries only, so no legal date was sought."
+      },
+      "vendor_reference_boundaries": {
+        "cik": {
+          "attribute": "cik",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "0000920148",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-07-01"
+          ]
+        },
+        "share_class_figi": {
+          "attribute": "share_class_figi",
+          "value_before": "BBG001S7RX54",
+          "value_after": "BBG01MMT6PQ2",
+          "last_session_state_before": "2024-05-17",
+          "first_session_state_after": "2024-05-20",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-01-05",
+              "observed": "BBG001S7RX54",
+              "expected": "BBG001S7RX54",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-06-10",
+              "observed": "BBG01MMT6PQ2",
+              "expected": "BBG01MMT6PQ2",
+              "ok": true
+            }
+          ]
+        },
+        "composite_figi": {
+          "attribute": "composite_figi",
+          "value_before": "BBG000D9DMK0",
+          "value_after": "BBG01MMT6PL7",
+          "last_session_state_before": "2024-05-17",
+          "first_session_state_after": "2024-05-20",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-01-05",
+              "observed": "BBG000D9DMK0",
+              "expected": "BBG000D9DMK0",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-06-10",
+              "observed": "BBG01MMT6PL7",
+              "expected": "BBG01MMT6PL7",
+              "ok": true
+            }
+          ]
+        },
+        "ticker": {
+          "attribute": "ticker",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "LH",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-07-01"
+          ]
+        },
+        "type": {
+          "attribute": "type",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CS",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-07-01"
+          ]
+        },
+        "name": {
+          "attribute": "name",
+          "value_before": "Laboratory Corporation of America Holdings",
+          "value_after": "Labcorp Holdings Inc.",
+          "last_session_state_before": "2024-05-17",
+          "first_session_state_after": "2024-05-20",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-01-05",
+              "observed": "Laboratory Corporation of America Holdings",
+              "expected": "Laboratory Corporation of America Holdings",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-06-10",
+              "observed": "Labcorp Holdings Inc.",
+              "expected": "Labcorp Holdings Inc.",
+              "ok": true
+            }
+          ]
+        }
+      },
+      "vendor_aggregate_access": {
+        "source": "SUPPLEMENTAL_QUARANTINE",
+        "available": true,
+        "vintage": "SUPPLEMENTAL_QUARANTINE_RETRIEVAL_VINTAGE",
+        "sessions_examined": 715,
+        "sessions_with_bars": 714,
+        "sessions_empty": 0,
+        "entitlement_unavailable": 1,
+        "entitlement_dates": [
+          "2021-08-25"
+        ],
+        "earliest_session_with_bars": "2021-08-26",
+        "latest_session_with_bars": "2024-06-28",
+        "session_before_v6_start": "2024-07-01",
+        "transition": "NO_ACCESS_TRANSITION_IN_WINDOW",
+        "empty_sessions": [],
+        "interpretation": "aggregate access is a VENDOR-DATA question and is answered only by vendor evidence; it does not speak to listing or legal status",
+        "entitlement_rule": "ENTITLEMENT_UNAVAILABLE is not absence of data and is never read as predecessor state"
+      },
+      "search_window": {
+        "start": "2021-08-25",
+        "end": "2024-07-01",
+        "sessions": 716,
+        "endpoint_filter": "NONE — deliberately unfiltered; V6's type=='CS' predicate is the defect under audit"
+      },
+      "gap_overlap": {
+        "gap_sessions": 0,
+        "overlap_sessions": 0,
+        "expectation": "0 for an ordinary continuity transition",
+        "satisfied": true,
+        "meaning": "sessions between the last vendor-served predecessor session and the V6 coverage start"
+      },
+      "evidence": {
+        "primary_documents": [],
+        "diagnostic_vendor": {
+          "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+          "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+        },
+        "supplemental_quarantine": {
+          "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1/LH",
+          "role": "vendor-access diagnostic only",
+          "promoted_to_canonical": false
+        }
+      },
+      "known_uncertainty": [
+        "no legal effective date sought — continuity rests on an identifier bridge"
+      ]
+    },
+    {
+      "security_key_v1": "d177c46fe7e7ec9fa9556a4b2caedf74a2703ff596d1b4b91b874fd5de56d19c",
+      "current_ticker": "FERG",
+      "continuity_classification": "CONTINUITY_CONFIRMED",
+      "continuity_reopened": false,
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "v6_original_boundary": "2024-10-01",
+      "v6_boundary_is_anchor_not_event": true,
+      "v6_anchor_displacement_sessions": {
+        "cik": 40,
+        "share_class_figi": 42,
+        "composite_figi": 42,
+        "name": 42
+      },
+      "legal_boundary": {
+        "effective_date": null,
+        "precision": "NOT_AUDITED",
+        "why": "continuity for J/BG/LH/FERG was established via a stable identifier bridge, not via filings. The gate scopes these four to identifier and vendor boundaries only, so no legal date was sought."
+      },
+      "vendor_reference_boundaries": {
+        "cik": {
+          "attribute": "cik",
+          "value_before": "0001832433",
+          "value_after": "0002011641",
+          "last_session_state_before": "2024-08-02",
+          "first_session_state_after": "2024-08-05",
+          "probes": 10,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-02-13",
+              "observed": "0001832433",
+              "expected": "0001832433",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-09-03",
+              "observed": "0002011641",
+              "expected": "0002011641",
+              "ok": true
+            }
+          ]
+        },
+        "share_class_figi": {
+          "attribute": "share_class_figi",
+          "value_before": null,
+          "value_after": "BBG01NMRD786",
+          "last_session_state_before": "2024-07-31",
+          "first_session_state_after": "2024-08-01",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-02-10",
+              "observed": null,
+              "expected": null,
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-08-30",
+              "observed": "BBG01NMRD786",
+              "expected": "BBG01NMRD786",
+              "ok": true
+            }
+          ]
+        },
+        "composite_figi": {
+          "attribute": "composite_figi",
+          "value_before": null,
+          "value_after": "BBG01NMRD768",
+          "last_session_state_before": "2024-07-31",
+          "first_session_state_after": "2024-08-01",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-02-10",
+              "observed": null,
+              "expected": null,
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-08-30",
+              "observed": "BBG01NMRD768",
+              "expected": "BBG01NMRD768",
+              "ok": true
+            }
+          ]
+        },
+        "ticker": {
+          "attribute": "ticker",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "FERG",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-10-01"
+          ]
+        },
+        "type": {
+          "attribute": "type",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CS",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2024-10-01"
+          ]
+        },
+        "name": {
+          "attribute": "name",
+          "value_before": "Ferguson plc",
+          "value_after": "Ferguson Enterprises Inc.",
+          "last_session_state_before": "2024-07-31",
+          "first_session_state_after": "2024-08-01",
+          "probes": 9,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-02-10",
+              "observed": "Ferguson plc",
+              "expected": "Ferguson plc",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-08-30",
+              "observed": "Ferguson Enterprises Inc.",
+              "expected": "Ferguson Enterprises Inc.",
+              "ok": true
+            }
+          ]
+        }
+      },
+      "vendor_aggregate_access": {
+        "source": "SUPPLEMENTAL_QUARANTINE",
+        "available": true,
+        "vintage": "SUPPLEMENTAL_QUARANTINE_RETRIEVAL_VINTAGE",
+        "sessions_examined": 779,
+        "sessions_with_bars": 778,
+        "sessions_empty": 0,
+        "entitlement_unavailable": 1,
+        "entitlement_dates": [
+          "2021-08-25"
+        ],
+        "earliest_session_with_bars": "2021-08-26",
+        "latest_session_with_bars": "2024-09-30",
+        "session_before_v6_start": "2024-10-01",
+        "transition": "NO_ACCESS_TRANSITION_IN_WINDOW",
+        "empty_sessions": [],
+        "interpretation": "aggregate access is a VENDOR-DATA question and is answered only by vendor evidence; it does not speak to listing or legal status",
+        "entitlement_rule": "ENTITLEMENT_UNAVAILABLE is not absence of data and is never read as predecessor state"
+      },
+      "search_window": {
+        "start": "2021-08-25",
+        "end": "2024-10-01",
+        "sessions": 780,
+        "endpoint_filter": "NONE — deliberately unfiltered; V6's type=='CS' predicate is the defect under audit"
+      },
+      "gap_overlap": {
+        "gap_sessions": 0,
+        "overlap_sessions": 0,
+        "expectation": "0 for an ordinary continuity transition",
+        "satisfied": true,
+        "meaning": "sessions between the last vendor-served predecessor session and the V6 coverage start"
+      },
+      "evidence": {
+        "primary_documents": [],
+        "diagnostic_vendor": {
+          "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+          "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+        },
+        "supplemental_quarantine": {
+          "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1/FERG",
+          "role": "vendor-access diagnostic only",
+          "promoted_to_canonical": false
+        }
+      },
+      "known_uncertainty": [
+        "no legal effective date sought — continuity rests on an identifier bridge"
+      ]
+    },
+    {
+      "security_key_v1": "ec4b4f0f2cac042411785183b5508cfe7b996e7d8f619c6b24cd7ecba9bc55be",
+      "current_ticker": "BLK",
+      "continuity_classification": "SECURITY_CONTINUITY_CONFIRMED",
+      "continuity_reopened": false,
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "v6_original_boundary": "2025-01-02",
+      "v6_boundary_is_anchor_not_event": true,
+      "v6_anchor_displacement_sessions": {
+        "cik": 62,
+        "share_class_figi": 63,
+        "composite_figi": 63,
+        "legal_effective": 64
+      },
+      "legal_boundary": {
+        "effective_date": "2024-10-01",
+        "effective_time": null,
+        "precision": "CALENDAR_DATE_ONLY",
+        "first_successor_session_stated": null,
+        "session_precision": "NOT_STATED_IN_FILING",
+        "instrument": "8-K",
+        "filed": "2024-10-01",
+        "accession": "0001193125-24-229654",
+        "sha256": "ec81adf30f81a1f0",
+        "document": "BLK_8k_1001_ec81adf3.htm",
+        "quotes": [
+          "in connection with the completion on October 1, 2024 (the “Closing Date”) of the previously announced transactions contemplated by that certain Transaction Agreement, dated as of January 12, 2024",
+          "Amended and Restated Certificate of Incorporation of BlackRock Finance, Inc., effective as of October 1, 2024"
+        ]
+      },
+      "vendor_reference_boundaries": {
+        "cik": {
+          "attribute": "cik",
+          "value_before": "0001364742",
+          "value_after": "0002012383",
+          "last_session_state_before": "2024-10-02",
+          "first_session_state_after": "2024-10-03",
+          "probes": 10,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-03-15",
+              "observed": "0001364742",
+              "expected": "0001364742",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-11-15",
+              "observed": "0002012383",
+              "expected": "0002012383",
+              "ok": true
+            }
+          ]
+        },
+        "share_class_figi": {
+          "attribute": "share_class_figi",
+          "value_before": "BBG001SDBP55",
+          "value_after": "BBG01PSW2WR0",
+          "last_session_state_before": "2024-10-01",
+          "first_session_state_after": "2024-10-02",
+          "probes": 10,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-03-14",
+              "observed": "BBG001SDBP55",
+              "expected": "BBG001SDBP55",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-11-14",
+              "observed": "BBG01PSW2WR0",
+              "expected": "BBG01PSW2WR0",
+              "ok": true
+            }
+          ]
+        },
+        "composite_figi": {
+          "attribute": "composite_figi",
+          "value_before": "BBG000C2PW58",
+          "value_after": "BBG01PSW2WN4",
+          "last_session_state_before": "2024-10-01",
+          "first_session_state_after": "2024-10-02",
+          "probes": 10,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2023-03-14",
+              "observed": "BBG000C2PW58",
+              "expected": "BBG000C2PW58",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2024-11-14",
+              "observed": "BBG01PSW2WN4",
+              "expected": "BBG01PSW2WN4",
+              "ok": true
+            }
+          ]
+        },
+        "ticker": {
+          "attribute": "ticker",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "BLK",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2025-01-02"
+          ]
+        },
+        "type": {
+          "attribute": "type",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CS",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2025-01-02"
+          ]
+        },
+        "name": {
+          "attribute": "name",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "Blackrock, Inc.",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2025-01-02"
+          ]
+        }
+      },
+      "vendor_aggregate_access": {
+        "source": "SUPPLEMENTAL_QUARANTINE",
+        "available": true,
+        "vintage": "SUPPLEMENTAL_QUARANTINE_RETRIEVAL_VINTAGE",
+        "sessions_examined": 843,
+        "sessions_with_bars": 842,
+        "sessions_empty": 0,
+        "entitlement_unavailable": 1,
+        "entitlement_dates": [
+          "2021-08-25"
+        ],
+        "earliest_session_with_bars": "2021-08-26",
+        "latest_session_with_bars": "2024-12-31",
+        "session_before_v6_start": "2025-01-02",
+        "transition": "NO_ACCESS_TRANSITION_IN_WINDOW",
+        "empty_sessions": [],
+        "interpretation": "aggregate access is a VENDOR-DATA question and is answered only by vendor evidence; it does not speak to listing or legal status",
+        "entitlement_rule": "ENTITLEMENT_UNAVAILABLE is not absence of data and is never read as predecessor state"
+      },
+      "search_window": {
+        "start": "2021-08-25",
+        "end": "2025-01-02",
+        "sessions": 844,
+        "endpoint_filter": "NONE — deliberately unfiltered; V6's type=='CS' predicate is the defect under audit"
+      },
+      "gap_overlap": {
+        "gap_sessions": 0,
+        "overlap_sessions": 0,
+        "expectation": "0 for an ordinary continuity transition",
+        "satisfied": true,
+        "meaning": "sessions between the last vendor-served predecessor session and the V6 coverage start"
+      },
+      "evidence": {
+        "primary_documents": [
+          {
+            "form": "8-K",
+            "accession": "0001193125-24-229654",
+            "sha256": "ec81adf30f81a1f0",
+            "document": "BLK_8k_1001_ec81adf3.htm",
+            "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+          }
+        ],
+        "diagnostic_vendor": {
+          "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+          "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+        },
+        "supplemental_quarantine": {
+          "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1/BLK",
+          "role": "vendor-access diagnostic only",
+          "promoted_to_canonical": false
+        }
+      },
+      "known_uncertainty": []
+    },
+    {
+      "security_key_v1": "c6fd905a512fe41410a41637b0dcdd661540868a182e8ca62e3fc79a14f909f8",
+      "current_ticker": "XOM",
+      "continuity_classification": "SECURITY_CONTINUITY_CONFIRMED",
+      "continuity_reopened": false,
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "v6_original_boundary": "2026-08-24",
+      "v6_boundary_is_anchor_not_event": true,
+      "v6_anchor_displacement_sessions": {
+        "cik": 33,
+        "share_class_figi": 36,
+        "composite_figi": 36,
+        "name": 36,
+        "legal_effective": 37
+      },
+      "legal_boundary": {
+        "effective_date": "2026-07-01",
+        "effective_time": null,
+        "precision": "CALENDAR_DATE_ONLY",
+        "first_successor_session_stated": null,
+        "session_precision": "NOT_STATED_IN_FILING",
+        "instrument": "S-8 POS",
+        "filed": "2026-07-01",
+        "accession": "0001193125-26-292536",
+        "sha256": "a10664dec585d21f",
+        "document": "XOM_s8pos_a10664de.htm",
+        "quotes": [
+          "This Redomiciliation was effectuated on July 1, 2026 (the “Effective Date”) by merging Ensign LLC, a Texas limited liability company, with and into the Company",
+          "of the Company becoming shareholders of the Registrant. The Registrant is deemed to be the successor registrant of the Company’s common stock pursuant to Rule 12g-3(a)"
+        ],
+        "nature": "redomiciliation New Jersey -> Texas, not a business combination"
+      },
+      "vendor_reference_boundaries": {
+        "cik": {
+          "attribute": "cik",
+          "value_before": "0000034088",
+          "value_after": "0002115436",
+          "last_session_state_before": "2026-07-07",
+          "first_session_state_after": "2026-07-08",
+          "probes": 10,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2024-01-29",
+              "observed": "0000034088",
+              "expected": "0000034088",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2026-07-30",
+              "observed": "0002115436",
+              "expected": "0002115436",
+              "ok": true
+            }
+          ]
+        },
+        "share_class_figi": {
+          "attribute": "share_class_figi",
+          "value_before": "BBG001S69V32",
+          "value_after": "BBG023CY9NL0",
+          "last_session_state_before": "2026-07-01",
+          "first_session_state_after": "2026-07-02",
+          "probes": 11,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2024-01-26",
+              "observed": "BBG001S69V32",
+              "expected": "BBG001S69V32",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2026-07-29",
+              "observed": "BBG023CY9NL0",
+              "expected": "BBG023CY9NL0",
+              "ok": true
+            }
+          ]
+        },
+        "composite_figi": {
+          "attribute": "composite_figi",
+          "value_before": "BBG000GZQ728",
+          "value_after": "BBG023CY9MM1",
+          "last_session_state_before": "2026-07-01",
+          "first_session_state_after": "2026-07-02",
+          "probes": 11,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2024-01-26",
+              "observed": "BBG000GZQ728",
+              "expected": "BBG000GZQ728",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2026-07-29",
+              "observed": "BBG023CY9MM1",
+              "expected": "BBG023CY9MM1",
+              "ok": true
+            }
+          ]
+        },
+        "ticker": {
+          "attribute": "ticker",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "XOM",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2026-08-24"
+          ]
+        },
+        "type": {
+          "attribute": "type",
+          "transition": "NO_TRANSITION_IN_WINDOW",
+          "value": "CS",
+          "precision": "NO_TRANSITION_IN_WINDOW",
+          "window": [
+            "2021-08-25",
+            "2026-08-24"
+          ]
+        },
+        "name": {
+          "attribute": "name",
+          "value_before": "Exxon Mobil Corporation",
+          "value_after": "ExxonMobil Holdings Corporation",
+          "last_session_state_before": "2026-07-01",
+          "first_session_state_after": "2026-07-02",
+          "probes": 11,
+          "precision": "EXACT_XNYS_SESSION_PAIR",
+          "method": "XNYS-session binary search on the unfiltered reference endpoint",
+          "monotonicity_checks": [
+            {
+              "side": "before",
+              "session": "2024-01-26",
+              "observed": "Exxon Mobil Corporation",
+              "expected": "Exxon Mobil Corporation",
+              "ok": true
+            },
+            {
+              "side": "after",
+              "session": "2026-07-29",
+              "observed": "ExxonMobil Holdings Corporation",
+              "expected": "ExxonMobil Holdings Corporation",
+              "ok": true
+            }
+          ]
+        }
+      },
+      "vendor_aggregate_access": {
+        "source": "SUPPLEMENTAL_QUARANTINE",
+        "available": true,
+        "vintage": "SUPPLEMENTAL_QUARANTINE_RETRIEVAL_VINTAGE",
+        "sessions_examined": 1253,
+        "sessions_with_bars": 1252,
+        "sessions_empty": 0,
+        "entitlement_unavailable": 1,
+        "entitlement_dates": [
+          "2021-08-25"
+        ],
+        "earliest_session_with_bars": "2021-08-26",
+        "latest_session_with_bars": "2026-08-21",
+        "session_before_v6_start": "2026-08-24",
+        "transition": "NO_ACCESS_TRANSITION_IN_WINDOW",
+        "empty_sessions": [],
+        "interpretation": "aggregate access is a VENDOR-DATA question and is answered only by vendor evidence; it does not speak to listing or legal status",
+        "entitlement_rule": "ENTITLEMENT_UNAVAILABLE is not absence of data and is never read as predecessor state"
+      },
+      "search_window": {
+        "start": "2021-08-25",
+        "end": "2026-08-24",
+        "sessions": 1254,
+        "endpoint_filter": "NONE — deliberately unfiltered; V6's type=='CS' predicate is the defect under audit"
+      },
+      "gap_overlap": {
+        "gap_sessions": 0,
+        "overlap_sessions": 0,
+        "expectation": "0 for an ordinary continuity transition",
+        "satisfied": true,
+        "meaning": "sessions between the last vendor-served predecessor session and the V6 coverage start"
+      },
+      "evidence": {
+        "primary_documents": [
+          {
+            "form": "S-8 POS",
+            "accession": "0001193125-26-292536",
+            "sha256": "a10664dec585d21f",
+            "document": "XOM_s8pos_a10664de.htm",
+            "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+          }
+        ],
+        "diagnostic_vendor": {
+          "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+          "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+        },
+        "supplemental_quarantine": {
+          "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1/XOM",
+          "role": "vendor-access diagnostic only",
+          "promoted_to_canonical": false
+        }
+      },
+      "known_uncertainty": []
+    }
+  ],
+  "new_vintage_request_inventory": {
+    "count": 119,
+    "endpoint": "/v3/reference/tickers",
+    "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_boundary_audit",
+    "every_response_digested": true,
+    "requests": [
+      {
+        "security": "APO",
+        "date": "2021-08-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-08-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "896746aa6ffe7cb2fc058201ad1d6ee7cbd8580df211d38691f770fc0d726459",
+        "retrieved_at": "2026-08-25T12:43:10Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2022-01-03",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2022-01-03",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "b80c5e6a9e38713bb7a49a7cded2e2687f228e40c26154e8787bfd9d520e7298",
+        "retrieved_at": "2026-08-25T12:43:11Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2021-10-28",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-10-28",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "83d729889a4b6b78a26a8dd4c7eef9618451665a0f07120ae6ec985cc4b51679",
+        "retrieved_at": "2026-08-25T12:43:11Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2021-11-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-11-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d7bce0fdb6052e47fb7f9b0138332cdf4a693e71e261290637a8d82b9eab6fa7",
+        "retrieved_at": "2026-08-25T12:43:12Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2021-12-15",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-12-15",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "fe49cc44ff752d6185a21b93cf6f831f3cf6b47495b323ae4be8c3749b4b9874",
+        "retrieved_at": "2026-08-25T12:43:12Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2021-12-23",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-12-23",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d593300dbabacf40f57c96de47f3fe2adbf296cb41e425e0b8085bde929719f6",
+        "retrieved_at": "2026-08-25T12:43:13Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2021-12-29",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-12-29",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "c141a66f0654b580ca1e2adfe0b1e1316503bc6ea46241166e0d09886154f87e",
+        "retrieved_at": "2026-08-25T12:43:13Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2021-12-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-12-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "1f89bce1e91505bc6cc30193fa160bc833e5ee9b169f41f8f283a17e99bb197a",
+        "retrieved_at": "2026-08-25T12:43:14Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2021-12-31",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-12-31",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "c20d10f8e6ce6aece6ec09371034e79ade1b2fa863026f3be3b04cab76382c96",
+        "retrieved_at": "2026-08-25T12:43:14Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "APO",
+        "date": "2021-10-27",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "APO",
+          "date": "2021-10-27",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "8a8a4cdbcb4e56fe57787d64102195758c24e41bb04ea947e2e0e894f2970bb0",
+        "retrieved_at": "2026-08-25T12:43:15Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2021-08-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2021-08-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "21dbce9d7bb6c576805ee8490d58fe6c19ec0e7fe161a85c0f9413594e12a76e",
+        "retrieved_at": "2026-08-25T12:43:16Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-10-03",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-10-03",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "20d91f9ef74a7ea4eb92174ccf7f3166a8476aba5b531e2ea976da0d10331656",
+        "retrieved_at": "2026-08-25T12:43:16Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-03-15",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-03-15",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "4409aee27589b3a5410c9c123a02b78554e554e240c88ad5d760f630f3512b85",
+        "retrieved_at": "2026-08-25T12:43:17Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-06-23",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-06-23",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d8ffab50ab08ec091cbd9b605d0b29b478806f0c5866a2ce92bc7eee71e13591",
+        "retrieved_at": "2026-08-25T12:43:17Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-08-12",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-08-12",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "16237bb4a1d2b7cc4150ca7888ca74026908c790eafd7ac44fda3a724a57feed",
+        "retrieved_at": "2026-08-25T12:43:18Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-09-07",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-09-07",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "ad48652f18194538dadea4dccb06f7d394cbdf1e9c1680f856133d6279a39047",
+        "retrieved_at": "2026-08-25T12:43:18Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-08-24",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-08-24",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "6411c3da598da50a35f2377f09827bbbc2dcc6ada3e30d30ee7d4945f22a8645",
+        "retrieved_at": "2026-08-25T12:43:19Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-08-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-08-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "78af88c93d8c00c77da91cf427b8dfac73beaf2474604612e10dcadf5b2e032e",
+        "retrieved_at": "2026-08-25T12:43:19Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-08-26",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-08-26",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "49b4145588f9bfe8502308b3496a9b7092da574f2795405ffb72b6bf809f9eca",
+        "retrieved_at": "2026-08-25T12:43:20Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-08-29",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-08-29",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "1a096b87d7fb0514af641b8f025e9ec8f1e685d3a2a663c98d2c4ca7f52d9f33",
+        "retrieved_at": "2026-08-25T12:43:21Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-02-24",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-02-24",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "eb311eb8eab0cd5bc981eb066813d8dfbfe66472c2bc8c46046e570c2284242d",
+        "retrieved_at": "2026-08-25T12:43:21Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "J",
+        "date": "2022-09-15",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "J",
+          "date": "2022-09-15",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d9fc1e4fa5edabd02b3a40bc3d26d377e8d8fffe6aa866637506cb551290fdfa",
+        "retrieved_at": "2026-08-25T12:43:22Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2021-08-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2021-08-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "40a60355b813d26fd7777414ebcfc560a6fd0a5127d94cb0e92d32858339da11",
+        "retrieved_at": "2026-08-25T12:43:22Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-10-02",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-10-02",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "1080d82fc205905abc9c4dc602e1062b92dd2b5cea0b06b4700396350d88fad0",
+        "retrieved_at": "2026-08-25T12:43:23Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2022-09-13",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2022-09-13",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d2f7f4d50fd141fabad8366a08359b10ccded2a1bf0385bd0d28de831c44fa23",
+        "retrieved_at": "2026-08-25T12:43:23Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-03-23",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-03-23",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "822e195e488ebfa1cd3fe3fe2d9686f6842a7545a785ddb61975ef68b94a85b7",
+        "retrieved_at": "2026-08-25T12:43:24Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-06-28",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-06-28",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "48ec6ca4ffe55431c9ed473bf461204d84666f71977ab63c43ef1c83f0d75fee",
+        "retrieved_at": "2026-08-25T12:43:24Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-08-15",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-08-15",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "8f4d5e4238c76daecc3608381addd40920649e90c8f4d715f0884f788668fdea",
+        "retrieved_at": "2026-08-25T12:43:25Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-09-07",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-09-07",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "4b69890dc6d46a29fbad635d33470b5dbdb0c233bd7223e49b76da4a496f4fbf",
+        "retrieved_at": "2026-08-25T12:43:25Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-09-19",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-09-19",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "88a1668809554b4cd4811a4fefb65e349628c93b2328204660ee7d0b2b9c2a23",
+        "retrieved_at": "2026-08-25T12:43:26Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-09-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-09-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "ec977215d2ed5bc6e34d8a1dc52f438c77225ef85de1c0345e945c43a63b5874",
+        "retrieved_at": "2026-08-25T12:43:27Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-09-21",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-09-21",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "ff58aff76590d28fb6eebaac03f8baa2dcb9c033fd59c9b4677532857447eda7",
+        "retrieved_at": "2026-08-25T12:43:27Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-09-22",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-09-22",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "b3d00330aa49ef6196a87855787df410a68886010a295b36eb58060b30bb8847",
+        "retrieved_at": "2026-08-25T12:43:28Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2022-09-08",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2022-09-08",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "96d3e0a617ad1f71ef93e9b50d0f0810a8856f94f98763ae8e5cf1fa4c9fadd5",
+        "retrieved_at": "2026-08-25T12:43:28Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "CRH",
+        "date": "2023-09-27",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "CRH",
+          "date": "2023-09-27",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "e2767cc3bc4bb52fd5e9dda6d7901acf444e199a48f2e076ac4b32715c7d085b",
+        "retrieved_at": "2026-08-25T12:43:29Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2021-08-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2021-08-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "07e7bd777ac2dcaeccee2b2bf60f16917b35d865bde1eb8af7df90921bb0514a",
+        "retrieved_at": "2026-08-25T12:43:29Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2024-01-02",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2024-01-02",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "97a3d5c90d353531ec20ab23965e4f46629e33ddf44876ab525f8346a9efeee8",
+        "retrieved_at": "2026-08-25T12:43:30Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2022-10-26",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2022-10-26",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "e902f1b281c206dcc15dbb1a1d64d49a6279396e58bc7a9a6bbd0c9189f3e34f",
+        "retrieved_at": "2026-08-25T12:43:31Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-05-31",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-05-31",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "1340931bb812e7518becb737c186fb076f45651168c68a11740ea45fd46279ea",
+        "retrieved_at": "2026-08-25T12:43:31Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-09-15",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-09-15",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "99db6482dee3fb302f96a63e20df5934b0b0c629523f4318fb0211727aec312b",
+        "retrieved_at": "2026-08-25T12:43:32Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-11-07",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-11-07",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "c2d0ff0861084890b99f6e7aa71d2d60876b84e8e74774a6b09037eb86f815b7",
+        "retrieved_at": "2026-08-25T12:43:32Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-12-04",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-12-04",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "c5e4ed1ca1573a88b14050d05236a9dd130570f8fda1c26454f8041c2b8db37d",
+        "retrieved_at": "2026-08-25T12:43:33Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-11-20",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-11-20",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "05a3e63e8cf408d995dfd80f28c4a3a38a4adbb8809b2d7047da2cca3fa17b0f",
+        "retrieved_at": "2026-08-25T12:43:33Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-11-13",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-11-13",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "26d318f974248b6a3c733b05f25e903870168ebec9e0358a0f40a7650e1a91c1",
+        "retrieved_at": "2026-08-25T12:43:34Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-11-09",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-11-09",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "911897575765ceee14e56ac51ed5c8a3c74d5c088b727ac822f6392bbee18de2",
+        "retrieved_at": "2026-08-25T12:43:34Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-11-08",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-11-08",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "453d2bf6572b6192c63e35910a7cc66d5e05dcba7aa0a66b2848efd13337c13b",
+        "retrieved_at": "2026-08-25T12:43:35Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2022-09-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2022-09-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "547acdc393b86fca82a01dd371dc8b58a92794060ed3fbd7332052d594211fc6",
+        "retrieved_at": "2026-08-25T12:43:36Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-12-05",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-12-05",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d3a8d2187913a7bc295b08cb963781ae6486fc4e9c9e5f5b517f66b2269a904c",
+        "retrieved_at": "2026-08-25T12:43:36Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-10-11",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-10-11",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "a8fb19288b134c08775e65baca917d1700bd6eb41cec234259f55f29c6599887",
+        "retrieved_at": "2026-08-25T12:43:37Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-10-24",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-10-24",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "e2b951c3c135cdc796710269c83980ec8627f02ea6a310d418d58acb57ab1229",
+        "retrieved_at": "2026-08-25T12:43:37Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-10-31",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-10-31",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "a92657be84663bbac9764b3677bd23ab7c756cc0bdddc290703e8fcd8b8ee72b",
+        "retrieved_at": "2026-08-25T12:43:38Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-11-02",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-11-02",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "9b4be054872fe6d86027e3aa193936910653d54040c0dc645582045cb1f56a7d",
+        "retrieved_at": "2026-08-25T12:43:38Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-11-01",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-11-01",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "cba9aa7616f09d63836b8962bdedc35c8c30fc4cbcb89e2bd72f9e405b35e271",
+        "retrieved_at": "2026-08-25T12:43:39Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2022-09-27",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2022-09-27",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "3623a0b4f22d1a8d84ccd2e47eb8a49cf4a451d33d119d32b5d872f0e861d3fb",
+        "retrieved_at": "2026-08-25T12:43:39Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BG",
+        "date": "2023-11-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BG",
+          "date": "2023-11-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "f2839c9a90137c2cf3b6623009a84be29de97153bf7be80312ff65030e8ab8f1",
+        "retrieved_at": "2026-08-25T12:43:40Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2021-08-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2021-08-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "c2c6d08877cb975b6ac8b252507d0ccee5b8dc6eeead514b6baf6ca02607b865",
+        "retrieved_at": "2026-08-25T12:43:41Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-07-01",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-07-01",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "36954eb45f41d823bb4bfac817832c35a808bb77ff80681802db86c61fb47d98",
+        "retrieved_at": "2026-08-25T12:43:41Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2023-01-26",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2023-01-26",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "2af06eb2a7f0ad3735515f033b09d5cc07ded409ae1afa41c5752468b788b8a4",
+        "retrieved_at": "2026-08-25T12:43:42Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2023-10-12",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2023-10-12",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "585e356f40c8583ddbf02cd910d065f401bd6ac57a1469d867e6628dabf792e8",
+        "retrieved_at": "2026-08-25T12:43:42Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-02-21",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-02-21",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "661e66789f0bb061aaa0464b3b2ceb2ab8b0d71f9d7c463a6dd98e601fb2a124",
+        "retrieved_at": "2026-08-25T12:43:43Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-04-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-04-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "f97b56466ef82bfe64fd1eef735fc795192a781cfaf69d51fff9ec2d7765553c",
+        "retrieved_at": "2026-08-25T12:43:43Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-05-28",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-05-28",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "fa57e7436c7dfe4c128a2c881e707902b362c19efd36696011e3cd021877eb3a",
+        "retrieved_at": "2026-08-25T12:43:44Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-05-10",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-05-10",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "37a9f318c20035e6ab164f333535cf4e4ef044b2ec1f5242f0f699f39eef9846",
+        "retrieved_at": "2026-08-25T12:43:44Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-05-17",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-05-17",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "22b8164982e67187abdac3c9f48a7ef7df515c5b15aac857ac592cdaf219f6f3",
+        "retrieved_at": "2026-08-25T12:43:45Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-05-22",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-05-22",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "86fca3b0b6a0a62ba9f57060481a4797444250649a1b1d5e40640e29568b1df6",
+        "retrieved_at": "2026-08-25T12:43:46Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-05-20",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-05-20",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "deeafa5383bfee85c937472cdbc77ebccec9f6f692ccf54fb1856b9b1183e04a",
+        "retrieved_at": "2026-08-25T12:43:46Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2023-01-05",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2023-01-05",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "fdf640cc37a8812355a0bd22149862c230d6be2b47953b62e68dd7b1793f8bc8",
+        "retrieved_at": "2026-08-25T12:43:47Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "LH",
+        "date": "2024-06-10",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "LH",
+          "date": "2024-06-10",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "6711166cdec48d215d0deccf7752b17f5397ae7bc0262cded95551f4beb3a096",
+        "retrieved_at": "2026-08-25T12:43:47Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2021-08-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2021-08-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "b2d633146cb7bf28028a6c59c2380caf7934e60a4cda4e2300356d058e9ed186",
+        "retrieved_at": "2026-08-25T12:43:48Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-10-01",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-10-01",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "2af7497aeed81aee59a3e728ed7edf99306c26bab04bfef7aea65da2a223fea1",
+        "retrieved_at": "2026-08-25T12:43:48Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2023-03-14",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2023-03-14",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "91305f85d7b785af9f4a2d077e5eb87a66a0e57239287f3a9142f6ef44aeb1e1",
+        "retrieved_at": "2026-08-25T12:43:49Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2023-12-20",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2023-12-20",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "7e6ceb91add924840a25a44bd8dd6ea7b44f231a119396550569c5654ea68b30",
+        "retrieved_at": "2026-08-25T12:43:50Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-05-10",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-05-10",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "744323872156b3853d361688e205ad9ebd4b35589dd026ab4c20e31fbf313099",
+        "retrieved_at": "2026-08-25T12:43:50Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-07-23",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-07-23",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "c463130f8c4722b84196f3f1a99c05023c8d88f886a96ff2f9b9b1af55dd10de",
+        "retrieved_at": "2026-08-25T12:43:51Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-08-26",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-08-26",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "03b4b9ef68da2ec99c32e5b70bcc70f42e718bd5530431588f48b8c03e88133a",
+        "retrieved_at": "2026-08-25T12:43:51Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-08-08",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-08-08",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "68535cf4949e9e4f1fe857a7fe46527e444746c5be5716084a21ade186c3436c",
+        "retrieved_at": "2026-08-25T12:43:52Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-07-31",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-07-31",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "e9fb79d04a53cc4e8a0fabcd4a44eae2933537e13a2ab1a7cc627e869b36f81a",
+        "retrieved_at": "2026-08-25T12:43:52Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-08-05",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-08-05",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "add7da8ac850b50198ae57b064da3631f6b853d21057626cc93e75450e70e9fb",
+        "retrieved_at": "2026-08-25T12:43:53Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-08-01",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-08-01",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "26e3a94ad455ac45eb37aeea373c3af3e692f5cacf057e98d118c66008c0fe84",
+        "retrieved_at": "2026-08-25T12:43:54Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-08-02",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-08-02",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "e5e8f745f7b67e552f8683736b83af3b6963f8463ee80a4f2cdad7f2c4732b04",
+        "retrieved_at": "2026-08-25T12:43:54Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2023-02-13",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2023-02-13",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "b618ecc3e327d1207238ce63bb469b4d2c730a77c0c3e953bb6a6d88a72b0d12",
+        "retrieved_at": "2026-08-25T12:43:55Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-09-03",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-09-03",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d57da8c4ee345cadecb206daf384233938e262ed1b5d6245eede805a73964216",
+        "retrieved_at": "2026-08-25T12:43:55Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2023-02-10",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2023-02-10",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d807670ee83549baaeccc10d398ea0f023b8d51792562032e7c02d2b27a1043f",
+        "retrieved_at": "2026-08-25T12:43:56Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "FERG",
+        "date": "2024-08-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "FERG",
+          "date": "2024-08-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "48bb01998474caa61a09cd877361048299f8905cc379f7cb784bd72c6c8b51be",
+        "retrieved_at": "2026-08-25T12:43:56Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2021-08-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2021-08-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "238a74f04d37a27e08d8fb434d8dbf9f294e5b56f78718f40bd8093eb38f78a0",
+        "retrieved_at": "2026-08-25T12:43:57Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2025-01-02",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2025-01-02",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "227879ff9c9fd0e471973a5490fa18758ae0d58ab72c85d7ab8d4cb09f73c1d6",
+        "retrieved_at": "2026-08-25T12:43:57Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2023-04-28",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2023-04-28",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "0296f8fd2ae43015650b8d30c961c4cbd8f1a2bfb589b99bc46ae6b20acccded",
+        "retrieved_at": "2026-08-25T12:43:58Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-03-01",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-03-01",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "a684fdeab5376cf6f9be26b6df9ab93f054962a37fb428fc649971f3204a70bf",
+        "retrieved_at": "2026-08-25T12:43:59Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-08-01",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-08-01",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "b2c992126f94c60005a86b62f38f82a6a4bac40a4422b2754b76c6ee17a4e5ec",
+        "retrieved_at": "2026-08-25T12:43:59Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-10-16",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-10-16",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "09c0b78b254b5504fcaf9c112af6ba9c9aa3e6a3bb037cadefc6505692db10c0",
+        "retrieved_at": "2026-08-25T12:44:00Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-09-09",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-09-09",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "fa929c96d2b2003a916ccd59d54da78006439e907182d823b8dbce6dc3615325",
+        "retrieved_at": "2026-08-25T12:44:00Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-09-26",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-09-26",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "ba3a4b46dddef41442236c57b37f3735a3ea4b65734bf44eba0477b53b6e3932",
+        "retrieved_at": "2026-08-25T12:44:01Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-10-07",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-10-07",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "ad680c13fd331497a876c03831145157f3c3f98fc67d73481b83bc020de6d251",
+        "retrieved_at": "2026-08-25T12:44:01Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-10-01",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-10-01",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "578df92fc0853278c46c60b8c03fda87a8fb2100f5185f0fe1c7f6d219ebf639",
+        "retrieved_at": "2026-08-25T12:44:02Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-10-03",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-10-03",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "1b293af9725c789039215051350c8ca53f8707f053e365049fd95041385985a3",
+        "retrieved_at": "2026-08-25T12:44:02Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-10-02",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-10-02",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d2595dd26ad33eccba5cc5242cc1d93d3a188836b1470a22c85dbf61c38a41a8",
+        "retrieved_at": "2026-08-25T12:44:03Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2023-03-15",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2023-03-15",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "180f76c68d25db297fd10dfed5056ef5de4475e5a0534a63c670e631f4bd59f7",
+        "retrieved_at": "2026-08-25T12:44:04Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-11-15",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-11-15",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "cd6b26a4404b5917a81a393b4a4d51245ebd8d4f932af973a69846dca142a6d6",
+        "retrieved_at": "2026-08-25T12:44:04Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2023-03-14",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2023-03-14",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "8f790802ff6df3709aa489124fb981a943b981cbd2a03d8c2404288c995f44bf",
+        "retrieved_at": "2026-08-25T12:44:05Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "BLK",
+        "date": "2024-11-14",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "BLK",
+          "date": "2024-11-14",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "17268b5418563a6fa5cf80a8f093a1b12e25438f09f29b1724433c023971fc84",
+        "retrieved_at": "2026-08-25T12:44:05Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2021-08-25",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2021-08-25",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "b9e9c5adc9fcab64c5ddacf254ba4a5179e4da01f6b3bce92921b55e9a469a5e",
+        "retrieved_at": "2026-08-25T12:44:06Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-08-24",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-08-24",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "0c76a90a69726afc28200bdcf62a462a07e58495d457986b9d64e37e8aae85df",
+        "retrieved_at": "2026-08-25T12:44:06Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2024-02-22",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2024-02-22",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "5df91dd923eb083478bb9857f1f84bd0805425f5c4b13db238125b49b33ee856",
+        "retrieved_at": "2026-08-25T12:44:07Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2025-05-22",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2025-05-22",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "b1c866af48163f02737a8d2d471d144daa043d394921c760a4b623ae2d809f26",
+        "retrieved_at": "2026-08-25T12:44:08Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-01-07",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-01-07",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "6309f8ccbbad59d3180cb30417155cb0f980789869d441c1479353cd8959542c",
+        "retrieved_at": "2026-08-25T12:44:08Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-04-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-04-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "bb6376914d2f0eb6e76529eca951c19c8a5d82e0bab18aa5df0dc2be294b29e9",
+        "retrieved_at": "2026-08-25T12:44:09Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-06-26",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-06-26",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "8fa4f34614abb9b498b5e0191e5a0bcf720c2a2e6cbc658281b0240851240236",
+        "retrieved_at": "2026-08-25T12:44:09Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-27",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-27",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "396476e317f822a8fbbf8c5447be4dfab23b4ffe3acc93efbbe3c854754ab94a",
+        "retrieved_at": "2026-08-25T12:44:10Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-13",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-13",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "b25cf39161b3f940fc7bb2e066b75575a841bfcf8be5ad82b4149321fb5cfbaf",
+        "retrieved_at": "2026-08-25T12:44:10Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-06",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-06",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d0e48aa860efd568e481902911098c27bac1e0ab619d7e923fb122c58a8746f2",
+        "retrieved_at": "2026-08-25T12:44:11Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-08",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-08",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "03bd788ec90c64286bd9a26aba33c0930caeda76be677c2ec3a794e10c7e4aad",
+        "retrieved_at": "2026-08-25T12:44:11Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-07",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-07",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "4a26d854404bc77c2b9004d0a5d14c9e85d73da99309bfc6cd6c024fda8fbe85",
+        "retrieved_at": "2026-08-25T12:44:12Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2024-01-29",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2024-01-29",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "43756e0049a48fcb171c88027d3a4a8cbcbbb15a65e5c93071e6e4ddc80f78c1",
+        "retrieved_at": "2026-08-25T12:44:13Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "a8caa947da88ac4e53874f6e2a7317e311883bc8f33d3124a1b857284b8f71bd",
+        "retrieved_at": "2026-08-25T12:44:13Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-06-30",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-06-30",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "fe7bbb8eb8b8dfb72d411aa27611dc2f468488503e211c5ed94d9493680fc82f",
+        "retrieved_at": "2026-08-25T12:44:14Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-01",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-01",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "63a43e3abbea61af539a4ba634cbf593d5886b8c328abd785794d7d5a0f20127",
+        "retrieved_at": "2026-08-25T12:44:14Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-02",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-02",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "72d8c3acf9397c212e581dedea0dfb0a6f9c44120bd111c3e160728311fb9b49",
+        "retrieved_at": "2026-08-25T12:44:15Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2024-01-26",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2024-01-26",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d3d0978ff08b769d78e126a35172bfa28edb9d9a4a8bfc765a7f37ec583393e0",
+        "retrieved_at": "2026-08-25T12:44:15Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      },
+      {
+        "security": "XOM",
+        "date": "2026-07-29",
+        "endpoint": "/v3/reference/tickers",
+        "params": {
+          "ticker": "XOM",
+          "date": "2026-07-29",
+          "limit": 10
+        },
+        "http": 200,
+        "sha256": "d3a90aefe00d83460d6a40ba22df39c6bfef46a93c7cd31687d15c7a590a513c",
+        "retrieved_at": "2026-08-25T12:44:16Z",
+        "vintage": "NEW_VINTAGE_DIAGNOSTIC_EVIDENCE"
+      }
+    ]
+  },
+  "supplemental_quarantine_use": {
+    "role": "vendor-access diagnostic evidence with recorded retrieval vintage",
+    "promoted_to_canonical": false,
+    "bars_used_as_research_evidence": false
+  },
+  "conformance": {
+    "1_continuity_preserved": true,
+    "2_intervals_exact_or_bounded": true,
+    "3_v6_anchor_not_blindly_reused": true,
+    "4_legal_and_vendor_separated": true,
+    "5_source_vintage_labels_preserved": true,
+    "6_no_unexplained_coverage_gap": true,
+    "7_no_silent_collapse": true,
+    "8_crh_adrc_cs_preserved": true,
+    "9_apo_composition_break_preserved": true,
+    "10_no_supplemental_promotion": true,
+    "11_no_v6_mutation": true,
+    "12_no_derived_write": true
+  },
+  "mutations": {
+    "v6": 0,
+    "security_key_v1": 0,
+    "universe": 0,
+    "canonical_raw": 0,
+    "supplemental_quarantine": 0,
+    "derived_writes": 0,
+    "v7_created": false,
+    "builder_spec_v2_sealed": false,
+    "smoke_executed": false
+  },
+  "v7_precondition": {
+    "audit_pass_creates_v7": false,
+    "eligible_only_if": "all eight security-level coverage intervals are safe to construct and no unresolved boundary would silently include or exclude expected minutes",
+    "coverage_ambiguous": [],
+    "met": true
+  },
+  "elapsed_sec": 66.9,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 16:44 +04"
+}

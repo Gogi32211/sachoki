@@ -1,0 +1,468 @@
+{
+  "report_id": "MASSIVE_COARSE_EMA_FEATURE_SMOKE_CAPABILITY_V1",
+  "status": "MASSIVE_COARSE_EMA_FEATURE_SMOKE_CAPABILITY_V1_PASS",
+  "classification": "SMOKE_OR_CAPABILITY_STAGING_ONLY",
+  "explicitly_not": [
+    "PRODUCTION_EMA",
+    "RESEARCH_EVIDENCE",
+    "T/Z DATA"
+  ],
+  "binding": {
+    "ema_spec": "ef01b67c22f6770f",
+    "coarse_production": "6ec73d5f462761f0",
+    "eligibility": "7c0a5ad6b17d7ae0",
+    "cohort": 476,
+    "sessions": 1254,
+    "periods": [
+      9,
+      20,
+      50,
+      200
+    ],
+    "timeframes": [
+      "15m",
+      "1H",
+      "1D"
+    ],
+    "streams": 12
+  },
+  "implementation_hash": "943643e2e970698188654fd9a1f6e304c307909676615e381e60a95036c8785e",
+  "staging_path": "/Volumes/QUANT_RESEARCH/staging/coarse_ema_smoke_capability_v1/943643e2e9706981",
+  "smoke": {
+    "total": 18,
+    "positive_passed": 5,
+    "positive": 5,
+    "negative_passed": 13,
+    "negative": 13,
+    "results": [
+      {
+        "fixture": "P1",
+        "name": "12 registered streams only",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "periods [9, 20, 50, 200] x TFs ['15m', '1H', '1D'] = 12"
+      },
+      {
+        "fixture": "P2",
+        "name": "one EMA row per COMPLETE bar per period",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "31,792 valued rows for 7,948 COMPLETE bars x 4 periods"
+      },
+      {
+        "fixture": "P3",
+        "name": "EMA20 matches independent recomputation",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "engine 232.9400000000 vs manual 232.9400000000"
+      },
+      {
+        "fixture": "P4",
+        "name": "availability inherits the coarse bar's timestamp",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "every EMA row carries its input bar's feature_information_available_at"
+      },
+      {
+        "fixture": "P5",
+        "name": "validity follows age vs period",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "VALID 4,453 · INITIALIZATION_SENSITIVE 27,339"
+      },
+      {
+        "fixture": "N1",
+        "name": "1m-native EMA request fails",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD unregistered_timeframe: '1m' is not in ['15m', '1H', '1D']. A 1m-native EMA has no coarse-TF p"
+      },
+      {
+        "fixture": "N2",
+        "name": "unregistered EMA period fails",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD unregistered_period: 34 is not in [9, 20, 50, 200]. The registry is frozen pre-Y; legacy ribbo"
+      },
+      {
+        "fixture": "N3",
+        "name": "unregistered timeframe fails",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD unregistered_timeframe: '4H' is not in ['15m', '1H', '1D']. A 1m-native EMA has no coarse-TF p"
+      },
+      {
+        "fixture": "N4",
+        "name": "contaminated coarse bar cannot enter EMA",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "4,428 contaminated bars produced 0 EMA values"
+      },
+      {
+        "fixture": "N5",
+        "name": "contaminated gap breaks the segment",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "segments before/after the gap: [1, 2]"
+      },
+      {
+        "fixture": "N6",
+        "name": "pre-gap EMA state cannot survive the break",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "first post-gap EMA20 = 15.0 (= its own close, seeded fresh), age 1"
+      },
+      {
+        "fixture": "N7",
+        "name": "EMA cannot be forward-filled across an unavailable interval",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "4 gap rows, all ema_value null and UNAVAILABLE"
+      },
+      {
+        "fixture": "N8",
+        "name": "EMA cannot become VALID before age >= period",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "27,339 rows with age < period, none VALID"
+      },
+      {
+        "fixture": "N9",
+        "name": "a future coarse close cannot affect EMA[t]",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "changing the last bar's close left every earlier EMA byte-identical"
+      },
+      {
+        "fixture": "N10",
+        "name": "EMA cannot be visible before its coarse bar completes",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "availability equals bar_end on every emitted row"
+      },
+      {
+        "fixture": "N11",
+        "name": "forbidden input classes cannot affect EMA",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD forbidden_input: coverage_state {'EXTENDED_HOURS_BAR'} may not reach EMA; only COMPLETE is con"
+      },
+      {
+        "fixture": "N12",
+        "name": "feature invalidity cannot remove a security from the cohort",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "476 securities emitted rows, cohort still 476"
+      },
+      {
+        "fixture": "N13",
+        "name": "a legacy ribbon period cannot enter production",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD unregistered_period: 89 is not in [9, 20, 50, 200]. The registry is frozen pre-Y; legacy ribbo"
+      }
+    ]
+  },
+  "capability_census": {
+    "label_free": true,
+    "y_exposed": 0,
+    "streams": {
+      "EMA9@15m": {
+        "timeframe": "15m",
+        "period": 9,
+        "candidate_complete_inputs": 10618186,
+        "VALID": 7058741,
+        "INITIALIZATION_SENSITIVE": 3559445,
+        "UNAVAILABLE": 4827268,
+        "total_observations": 15445454,
+        "valid_share_of_coarse_observations": 0.457,
+        "valid_share_of_complete_inputs": 0.6648,
+        "securities_with_any_VALID": 474,
+        "segment_stats": {
+          "segments": 13593,
+          "resets": 13140,
+          "max": 32484,
+          "mean": 58.32,
+          "median": 1,
+          "p75": 2,
+          "p90": 3,
+          "p99": 90
+        }
+      },
+      "EMA20@15m": {
+        "timeframe": "15m",
+        "period": 20,
+        "candidate_complete_inputs": 10618186,
+        "VALID": 5846542,
+        "INITIALIZATION_SENSITIVE": 4771644,
+        "UNAVAILABLE": 4827268,
+        "total_observations": 15445454,
+        "valid_share_of_coarse_observations": 0.3785,
+        "valid_share_of_complete_inputs": 0.5506,
+        "securities_with_any_VALID": 458,
+        "segment_stats": {
+          "segments": 13593,
+          "resets": 13140,
+          "max": 32484,
+          "mean": 58.32,
+          "median": 1,
+          "p75": 2,
+          "p90": 3,
+          "p99": 90
+        }
+      },
+      "EMA50@15m": {
+        "timeframe": "15m",
+        "period": 50,
+        "candidate_complete_inputs": 10618186,
+        "VALID": 4679170,
+        "INITIALIZATION_SENSITIVE": 5939016,
+        "UNAVAILABLE": 4827268,
+        "total_observations": 15445454,
+        "valid_share_of_coarse_observations": 0.3029,
+        "valid_share_of_complete_inputs": 0.4407,
+        "securities_with_any_VALID": 422,
+        "segment_stats": {
+          "segments": 13593,
+          "resets": 13140,
+          "max": 32484,
+          "mean": 58.32,
+          "median": 1,
+          "p75": 2,
+          "p90": 3,
+          "p99": 90
+        }
+      },
+      "EMA200@15m": {
+        "timeframe": "15m",
+        "period": 200,
+        "candidate_complete_inputs": 10618186,
+        "VALID": 3214742,
+        "INITIALIZATION_SENSITIVE": 7403444,
+        "UNAVAILABLE": 4827268,
+        "total_observations": 15445454,
+        "valid_share_of_coarse_observations": 0.2081,
+        "valid_share_of_complete_inputs": 0.3028,
+        "securities_with_any_VALID": 302,
+        "segment_stats": {
+          "segments": 13593,
+          "resets": 13140,
+          "max": 32484,
+          "mean": 58.32,
+          "median": 1,
+          "p75": 2,
+          "p90": 3,
+          "p99": 90
+        }
+      },
+      "EMA9@1H": {
+        "timeframe": "1H",
+        "period": 9,
+        "candidate_complete_inputs": 2392980,
+        "VALID": 1398030,
+        "INITIALIZATION_SENSITIVE": 994950,
+        "UNAVAILABLE": 1766509,
+        "total_observations": 4159489,
+        "valid_share_of_coarse_observations": 0.3361,
+        "valid_share_of_complete_inputs": 0.5842,
+        "securities_with_any_VALID": 446,
+        "segment_stats": {
+          "segments": 29381,
+          "resets": 28969,
+          "max": 8748,
+          "mean": 8.23,
+          "median": 1,
+          "p75": 1,
+          "p90": 1,
+          "p99": 6
+        }
+      },
+      "EMA20@1H": {
+        "timeframe": "1H",
+        "period": 20,
+        "candidate_complete_inputs": 2392980,
+        "VALID": 1138482,
+        "INITIALIZATION_SENSITIVE": 1254498,
+        "UNAVAILABLE": 1766509,
+        "total_observations": 4159489,
+        "valid_share_of_coarse_observations": 0.2737,
+        "valid_share_of_complete_inputs": 0.4758,
+        "securities_with_any_VALID": 392,
+        "segment_stats": {
+          "segments": 29381,
+          "resets": 28969,
+          "max": 8748,
+          "mean": 8.23,
+          "median": 1,
+          "p75": 1,
+          "p90": 1,
+          "p99": 6
+        }
+      },
+      "EMA50@1H": {
+        "timeframe": "1H",
+        "period": 50,
+        "candidate_complete_inputs": 2392980,
+        "VALID": 884864,
+        "INITIALIZATION_SENSITIVE": 1508116,
+        "UNAVAILABLE": 1766509,
+        "total_observations": 4159489,
+        "valid_share_of_coarse_observations": 0.2127,
+        "valid_share_of_complete_inputs": 0.3698,
+        "securities_with_any_VALID": 308,
+        "segment_stats": {
+          "segments": 29381,
+          "resets": 28969,
+          "max": 8748,
+          "mean": 8.23,
+          "median": 1,
+          "p75": 1,
+          "p90": 1,
+          "p99": 6
+        }
+      },
+      "EMA200@1H": {
+        "timeframe": "1H",
+        "period": 200,
+        "candidate_complete_inputs": 2392980,
+        "VALID": 562851,
+        "INITIALIZATION_SENSITIVE": 1830129,
+        "UNAVAILABLE": 1766509,
+        "total_observations": 4159489,
+        "valid_share_of_coarse_observations": 0.1353,
+        "valid_share_of_complete_inputs": 0.2352,
+        "securities_with_any_VALID": 193,
+        "segment_stats": {
+          "segments": 29381,
+          "resets": 28969,
+          "max": 8748,
+          "mean": 8.23,
+          "median": 1,
+          "p75": 1,
+          "p90": 1,
+          "p99": 6
+        }
+      },
+      "EMA9@1D": {
+        "timeframe": "1D",
+        "period": 9,
+        "candidate_complete_inputs": 215920,
+        "VALID": 118686,
+        "INITIALIZATION_SENSITIVE": 97234,
+        "UNAVAILABLE": 380331,
+        "total_observations": 596251,
+        "valid_share_of_coarse_observations": 0.1991,
+        "valid_share_of_complete_inputs": 0.5497,
+        "securities_with_any_VALID": 284,
+        "segment_stats": {
+          "segments": 35632,
+          "resets": 35457,
+          "max": 1254,
+          "mean": 6.06,
+          "median": 2,
+          "p75": 4,
+          "p90": 9,
+          "p99": 71
+        }
+      },
+      "EMA20@1D": {
+        "timeframe": "1D",
+        "period": 20,
+        "candidate_complete_inputs": 215920,
+        "VALID": 91853,
+        "INITIALIZATION_SENSITIVE": 124067,
+        "UNAVAILABLE": 380331,
+        "total_observations": 596251,
+        "valid_share_of_coarse_observations": 0.1541,
+        "valid_share_of_complete_inputs": 0.4254,
+        "securities_with_any_VALID": 215,
+        "segment_stats": {
+          "segments": 35632,
+          "resets": 35457,
+          "max": 1254,
+          "mean": 6.06,
+          "median": 2,
+          "p75": 4,
+          "p90": 9,
+          "p99": 71
+        }
+      },
+      "EMA50@1D": {
+        "timeframe": "1D",
+        "period": 50,
+        "candidate_complete_inputs": 215920,
+        "VALID": 64595,
+        "INITIALIZATION_SENSITIVE": 151325,
+        "UNAVAILABLE": 380331,
+        "total_observations": 596251,
+        "valid_share_of_coarse_observations": 0.1083,
+        "valid_share_of_complete_inputs": 0.2992,
+        "securities_with_any_VALID": 163,
+        "segment_stats": {
+          "segments": 35632,
+          "resets": 35457,
+          "max": 1254,
+          "mean": 6.06,
+          "median": 2,
+          "p75": 4,
+          "p90": 9,
+          "p99": 71
+        }
+      },
+      "EMA200@1D": {
+        "timeframe": "1D",
+        "period": 200,
+        "candidate_complete_inputs": 215920,
+        "VALID": 31359,
+        "INITIALIZATION_SENSITIVE": 184561,
+        "UNAVAILABLE": 380331,
+        "total_observations": 596251,
+        "valid_share_of_coarse_observations": 0.0526,
+        "valid_share_of_complete_inputs": 0.1452,
+        "securities_with_any_VALID": 72,
+        "segment_stats": {
+          "segments": 35632,
+          "resets": 35457,
+          "max": 1254,
+          "mean": 6.06,
+          "median": 2,
+          "p75": 4,
+          "p90": 9,
+          "p99": 71
+        }
+      }
+    },
+    "why_valid_reported_separately": "a stream producing values on most observations tells you nothing if those values sit at age 3 of a 200-bar EMA; the share reaching age >= period is what decides usability",
+    "segmentation_note": "segments depend only on coverage, not on period, so all four periods of a (security, timeframe) break at the same bars"
+  },
+  "independent_checks": {
+    "checks": {
+      "streams_12": true,
+      "segments_independent_of_period": true,
+      "unavailable_equals_contaminated": true,
+      "valid_monotone_in_period": true,
+      "cohort_preserved": true,
+      "no_rvol_fields": true
+    },
+    "passed": true,
+    "failed": []
+  },
+  "rvol": {
+    "computed": false,
+    "emitted": false,
+    "fields": 0,
+    "status": "BLOCKED_PENDING_DICTIONARY_FREEZE"
+  },
+  "immutability": {
+    "ema_spec": true,
+    "coarse_production": true,
+    "eligibility": true,
+    "production_ema_writes": 0,
+    "production_ema_exists": false,
+    "y_exposure": 0
+  },
+  "authorises": "ONLY the full EMA production build. NOT RVOL, T, Z or Y.",
+  "elapsed_sec": 133.6,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 00:06 +04"
+}

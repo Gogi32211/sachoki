@@ -1,0 +1,87 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_X_SUPPORT_UNIVERSE_RECONCILIATION_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "VERDICT": "NO AMENDMENT REQUIRED — the two candidate universes are provably IDENTICAL on the frozen data",
+  "question_raised": "does the historical machinery use a PAIR-LOCAL episode universe (Option A) or a FOUR-POSITION episode universe (Option B), given that POS4 is the census input?",
+  "MY_ERROR_THAT_PROVOKED_IT": {
+    "claimed": "'596,251 of the 596,904 possible (security x session) pairs have a complete opening hour; 653 do not'",
+    "how_I_got_it": "I subtracted 596,251 from the 476 x 1,254 CARTESIAN product and called the residual 'incomplete opening hours'. I never checked.",
+    "error_class": "ARITHMETIC RESIDUAL READ AS A STRUCTURAL FINDING",
+    "retracted": true
+  },
+  "PRESENCE_MASK_ANATOMY": {
+    "scope": "every (security_key_v1, session_date) that has ANY bar in stageA_input",
+    "method": "max(case when interval_index=i) for i in 0..3, grouped",
+    "RESULT": {
+      "1111": 596251
+    },
+    "no_other_mask_occurs": true,
+    "distinct_k_session_in_bars": 596251,
+    "POS4_episodes": 596251,
+    "in_bars_but_not_in_POS4": 0,
+    "WHAT_THE_653_ACTUALLY_ARE": "(security, session) pairs that have NO bars at all — the security was not in the universe on that date (not yet regular-way, or gone). They are NOT incomplete opening hours; they do not exist as episodes at all.",
+    "confirmed_by": "the raw ingest already records NOT_YET_REGULAR_WAY per security-session"
+  },
+  "PER_PAIR_DECISIVE_COUNTS": {
+    "definition": "required two positions present BUT not all four",
+    "M1->M2": 0,
+    "M2->M3": 0,
+    "M3->M4": 0,
+    "meaning": "there is NOT ONE episode anywhere in the frozen window where a pair's two positions exist and a third or fourth does not"
+  },
+  "COUNT_A_VS_COUNT_B": {
+    "COUNT_A": "pair-local episode universe",
+    "COUNT_B": "four-position episode universe",
+    "relation": "IDENTICAL BY CONSTRUCTION on this data — the two universes are the same set, because the presence mask is 1111 for every existing episode and empty otherwise",
+    "why_not_computed_twice": "running both would produce the same numbers by proof, not by measurement. The presence-mask census IS the comparison, and it is exhaustive over all 596,251 episodes.",
+    "structural_reason": "the frozen coarse producer derives intervals from the XNYS schedule; a session yields 26 intervals (or 14 on an early close). A session either exists with all of its intervals or does not exist. A 4-interval opening hour is therefore not constructible in part."
+  },
+  "EMPIRICAL_ORACLE_TEST": {
+    "method": "rebuilt the full X-support census from the PERSISTED POS4 under the frozen X_positive_episode_n definition and compared against the sealed pre-Y oracle",
+    "oracle": "SUPPORT_CENSUS.duckdb table census (MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_V1)",
+    "claims_compared": 45387,
+    "join_left_only": 0,
+    "join_right_only": 0,
+    "DEV_positive_mismatches": 0,
+    "DEV_evaluable_mismatches": 0,
+    "elapsed_s": 108,
+    "y_forbidden_opens": 0,
+    "tolerance": 0,
+    "VERDICT": "EXACT",
+    "coverage": "all 45,387 claims of the frozen universe, therefore all 20,751 registered ones"
+  },
+  "STATUS_OF_THE_FROZEN_SPEC": {
+    "artifact": "MASSIVE_NEW_FAMILY_FORWARD_X_SUPPORT_COUNT_SPEC_V1 · 7b8d1b1ffa2e5458",
+    "amendment_required": false,
+    "why": "Option A reproduces the sealed oracle EXACTLY on every claim. Option B would too. The distinction the spec draws is REAL but EMPIRICALLY INERT over the frozen window.",
+    "what_is_NOT_claimed": "that the historical authors consciously chose Option A. The data cannot distinguish the two, and no artifact text settles it either."
+  },
+  "WORDING_CORRECTION_TO_B0": {
+    "retracted": "POS4 = CANON69 restricted to interval_index in {0,1,2,3}",
+    "why_insufficient": "that phrasing describes only a filter and cannot express an episode-completeness requirement",
+    "correct": "POS4 = the CANON69 opening-hour rows at interval_index 0..3, for those (security, session) groups where all four registered positions are present, labelled by et. On the frozen window that group restriction removes nothing, but the phrasing must carry it because forward behaviour is not guaranteed by this window's evidence."
+  },
+  "FIXTURE_4_SPLIT_ADOPTED": {
+    "4a": {
+      "setup": "an unrelated position EXISTS but its feature is NON_VALID",
+      "expect": "the pair STILL counts",
+      "status": "testable on real data; this is the case that distinguishes Option A from a naive all-four-AVAILABILITY gate"
+    },
+    "4b": {
+      "setup": "an unrelated position is physically MISSING",
+      "expect": "under Option A the pair counts; under Option B it does not",
+      "historical_instances": 0,
+      "status": "SYNTHETIC ONLY — it cannot be tested against history because history contains no such episode. Any B implementation must therefore make its choice EXPLICIT in code rather than inherit it silently.",
+      "REQUIREMENT": "the B implementation must assert the presence mask and HARD FAIL on any episode whose mask is not 1111, so that the first forward occurrence surfaces as a decision rather than as a silent count difference"
+    }
+  },
+  "PERSISTENCE": {
+    "POS4.duckdb": "persisted, smoke PASS",
+    "SUPPORT_CENSUS.duckdb": "persisted, smoke PASS",
+    "TOKEN_DICTIONARY_123.json": "persisted"
+  },
+  "NEXT": "B implementation may proceed; the universe question is closed and the oracle is exact."
+}

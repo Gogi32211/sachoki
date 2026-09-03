@@ -1,0 +1,48 @@
+{
+  "spec_id": "GANN_PHASE_NULL_V1",
+  "status": "FROZEN",
+  "family_id": "GANN_VIBRATION_GRID_V1",
+  "H0": "Conditional on the frozen anchors, spacing, slopes and pre-treatment structure, the anchored integer phase phi = 0 has no special association with subsequent directional price excursion relative to ticker-local phase shifts.",
+  "mechanism": {
+    "shift": "i -> i + phi",
+    "draw": "phi[w, ticker] ~ Uniform[0, 1)",
+    "shared": "ONE phi per ticker per world, used on EVERY date of that ticker and on BOTH the ascending and descending family",
+    "why_shared": "the registered hypothesis has both families sharing one lattice phase; shifting them independently would change their relative geometry and test a different null",
+    "invariant": [
+      "L",
+      "H",
+      "tL",
+      "tH",
+      "M",
+      "B",
+      "slopes",
+      "spacing",
+      "lookback",
+      "dates",
+      "tickers",
+      "OHLC",
+      "outcome paths"
+    ],
+    "recomputed_per_world": [
+      "touch",
+      "5-session onset",
+      "nearest integer level",
+      "direction",
+      "confluence consensus",
+      "control direction",
+      "blocks",
+      "Z_rank for all 3 claims"
+    ]
+  },
+  "worlds": 999,
+  "family_wise": "maxZ_null[w] = max(Z_ASC[w], Z_DESC[w], Z_CONF[w])",
+  "promotion": "gate B: Z_phi0(claim) > p95(Z_shifted(claim))",
+  "p_value_wording": "a shifted-lattice placebo tail probability — NEVER an exact or randomization p-value",
+  "why_this_null": "a dense enough lattice touches something constantly, so 'touch vs no touch' is not the question. The question is whether the anchored integer phase carries information an equally dense shifted lattice does not.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 17:12 +04",
+  "role": "REGISTERED SHIFTED-LATTICE PLACEBO REFERENCE (gate B)",
+  "amended_by": "3d731903e4f0aa9e",
+  "not_the_primary_null": "the primary inferential null is the outcome permutation of GANN_INFERENCE_AMENDMENT_V1 gate A; phi = 0 is not exchangeable with uniform shifted phases in event geometry, so this distribution is a placebo reference",
+  "H0_restated": "conditional on the frozen anchors, spacing, slopes and pre-treatment structure, any directional association found at phi = 0 is no stronger than at a ticker-local shifted phase of the same geometry"
+}

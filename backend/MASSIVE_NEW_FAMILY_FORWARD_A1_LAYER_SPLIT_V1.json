@@ -1,0 +1,94 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_A1_LAYER_SPLIT_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "WHY": "CoarseAggregatorV1 FOUND does NOT mean forward raw ingest FOUND. The persisted massive_1m_base_v2 is a PAST reconstruction root; producing NEW 2026-09+ minutes needs the upstream layer, which is a different producer with a different contract.",
+  "RISK_IF_CONFLATED": "the 15m aggregation could be perfectly correct while the measurement regime of its 1m input silently changed — replication would break invisibly",
+  "A1a": {
+    "name": "MASSIVE RAW -> CANONICAL 1M BASE",
+    "produces": [
+      "minute_states",
+      "observed_regular_bars"
+    ],
+    "requirement": "same frozen semantics"
+  },
+  "A1b": {
+    "name": "CANONICAL 1M BASE -> 15m STAGE-A",
+    "authority": [
+      "coarse_aggregator_v1.py",
+      "coarse_production_v1.py"
+    ],
+    "status": "exact historical producer, FOUND and frozen"
+  },
+  "GATES": {
+    "A1b_development": "ALLOWED NOW",
+    "A1_AUTHORITATIVE_PRODUCTION_BLOCKED_UNTIL": {
+      "A1a": [
+        "Massive vendor source identified",
+        "historical 1m-base producer identified/qualified OR an equivalent frozen 1m ingest contract established",
+        "NO yfinance / NO fallback source",
+        "security_key_v1 binding PASS",
+        "session/timezone authority PASS"
+      ],
+      "A1b": [
+        "9 boundary fixtures PASS",
+        "full historical regression PASS",
+        "frozen-476 allowlist PASS",
+        "STRUCTURAL_NO_TRADE synthetic qualification PASS"
+      ]
+    }
+  },
+  "FIXTURES_WITH_OUTPUT_ASSERTIONS": {
+    "1_normal_full_session": [
+      "expected COMPLETE intervals",
+      "exact interval_index / bar_start"
+    ],
+    "2_early_close": [
+      "own session boundary respected",
+      "NO synthetic post-close intervals"
+    ],
+    "3_missing_interior_1m_bar": [
+      "expected contamination semantics",
+      "NEVER silently COMPLETE"
+    ],
+    "4_missing_opening_minute": [
+      "opening interval semantics exact",
+      "interval_index NOT shifted"
+    ],
+    "5_missing_final_minute": [
+      "final interval semantics exact",
+      "no shortened-path assumption"
+    ],
+    "6_partial_15m_interval": [
+      "exact frozen coverage_state"
+    ],
+    "7_ticker_rename_same_security_key": [
+      "admitted as the SAME cohort member"
+    ],
+    "8_STRUCTURAL_NO_TRADE": [
+      "positive fixture fires the exact state",
+      "nearby NEGATIVE fixture does NOT fire it"
+    ],
+    "9_same_ticker_different_or_unresolved_identity": [
+      "REJECTED by the frozen-476 allowlist"
+    ]
+  },
+  "REGRESSION": {
+    "no_sampling": "the historical input is persistent, so the regression is FULL",
+    "path": "persisted massive_1m_base_v2 -> A1b wrapper -> 15m projection",
+    "assert": "two-way EXCEPT ALL against sealed stageA_input = 0 / 0",
+    "expect": {
+      "rows": 15445454,
+      "keys": 476,
+      "dates": 1254
+    },
+    "ordering": "output ROW ORDER may change (the allowlist gate reorders); row MULTISET and value semantics must be EXACT"
+  },
+  "STRUCTURAL_NO_TRADE_WORDING": {
+    "permitted": [
+      "HISTORICAL OBSERVATIONAL SUPPORT = 0",
+      "SYNTHETIC CONTRACT QUALIFICATION = PASS/FAIL"
+    ],
+    "FORBIDDEN": "historically validated"
+  }
+}

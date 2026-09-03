@@ -1,0 +1,32 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_EXACT_FAST_KERNEL_SPEC_V1_AMENDMENT_1",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_EXACT_FAST_KERNEL_SPEC_V1",
+    "parent_digest": "f5147df02ce3eab5",
+    "parent_not_rewritten": true,
+    "nature": "binds the corrected CI semantic authority"
+  },
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "BINDING": {
+    "reference_and_fast_CI_kernels_MUST_use": "WEIGHTED_MEDIAN_V2",
+    "authority": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1_AMENDMENT_2",
+    "digest": "b082eae1574f0223",
+    "superseded_primitive": "lower weighted median — FORBIDDEN in both kernels"
+  },
+  "SECTION_10_OUTCOME": {
+    "the_spec_required": "pin the reference weighted-median boundary semantics BEFORE optimising",
+    "what_it_caught": "a real semantic defect in the CI primitive, found before a single line of fast-kernel code was written",
+    "note": "this is the intended function of pinning boundary semantics in advance"
+  },
+  "ADDITIONAL_REQUIRED_FIXTURES": [
+    "odd/even effective N",
+    "zero-weight rows",
+    "duplicate values at the midpoint",
+    "exact 50% cumulative-weight boundary",
+    "empty effective group (must not raise)",
+    "unit-weight bit-identity with the frozen ordinary median"
+  ],
+  "UNCHANGED": "every other clause of the parent spec"
+}

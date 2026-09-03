@@ -1,0 +1,55 @@
+{
+ "spec_id": "MT5_SIGNALS_V1",
+ "status": "BUILT",
+ "as_of": "2026-09-01",
+ "built_at": "2026-09-02T18:43:16Z",
+ "status_of_evidence": {
+  "claim": "SEARCH-EXPOSED CANDIDATE",
+  "is_forward_validated": false,
+  "is_independent_confirmation": false,
+  "is_book_edge": false,
+  "is_entry_timing_signal": false,
+  "what_it_actually_is": "a slow SELECTION criterion: a constant drift-rate difference of about +0.035%/bar, not an event at the bar",
+  "horizon_sweep_lift_c2_minus_c0": {
+   "3": 0.09,
+   "5": 0.2,
+   "10": 0.4,
+   "20": 0.7,
+   "60": 1.78
+  },
+  "horizon_sweep_lift_per_bar": {
+   "3": 0.03,
+   "5": 0.04,
+   "10": 0.04,
+   "20": 0.035,
+   "60": 0.03
+  },
+  "at_60_bars": {
+   "median": 2.13,
+   "win": 55.7,
+   "pf": 1.48,
+   "med_mae": -9.78,
+   "baseline_med_mae": -10.54
+  },
+  "search": "12 T signals x 4 confirmation groups over one history, no window reserved before the search",
+  "study_family": "MTF_1D_X_LTF_STUDY_V1"
+ },
+ "definition": {
+  "universe": "close>=5, avg_vol_20d>0, close*volume>=3M, universe<>'index'",
+  "price": "close >= 21, no upper bound",
+  "signal": "1D t_sig == 'T5'",
+  "confirm": "t_sig == 'T5' on 1h / 15m, same calendar session",
+  "exposed_class": "MT5_STRONG (both) \u2014 the only class in the UI"
+ },
+ "not_pt5": "PT5 is frozen token-family membership. MT5 is same-signal echo. No PT artifact is read or written by mt5_build.py.",
+ "counts": {
+  "rows": 77117,
+  "MT5_BASE": 31784,
+  "MT5_1": 31577,
+  "MT5_STRONG": 13756,
+  "tickers": 3030
+ },
+ "outputs": {
+  "parquet": "data/mt5_signals.parquet"
+ }
+}

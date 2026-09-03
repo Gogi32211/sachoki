@@ -1,0 +1,63 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FEATURE_ELIGIBILITY_MATRIX_V1_AMENDMENT_2",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_FEATURE_ELIGIBILITY_MATRIX_V1",
+    "parent_digest": "391a8fcccf93e539",
+    "defect": "parent still carries rsi_14 under the pre-Stage-D provenance class; the Stage D reclassification was sealed but never propagated into the matrix",
+    "parent_not_rewritten": true
+  },
+  "MEMBERSHIP_UNCHANGED": {
+    "producible_set_size": 69,
+    "members_added": 0,
+    "members_removed": 0,
+    "statement": "this amendment changes PROVENANCE METADATA ONLY. The 69-member set is identical."
+  },
+  "RECLASSIFICATION": {
+    "column": "rsi_14",
+    "from": "FULL_HISTORY_SEMANTIC_CORRECTION",
+    "to": "NEW_MASSIVE_STATE_REGIME_SAME_FORMULA",
+    "why": "the formula is unchanged; the STATE REGIME is new under Massive (age>=14 new-Massive regime)"
+  },
+  "FROZEN_ACCOUNTING_5_BUCKET": {
+    "FULL_HISTORY_SEMANTIC_CORRECTION": 42,
+    "ROLE_BOUND_PORT": 13,
+    "EXACT_PORT": 12,
+    "NEW_MASSIVE_DERIVED_DEFINITION": 1,
+    "NEW_MASSIVE_STATE_REGIME_SAME_FORMULA": 1,
+    "total": 69,
+    "taxonomy_choice": "5-bucket form adopted",
+    "why_not_collapsed": "rsi_14 and bar_gap_range are NEW for DIFFERENT reasons — bar_gap_range is a new DEFINITION, rsi_14 is the same formula under a new STATE REGIME. Collapsing them into one NEW_MASSIVE_* bucket would destroy that distinction.",
+    "superseded_form": {
+      "FULL_HISTORY_SEMANTIC_CORRECTION": 43,
+      "NEW_MASSIVE_DERIVED_DEFINITION": 1,
+      "status": "SUPERSEDED — must not be carried into consolidation"
+    }
+  },
+  "BINDS": "this amended accounting is the frozen inventory input to the 69-column durable consolidation",
+  "SURFACE_LAYOUT_DECISION": {
+    "choice": "A — one physical canonical artifact",
+    "confirmed_by": "user",
+    "CANONICAL_69_X_SURFACE": [
+      "one immutable physical store",
+      "one certified digest",
+      "one schema",
+      "one row identity contract",
+      "one object to which registry/k is bound"
+    ],
+    "LINEAGE_REFINEMENT": {
+      "rule": "A does NOT strip evidence authority from the upstream sealed stores",
+      "execution_authority": "the single physical 69-column surface",
+      "provenance_authority": "the upstream sealed producer artifacts",
+      "per_canonical_column_lineage_required": [
+        "source producer artifact",
+        "source digest",
+        "producer authority",
+        "availability contract",
+        "provenance class"
+      ]
+    }
+  },
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0
+}

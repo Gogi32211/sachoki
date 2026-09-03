@@ -1,0 +1,76 @@
+{
+  "artifact": "MASSIVE_1M_SETTLEMENT_EXECUTION_PROTOCOL_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "role": "MECHANICAL EXECUTION ONLY. No design freedom. Governing: MASSIVE_1M_SETTLEMENT_INCREMENTAL_STABILITY_V1 · 3db71977c83452fa",
+  "UNCHANGED_AND_NOT_TO_BE_REVISITED": [
+    "the 6-rung ladder",
+    "the 30-day verification horizon",
+    "the 3-session set",
+    "the exact-zero revision criterion"
+  ],
+  "V30_CALL_PROTOCOL": {
+    "permitted_checks": [
+      "append-only vintage creation",
+      "contract / schema guards",
+      "payload and manifest digests",
+      "session identity",
+      "persistence"
+    ],
+    "FORBIDDEN": "any cumulative-revision analysis of V_early -> V30",
+    "why": "that comparison is no longer part of the registered maturity criterion. V30 is simply the LOWER vintage of the first rung.",
+    "first_real_M30_statistic": "exists only once the matching V60 arrives and R(V30 -> V60) is computed"
+  },
+  "TIMING_REFINEMENT_ACCEPTED": {
+    "correction_to_my_wording": "I wrote 'earliest theoretical look approx after 2027-05'. The precise marker is the 2027-05-31 MONTH-END EVALUATION.",
+    "arithmetic": {
+      "M": 30,
+      "forward_evidentiary_start": "first eligible XNYS session after the maturity seal (~late Oct 2026, IF M=30 passes and A1 is ready)",
+      "first_full_forward_months": [
+        "2026-11",
+        "2026-12",
+        "2027-01",
+        "2027-02",
+        "2027-03",
+        "2027-04"
+      ],
+      "at_2027_04_month_end": "6 complete months exist, BUT April's last ~30 days are not yet maturity-admissible -> condition (a) not satisfiable on admissible evidence",
+      "at_2027_05_month_end": "April is fully maturity-qualified (2027-04-30 + 30 = 2027-05-30 <= 2027-05-31) -> 6 complete ELIGIBLE months can first be evaluated -> condition (b) permitting, LOOK"
+    },
+    "status": "INDICATIVE ONLY — the actual seal date, A1 readiness and X-support condition (b) determine the real timing"
+  },
+  "MINOR_CONVENTION_STILL_OPEN": {
+    "question": "is 'month-end' the calendar month end or the last XNYS session of the month?",
+    "impact": "small — the admissibility cutoff is D + M CALENDAR days either way",
+    "when_to_pin": "when the month-end runner is built; NOT a design decision to take now",
+    "note": "2027-05-31 is a US market holiday, which is exactly why the convention should be explicit in the runner"
+  },
+  "NEXT_EXECUTION_EVENTS": [
+    {
+      "date": "2026-09-19",
+      "action": "V30 for 2026-08-20"
+    },
+    {
+      "date": "2026-09-20",
+      "action": "V30 for 2026-08-21"
+    },
+    {
+      "date": "2026-09-23",
+      "action": "V30 for 2026-08-24"
+    }
+  ],
+  "FIRST_M30_VERDICT": {
+    "requires": "the matching V60 vintages",
+    "latest_required_date": "2026-10-23"
+  },
+  "STATE": {
+    "SETTLEMENT_DESIGN": "FROZEN",
+    "T30_RESULT": "NOT YET OBSERVED",
+    "FORWARD_Y": "UNEXPOSED",
+    "FORWARD_EVIDENCE": "CLOSED",
+    "A1b": "QUALIFIED",
+    "A1a_live_path": "PASS_WITH_SOURCE_REVISION_OBSERVED",
+    "END_TO_END_A1": "waits on final source-maturity qualification",
+    "next_substantive_decision": "NONE BEFORE SEPTEMBER"
+  }
+}

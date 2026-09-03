@@ -1,0 +1,26 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PROMOTED_STRUCTURE_CENSUS_V1_AMENDMENT_1",
+  "status": "FROZEN",
+  "class": "WORDING CORRECTION — three overclaims in the census prose. No number changes.",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_PROMOTED_STRUCTURE_CENSUS_V1",
+    "parent_digest": "9fef130a58f27f9c",
+    "parent_not_rewritten": true
+  },
+  "C1": {
+    "retracted": "NO position specialisation — position specialisation does not exist",
+    "correct": "no material descriptive concentration of promotion rate across position pairs is visible: 3.60% / 3.48% / 3.50%. NO formal position-heterogeneity test was registered or run."
+  },
+  "C2": {
+    "retracted": "the second token is not the driver; VB carries the structure, not X",
+    "correct": "the enrichment lift of the partner tokens sits at or near baseline. That is CONSISTENT WITH hub-like redundancy; it does NOT establish which token is the causal carrier. No causal claim is available from this design."
+  },
+  "C3": {
+    "retracted": "no fifth motif found",
+    "correct": "after this frozen four-hub peeling scheme the residual promotion density was 0.35%, below the 3.53% family baseline. No additional high-density motif was surfaced BY THIS CENSUS. This is not an exhaustive proof that a fifth motif cannot exist."
+  },
+  "C4": {
+    "retracted": "forward power is DETERMINED by the four hubs",
+    "correct": "POWER HAS NOT BEEN MEASURED. What the census establishes is that the structural density of the HISTORICAL promoted set is strongly concentrated in these hubs. That is sufficient rationale to REGISTER a hub-level forward test; it is not a power statement."
+  }
+}

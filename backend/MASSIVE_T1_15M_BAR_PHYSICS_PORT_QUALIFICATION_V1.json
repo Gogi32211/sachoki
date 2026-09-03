@@ -1,0 +1,104 @@
+{
+  "artifact": "MASSIVE_T1_15M_BAR_PHYSICS_PORT_QUALIFICATION_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "future_values_read": 0,
+  "ROLE": "T1_HISTORICAL_FAMILY_X_DEPENDENCY_ONLY",
+  "columns": [
+    "phys_ad",
+    "phys_c",
+    "phys_e",
+    "phys_gap_true",
+    "phys_h",
+    "phys_k",
+    "phys_m",
+    "phys_r",
+    "phys_regime",
+    "phys_s",
+    "phys_wyc"
+  ],
+  "SIGNATURE_ENUMERATION": {
+    "revisions": 1,
+    "distinct_signatures": 1,
+    "revision": "c2436c1 (2026-08-14) \"bar physics — R·regime·C·H·M·E·K·S ported from Pine into the DB\"",
+    "note": "never modified — no vintage ambiguity, unlike P/D (2 signatures) and WLNBB (7)"
+  },
+  "DEPENDENCY_GRAPH": {
+    "inputs": [
+      "enriched-store OHLC",
+      "15m atr_14",
+      "sig_l3 / sig_l4 (L layer)",
+      "wvf_spike <- bar_line5"
+    ],
+    "classification": "NOT PURE_OHLCV — corrected",
+    "evidence": "bar_physics.py:297-299 vol_up = sig_l3|sig_l4 ; vix_spike = wvf_spike ; enricher.py:193 wvf_spike = bar_line5.str.contains(\"VX\")",
+    "prerequisites": {
+      "L": "ACCEPTED (1af92a6f44c1be86)",
+      "bar_line5": "NOT YET QUALIFIED",
+      "15m atr_14": "separate authority (see MASSIVE_15M_ATR14_AUTHORITY_SEPARATION_V1)"
+    }
+  },
+  "CONFORMANCE": {
+    "series": 3203,
+    "matched_rows": 91027821,
+    "input_surface": "enriched-store OHLC + stored atr_14 / sig_l3 / sig_l4 / wvf_spike (dependencies BOUND, not recomputed)",
+    "per_column": {
+      "phys_s": 225,
+      "phys_c": 216,
+      "phys_wyc": 200,
+      "phys_regime": 102,
+      "phys_e": 31,
+      "phys_m": 31,
+      "phys_h": 15,
+      "phys_r": 6,
+      "phys_ad": 0,
+      "phys_gap_true": 0,
+      "phys_k": 0
+    },
+    "total": 826,
+    "exact_columns": [
+      "phys_ad",
+      "phys_gap_true",
+      "phys_k"
+    ],
+    "temporal": "826 / 826 on or after 2026-08-14 13:30; ZERO before, across the full 5-year store",
+    "boundary": "2026-08-14 — the bar_physics creation/backfill date. A THIRD distinct boundary: neither the 2026-07-06 incremental regime nor the 2026-07-09 17:30 truncation point.",
+    "mechanism": "NOT INVESTIGATED — not required for this role (see CLAIM_RELEVANCE). Leading untested candidate: phys_c accumulates a running inventory of the last C_MAX_LVLS=12 pivot levels whose reach can exceed a 45-day window. Recorded as a hypothesis, NOT a finding.",
+    "exclusion_applied": "NONE — raw matched support; no P/D, WLNBB or T exclusion transferred"
+  },
+  "CLAIM_RELEVANCE": {
+    "cells_in_M1_M4_window": 126,
+    "cells_on_frozen_population": 0,
+    "verdict": "MEMBERSHIP_INVARIANT",
+    "structural_reason": "the frozen population last session is 2026-08-06; physics divergence begins 2026-08-14. The two windows DO NOT OVERLAP — separation is structural, not coincidental."
+  },
+  "NEGATIVE_FIXTURES": {
+    "stored inputs reproduce phys_* exact (pre-boundary)": "PASS",
+    "lean-base OHLC substituted -> REJECTED (1,915 mismatches)": "PASS",
+    "substituted ATR implementation (SMA14) -> REJECTED (23,497)": "PASS",
+    "truncating future bars leaves earlier rows unchanged (no lookahead)": "PASS",
+    "pivot centred at i-3 not exposed before confirmation bar i": "PASS",
+    "no session-reset semantics introduced": "PASS",
+    "phys_* as standalone hypothesis": "REJECTED by role guard (declarative)",
+    "Y access": "NONE (declarative)"
+  },
+  "VERDICT": "PASS_FOR_T1_FAMILY_X_DEPENDENCY",
+  "THREE_LINE_INTERPRETATION": {
+    "FULL_STORE_PHYSICS_MATERIALIZER_CONFORMANCE": "NOT_EXACT (826 / 91,027,821)",
+    "FROZEN_T1_FAMILY_RELEVANT_CONFORMANCE": "EXACT (0 divergent claim-relevant cells)",
+    "AUTHORIZED_ROLE": "T1_HISTORICAL_FAMILY_X_DEPENDENCY_ONLY"
+  },
+  "CONDITIONAL": {
+    "port_qualification_conditional_on": [
+      "L authority ACCEPTED",
+      "bar_line5 NOT YET QUALIFIED",
+      "15m atr_14 explicit port binding"
+    ],
+    "consequence": "physics may not be produced on Massive until bar_line5 is qualified and the 15m atr_14 binding is sealed"
+  },
+  "not_done": [
+    "mechanism of the 826 post-backfill cells not investigated (not required for this role)",
+    "no Massive physics feature produced"
+  ]
+}

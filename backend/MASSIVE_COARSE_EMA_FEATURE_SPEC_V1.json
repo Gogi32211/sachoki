@@ -1,0 +1,337 @@
+{
+  "spec_id": "MASSIVE_COARSE_EMA_FEATURE_SPEC_V1",
+  "status": "MASSIVE_COARSE_EMA_FEATURE_SPEC_V1_FROZEN",
+  "task_class": "SPECIFICATION_ONLY",
+  "scope": "EMA ONLY — the RVOL family is specified separately and is not referenced here as a default, a fallback or an assumption",
+  "split_from": {
+    "artifact": "MASSIVE_EMA_RVOL_FEATURE_SPEC_V2",
+    "digest": "3228c4025dbfcc39",
+    "disposition": "IMMUTABLE HOLD — not edited",
+    "why": "EMA and RVOL are independently specifiable families; RVOL's nine undeclared parameters are no reason to stall a family whose binding decisions are all made"
+  },
+  "authoritative_inputs": {
+    "MASSIVE_1M_STATE_TRANSITION_V1": {
+      "cited": "d73a88d836f36eea",
+      "actual": "d73a88d836f36eea",
+      "match": true
+    },
+    "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1": {
+      "cited": "5591685cfa33b62a",
+      "actual": "5591685cfa33b62a",
+      "match": true
+    },
+    "MASSIVE_1M_COARSE_AGGREGATION_SPEC_V1": {
+      "cited": "51540a1cefe2ec2b",
+      "actual": "51540a1cefe2ec2b",
+      "match": true
+    },
+    "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1": {
+      "cited": "6ec73d5f462761f0",
+      "actual": "6ec73d5f462761f0",
+      "match": true
+    },
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": {
+      "cited": "7c0a5ad6b17d7ae0",
+      "actual": "7c0a5ad6b17d7ae0",
+      "match": true
+    },
+    "MASSIVE_EMA_RVOL_FEATURE_SPEC_V2": {
+      "cited": "3228c4025dbfcc39",
+      "actual": "3228c4025dbfcc39",
+      "match": true
+    }
+  },
+  "one_minute_role": {
+    "unchanged": true,
+    "amended": false,
+    "invariant": "the FEATURE / CLOCK DICTIONARY must name, for every 1m-derived quantity, the coarser-TF definition it measures. A 1m quantity with no coarse-TF parent is inadmissible by construction.",
+    "satisfied_by": "EMA is defined on the registered coarse parents 15m/1H/1D, which exist as production data; 1m may only time when a coarse state became observable"
+  },
+  "registry": {
+    "periods": [
+      9,
+      20,
+      50,
+      200
+    ],
+    "classification": "NEWLY_PRE_REGISTERED_BEFORE_Y",
+    "frozen_while_y_exposed_is_zero": true,
+    "rationale_without_reference_to_Y": [
+      "the compact EMA family already used in prior coarse-timeframe T/Z logic",
+      "preserves continuity with prior programme logic",
+      "avoids expanding into additional legacy EMA families",
+      "fixed before any outcome exposure"
+    ],
+    "explicitly_not_because": "frequency of occurrence in the legacy codebase",
+    "excluded_periods": [
+      8,
+      13,
+      21,
+      34,
+      55,
+      89
+    ],
+    "legacy_ribbon": {
+      "periods": [
+        8,
+        13,
+        21,
+        34,
+        55,
+        89,
+        200
+      ],
+      "classification": "LEGACY_REFERENCE_ONLY",
+      "importable": false
+    },
+    "post_Y_expansion": "forbidden without a new registered search family, its own multiplicity treatment, and fresh/forward confirmation"
+  },
+  "timeframe_registry": {
+    "timeframes": [
+      "15m",
+      "1H",
+      "1D"
+    ],
+    "source": "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1",
+    "uniform_across_tfs": true,
+    "per_tf_period_selection": false,
+    "note": "availability differences between timeframes are REPORTED, never optimised away by choosing different periods per timeframe"
+  },
+  "search_space_declaration": {
+    "raw_streams": 12,
+    "enumeration": [
+      "EMA9@15m",
+      "EMA20@15m",
+      "EMA50@15m",
+      "EMA200@15m",
+      "EMA9@1H",
+      "EMA20@1H",
+      "EMA50@1H",
+      "EMA200@1H",
+      "EMA9@1D",
+      "EMA20@1D",
+      "EMA50@1D",
+      "EMA200@1D"
+    ],
+    "frozen_as_provenance": true
+  },
+  "input_eligibility": {
+    "consumes_only": "coarse observations with coverage_state = COMPLETE",
+    "forbidden": [
+      "UNOBSERVED_CONTAMINATED",
+      "INELIGIBLE",
+      "partial descriptive aggregate",
+      "extended-hours input",
+      "SESSION_CLOSE_BOUNDARY_BAR",
+      "WHEN_ISSUED_EXCLUDED",
+      "NOT_YET_REGULAR_WAY",
+      "supplemental input",
+      "synthetic input"
+    ]
+  },
+  "contamination_tolerance": {
+    "value": "NONE",
+    "configurable_parameter": false,
+    "defaulted": false,
+    "forbidden": [
+      "allow N missing minutes",
+      "allow X% missing",
+      "90% completeness",
+      "95% completeness"
+    ],
+    "rule": "a coarse interval containing any required UNOBSERVED constituent minute is not EMA input"
+  },
+  "segmentation": {
+    "grain": "security_key_v1 x timeframe x period",
+    "segment": "a contiguous run of COMPLETE coarse bars",
+    "break_on": [
+      "UNOBSERVED_CONTAMINATED",
+      "feature-ineligible interval"
+    ],
+    "after_break": "the next COMPLETE bar begins a NEW segment",
+    "forbidden": [
+      "bridging the gap",
+      "forward-filling EMA",
+      "carrying pre-gap EMA state into the new segment"
+    ],
+    "overnight": "a normal transition between eligible sessions does NOT itself break a segment"
+  },
+  "formula": {
+    "alpha": "2 / (p + 1)",
+    "seed": "EMA_1 = close_1 at the first COMPLETE bar of a new segment",
+    "recurrence": "EMA_t = alpha * close_t + (1 - alpha) * EMA_(t-1), within the same valid segment only"
+  },
+  "emitted_fields": [
+    "security_key_v1",
+    "session_date",
+    "timeframe",
+    "bar_start",
+    "bar_end",
+    "feature_information_available_at",
+    "ema_period",
+    "ema_value",
+    "ema_segment_id",
+    "ema_age_valid_bars",
+    "ema_validity_state",
+    "ema_reset_reason"
+  ],
+  "warm_up_validity": {
+    "rule": {
+      "1 <= ema_age_valid_bars < period": "INITIALIZATION_SENSITIVE",
+      "ema_age_valid_bars >= period": "VALID",
+      "contaminated / ineligible interval": "UNAVAILABLE"
+    },
+    "example": "EMA200 requires 200 consecutive COMPLETE coarse bars before becoming VALID",
+    "not_loosened_for_low_coverage": true,
+    "initialization_sensitivity_not_hidden": true
+  },
+  "causal_availability": {
+    "rule": "EMA[t] inherits the information-availability timestamp of its input coarse bar t",
+    "consequence": "EMA on a 15m bar is unavailable before that 15m bar completes; 1H and 1D behave analogously",
+    "backward_projection_forbidden": "a completed coarse value may not be projected back into its constituent 1m minutes",
+    "as_a_clock": "the earliest eligible 1m timestamp is at or after the frozen coarse information-availability timestamp"
+  },
+  "no_derived_search_features": {
+    "permitted": "the 12 EMA series plus validity metadata",
+    "forbidden": [
+      "EMA slope",
+      "EMA acceleration",
+      "distance-to-EMA thresholds",
+      "percent-distance buckets",
+      "EMA spread thresholds",
+      "EMA ordering states",
+      "cross signals",
+      "reclaim thresholds",
+      "touch thresholds",
+      "cluster thresholds"
+    ],
+    "why": "feature production must not silently become search-space construction"
+  },
+  "feature_validity_vs_cohort": {
+    "cohort": 476,
+    "cohort_digest": "1f86d09a76d3c6e9",
+    "rule": "a security remains one of the frozen 476 even when EMA is UNAVAILABLE or INITIALIZATION_SENSITIVE",
+    "forbidden": "constructing a cleaner security cohort from feature availability",
+    "downstream": "analysis must report observation-level availability"
+  },
+  "availability_expectation": {
+    "bound_as": "pre-Y design provenance",
+    "coarse_complete_share": {
+      "15m": 0.6875,
+      "1H": 0.5753,
+      "1D": 0.3621
+    },
+    "daily_longest_complete_run_median": 18,
+    "securities_with_complete_daily_run": {
+      "20": 215,
+      "50": 163,
+      "100": 109,
+      "200": 72
+    },
+    "binding": "these justify transparent availability accounting; they do NOT change the registry",
+    "ema200_retained": {
+      "decision": "EMA200 stays although only 72 of 476 securities have any 200-bar COMPLETE daily run",
+      "why": "that is an AVAILABILITY problem, not a parameter-selection problem. Dropping it would let X-side capability reshape the hypothesis family.",
+      "instead": "definition fixed; VALID where age >= 200, UNAVAILABLE elsewhere; availability reported exactly",
+      "also_forbidden": "loosening contamination semantics to raise its availability"
+    }
+  },
+  "auction_semantics": {
+    "asserted": false,
+    "close_boundary_bar": "SESSION_CLOSE_BOUNDARY_BAR remains neutral; the auction reading is recorded upstream as plausible and undemonstrated",
+    "effect_on_ema": "none — the close-boundary bar is not an EMA input under any circumstance",
+    "recorded_because": "the RVOL dictionary must work on what is actually known rather than on a presumed attribution"
+  },
+  "negative_fixtures": {
+    "count": 13,
+    "required": [
+      "a 1m-native EMA request fails",
+      "an unregistered EMA period fails",
+      "an unregistered timeframe fails",
+      "a contaminated coarse bar cannot enter EMA",
+      "a contaminated gap breaks the EMA segment",
+      "pre-gap EMA state cannot survive the break",
+      "EMA cannot be forward-filled across an unavailable interval",
+      "EMA cannot become VALID before age >= period",
+      "a future coarse close cannot affect EMA[t]",
+      "a coarse EMA cannot become visible before coarse bar completion",
+      "extended-hours / close-boundary / WHEN_ISSUED / NOT_YET / supplemental inputs cannot affect EMA",
+      "feature invalidity cannot remove a security from the frozen cohort",
+      "a legacy ribbon period outside the registry cannot enter production"
+    ],
+    "standard": "each must show the dangerous version FAILS and the correct version PASSES"
+  },
+  "capability_plan": {
+    "label_free": true,
+    "runs_before": "full EMA production",
+    "per_stream": [
+      "candidate COMPLETE inputs",
+      "INITIALIZATION_SENSITIVE outputs",
+      "VALID outputs",
+      "UNAVAILABLE outputs",
+      "segment count",
+      "segment-length distribution",
+      "reset count",
+      "share of coarse observations with VALID EMA",
+      "securities with any VALID EMA"
+    ],
+    "must_not_answer": "does EMA predict Y"
+  },
+  "rvol_branch": {
+    "status": "BLOCKED_PENDING_DECISION",
+    "artifact": "MASSIVE_EMA_RVOL_FEATURE_SPEC_V2",
+    "digest": "3228c4025dbfcc39",
+    "undeclared_parameters": 9,
+    "no_rvol_default_present_in_this_artifact": true,
+    "leak_scan": "the sealed payload is walked before writing and the build refuses if any parameter-shaped key (rvol / lookback / baseline / threshold / per-slot / sample_count) carries a numeric value outside the rvol_branch and mutations subtrees",
+    "leak_scan_targets": "a parameter DEFAULT, not the word RVOL — a first version matched raw text and flagged this artifact's own sentence saying RVOL is specified separately",
+    "leak_scan_hits_outside_allowlist": 0
+  },
+  "y_firewall": {
+    "y_exposed": 0,
+    "capability": "X-side only",
+    "forbidden": [
+      "future returns",
+      "T outcomes",
+      "Z outcomes",
+      "P&L",
+      "win rate",
+      "transition enrichment",
+      "outcome-conditioned availability"
+    ]
+  },
+  "acceptance": {
+    "charter_unchanged": true,
+    "one_minute_role_unchanged": true,
+    "cohort_476_unchanged": true,
+    "coarse_production_pass_bound": true,
+    "periods_frozen_before_Y": true,
+    "no_additional_periods": true,
+    "timeframes_15m_1H_1D_only": true,
+    "twelve_streams": true,
+    "contamination_tolerance_none": true,
+    "complete_only_inputs": true,
+    "segment_break_on_contaminated": true,
+    "age_ge_period_for_valid": true,
+    "no_derived_search_features": true,
+    "feature_validity_distinct_from_cohort": true,
+    "auction_semantics_unasserted": true,
+    "negative_fixtures_frozen": true,
+    "no_rvol_defaults": true,
+    "y_exposed_zero": true,
+    "feature_writes_zero": true
+  },
+  "mutations": {
+    "charter": 0,
+    "cohort": 0,
+    "coarse_production": 0,
+    "derived_base": 0,
+    "rvol_spec": 0,
+    "feature_writes": 0,
+    "y_exposure": 0
+  },
+  "feature_production_writes": 0,
+  "next_step": "EMA feature smoke + label-free capability, then EMA production. RVOL remains on its own branch and is not started.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 23:54 +04"
+}

@@ -1,0 +1,171 @@
+{
+  "report_id": "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1",
+  "status": "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1_PASS",
+  "binding": {
+    "builder_spec": "3af8cc42370fda86",
+    "amendment_1": "317759f7fc843ccd",
+    "authoritative_smoke": "bce44a9000ca3a5f",
+    "implementation_hash": "3a8236bf56cbe9c0",
+    "eligibility": "7c0a5ad6b17d7ae0",
+    "cohort": 476,
+    "cohort_digest": "1f86d09a76d3c6e9",
+    "exclusion_digest": "3604f7c1dbf902a1"
+  },
+  "production_path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_1m_base_v2",
+  "partitions": {
+    "expected_sessions": 1254,
+    "sealed": 1254,
+    "all_under_one_implementation_hash": true,
+    "digest_failures": 0,
+    "missing_files": 0
+  },
+  "dataset_rows": {
+    "security_sessions": 596904,
+    "minute_states": 231681810,
+    "observed_regular_bars": 213979211,
+    "session_close_boundary_bars": 517065,
+    "extended_hours_bars": 17499376
+  },
+  "output_bytes": 4369632398,
+  "coverage_report": {
+    "descriptive_only": true,
+    "not_evidence_of_edge": true,
+    "security_sessions": 596904,
+    "REGULAR_WAY_EXPECTED": 596251,
+    "NOT_YET_REGULAR_WAY": 652,
+    "WHEN_ISSUED_EXCLUDED": 1,
+    "normal_sessions": 1244,
+    "early_close_sessions": 10,
+    "expected_regular_minutes": 231681810,
+    "observed_regular_minutes": 213979211,
+    "unobserved_regular_minutes": 17702599,
+    "observed_share": 0.9236,
+    "observed_regular_bars": 213979211,
+    "session_close_boundary_bars": 517065,
+    "extended_hours_bars": 17499376,
+    "securities_with_any_unobserved": 469,
+    "sessions_with_any_unobserved": 1254,
+    "per_security_coverage_ratio": {
+      "min": 0.2305,
+      "p10": 0.7449,
+      "p25": 0.9057,
+      "median": 0.978,
+      "p75": 0.9977,
+      "p90": 0.9999,
+      "max": 1.0,
+      "mean": 0.9237
+    },
+    "interpretation": "UNOBSERVED is NOT no-trade. This is descriptive data-quality anatomy, not evidence of a T/Z edge."
+  },
+  "unobserved_policy": {
+    "threshold_check_applied": false,
+    "why": "a PASS condition of the form 'UNOBSERVED must be small' would be an instruction to fabricate data whenever the vendor is sparse. The tested condition is that every missing minute is classified honestly and no bar was invented.",
+    "classification": "UNOBSERVED / SOURCE_COMPLETENESS_UNPROVEN",
+    "structural_no_trade_emitted": 0
+  },
+  "critical_counts": {
+    "structural_no_trade": 0,
+    "synthetic_ohlcv": 0,
+    "supplemental_rows_consumed": 0,
+    "supplemental_payloads_consumed": 0,
+    "duplicate_regular_keys": 0,
+    "duplicate_extended_keys": 0,
+    "duplicate_close_boundaries": 0,
+    "scope_collisions": 0,
+    "unknown_identities": 0,
+    "excluded_securities_present": 0,
+    "derived_vwap_columns": 0,
+    "transaction_count_features": 0
+  },
+  "independent_verification": {
+    "imports_builder": false,
+    "trusts_manifest_counts": false,
+    "method": "row counts, uniqueness, state vocabularies and identity membership are recomputed from the parquet; expected regular minutes are re-derived from the exchange schedule by integer epoch arithmetic",
+    "checks": {
+      "source_universe_503": true,
+      "cohort_476": true,
+      "excluded_27_absent": true,
+      "sessions_1254": true,
+      "partitions_complete": true,
+      "all_partition_digests_valid": true,
+      "no_missing_files": true,
+      "calendar_semantics_valid": true,
+      "securities_per_session_476": true,
+      "duplicate_regular_keys_zero": true,
+      "duplicate_extended_keys_zero": true,
+      "duplicate_close_boundaries_zero": true,
+      "scope_collisions_zero": true,
+      "structural_no_trade_zero": true,
+      "observation_vocabulary_valid": true,
+      "no_synthetic_ohlcv": true,
+      "supplemental_rows_zero": true,
+      "unknown_identities_zero": true,
+      "no_partition_problems": true
+    },
+    "passed": true,
+    "failed": [],
+    "problems": [],
+    "problem_count": 0
+  },
+  "immutability": {
+    "artifacts": {
+      "SP500_CURRENT_SNAPSHOT_V1": {
+        "digest": "ffabd63a1aad0538",
+        "unchanged": true
+      },
+      "MASSIVE_TICKER_LINEAGE_V6": {
+        "digest": "8c961aa3a0c67934",
+        "unchanged": true
+      },
+      "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": {
+        "digest": "7c0a5ad6b17d7ae0",
+        "unchanged": true
+      },
+      "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V2": {
+        "digest": "3af8cc42370fda86",
+        "unchanged": true
+      },
+      "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V2_AMENDMENT_1": {
+        "digest": "317759f7fc843ccd",
+        "unchanged": true
+      },
+      "MASSIVE_1M_DERIVED_BASE_SMOKE_V2": {
+        "digest": "bce44a9000ca3a5f",
+        "unchanged": true
+      },
+      "MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1": {
+        "digest": "e8c8a648923e22a3",
+        "unchanged": true
+      },
+      "MASSIVE_1M_RAW_INTEGRITY_V1": {
+        "digest": "a099079c0409feaf",
+        "unchanged": true
+      }
+    },
+    "all_unchanged": true,
+    "canonical_raw": 0,
+    "raw_manifests": 0,
+    "quarantine": 0,
+    "v7_artifacts": 0,
+    "y_exposure": 0
+  },
+  "provenance_level": "FILE_LEVEL",
+  "row_level_raw_byte_provenance_claimed": false,
+  "claim_scope": "Historical 1-minute derived base for the data-qualified, original-vintage-only subset (476) of the frozen current S&P 500 universe (503).",
+  "known_limitations": [
+    "STRUCTURAL_NO_TRADE remains unavailable, so genuinely untraded minutes are indistinguishable from unserved ones",
+    "provenance is file-level; row-level raw-byte provenance is not implemented",
+    "coverage is descriptive only and carries no inferential claim"
+  ],
+  "does_not_authorize": [
+    "EMA",
+    "RVOL",
+    "T",
+    "Z",
+    "Y exposure"
+  ],
+  "y_exposed": 0,
+  "elapsed_sec": 83.0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 20:52 +04"
+}

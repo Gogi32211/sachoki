@@ -1,0 +1,1294 @@
+{
+  "report_id": "MASSIVE_1M_PROBE_EXECUTION_STAGE_B_V1",
+  "stage": "B — P1, P3, P5, P7, P8, P9, P4",
+  "spec": {
+    "artifact": "MASSIVE_1M_PROBE_SPEC_V1.json",
+    "digest": "a162b31502019df1",
+    "unchanged": "no acceptance boundary was altered after exposure"
+  },
+  "stage_a": {
+    "artifact": "MASSIVE_1M_PROBE_EXECUTION_STAGE_A_V1.json",
+    "digest": "85e9686c397515ab",
+    "gate": "PASS"
+  },
+  "probes": [
+    {
+      "probe": "P1",
+      "topic": "split/dividend adjustment regime",
+      "cases": {
+        "AAPL": {
+          "error": "missing session",
+          "r": null
+        },
+        "NVDA": {
+          "pre_session": "2024-06-07",
+          "eff_session": "2024-06-10",
+          "split_ratio": 10,
+          "last_rth_close_pre": 120.865,
+          "first_rth_open_eff": 120.37,
+          "r": 1.0041,
+          "in_unadjusted_band": false,
+          "in_adjusted_band": true
+        }
+      },
+      "parameter_test": {
+        "digests": {
+          "NVDA": {
+            "true": "854a90823b85d03fe09bdd1746e6721e5668eada69aa07cd2996bd391609bd1d",
+            "false": "48d82d50241df7cb74acec5439cc8cb70eaf30ac775b89b47998aa7b82240d1e"
+          }
+        },
+        "identical": {
+          "NVDA": false
+        }
+      },
+      "classification": "UNRESOLVED",
+      "unresolved_reason": "required session(s) unavailable for ['AAPL']; the frozen spec requires BOTH the AAPL and NVDA cases to agree before a regime may be declared",
+      "parameter_inert": false,
+      "indicative_only": "the NVDA case alone lands in the ADJUSTED band (r near 1 across a 10-for-1 split). That is INDICATIVE, not a classification: the spec requires both names, and one name cannot distinguish an adjusted series from a coincidence.",
+      "verdict": "UNRESOLVED"
+    },
+    {
+      "probe": "P3",
+      "topic": "sparse vs dense minute grid",
+      "session": "2024-05-15",
+      "selection": {
+        "source": "local daily store, 2024 average volume, frozen constituents only",
+        "candidates": 487,
+        "highest": [
+          "NVDA",
+          "TSLA",
+          "SMCI",
+          "PLTR",
+          "INTC",
+          "AAPL",
+          "F",
+          "AMD",
+          "AMZN",
+          "PFE"
+        ],
+        "lowest": [
+          "TDY",
+          "GWW",
+          "TYL",
+          "TDG",
+          "FICO",
+          "AZO",
+          "MTD",
+          "ERIE",
+          "BNY",
+          "NVR"
+        ],
+        "session_chosen_before_execution": "2024-05-15"
+      },
+      "per_symbol": {
+        "NVDA": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "TSLA": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "SMCI": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "PLTR": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "INTC": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "AAPL": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "F": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "AMD": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "AMZN": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "PFE": {
+          "rth_bars": 390,
+          "zero_volume_bars": 0
+        },
+        "TDY": {
+          "rth_bars": 196,
+          "zero_volume_bars": 0
+        },
+        "GWW": {
+          "rth_bars": 129,
+          "zero_volume_bars": 0
+        },
+        "TYL": {
+          "rth_bars": 139,
+          "zero_volume_bars": 0
+        },
+        "TDG": {
+          "rth_bars": 182,
+          "zero_volume_bars": 0
+        },
+        "FICO": {
+          "rth_bars": 179,
+          "zero_volume_bars": 0
+        },
+        "AZO": {
+          "rth_bars": 131,
+          "zero_volume_bars": 0
+        },
+        "MTD": {
+          "rth_bars": 121,
+          "zero_volume_bars": 0
+        },
+        "ERIE": {
+          "rth_bars": 42,
+          "zero_volume_bars": 0
+        },
+        "BNY": {
+          "rth_bars": 19,
+          "zero_volume_bars": 0
+        },
+        "NVR": {
+          "rth_bars": 140,
+          "zero_volume_bars": 0
+        }
+      },
+      "min_rth_bars": 19,
+      "max_rth_bars": 390,
+      "zero_volume_bars_total": 0,
+      "classification": "SPARSE",
+      "verdict": "SPARSE"
+    },
+    {
+      "probe": "P5",
+      "topic": "extended-hours inclusion",
+      "total_bars": 658,
+      "bars_outside_rth": 268,
+      "outside_with_volume": 268,
+      "earliest_et": "04:00",
+      "latest_et": "19:59",
+      "archive": {
+        "tag": "P5_AAPL",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:01Z",
+        "http_status": 200,
+        "raw_filename": "P5_AAPL_b173901044.json",
+        "sha256": "b173901044672f14d0374a8dfac9e8b6470a1366d7b364925f500f62d51168f6",
+        "bytes": 63873
+      },
+      "classification": "EXTENDED_INCLUDED",
+      "verdict": "EXTENDED_INCLUDED"
+    },
+    {
+      "probe": "P7",
+      "topic": "vw and n semantics",
+      "per_symbol": {
+        "AAPL": {
+          "bars": 390,
+          "vw_outside_low_high": 1,
+          "matches_typical_price": 0,
+          "matches_midpoint": 2,
+          "derived_price_share": 0.00513,
+          "bars_with_volume_and_no_n": 0
+        },
+        "MSFT": {
+          "bars": 390,
+          "vw_outside_low_high": 5,
+          "matches_typical_price": 0,
+          "matches_midpoint": 1,
+          "derived_price_share": 0.00256,
+          "bars_with_volume_and_no_n": 0
+        },
+        "NVR": {
+          "bars": 140,
+          "vw_outside_low_high": 95,
+          "matches_typical_price": 1,
+          "matches_midpoint": 1,
+          "derived_price_share": 0.01429,
+          "bars_with_volume_and_no_n": 0
+        }
+      },
+      "vw_classification": "FAIL_NOT_WITHIN_BAR",
+      "n_classification": "PASS",
+      "external_confirmation": "NONE — internal consistency only. No independent external quantity was available to confirm what vw WEIGHTS or what n COUNTS. Per the frozen spec, vendor Polygon-compatibility may not resolve this, so the SEMANTIC meaning of both fields remains UNRESOLVED even though both pass internal consistency.",
+      "verdict": "FAIL"
+    },
+    {
+      "probe": "P8",
+      "topic": "volume comparability with the existing store",
+      "pairs": [
+        {
+          "ticker": "NVDA",
+          "date": "2024-05-15",
+          "massive_rth_volume": 375011200.0,
+          "store_volume": 417731700.0,
+          "ratio": 0.89773
+        },
+        {
+          "ticker": "NVDA",
+          "date": "2024-05-16",
+          "massive_rth_volume": 291589780.0,
+          "store_volume": 323882600.0,
+          "ratio": 0.90029
+        },
+        {
+          "ticker": "NVDA",
+          "date": "2024-05-17",
+          "massive_rth_volume": 319163470.0,
+          "store_volume": 358098500.0,
+          "ratio": 0.89127
+        },
+        {
+          "ticker": "NVDA",
+          "date": "2024-05-20",
+          "massive_rth_volume": 292194400.0,
+          "store_volume": 318732460.0,
+          "ratio": 0.91674
+        },
+        {
+          "ticker": "TSLA",
+          "date": "2024-05-15",
+          "massive_rth_volume": 71930960.0,
+          "store_volume": 79662993.0,
+          "ratio": 0.90294
+        },
+        {
+          "ticker": "TSLA",
+          "date": "2024-05-16",
+          "massive_rth_volume": 54147049,
+          "store_volume": 59387220.0,
+          "ratio": 0.91176
+        },
+        {
+          "ticker": "TSLA",
+          "date": "2024-05-17",
+          "massive_rth_volume": 73472101.0,
+          "store_volume": 77409845.0,
+          "ratio": 0.94913
+        },
+        {
+          "ticker": "TSLA",
+          "date": "2024-05-20",
+          "massive_rth_volume": 58330520,
+          "store_volume": 61727375.0,
+          "ratio": 0.94497
+        },
+        {
+          "ticker": "SMCI",
+          "date": "2024-05-15",
+          "massive_rth_volume": 92326090.0,
+          "store_volume": 97528960.0,
+          "ratio": 0.94665
+        },
+        {
+          "ticker": "SMCI",
+          "date": "2024-05-16",
+          "massive_rth_volume": 65968100.0,
+          "store_volume": 70098470.0,
+          "ratio": 0.94108
+        },
+        {
+          "ticker": "SMCI",
+          "date": "2024-05-17",
+          "massive_rth_volume": 49059610,
+          "store_volume": 51923670.0,
+          "ratio": 0.94484
+        },
+        {
+          "ticker": "SMCI",
+          "date": "2024-05-20",
+          "massive_rth_volume": 51579320,
+          "store_volume": 53631300.0,
+          "ratio": 0.96174
+        },
+        {
+          "ticker": "TDY",
+          "date": "2024-05-15",
+          "massive_rth_volume": 315379,
+          "store_volume": 370741.0,
+          "ratio": 0.85067
+        },
+        {
+          "ticker": "TDY",
+          "date": "2024-05-16",
+          "massive_rth_volume": 124229,
+          "store_volume": 224720.0,
+          "ratio": 0.55282
+        },
+        {
+          "ticker": "TDY",
+          "date": "2024-05-17",
+          "massive_rth_volume": 174636,
+          "store_volume": 246885.0,
+          "ratio": 0.70736
+        },
+        {
+          "ticker": "TDY",
+          "date": "2024-05-20",
+          "massive_rth_volume": 176658,
+          "store_volume": 268092.0,
+          "ratio": 0.65895
+        },
+        {
+          "ticker": "GWW",
+          "date": "2024-05-15",
+          "massive_rth_volume": 144626,
+          "store_volume": 288900.0,
+          "ratio": 0.50061
+        },
+        {
+          "ticker": "GWW",
+          "date": "2024-05-16",
+          "massive_rth_volume": 147947,
+          "store_volume": 262699.0,
+          "ratio": 0.56318
+        },
+        {
+          "ticker": "GWW",
+          "date": "2024-05-17",
+          "massive_rth_volume": 103039,
+          "store_volume": 197063.0,
+          "ratio": 0.52287
+        },
+        {
+          "ticker": "GWW",
+          "date": "2024-05-20",
+          "massive_rth_volume": 83030,
+          "store_volume": 141600.0,
+          "ratio": 0.58637
+        }
+      ],
+      "n_pairs": 20,
+      "within_1pct": 0,
+      "mean_ratio": 0.8026,
+      "stdev": 0.16683,
+      "classification": "NOT_COMPARABLE",
+      "verdict": "NOT_COMPARABLE"
+    },
+    {
+      "probe": "P9",
+      "topic": "exchange calendar",
+      "calendar_side": {
+        "status": "NOT EVALUATED — no exchange-calendar library or dataset is installed, so there is no candidate to test",
+        "why_not_substituted": "the fixed 2024 dates in the frozen spec are the STANDARD both sides are judged against; they cannot also serve as the candidate",
+        "consequence": "a calendar source remains an open must-resolve item"
+      },
+      "full_closures": {
+        "2024-01-01": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-01-15": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-02-19": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-03-29": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-05-27": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-06-19": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-07-04": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-09-02": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-11-28": {
+          "total_bars": 0,
+          "rth_bars": 0
+        },
+        "2024-12-25": {
+          "total_bars": 0,
+          "rth_bars": 0
+        }
+      },
+      "early_closes": {
+        "2024-07-03": {
+          "rth_bars": 211,
+          "last_rth_et": "13:00"
+        },
+        "2024-11-29": {
+          "rth_bars": 211,
+          "last_rth_et": "13:00"
+        },
+        "2024-12-24": {
+          "rth_bars": 211,
+          "last_rth_et": "13:00"
+        }
+      },
+      "vendor_side": "FAIL",
+      "observed_behaviour": {
+        "early_close_last_bar": "13:00 ET, not 12:59",
+        "interpretation": "under BAR_START labelling a bar stamped 13:00 begins AT the early close. P4 finds the same pattern on a normal session: a bar stamped 16:00 carrying auction-scale volume. The vendor therefore appears to emit the closing auction as a bar stamped at the closing minute itself, consistently on both normal and early-close days (211 = 210 regular minutes + 1 auction bar).",
+        "governance": "this explanation does NOT change the verdict. The frozen rule required the last RTH bar to be 12:59 and it is not, so the recorded result stays FAIL. Reconciling the rule with this behaviour would require a NEW amendment explicitly marked as written after P1-P9 exposure; it is not done here and must not be done silently."
+      },
+      "note_on_empty": "10/10 closure dates returned no data at all, which the frozen spec flags as indistinguishable from a coverage gap",
+      "verdict": "FAIL"
+    },
+    {
+      "probe": "P4",
+      "topic": "auction attribution",
+      "per_symbol": {
+        "AAPL": {
+          "median_1530_1558": 142167,
+          "v_1559": 1304599.0,
+          "v_1600": 745045,
+          "has_1600_bar": true,
+          "ratio_1559": 9.18,
+          "ratio_1600": 5.24
+        },
+        "MSFT": {
+          "median_1530_1558": 42086,
+          "v_1559": 526176,
+          "v_1600": 235267,
+          "has_1600_bar": true,
+          "ratio_1559": 12.5,
+          "ratio_1600": 5.59
+        },
+        "JPM": {
+          "median_1530_1558": 25152,
+          "v_1559": 168587,
+          "v_1600": 229587,
+          "has_1600_bar": true,
+          "ratio_1559": 6.7,
+          "ratio_1600": 9.13
+        }
+      },
+      "closing_classification": "CLOSING_IN_1600",
+      "discrimination_caveat": "the 5x threshold was exceeded by BOTH the 15:59 and the 16:00 bar on all three names, so CLOSING_IN_1600 rests on the EXISTENCE of a 16:00 bar rather than on a clean separation between the two minutes. The probe was less discriminating than its rule assumed. The classification stands as frozen; the weakness is recorded.",
+      "opening_classification": "UNRESOLVED",
+      "opening_note": "UNRESOLVED BY CONSTRUCTION — the frozen spec states this probe cannot separate the opening auction from ordinary opening volume. No VWAP may be anchored to the open until trade-condition data is obtained.",
+      "verdict": "CLOSING_IN_1600"
+    }
+  ],
+  "raw_archive": {
+    "dir": "/Volumes/QUANT_RESEARCH/artifacts/provenance/massive_probe_raw",
+    "requests_this_stage": 66,
+    "log": [
+      {
+        "tag": "P1_AAPL_pre",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2020-08-28/2020-08-28",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:43Z",
+        "http_status": 403,
+        "raw_filename": "P1_AAPL_pre_b53b33c548.json",
+        "sha256": "b53b33c5482a342b1fee04c3a0cd7ede4791b7ceb60a30085195020785cb50d6",
+        "bytes": 189
+      },
+      {
+        "tag": "P1_AAPL_eff",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2020-08-31/2020-08-31",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:44Z",
+        "http_status": 403,
+        "raw_filename": "P1_AAPL_eff_c68faa7246.json",
+        "sha256": "c68faa7246eb15937354c285e12bf91fdd22bb708f8bbabcc60fe524e2546812",
+        "bytes": 189
+      },
+      {
+        "tag": "P1_NVDA_pre",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-06-07/2024-06-07",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:44Z",
+        "http_status": 200,
+        "raw_filename": "P1_NVDA_pre_6993a26ce6.json",
+        "sha256": "6993a26ce6c6e99880abddd5eacd781786207c6777574d2126b87fad115750b7",
+        "bytes": 85817
+      },
+      {
+        "tag": "P1_NVDA_eff",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-06-10/2024-06-10",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:45Z",
+        "http_status": 200,
+        "raw_filename": "P1_NVDA_eff_8c9736b1c6.json",
+        "sha256": "8c9736b1c66ba3184958cf6b60aab9c249dd956784b528bec655ae75e6485b79",
+        "bytes": 93674
+      },
+      {
+        "tag": "P1_NVDA_adjtrue",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-06-10/2024-06-10",
+        "params": {
+          "limit": 50000,
+          "adjusted": "true"
+        },
+        "retrieved_at": "2026-08-24T21:23:46Z",
+        "http_status": 200,
+        "raw_filename": "P1_NVDA_adjtrue_854a90823b.json",
+        "sha256": "854a90823b85d03fe09bdd1746e6721e5668eada69aa07cd2996bd391609bd1d",
+        "bytes": 93674
+      },
+      {
+        "tag": "P1_NVDA_adjfalse",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-06-10/2024-06-10",
+        "params": {
+          "limit": 50000,
+          "adjusted": "false"
+        },
+        "retrieved_at": "2026-08-24T21:23:46Z",
+        "http_status": 200,
+        "raw_filename": "P1_NVDA_adjfalse_48d82d5024.json",
+        "sha256": "48d82d50241df7cb74acec5439cc8cb70eaf30ac775b89b47998aa7b82240d1e",
+        "bytes": 93675
+      },
+      {
+        "tag": "P3_NVDA",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:47Z",
+        "http_status": 200,
+        "raw_filename": "P3_NVDA_7708d0a06b.json",
+        "sha256": "7708d0a06ba200b95f484be50e58e24f67478d3c0e9649d1ae4994afc24c68ae",
+        "bytes": 74860
+      },
+      {
+        "tag": "P3_TSLA",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TSLA/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:48Z",
+        "http_status": 200,
+        "raw_filename": "P3_TSLA_469e676003.json",
+        "sha256": "469e67600336f03c030014a6027e061f290bd7169912a0a6d4d130712e4aa767",
+        "bytes": 85953
+      },
+      {
+        "tag": "P3_SMCI",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/SMCI/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:49Z",
+        "http_status": 200,
+        "raw_filename": "P3_SMCI_dfe72513a9.json",
+        "sha256": "dfe72513a9c8c9d79cbc05ae3f38de3cab8f82c4af1daf903e7cac06afb7e9f9",
+        "bytes": 54591
+      },
+      {
+        "tag": "P3_PLTR",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/PLTR/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:50Z",
+        "http_status": 200,
+        "raw_filename": "P3_PLTR_b1dec814b6.json",
+        "sha256": "b1dec814b66734f70881568eed527e8d096723d04e44d0c8981f6d12de6ccc49",
+        "bytes": 73725
+      },
+      {
+        "tag": "P3_INTC",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/INTC/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:50Z",
+        "http_status": 200,
+        "raw_filename": "P3_INTC_55e472210f.json",
+        "sha256": "55e472210f324610860dbb28fa4fa6063493130b6d4acab531c54751de7beaf9",
+        "bytes": 65498
+      },
+      {
+        "tag": "P3_AAPL",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:51Z",
+        "http_status": 200,
+        "raw_filename": "P3_AAPL_ceb1620899.json",
+        "sha256": "ceb1620899930ed17135db7ed1d1b1bb6f7924c8bbc0811d19f8f9882b43cd11",
+        "bytes": 63873
+      },
+      {
+        "tag": "P3_F",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/F/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:52Z",
+        "http_status": 200,
+        "raw_filename": "P3_F_896a400df1.json",
+        "sha256": "896a400df1e953c65c0cf9a56effe5650ddf46777fa0051748db18c5cab17ca2",
+        "bytes": 52744
+      },
+      {
+        "tag": "P3_AMD",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AMD/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:53Z",
+        "http_status": 200,
+        "raw_filename": "P3_AMD_e38447f83c.json",
+        "sha256": "e38447f83c521cc4c178c9c78d71481932d02d783b31e2c401a0ad51f2ce90aa",
+        "bytes": 70014
+      },
+      {
+        "tag": "P3_AMZN",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AMZN/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:53Z",
+        "http_status": 200,
+        "raw_filename": "P3_AMZN_4ae4cbcc83.json",
+        "sha256": "4ae4cbcc83c55e5cfd2ab446a8e9057fc3b46658850a30f6dfdb9526cb119f77",
+        "bytes": 67160
+      },
+      {
+        "tag": "P3_PFE",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/PFE/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:54Z",
+        "http_status": 200,
+        "raw_filename": "P3_PFE_fb74381a7c.json",
+        "sha256": "fb74381a7c3c77001e66f88cb4a26b146c88131c4d8246674ac0dcb7ebeabf95",
+        "bytes": 52291
+      },
+      {
+        "tag": "P3_TDY",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TDY/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:55Z",
+        "http_status": 200,
+        "raw_filename": "P3_TDY_4ec2e68cb7.json",
+        "sha256": "4ec2e68cb796f4409a5c3bfe01556b22403710cd67837c322f7bf681dcb8c0f6",
+        "bytes": 18587
+      },
+      {
+        "tag": "P3_GWW",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/GWW/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:55Z",
+        "http_status": 200,
+        "raw_filename": "P3_GWW_47903eb06a.json",
+        "sha256": "47903eb06a8126b0fc46f824bef810aab5cb2443b6bc6aa722df8ab34e08be76",
+        "bytes": 12371
+      },
+      {
+        "tag": "P3_TYL",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TYL/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:56Z",
+        "http_status": 200,
+        "raw_filename": "P3_TYL_5d5324264d.json",
+        "sha256": "5d5324264d63d324fdf62acb8389161764e068a5fe1679c6cf20fd4d5ee40033",
+        "bytes": 13326
+      },
+      {
+        "tag": "P3_TDG",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TDG/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:56Z",
+        "http_status": 200,
+        "raw_filename": "P3_TDG_7967c1f3e2.json",
+        "sha256": "7967c1f3e28bf6171f71115b30b313828dfe44aeb681d7755dd8d6bad00d533b",
+        "bytes": 18253
+      },
+      {
+        "tag": "P3_FICO",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/FICO/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:57Z",
+        "http_status": 200,
+        "raw_filename": "P3_FICO_3a28634110.json",
+        "sha256": "3a28634110b37104163472c7775587cb9cb699ae20677a419a39326b5e5d9ace",
+        "bytes": 17818
+      },
+      {
+        "tag": "P3_AZO",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AZO/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:58Z",
+        "http_status": 200,
+        "raw_filename": "P3_AZO_0def50d3bd.json",
+        "sha256": "0def50d3bdb6a435bf94d191a2844d836fe7fe37f8a7073be127ccf24b62ddea",
+        "bytes": 13188
+      },
+      {
+        "tag": "P3_MTD",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/MTD/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:58Z",
+        "http_status": 200,
+        "raw_filename": "P3_MTD_0db4e7def8.json",
+        "sha256": "0db4e7def8e76a915ee25d0570494534597da733671d91920a51bb08c2b47b77",
+        "bytes": 12152
+      },
+      {
+        "tag": "P3_ERIE",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/ERIE/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:59Z",
+        "http_status": 200,
+        "raw_filename": "P3_ERIE_08211ee2cb.json",
+        "sha256": "08211ee2cb45293e6717b7033249bd20fc9b71690e4fc291d411f60bfb0f8951",
+        "bytes": 4157
+      },
+      {
+        "tag": "P3_BNY",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/BNY/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:23:59Z",
+        "http_status": 200,
+        "raw_filename": "P3_BNY_d39e2eafbf.json",
+        "sha256": "d39e2eafbf3cac1f8e1b5434dfffb917be1ca009f2c00c5e588247b06d2c5247",
+        "bytes": 1833
+      },
+      {
+        "tag": "P3_NVR",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVR/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:00Z",
+        "http_status": 200,
+        "raw_filename": "P3_NVR_43deef6d7b.json",
+        "sha256": "43deef6d7b0eda54ceb5f233d747de092e9bc7d6fc7a4da59096d5bb5b6f1dea",
+        "bytes": 13592
+      },
+      {
+        "tag": "P5_AAPL",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:01Z",
+        "http_status": 200,
+        "raw_filename": "P5_AAPL_b173901044.json",
+        "sha256": "b173901044672f14d0374a8dfac9e8b6470a1366d7b364925f500f62d51168f6",
+        "bytes": 63873
+      },
+      {
+        "tag": "P7_AAPL",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:01Z",
+        "http_status": 200,
+        "raw_filename": "P7_AAPL_87d6be9f09.json",
+        "sha256": "87d6be9f09cd278c987857bfba7a8ee7e3e372d1fe721c34ddfbf3a33435c203",
+        "bytes": 63873
+      },
+      {
+        "tag": "P7_MSFT",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/MSFT/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:02Z",
+        "http_status": 200,
+        "raw_filename": "P7_MSFT_ea02926e66.json",
+        "sha256": "ea02926e66da973ee6b257355def69369d4b91a0ea37fde442ca3b10ee229262",
+        "bytes": 56371
+      },
+      {
+        "tag": "P7_NVR",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVR/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:03Z",
+        "http_status": 200,
+        "raw_filename": "P7_NVR_0dd634d99e.json",
+        "sha256": "0dd634d99e41f7861d881147ff5e7de41dd3f55ea87f92f0c7a9e5a823a0835d",
+        "bytes": 13592
+      },
+      {
+        "tag": "P8_NVDA_2024-05-15",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:04Z",
+        "http_status": 200,
+        "raw_filename": "P8_NVDA_2024-05-15_d52891ef19.json",
+        "sha256": "d52891ef192a03db5e097c446f58936460a7aae705d11aaf46a1752dc691274b",
+        "bytes": 74860
+      },
+      {
+        "tag": "P8_NVDA_2024-05-16",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-05-16/2024-05-16",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:04Z",
+        "http_status": 200,
+        "raw_filename": "P8_NVDA_2024-05-16_8d37882eb2.json",
+        "sha256": "8d37882eb2a605608088a7ec16e4eacd5e995a7c8b010eb9c8debe341913d1ed",
+        "bytes": 76640
+      },
+      {
+        "tag": "P8_NVDA_2024-05-17",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-05-17/2024-05-17",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:05Z",
+        "http_status": 200,
+        "raw_filename": "P8_NVDA_2024-05-17_076c810379.json",
+        "sha256": "076c81037931dde7f088500755dcaf92a2086560d0529c71effd9c9ad3cc9e71",
+        "bytes": 71882
+      },
+      {
+        "tag": "P8_NVDA_2024-05-20",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/NVDA/range/1/minute/2024-05-20/2024-05-20",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:06Z",
+        "http_status": 200,
+        "raw_filename": "P8_NVDA_2024-05-20_def6571919.json",
+        "sha256": "def6571919aa98eff6fe551dc6d2bd5aadc69570ba39c5bc0de88d18e783271f",
+        "bytes": 78122
+      },
+      {
+        "tag": "P8_TSLA_2024-05-15",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TSLA/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:07Z",
+        "http_status": 200,
+        "raw_filename": "P8_TSLA_2024-05-15_4e5ced6c09.json",
+        "sha256": "4e5ced6c0994103c1fc9e4c076b60a574750103eddfb8fa019671abd24b3ad6b",
+        "bytes": 85953
+      },
+      {
+        "tag": "P8_TSLA_2024-05-16",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TSLA/range/1/minute/2024-05-16/2024-05-16",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:07Z",
+        "http_status": 200,
+        "raw_filename": "P8_TSLA_2024-05-16_f8a1d1f206.json",
+        "sha256": "f8a1d1f206c547a700ae2640237bc015ac746b86fc8931dd21438b951c799d9e",
+        "bytes": 79049
+      },
+      {
+        "tag": "P8_TSLA_2024-05-17",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TSLA/range/1/minute/2024-05-17/2024-05-17",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:08Z",
+        "http_status": 200,
+        "raw_filename": "P8_TSLA_2024-05-17_6f98724472.json",
+        "sha256": "6f9872447214a9dafce48007f077f70e166a94301bb6618e7040680a9ea4d306",
+        "bytes": 80529
+      },
+      {
+        "tag": "P8_TSLA_2024-05-20",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TSLA/range/1/minute/2024-05-20/2024-05-20",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:09Z",
+        "http_status": 200,
+        "raw_filename": "P8_TSLA_2024-05-20_93c750473d.json",
+        "sha256": "93c750473d550a4eb3b8f86bf9187d13a004b14a7cb0392b5ede7454a7dc6159",
+        "bytes": 80256
+      },
+      {
+        "tag": "P8_SMCI_2024-05-15",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/SMCI/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:10Z",
+        "http_status": 200,
+        "raw_filename": "P8_SMCI_2024-05-15_fdc09a0253.json",
+        "sha256": "fdc09a025366247457d1eaefb8857dee761c611fb67bc33eb37301b7863ae4ac",
+        "bytes": 54591
+      },
+      {
+        "tag": "P8_SMCI_2024-05-16",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/SMCI/range/1/minute/2024-05-16/2024-05-16",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:10Z",
+        "http_status": 200,
+        "raw_filename": "P8_SMCI_2024-05-16_c7c7eb5e5f.json",
+        "sha256": "c7c7eb5e5f75f3054417841a9cbdefc35344a041965ecde541cce9e4d418fe08",
+        "bytes": 53595
+      },
+      {
+        "tag": "P8_SMCI_2024-05-17",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/SMCI/range/1/minute/2024-05-17/2024-05-17",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:11Z",
+        "http_status": 200,
+        "raw_filename": "P8_SMCI_2024-05-17_2a2068b546.json",
+        "sha256": "2a2068b5467cf8ae150cdedfd0b23357dd4b755bd004066351a76d115469dcaa",
+        "bytes": 47697
+      },
+      {
+        "tag": "P8_SMCI_2024-05-20",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/SMCI/range/1/minute/2024-05-20/2024-05-20",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:12Z",
+        "http_status": 200,
+        "raw_filename": "P8_SMCI_2024-05-20_63769bb6f7.json",
+        "sha256": "63769bb6f7e925e10a620b72710d2ab4e3fcc88be430d3d56e85b46287f04e3e",
+        "bytes": 47621
+      },
+      {
+        "tag": "P8_TDY_2024-05-15",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TDY/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:12Z",
+        "http_status": 200,
+        "raw_filename": "P8_TDY_2024-05-15_51a955e737.json",
+        "sha256": "51a955e7372e2543f0f92827b1be81b3d9328034299589fe09e46cf3293dcaca",
+        "bytes": 18587
+      },
+      {
+        "tag": "P8_TDY_2024-05-16",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TDY/range/1/minute/2024-05-16/2024-05-16",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:13Z",
+        "http_status": 200,
+        "raw_filename": "P8_TDY_2024-05-16_135e747b11.json",
+        "sha256": "135e747b1115cced02ef17fb3fc6c846b8eb04c9e59c9de7a466a0ba5816fe30",
+        "bytes": 14929
+      },
+      {
+        "tag": "P8_TDY_2024-05-17",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TDY/range/1/minute/2024-05-17/2024-05-17",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:14Z",
+        "http_status": 200,
+        "raw_filename": "P8_TDY_2024-05-17_f7264341e3.json",
+        "sha256": "f7264341e3f428f3d006ff92bd896952d1ec02849bf0121675327a488c3022d1",
+        "bytes": 18232
+      },
+      {
+        "tag": "P8_TDY_2024-05-20",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/TDY/range/1/minute/2024-05-20/2024-05-20",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:14Z",
+        "http_status": 200,
+        "raw_filename": "P8_TDY_2024-05-20_872ab7a601.json",
+        "sha256": "872ab7a6013f6cae45b740ab0f6041a9c008f694ffc6ec7f79c5ef725a55e410",
+        "bytes": 21658
+      },
+      {
+        "tag": "P8_GWW_2024-05-15",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/GWW/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:15Z",
+        "http_status": 200,
+        "raw_filename": "P8_GWW_2024-05-15_216187222a.json",
+        "sha256": "216187222aaaa58fabc964f554aa6bfbc98943ad4f26575dd062f16b982600e4",
+        "bytes": 12371
+      },
+      {
+        "tag": "P8_GWW_2024-05-16",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/GWW/range/1/minute/2024-05-16/2024-05-16",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:16Z",
+        "http_status": 200,
+        "raw_filename": "P8_GWW_2024-05-16_7b4edd5056.json",
+        "sha256": "7b4edd5056c828b77ddfe8b8b16525f45e285694f61c046e2329c80fbba905ea",
+        "bytes": 17659
+      },
+      {
+        "tag": "P8_GWW_2024-05-17",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/GWW/range/1/minute/2024-05-17/2024-05-17",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:16Z",
+        "http_status": 200,
+        "raw_filename": "P8_GWW_2024-05-17_f5588f4117.json",
+        "sha256": "f5588f4117e08befcfbcb6f456bbe1b0a7748db285ddda67ea3f303b3dad7efa",
+        "bytes": 9607
+      },
+      {
+        "tag": "P8_GWW_2024-05-20",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/GWW/range/1/minute/2024-05-20/2024-05-20",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:17Z",
+        "http_status": 200,
+        "raw_filename": "P8_GWW_2024-05-20_db6236d3f7.json",
+        "sha256": "db6236d3f7a65611d9fbd3142d2bb814ebe85836b4f4188634241181f461e92e",
+        "bytes": 9207
+      },
+      {
+        "tag": "P9_closed_2024-01-01",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-01-01/2024-01-01",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:17Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-01-01_46e7f9c742.json",
+        "sha256": "46e7f9c74275202d69d0abc0e05dc4957f7bfc6bdb1c6567b587b381d7f2b7b4",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-01-15",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-01-15/2024-01-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:18Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-01-15_32efff0aae.json",
+        "sha256": "32efff0aaed56d05ade2fc8dbc53c2bf7b8837a884fffdc3b19478c1b3dc3864",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-02-19",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-02-19/2024-02-19",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:19Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-02-19_d7aadee49f.json",
+        "sha256": "d7aadee49f7760b412ca172876d1df72949de91075b3429b1a42e83634d13da6",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-03-29",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-03-29/2024-03-29",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:19Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-03-29_57ff014831.json",
+        "sha256": "57ff014831557017cf8b67c55ed8dc2a5c91685c6acbcdedec4055dabfbfd6b7",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-05-27",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-05-27/2024-05-27",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:20Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-05-27_bff38c79fa.json",
+        "sha256": "bff38c79fa65216d62b6024db3b7a343a67f18eafa3e2ff0394a2ce91368b5aa",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-06-19",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-06-19/2024-06-19",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:20Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-06-19_a1e38282db.json",
+        "sha256": "a1e38282db7b3f54433cb06bda1e730975c87feb6e7306de4943eba239db02eb",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-07-04",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-07-04/2024-07-04",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:21Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-07-04_814e1a4289.json",
+        "sha256": "814e1a428958ca9242ca28e64f107e2a14b9af6e92cc29a779cb8c327ff54c86",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-09-02",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-09-02/2024-09-02",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:22Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-09-02_e7a8ef5d38.json",
+        "sha256": "e7a8ef5d38695ba5a564ea224191d704e325848857b88a2bb917f7c16df53ede",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-11-28",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-11-28/2024-11-28",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:22Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-11-28_3fbc6bb730.json",
+        "sha256": "3fbc6bb7306e4ac35952090c515f358aed781adcfd7e40c3eb44a0138bb00365",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_closed_2024-12-25",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-12-25/2024-12-25",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:23Z",
+        "http_status": 200,
+        "raw_filename": "P9_closed_2024-12-25_449855849f.json",
+        "sha256": "449855849fe56f65d8810b8c693cd80b5cd0a23c64dd0a1932e0810e141183ba",
+        "bytes": 127
+      },
+      {
+        "tag": "P9_early_2024-07-03",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-07-03/2024-07-03",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:23Z",
+        "http_status": 200,
+        "raw_filename": "P9_early_2024-07-03_7ab7f92187.json",
+        "sha256": "7ab7f921877b0f7a408e4571d69d6360ff0a8243a23dee6f59794802f025ae7b",
+        "bytes": 42434
+      },
+      {
+        "tag": "P9_early_2024-11-29",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-11-29/2024-11-29",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:24Z",
+        "http_status": 200,
+        "raw_filename": "P9_early_2024-11-29_af92c00e14.json",
+        "sha256": "af92c00e1450b566ed49fae28e76f0948fc20546ab92cc265f8242ef19d3b27e",
+        "bytes": 34005
+      },
+      {
+        "tag": "P9_early_2024-12-24",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-12-24/2024-12-24",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:25Z",
+        "http_status": 200,
+        "raw_filename": "P9_early_2024-12-24_a0ac1c1032.json",
+        "sha256": "a0ac1c10327583e0f4f6c9c1d21d8c12772d2daa1a2c1584dab41713209c11ac",
+        "bytes": 33961
+      },
+      {
+        "tag": "P4_AAPL",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:25Z",
+        "http_status": 200,
+        "raw_filename": "P4_AAPL_7fe0e12f5d.json",
+        "sha256": "7fe0e12f5dcb54a652125e378f5e49c41ae47284f7292612a2b27a12521524f5",
+        "bytes": 63873
+      },
+      {
+        "tag": "P4_MSFT",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/MSFT/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:26Z",
+        "http_status": 200,
+        "raw_filename": "P4_MSFT_9867a081d4.json",
+        "sha256": "9867a081d4a7e3fbef36674e3c2b5e871fe04e2d12735df303cb384f9f824f43",
+        "bytes": 56371
+      },
+      {
+        "tag": "P4_JPM",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/JPM/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:24:27Z",
+        "http_status": 200,
+        "raw_filename": "P4_JPM_17accb09a5.json",
+        "sha256": "17accb09a5c36eca500a0698334ea0dd5d6c349f6f767ddaba6ba4b9cc46df85",
+        "bytes": 42306
+      }
+    ]
+  },
+  "canonical_1m_rows_downloaded": 0,
+  "elapsed_sec": 44.3,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:24 +04"
+}

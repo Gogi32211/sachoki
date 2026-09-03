@@ -1,0 +1,195 @@
+{
+  "manifest_id": "SP500_PIT_FIXTURE_SOURCE_ARCHIVE_V1",
+  "status": "ARCHIVED",
+  "archive_namespace": "/Volumes/QUANT_RESEARCH/artifacts/provenance/sp500_pit_source_snapshots",
+  "authority_rule": "RAW BYTES are the authoritative snapshot; extracted text is a derived convenience artifact and its digest has no standing",
+  "filename_rule": "neutral: <doc_date>_<authority>_<kind>_<sha8>.<ext> — a filename never encodes the conclusion the document is cited for",
+  "verification_rule": "a snapshot satisfies the gate only if its RAW BYTES contain the exact sentence the fixture cites, after normalising entities, markup, curly quotes and whitespace",
+  "f6_scope": "F6 is archived for its share-class representation claim ONLY; its boundary sessions are UNCONFIRMED and no boundary claim for F6 appears in this manifest",
+  "sources": [
+    {
+      "key": "F1_primary",
+      "fixtures": [
+        "F1"
+      ],
+      "source_authority": "S&P Dow Jones Indices",
+      "original_url": "https://press.spglobal.com/2020-11-16-Tesla-Set-to-Join-S-P-500",
+      "supports": "TSLA added to the S&P 500 effective prior to the open on 2020-12-21; this release does NOT name the removed company",
+      "quote_required": "will be added to the S&P 500 effective prior to the open of trading on Monday, December 21",
+      "final_url_after_redirects": "https://press.spglobal.com/2020-11-16-Tesla-Set-to-Join-S-P-500",
+      "redirected": false,
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "retrieved_at_utc": "2026-08-24T19:41:55Z",
+      "raw_filename": "2020-11-16_spdji_press_release_92c16977.html",
+      "raw_sha256": "92c16977de26f21bc8aea64139cbb64d69825bd9c06baff970f6b64cc23f3029",
+      "raw_size_bytes": 44744,
+      "snapshot_present": true,
+      "extracted_text_filename": "2020-11-16_spdji_press_release_92c16977.extracted.txt",
+      "extracted_text_is_authoritative": false,
+      "quote_present_in_raw": true
+    },
+    {
+      "key": "F1_secondary_F2_primary",
+      "fixtures": [
+        "F1",
+        "F2"
+      ],
+      "source_authority": "S&P Dow Jones Indices via PR Newswire",
+      "original_url": "https://www.prnewswire.com/news-releases/tesla-set-to-join-sp-500--100-apartment-income-reit-to-join-sp-midcap-400-301191493.html",
+      "supports": "names Apartment Investment and Management Co. (AIV) as removed, and records the Apartment Income REIT spin-off",
+      "quote_required": "spinning off Apartment Income REIT",
+      "final_url_after_redirects": "https://www.prnewswire.com/news-releases/tesla-set-to-join-sp-500--100-apartment-income-reit-to-join-sp-midcap-400-301191493.html",
+      "redirected": false,
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "retrieved_at_utc": "2026-08-24T19:41:55Z",
+      "raw_filename": "2020-12-11_prnewswire_press_release_9c45e4da.html",
+      "raw_sha256": "9c45e4dafacf5cb54e6a3c6454587dc277e1dc9ead431638758f30b350b7f4aa",
+      "raw_size_bytes": 209458,
+      "snapshot_present": true,
+      "extracted_text_filename": "2020-12-11_prnewswire_press_release_9c45e4da.extracted.txt",
+      "extracted_text_is_authoritative": false,
+      "quote_present_in_raw": true
+    },
+    {
+      "key": "F3_primary",
+      "fixtures": [
+        "F3"
+      ],
+      "source_authority": "S&P Dow Jones Indices",
+      "original_url": "https://press.spglobal.com/2025-09-05-AppLovin,-Robinhood-Markets-and-Emcor-Group-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400-and-S-P-SmallCap-600",
+      "supports": "AppLovin replaces MarketAxess effective prior to the open on 2025-09-22",
+      "quote_required": "more representative of its market capitalization range",
+      "final_url_after_redirects": "https://press.spglobal.com/2025-09-05-AppLovin,-Robinhood-Markets-and-Emcor-Group-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400-and-S-P-SmallCap-600",
+      "redirected": false,
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "retrieved_at_utc": "2026-08-24T19:41:55Z",
+      "raw_filename": "2025-09-05_spdji_press_release_a333e224.html",
+      "raw_sha256": "a333e22421f9057d722bc1bfa056621fd27cd6479d1639128644430f73e8b9d7",
+      "raw_size_bytes": 76071,
+      "snapshot_present": true,
+      "extracted_text_filename": "2025-09-05_spdji_press_release_a333e224.extracted.txt",
+      "extracted_text_is_authoritative": false,
+      "quote_present_in_raw": true
+    },
+    {
+      "key": "F4_primary",
+      "fixtures": [
+        "F4"
+      ],
+      "source_authority": "S&P Dow Jones Indices",
+      "original_url": "https://press.spglobal.com/2022-10-27-Arch-Capital-Group-Set-to-Join-S-P-500-RXO-to-Join-S-P-MidCap-400-Bread-Financial-Holdings-to-Join-S-P-SmallCap-600",
+      "supports": "ACGL replaces TWTR effective prior to the opening on 2022-11-01, on completion of the Twitter acquisition",
+      "quote_required": "prior to the opening of trading on Tuesday, November 1",
+      "final_url_after_redirects": "https://press.spglobal.com/2022-10-27-Arch-Capital-Group-Set-to-Join-S-P-500-RXO-to-Join-S-P-MidCap-400-Bread-Financial-Holdings-to-Join-S-P-SmallCap-600",
+      "redirected": false,
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "retrieved_at_utc": "2026-08-24T19:41:55Z",
+      "raw_filename": "2022-10-27_spdji_press_release_f498ecce.html",
+      "raw_sha256": "f498ecce53a210981cc9e705443048a98b9f5144469f771fc9d88909155b3b1c",
+      "raw_size_bytes": 50842,
+      "snapshot_present": true,
+      "extracted_text_filename": "2022-10-27_spdji_press_release_f498ecce.extracted.txt",
+      "extracted_text_is_authoritative": false,
+      "quote_present_in_raw": true
+    },
+    {
+      "key": "F5_primary",
+      "fixtures": [
+        "F5"
+      ],
+      "source_authority": "Meta Platforms investor relations",
+      "original_url": "https://investor.atmeta.com/investor-news/press-release-details/2022/Meta-Platforms-Inc.-to-Change-Ticker-Symbol-to-META-on-June-9/default.aspx",
+      "supports": "ticker FB -> META effective prior to market open 2022-06-09 with the CUSIP unchanged",
+      "quote_required": "CUSIP number will remain unchanged",
+      "final_url_after_redirects": "https://investor.atmeta.com/investor-news/press-release-details/2022/Meta-Platforms-Inc.-to-Change-Ticker-Symbol-to-META-on-June-9/default.aspx",
+      "redirected": false,
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "retrieved_at_utc": "2026-08-24T19:41:56Z",
+      "raw_filename": "2022-05-31_issuer_ir_press_release_694e6569.html",
+      "raw_sha256": "694e6569ae403929389e9ef1fdd00b7cf342c38a4a9068e19e752a78c303ee57",
+      "raw_size_bytes": 56776,
+      "snapshot_present": true,
+      "extracted_text_filename": "2022-05-31_issuer_ir_press_release_694e6569.extracted.txt",
+      "extracted_text_is_authoritative": false,
+      "quote_present_in_raw": true
+    },
+    {
+      "key": "F6_primary",
+      "fixtures": [
+        "F6"
+      ],
+      "source_authority": "S&P Dow Jones Indices",
+      "original_url": "https://press.spglobal.com/2014-03-11-S-P-Dow-Jones-Indices-Announces-Changes-in-Treatment-of-Multiple-Share-Classes-in-U-S-Indices-and-Revises-Previously-Announced-Treatment-of-Google-Stock-Split",
+      "supports": "ONE claim only: both Google Class A and Class C included in the S&P 500. No boundary-session claim is made for F6.",
+      "quote_required": "Class A and Google Class C will be included in the S&P 500",
+      "final_url_after_redirects": "https://press.spglobal.com/2014-03-11-S-P-Dow-Jones-Indices-Announces-Changes-in-Treatment-of-Multiple-Share-Classes-in-U-S-Indices-and-Revises-Previously-Announced-Treatment-of-Google-Stock-Split",
+      "redirected": false,
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "retrieved_at_utc": "2026-08-24T19:41:56Z",
+      "raw_filename": "2014-03-11_spdji_press_release_4d6c6e0f.html",
+      "raw_sha256": "4d6c6e0f8e83737332930057d098fd2aa6240764944e42bd29d15c93978b852f",
+      "raw_size_bytes": 46944,
+      "snapshot_present": true,
+      "extracted_text_filename": "2014-03-11_spdji_press_release_4d6c6e0f.extracted.txt",
+      "extracted_text_is_authoritative": false,
+      "quote_present_in_raw": true
+    },
+    {
+      "key": "F7_primary",
+      "fixtures": [
+        "F7"
+      ],
+      "source_authority": "S&P Dow Jones Indices",
+      "original_url": "https://press.spglobal.com/2023-03-10-Insulet-Set-to-Join-S-P-500",
+      "supports": "PODD replaces SIVB effective prior to the opening on 2023-03-15 following FDIC receivership",
+      "quote_required": "no longer eligible for inclusion",
+      "final_url_after_redirects": "https://press.spglobal.com/2023-03-10-Insulet-Set-to-Join-S-P-500",
+      "redirected": false,
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "retrieved_at_utc": "2026-08-24T19:41:56Z",
+      "raw_filename": "2023-03-10_spdji_press_release_6d655745.html",
+      "raw_sha256": "6d655745999088eb5606597fc6cb474cb0faaf6dd9d64e1e53c7e09e6917e886",
+      "raw_size_bytes": 45834,
+      "snapshot_present": true,
+      "extracted_text_filename": "2023-03-10_spdji_press_release_6d655745.extracted.txt",
+      "extracted_text_is_authoritative": false,
+      "quote_present_in_raw": true
+    }
+  ],
+  "gate": {
+    "required_fixtures": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
+      "F7"
+    ],
+    "fixtures_with_supported_snapshot": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
+      "F7"
+    ],
+    "fixtures_without_supported_snapshot": [],
+    "missing_required_snapshot": 0,
+    "snapshot_without_its_quote": 0,
+    "missing_keys": [],
+    "quote_failed_keys": [],
+    "verdict": "PASS"
+  },
+  "candidate_sources_inspected": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-24 23:41 +04"
+}

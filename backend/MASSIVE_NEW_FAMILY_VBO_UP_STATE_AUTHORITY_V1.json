@@ -1,0 +1,97 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_VBO_UP_STATE_AUTHORITY_V1",
+  "status": "STRUCTURE_RESOLVED_DEPTH_CONVENTION_OPEN",
+  "rows_written": 0,
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "VERDICT_FORM": {
+    "STATE_CLASS": "FINITE_RESET_ANCHORED_STATE",
+    "STATE_VECTOR": [
+      "cur_h",
+      "cur_l",
+      "cur_bar (vbo loop)",
+      "last_load (load_sig loop)"
+    ],
+    "POST_GAP_RECOVERY": "FINITE_RESET_ANCHORED — CONFIRMED, not assumed",
+    "FIXED_FIRST_VALID_AGE": "depends on TRIGGER identifiability depth — see OPEN_DECISION"
+  },
+  "FIVE_STRUCTURAL_QUESTIONS": {
+    "1_persistent_variables": {
+      "vbo_loop@L191": [
+        "cur_h",
+        "cur_l",
+        "cur_bar"
+      ],
+      "load_loop@L145": [
+        "last_load"
+      ],
+      "method": "AST — variables assigned inside the loop but initialised before it"
+    },
+    "2_state_changing_predicates": "trig = any_vol = abs_sig | climb_sig | load_sig; on trig, latch (h[i], l[i], i)",
+    "3_reset_conditional_or_unconditional": {
+      "answer": "CONDITIONAL ON STATE ONLY",
+      "guard": "not isnan(cur_h) AND i > cur_bar AND since > _BREAK_BARS",
+      "KEY_FINDING": "the guard depends only on cur_bar and i — NEVER on unknown upstream data. This is what makes the reset a genuine identifiability anchor rather than a mere counter.",
+      "CAVEAT": "'if trig[i]' executes FIRST, so an UNKNOWN trigger can re-latch and postpone the reset. Convergence therefore requires trig PROVEN FALSE across the window, not merely unobserved."
+    },
+    "4_reset_determines_output_or_only_next_state": {
+      "answer": "BOTH",
+      "evidence": "the else-branch emits no output, so vbo_up[i] stays FALSE, AND clears the latch",
+      "also": "on the latch bar itself i > cur_bar is False, so the trigger bar's own output is FALSE"
+    },
+    "5_load_sig_cooldown_entry": {
+      "chain": "any_vol = abs_sig | climb_sig | load_sig",
+      "load_sig": "load_base AND (i - last_load > _LOAD_COOLDOWN=2)",
+      "asymmetry": "load_sig is PROVEN FALSE whenever load_base is FALSE, regardless of cooldown state",
+      "consequence": "cooldown ambiguity can make trig UNKNOWN only when load_base is TRUE AND abs_sig and climb_sig are both FALSE — a strictly narrower condition than it first appears"
+    }
+  },
+  "RESET_OFFSET_EXACT": {
+    "rule": "reset fires at EXACTLY latch_index + 11 (the 11th bar AFTER the latch bar)",
+    "verified_at_latch_indices": [
+      0,
+      5,
+      37
+    ],
+    "gap_reading": "if the latch is the last bar before a gap, recovery lands on the 11th OBSERVED bar",
+    "correction": "an earlier fixture printed 12 because the latch bar was itself counted in K; the offset is 11"
+  },
+  "TWO_COLLAPSE_MECHANISMS": {
+    "immediate": "a PROVEN trigger collapses any admissible state set to a singleton latch at that bar",
+    "finite": "11 consecutive bars with trig PROVEN FALSE after the latch collapse all states to NONE",
+    "answer_to_the_key_question": "YES — for all admissible prior states, the _BREAK_BARS condition yields an identical next state, because the reset guard reads only state and index. _BREAK_BARS IS an identifiability bound here, not merely a window parameter."
+  },
+  "FIXTURES": {
+    "F1_F4_boundary": "latch@j: not converged at j+10, converged at j+11 — boundary is exact",
+    "F2_unknown_not_false": "12 UNKNOWN-trigger bars -> 12 reachable states; 12 PROVEN-FALSE bars -> 1. Coercing UNKNOWN to FALSE would collapse 12 states to 1.",
+    "F3_reset_bar": "proven trigger collapses {None,0,1,2}+5 unknown bars (6 states) to the singleton {5}",
+    "F5_load_cooldown": "propagates into trig only under the narrow condition above",
+    "F6_contaminated_gap": "state branches; recovery is event-anchored, verified exactly"
+  },
+  "GATES": {
+    "REDUCTION_vs_exact_simulator": {
+      "bars": 49183,
+      "state_mismatches": 0,
+      "output_mismatches": 0,
+      "verdict": "PASS",
+      "oracle_note": "state-set comparison is the PRIMARY oracle; output equality alone would be vacuous for a rare boolean"
+    }
+  },
+  "OPEN_DECISION_TRIGGER_DEPTH": {
+    "declared_convention_derivation": {
+      "bkt": "v.rolling(_MA_PERIOD=20) mean/std -> 20",
+      "prev2_bkt": "bkt.shift(2) -> 22",
+      "atr_load": "_atr(_ATR_LOAD_LEN=14) ewm -> 14 under the frozen convention",
+      "floor_under_convention": 22
+    },
+    "empirical_bit_exact_stability": 60,
+    "why_they_differ": "_atr uses ewm (infinite impulse response), so it never converges EXACTLY — 'stable-from age 60' is float-equality convergence, not a hard window",
+    "precedent": "the user previously ruled APPROVE age>=14 -> VALID for rsi_14 and Massive ATR14, accepting the asymptotic nature of Wilder ewm",
+    "WHY_NOT_ASSUMED": "extending that ruling to the vbo_up trigger is an INFERENCE, not a covered case. No tolerance may be invented, so this is surfaced rather than decided.",
+    "options": {
+      "A": "apply the frozen ewm convention -> trigger depth floor 22",
+      "B": "use bit-exact stability -> trigger depth floor 60 (costs ~38 extra non-VALID bars per segment)"
+    }
+  },
+  "PHASE0_STATUS": "NOT COMPLETE — this one convention decision remains"
+}

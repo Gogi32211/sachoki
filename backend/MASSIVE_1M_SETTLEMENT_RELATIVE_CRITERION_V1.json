@@ -1,0 +1,141 @@
+{
+  "artifact": "MASSIVE_1M_SETTLEMENT_RELATIVE_CRITERION_V1",
+  "status": "FROZEN_BEFORE_ANY_MEASUREMENT",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "NONE",
+  "FORWARD_EVIDENCE": "NONE",
+  "role": "SOURCE-DIAGNOSTIC ONLY",
+  "PURPOSE": "determine whether the candidate maturity M = 30 CALENDAR days is sufficiently close to the historical long-lag source regime",
+  "NAMING": {
+    "adopted": "LONG_LAG_REFERENCE",
+    "rejected": "SETTLED_REFERENCE",
+    "why": "a ~900-day vintage is very mature, but 'unquestionably settled' would itself be an unproven claim"
+  },
+  "1_MATURITY_CLOCK": {
+    "unit": "CALENDAR DAYS",
+    "rule": "session D reaches maturity M at D + M calendar days",
+    "session_date_authority": "frozen XNYS / America-New_York session_date",
+    "T30_means": "session_date + 30 calendar days",
+    "why_not_business_days": "there is no basis for tying a vendor revision/settlement process to a trading-session count, and the existing lag census is itself built on calendar-day age",
+    "MONTH_END_TRIGGER": {
+      "admissible_X_sessions": "session_date <= E - M calendar days AND an authoritative maturity vintage exists",
+      "newer_sessions": "NOT YET ADMISSIBLE",
+      "later_backfill": "NEVER rewrites an old NO_LOOK / LOOK record"
+    }
+  },
+  "2_LONG_LAG_REFERENCE_SELECTION": {
+    "deterministic": true,
+    "executed_BEFORE_any_call": true,
+    "eligibility": [
+      "full regular XNYS session",
+      "original archived vintage exists",
+      "original vintage contract-conformant",
+      "no admitted-member truncation",
+      "original ingest lag >= 730 calendar days"
+    ],
+    "selection": "the session whose original ingest lag is CLOSEST to the corpus median lag",
+    "tie_break": "earlier session_date",
+    "corpus_median_lag_days": 914.5,
+    "full_390_minute_sessions": 1244,
+    "eligible_pool": 749,
+    "SELECTED": {
+      "session_date": "2024-02-22",
+      "original_ingest_lag_days": 915,
+      "abs_lag_minus_median": 0.5,
+      "tie_note": "2024-02-23 also sat at |lag-median| = 0.5; the earlier session_date rule chose 2024-02-22",
+      "ingested_at": "2026-08-25T01:21:42Z",
+      "original_payload_sha256": "1bb93b6ab8fce61a80010a1363c43d5722953522d12190e46c08bebfd991ac10",
+      "original_manifest_sha256": "4f8a3012daf7928cc6cdf40ada49770415867b8f3650fad85e396f27e7f05218",
+      "rows": 191876,
+      "observed": 490,
+      "unobserved": 0,
+      "not_yet_regular_way": 13,
+      "truncated_members": 0
+    },
+    "independence": "the selection rule uses only ARCHIVE METADATA and cannot see any revision result"
+  },
+  "3_REVISION_METRIC": {
+    "primary_population": "the frozen 476 cohort — because the replication estimand is the 476",
+    "raw_503": "REPORT-ONLY",
+    "ticker_to_key_mapping": {
+      "construction": "security_key_v1 = SHA-256('CIK=' + 10-digit + '|SCFIGI=' + share_class_figi|__NO_SHARE_CLASS_FIGI__)",
+      "source": "MASSIVE_TICKER_LINEAGE_V6",
+      "VERIFIED": "503 lineage securities map to exactly 476 frozen-cohort keys"
+    },
+    "FROZEN_VECTOR": "R = (minute_key_revision_rate, common_bar_OHLCV_revision_rate, p95_relative_close_revision)",
+    "definitions": {
+      "minute_key_revision_rate": "|minute_keys_old SYMMETRIC-DIFFERENCE minute_keys_new| / |minute_keys_old UNION minute_keys_new|",
+      "common_bar_OHLCV_revision_rate": "(# common minute keys where ANY of o/h/l/c/v changed) / (# common minute keys)",
+      "p95_relative_close_revision": "Hyndman-Fan Type 7 p95 of |close_new - close_old| / |close_old| over finite common bars with close_old != 0"
+    },
+    "EXCLUDED_FROM_THE_METRIC": [
+      "truncated == True",
+      "schema drift",
+      "identity failure",
+      "any contract-level mismatch"
+    ],
+    "why_excluded": "these are HARD FAILURE / SOURCE_REGIME_HOLD conditions, not quantities to be averaged away"
+  },
+  "4_T30_PRIMARY_SESSIONS": {
+    "frozen_now_not_in_september": true,
+    "rule": "of the five sessions with an authoritative vintage at <= T+7, take the three with the SMALLEST original ingest lag, so revision is measured from the earliest available state",
+    "sessions": [
+      {
+        "session": "2026-08-24",
+        "baseline": "T+1 original vintage",
+        "T30_date": "2026-09-23"
+      },
+      {
+        "session": "2026-08-21",
+        "baseline": "T+4 original vintage",
+        "T30_date": "2026-09-20"
+      },
+      {
+        "session": "2026-08-20",
+        "baseline": "T+5 original vintage",
+        "T30_date": "2026-09-19"
+      }
+    ],
+    "2026_08_24_T7_vintage": "the existing T+7 diagnostic vintage is REPORT-ONLY as an intermediate curve point; it does NOT replace the T+1 baseline in the primary comparison",
+    "completion": "all three primary T+30 measurements can only complete after 2026-09-23"
+  },
+  "5_QUALIFICATION_CRITERION": {
+    "name": "REFERENCE_NONEXCEEDANCE",
+    "R_REF": "the frozen 3-vector measured on the LONG_LAG_REFERENCE session",
+    "R_30_MED": "component-wise median of R across the three T+30 sessions",
+    "RULE": "T+30 QUALIFIES iff R_30_MED <= R_REF component-wise on ALL THREE components",
+    "components_all_required": [
+      "minute_key_revision_rate",
+      "common_bar_OHLCV_revision_rate",
+      "p95_relative_close_revision"
+    ],
+    "ON_FAILURE": "T+30 = NOT QUALIFIED. The threshold is NOT raised, the metric is NOT changed, and no session is dropped.",
+    "NO_INVENTED_TOLERANCE": "no 5%, no 2x, no 0.1pp — the corpus supplies its own comparison vector",
+    "PERMITTED_RESULT_WORDING": "T+30 met / did not meet the preregistered long-lag reference nonexceedance criterion",
+    "FORBIDDEN_RESULT_WORDING": "T+30 is proven fully settled",
+    "ACKNOWLEDGED_WEAKNESS": "R_REF rests on ONE long-lag session. That weakness is not removed by this design; it is stated."
+  },
+  "6_AUTHORISED_CALL": {
+    "role": "LONG_LAG_REFERENCE_DIAGNOSTIC",
+    "session": "2024-02-22",
+    "PRIMARY_USE": "FORBIDDEN",
+    "FORWARD_EVIDENCE": false,
+    "original_vintage": "IMMUTABLE",
+    "new_vintage": "append-only identity",
+    "silent_overwrite": "FORBIDDEN",
+    "forward_evidentiary_boundary": "REMAINS CLOSED",
+    "authorised_only_after": "this artifact is sealed"
+  },
+  "DECISION_STATE": {
+    "FIXED_MATURITY_DELAY": "APPROVED IN PRINCIPLE",
+    "CLOCK": "CALENDAR DAYS",
+    "T+30": "CANDIDATE ONLY",
+    "LONG_LAG_REFERENCE": "YES",
+    "REFERENCE_SELECTION": "DETERMINISTIC, DONE",
+    "REVISION_METRIC": "FROZEN 3-COMPONENT VECTOR",
+    "T30_PRIMARY_SESSIONS": "FIXED 3",
+    "QUALIFICATION": "COMPONENT-WISE REFERENCE NONEXCEEDANCE",
+    "ONE_PAID_LONG_LAG_REFETCH": "AUTHORISED"
+  },
+  "GOVERNANCE_EFFECT": "in September there is no remaining freedom over the metric, the tolerance, or the choice of the three sessions. The long-lag refetch supplies the threshold vector BEFORE any T+30 result is read."
+}

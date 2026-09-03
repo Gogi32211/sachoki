@@ -1,0 +1,156 @@
+{
+  "amendment_id": "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_3",
+  "status": "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_3_FROZEN",
+  "task_class": "AVAILABILITY_CLASSIFICATION_ONLY",
+  "purpose": "resolve availability-reason precedence when multiple blocking conditions coexist",
+  "amends": {
+    "artifact": "MASSIVE_T_FEATURE_PORT_SPEC_V1",
+    "digest": "545d293b4f1e4653",
+    "disposition": "FROZEN — not edited"
+  },
+  "bindings": {
+    "MASSIVE_T_FEATURE_PORT_SPEC_V1.json": "545d293b4f1e4653",
+    "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_2.json": "bd9292853ee10f2c",
+    "MASSIVE_T_PORT_CONFORMANCE_DIAGNOSTIC_SCOPE_AMENDMENT_V1.json": "c6358576c5c9411b",
+    "MASSIVE_T_PORT_SMOKE_FEED_CONFORMANCE_V1.json": "21166d63a73181bd",
+    "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1.json": "4c9b15eb8cfed786",
+    "MASSIVE_T_FEATURE_PRODUCTION_V1.json": "e80b2817df28c6fd",
+    "MASSIVE_T_FEATURE_PRODUCTION_VERIFY_V1.json": "e9e26a777fab7e79"
+  },
+  "defect_that_prompted_this": {
+    "found_by": "the independent production verifier, not by review",
+    "symptom": "the two qualified port implementations disagreed on the first bar of a security's history when that bar is also not COMPLETE",
+    "vectorised_said": "CURRENT_BAR_NOT_COMPLETE (its current-bar assignment ran last)",
+    "scalar_said": "UNAVAILABLE_REQUIRED_HISTORY (it tested i == 0 first)",
+    "rows_affected": 189,
+    "of_rows": 15445454,
+    "t_labels_affected": 0,
+    "why_still_a_defect": "availability taxonomy is part of the production contract",
+    "why_smoke_missed_it": "Layer 1 compared only AVAILABLE rows, and fixture P11 never placed an unobserved bar at position 0"
+  },
+  "frozen_rule": {
+    "ordered_steps": [
+      {
+        "step": 1,
+        "condition": "the required predecessor does not exist structurally",
+        "availability": "UNAVAILABLE_REQUIRED_HISTORY",
+        "unavailable_reason": "NO_PRIOR_BAR",
+        "precedence": "takes precedence over current-bar coverage state"
+      },
+      {
+        "step": 2,
+        "condition": "the predecessor exists AND the current bar is not COMPLETE",
+        "availability": "UNAVAILABLE_CURRENT_INPUT",
+        "unavailable_reason": "CURRENT_BAR_NOT_COMPLETE"
+      },
+      {
+        "step": 3,
+        "condition": "the current bar is COMPLETE AND the predecessor is not COMPLETE",
+        "availability": "UNAVAILABLE_REQUIRED_HISTORY",
+        "unavailable_reason": "PRIOR_INPUT_NOT_COMPLETE"
+      },
+      {
+        "step": 4,
+        "condition": "otherwise",
+        "availability": "EVALUABLE",
+        "unavailable_reason": null
+      }
+    ],
+    "none_semantics": "NONE remains EVALUABLE and is never an unavailable state",
+    "explicitly_not": "history always beats current — only the structural startup condition NO_PRIOR_BAR carries precedence",
+    "basis": "the absence of a required operand is logically prior to validating the other operand",
+    "explicitly_not_basis": "matching whichever answer the existing build already emitted, which would be implementation-result-driven semantic resolution"
+  },
+  "no_prior_bar_is_well_defined": {
+    "measured_over_store": true,
+    "securities": 476,
+    "prefix_or_suffix_only_absence": 476,
+    "interior_gaps": 0,
+    "consequence": "'the predecessor does not exist' is exactly the head of each security's series and never an ambiguous mid-history hole"
+  },
+  "required_negative_fixtures": [
+    {
+      "id": "N_START_DOUBLE_FAILURE",
+      "setup": "first row of a security: no prior row AND current is UNOBSERVED_CONTAMINATED",
+      "expected": {
+        "availability": "UNAVAILABLE_REQUIRED_HISTORY",
+        "reason": "NO_PRIOR_BAR"
+      },
+      "forbidden": [
+        "UNAVAILABLE_CURRENT_INPUT",
+        "EVALUABLE_NO_T_STATE"
+      ]
+    },
+    {
+      "id": "N_EXISTING_PRIOR_DOUBLE_FAILURE",
+      "setup": "the prior row EXISTS but is contaminated, and the current row is also contaminated",
+      "expected": {
+        "availability": "UNAVAILABLE_CURRENT_INPUT",
+        "reason": "CURRENT_BAR_NOT_COMPLETE"
+      },
+      "purpose": "prevents this amendment from being widened into a general 'history always wins' rule"
+    }
+  ],
+  "unchanged": [
+    "T predicates",
+    "priority chain",
+    "final T labels",
+    "canonical config",
+    "caller / session-continuous semantics",
+    "research timeframe",
+    "provenance classification"
+  ],
+  "port_hash_consequence": {
+    "old_port_hash": "5ab5390171e0d5d2",
+    "new_port_hash": "TO_BE_COMPUTED",
+    "shortcut_forbidden": true,
+    "required_chain": [
+      "full smoke / capability re-qualification, not only the new fixtures",
+      "Layer 1 final T labels must remain EXACT",
+      "availability census re-run",
+      "acceptability decision rebound / recomputed on the new port hash",
+      "production rebuilt",
+      "independent verification",
+      "only then PASS"
+    ],
+    "fix_scope": "the VECTORISED port is corrected so NO_PRIOR_BAR is explicit; the scalar verifier is aligned to the same frozen rule",
+    "explicitly_not": "fixing only the verifier to match the existing build"
+  },
+  "expected_accounting_effect": {
+    "unavailable_current_input": -189,
+    "unavailable_required_history": 189,
+    "must_remain_unchanged": [
+      "T evaluable",
+      "T fired",
+      "EVALUABLE_NO_T_STATE",
+      "all twelve T state counts",
+      "final T labels",
+      "priority winners"
+    ],
+    "status": "CROSS_CHECK_EXPECTATION_ONLY",
+    "explicitly_not": "a hardcoded production target — the new run must derive it"
+  },
+  "superseded_runs": {
+    "production": {
+      "artifact": "MASSIVE_T_FEATURE_PRODUCTION_V1",
+      "digest": "e80b2817df28c6fd",
+      "disposition": "HISTORICAL — BUILT_BUT_NOT_QUALIFIED, retained"
+    },
+    "verification": {
+      "artifact": "MASSIVE_T_FEATURE_PRODUCTION_VERIFY_V1",
+      "digest": "e9e26a777fab7e79",
+      "disposition": "HISTORICAL HOLD, retained"
+    }
+  },
+  "gates": {
+    "current_production": "HOLD_NOT_QUALIFIED",
+    "new_port_qualification": "REQUIRED",
+    "acceptability_rebind": "REQUIRED",
+    "new_production": "REQUIRED",
+    "z": "HOLD",
+    "y": "HOLD"
+  },
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 15:57 +04"
+}

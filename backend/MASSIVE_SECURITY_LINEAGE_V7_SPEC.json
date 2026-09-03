@@ -1,0 +1,1248 @@
+{
+  "spec_id": "MASSIVE_SECURITY_LINEAGE_V7_SPEC",
+  "status": "MASSIVE_SECURITY_LINEAGE_V7_SPEC_FROZEN",
+  "task_class": "SPECIFICATION_ONLY",
+  "supersedes": {
+    "lineage_semantics_from": "MASSIVE_TICKER_LINEAGE_V6",
+    "v6_retained_as": "IMMUTABLE_PROVENANCE",
+    "v6_overwritten": false
+  },
+  "authoritative_inputs": {
+    "binding": {
+      "MASSIVE_SECURITY_IDENTITY_KEY_AMENDMENT_V1": {
+        "cited": "04e28f9570a39282",
+        "actual": "04e28f9570a39282",
+        "match": true
+      },
+      "MASSIVE_SECURITY_LINEAGE_BOUNDARY_AUDIT_V1": {
+        "cited": "1d3ed5c970ea64c0",
+        "actual": "1d3ed5c970ea64c0",
+        "match": true
+      },
+      "APO_PRIMARY_SECURITY_CONTINUITY_RESOLUTION_V1": {
+        "cited": "b98ab1801c60b84a",
+        "actual": "b98ab1801c60b84a",
+        "match": true
+      },
+      "MASSIVE_LINEAGE_PRIMARY_EVIDENCE_RESOLUTION_V1": {
+        "cited": "9a95328aa59a678e",
+        "actual": "9a95328aa59a678e",
+        "match": true
+      },
+      "MASSIVE_TICKER_LINEAGE_V6": {
+        "cited": "8c961aa3a0c67934",
+        "actual": "8c961aa3a0c67934",
+        "match": true
+      },
+      "SP500_CURRENT_SNAPSHOT_V1": {
+        "cited": "ffabd63a1aad0538",
+        "actual": "ffabd63a1aad0538",
+        "match": true
+      },
+      "MASSIVE_1M_DERIVED_SEMANTICS_AMENDMENT_V1": {
+        "cited": "3eb4e01940b62e92",
+        "actual": "3eb4e01940b62e92",
+        "match": true
+      },
+      "MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1": {
+        "cited": "e8c8a648923e22a3",
+        "actual": "e8c8a648923e22a3",
+        "match": true
+      }
+    },
+    "all_digests_verified": true,
+    "superseded_artifacts": [
+      {
+        "artifact": "MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1",
+        "digest": "2f372b2f0fab898f",
+        "classification": "SUPERSEDED_ARTIFACT_ONLY",
+        "on_disk": "MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1.json.superseded.2f372b2f0fab898f.json",
+        "current_authority": "e8c8a648923e22a3",
+        "binding_rule": "NO downstream contract may bind to 2f372b2f0fab898f as current authority; it exists solely as provenance"
+      }
+    ]
+  },
+  "why_v7_exists": {
+    "defect_classes": {
+      "cik_stable_figi_changes": [
+        "J",
+        "LH"
+      ],
+      "figi_stable_cik_changes": [
+        "BG",
+        "FERG"
+      ],
+      "both_change": [
+        "APO",
+        "BLK",
+        "XOM"
+      ],
+      "instrument_representation_changes_ADRC_to_CS": [
+        "CRH"
+      ],
+      "v6_boundary_is_a_periodic_detection_anchor": [
+        "APO",
+        "J",
+        "CRH",
+        "BG",
+        "LH",
+        "FERG",
+        "BLK",
+        "XOM"
+      ]
+    },
+    "anchor_grid": {
+      "dates": [
+        "2021-08-25",
+        "2021-10-01",
+        "2022-01-03",
+        "2022-04-01",
+        "2022-07-01",
+        "2022-10-03",
+        "2023-01-03",
+        "2023-04-03",
+        "2023-07-03",
+        "2023-10-02",
+        "2024-01-02",
+        "2024-04-01",
+        "2024-07-01",
+        "2024-10-01",
+        "2025-01-02",
+        "2025-04-01",
+        "2025-07-01",
+        "2025-10-01",
+        "2026-01-02",
+        "2026-04-01",
+        "2026-07-01",
+        "2026-08-24"
+      ],
+      "count": 22,
+      "v6_starts_on_anchor_grid": "8/8",
+      "mechanism": "V6 sampled identity on a quarterly grid. A grid that samples the day BEFORE a change cannot see the change.",
+      "worked_examples": [
+        {
+          "security": "BLK",
+          "legal": "2024-10-01 (itself an anchor)",
+          "figi_switch": "2024-10-02",
+          "missed_by": "1 day",
+          "next_anchor": "2025-01-02",
+          "sessions_lost": 64
+        },
+        {
+          "security": "XOM",
+          "legal": "2026-07-01 (itself an anchor)",
+          "figi_switch": "2026-07-02",
+          "missed_by": "1 day",
+          "next_anchor": "2026-08-24 (window end)",
+          "sessions_lost": 37
+        }
+      ],
+      "conclusion": "this is not fixable by adding anchors; coverage must not rest on sampled identity at all"
+    },
+    "counter_evidence_that_v6_model_was_capable": {
+      "observation": "the four when-issued securities have regular-way starts OFF the anchor grid (2023-01-05, 2024-04-02, 2024-04-02, 2023-10-03)",
+      "because": "WI detection was STRUCTURAL, not sampled",
+      "implication": "the anchor grid failed the eight, not the lineage model"
+    }
+  },
+  "core_model": {
+    "master_entity": "security_key_v1",
+    "constant_for": "one frozen current research security",
+    "children": [
+      "research_coverage_intervals",
+      "registrant_cik_intervals",
+      "share_class_figi_intervals",
+      "composite_figi_intervals",
+      "ticker_intervals",
+      "instrument_type_intervals",
+      "vendor_reference_intervals",
+      "vendor_aggregate_access_intervals",
+      "structural_transition_events",
+      "legal_corporate_events",
+      "economic_composition_events"
+    ],
+    "invariant": "no child attribute may redefine the parent identity"
+  },
+  "security_key_discipline": {
+    "uses": "the already frozen security_key_v1 from MASSIVE_SECURITY_IDENTITY_KEY_AMENDMENT_V1 (04e28f9570a39282)",
+    "recipe_unchanged": true,
+    "historical_keys_recomputed": false,
+    "rule": "old and new CIK may both attach to the SAME security_key_v1; old and new FIGI likewise. V7 adds time-varying historical aliases BENEATH the key; it does not change the key recipe.",
+    "forbidden": "recomputing historical keys from historical CIK/FIGI"
+  },
+  "logical_datasets": [
+    {
+      "name": "research_securities",
+      "grain": "one row per security_key_v1",
+      "rows": 503,
+      "primary_key": "security_key_v1",
+      "fields": [
+        "security_key_v1",
+        "identity_basis",
+        "current_frozen_ticker",
+        "current_frozen_cik",
+        "current_snapshot_identity",
+        "continuity_classification",
+        "known_structural_caveats",
+        "v6_status",
+        "v6_canonical_status"
+      ],
+      "forbidden_keys": [
+        "ticker",
+        "cik"
+      ]
+    },
+    {
+      "name": "research_coverage_intervals",
+      "grain": "security_key_v1 x coverage interval",
+      "determines": "whether a security-session is EXPECTED in the historical research coverage domain",
+      "not_determined_by": [
+        "current CIK",
+        "current FIGI",
+        "type == \"CS\"",
+        "vendor response availability",
+        "supplemental payload availability"
+      ]
+    },
+    {
+      "name": "registrant_cik_intervals",
+      "grain": "security_key_v1 x interval"
+    },
+    {
+      "name": "share_class_figi_intervals",
+      "grain": "security_key_v1 x interval"
+    },
+    {
+      "name": "composite_figi_intervals",
+      "grain": "security_key_v1 x interval"
+    },
+    {
+      "name": "ticker_intervals",
+      "grain": "security_key_v1 x interval",
+      "note": "carries ticker-at-time, including WHEN_ISSUED lines flagged as such"
+    },
+    {
+      "name": "instrument_type_intervals",
+      "grain": "security_key_v1 x interval"
+    },
+    {
+      "name": "vendor_reference_intervals",
+      "grain": "security_key_v1 x interval",
+      "vintage_required": true
+    },
+    {
+      "name": "vendor_aggregate_access_intervals",
+      "grain": "security_key_v1 x interval",
+      "vintage_required": true
+    },
+    {
+      "name": "structural_transition_events",
+      "grain": "security_key_v1 x event",
+      "types": [
+        "MATERIAL_ECONOMIC_COMPOSITION_TRANSITION",
+        "INSTRUMENT_REPRESENTATION_TRANSITION",
+        "REGISTRANT_REORGANISATION",
+        "REDOMICILIATION"
+      ]
+    },
+    {
+      "name": "lineage_evidence_links",
+      "grain": "any row x evidence reference",
+      "fields": [
+        "evidence_source",
+        "evidence_artifact_digest",
+        "document_sha256",
+        "precision",
+        "vintage"
+      ]
+    }
+  ],
+  "no_flat_row": "dimensions whose boundaries differ are NOT forced into one flat row",
+  "interval_convention": {
+    "frozen": "[start_session, end_session_exclusive)",
+    "unit": "XNYS session",
+    "applies_to": "every interval dataset without exception",
+    "mixing_forbidden": "inclusive/exclusive semantics must never differ between datasets",
+    "required_fields_per_interval": [
+      "security_key_v1",
+      "attribute_value",
+      "start_boundary",
+      "end_boundary",
+      "boundary_precision",
+      "evidence_source",
+      "evidence_artifact_digest"
+    ],
+    "ordering": "non-overlapping and ordered within (security_key_v1, attribute)"
+  },
+  "research_coverage_semantics": {
+    "window": {
+      "SOURCE_HISTORY_START": "2021-08-25",
+      "SOURCE_HISTORY_END": "2026-08-24"
+    },
+    "eight_case_coverage": "2021-08-25 .. 2026-08-24 for all eight, subject only to an actual exchange/session exclusion supported by the boundary audit (none was found)",
+    "entitlement_rule": "the expired 2021-08-25 supplemental request does NOT change eligibility. ENTITLEMENT_UNAVAILABLE != NOT_YET_REGULAR_WAY.",
+    "separation": {
+      "research_coverage_eligibility": "what SHOULD exist",
+      "vendor_source_access": "what the vendor SERVES",
+      "example": {
+        "session": "2021-08-25",
+        "securities": 8,
+        "research_coverage": "EXPECTED",
+        "supplemental_retrieval": "ENTITLEMENT_UNAVAILABLE",
+        "result": "expected coverage survives; observation is unavailable"
+      }
+    }
+  },
+  "v6_preservation_for_unaffected": {
+    "scope": "the 495 securities outside the known repair set",
+    "rule": "inherit V6 research-coverage semantics unless V7 conformance detects a concrete contradiction",
+    "silent_broadening_forbidden": true,
+    "silent_shrinking_forbidden": true,
+    "new_defect_rule": "a NEW candidate defect outside the eight STOPS canonical V7 finalization and creates a separate evidence packet; it is NEVER repaired on the fly"
+  },
+  "eight_case_repair_rules": [
+    {
+      "security_key_v1": "d9c8cefaa04dbb32cdcc729f63d0f98a53df59e82aadc1beb654d8d0393d5e29",
+      "current_ticker": "APO",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_original_start": "2022-01-03",
+      "v6_original_end": "2026-08-24",
+      "v6_start_on_anchor_grid": true,
+      "v6_not_yet_regular_way_before": "2022-01-03",
+      "v7_research_coverage_start": "2021-08-25",
+      "v7_research_coverage_end": "2026-08-24",
+      "v7_derivation": "constructed from audited security-level continuity, NOT by moving the V6 start backward",
+      "v6_displacement_sessions": {
+        "cik": 0,
+        "share_class_figi": 0,
+        "composite_figi": 0,
+        "legal_effective": 0
+      },
+      "recovered_sessions": 89,
+      "continuity_classification": "SECURITY_CONTINUITY_CONFIRMED",
+      "attribute_boundaries": {
+        "cik": {
+          "value_before": "0001411494",
+          "value_after": "0001858681",
+          "last_before": "2021-12-31",
+          "first_after": "2022-01-03",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "share_class_figi": {
+          "value_before": "BBG001T183G1",
+          "value_after": "BBG00ZNLTFL2",
+          "last_before": "2021-12-31",
+          "first_after": "2022-01-03",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "composite_figi": {
+          "value_before": "BBG006T7HJF3",
+          "value_after": "BBG00ZNLTFK3",
+          "last_before": "2021-12-31",
+          "first_after": "2022-01-03",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        }
+      },
+      "attributes_without_transition": [
+        "ticker",
+        "type",
+        "name"
+      ],
+      "legal_event": {
+        "effective_date": "2022-01-01",
+        "effective_time": "01:00 ET (AAM) / 01:01 ET (AHL)",
+        "precision": "EXACT_DATE_AND_TIME",
+        "first_successor_session_stated": "2022-01-03",
+        "session_precision": "EXACT_XNYS_SESSION",
+        "instrument": "8-K12B",
+        "filed": "2022-01-03",
+        "accession": "0001193125-22-000274",
+        "sha256": "7cbaf800866e0819",
+        "document": "APO_8kclose_20220103_7cbaf800.htm",
+        "quotes": [
+          "On January 1, 2022 (the “Merger Effective Date”), Apollo Asset Management, Inc. (f/k/a Apollo Global Management, Inc.) ... and Athene Holding Ltd ... completed the previously announced merger transactions",
+          "Effective as of 1:00 a.m. Eastern Time on the Merger Effective Date (the “AAM Merger Effective Time”)",
+          "This Current Report ... establishes AGM as the successor issuer to AAM and AHL pursuant to Rule 12g-3(c)",
+          "As of the open of trading on January 3, 2022, AGM Shares will trade on the NYSE under the ticker symbol “APO.”",
+          "each issued and outstanding share of Class A common stock ... of AAM ... was converted automatically into the right to receive one AGM Share"
+        ],
+        "naming_hazard": "the 424B3 calls the PREDECESSOR “AGM”; the 8-K12B calls the SUCCESSOR “AGM” and renames the predecessor “AAM” (Apollo Asset Management). Same economics, inverted labels — recorded so a later reader does not mis-bind the two documents.",
+        "supersedes_note": "this 8-K12B is retrospective and definitive; the 424B3 was prospective. The 1:1 conversion is unchanged between them."
+      },
+      "economic_composition_transition": {
+        "present": true,
+        "security_continuity": true,
+        "economic_composition_continuity": false,
+        "boundary": "2022-01-01 legal / first successor session 2022-01-03",
+        "precision": "EXACT_XNYS_SESSION",
+        "detail": "successor HoldCo combines Apollo (AAM) and Athene (AHL); AHL shareholders received the same successor stock at 1.149. The listed-security lineage is 1:1 and continuous; the issuer's economic composition is not.",
+        "must_not": "be represented as unchanged composition merely because the security lineage is continuous"
+      },
+      "gap_sessions": 0
+    },
+    {
+      "security_key_v1": "b0d5adffa22717ca1f6d426e9ef34343a1ed10ae4919ee0c21e37297545de2e4",
+      "current_ticker": "J",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_original_start": "2022-10-03",
+      "v6_original_end": "2026-08-24",
+      "v6_start_on_anchor_grid": true,
+      "v6_not_yet_regular_way_before": "2022-10-03",
+      "v7_research_coverage_start": "2021-08-25",
+      "v7_research_coverage_end": "2026-08-24",
+      "v7_derivation": "constructed from audited security-level continuity, NOT by moving the V6 start backward",
+      "v6_displacement_sessions": {
+        "share_class_figi": 24,
+        "composite_figi": 24,
+        "name": 24
+      },
+      "recovered_sessions": 277,
+      "continuity_classification": "CONTINUITY_CONFIRMED",
+      "attribute_boundaries": {
+        "share_class_figi": {
+          "value_before": "BBG001S5SGC6",
+          "value_after": "BBG019C1BQS3",
+          "last_before": "2022-08-26",
+          "first_after": "2022-08-29",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "composite_figi": {
+          "value_before": "BBG000BMFFQ0",
+          "value_after": "BBG019C1BQR4",
+          "last_before": "2022-08-26",
+          "first_after": "2022-08-29",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "name": {
+          "value_before": "Jacobs Engineering Group",
+          "value_after": "Jacobs Solutions Inc.",
+          "last_before": "2022-08-26",
+          "first_after": "2022-08-29",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        }
+      },
+      "attributes_without_transition": [
+        "cik",
+        "ticker",
+        "type"
+      ],
+      "legal_event": {
+        "effective_date": null,
+        "precision": "NOT_AUDITED",
+        "why": "continuity for J/BG/LH/FERG was established via a stable identifier bridge, not via filings. The gate scopes these four to identifier and vendor boundaries only, so no legal date was sought."
+      },
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "gap_sessions": 0
+    },
+    {
+      "security_key_v1": "a45d3c9e35ec52dba2e6885f9653e8b83e9fba31d2a489aada720147a6e92c80",
+      "current_ticker": "CRH",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_original_start": "2023-10-02",
+      "v6_original_end": "2026-08-24",
+      "v6_start_on_anchor_grid": true,
+      "v6_not_yet_regular_way_before": "2023-10-02",
+      "v7_research_coverage_start": "2021-08-25",
+      "v7_research_coverage_end": "2026-08-24",
+      "v7_derivation": "constructed from audited security-level continuity, NOT by moving the V6 start backward",
+      "v6_displacement_sessions": {
+        "share_class_figi": 5,
+        "composite_figi": 5,
+        "type": 5,
+        "legal_effective": 5
+      },
+      "recovered_sessions": 527,
+      "continuity_classification": "CONTINUITY_CONFIRMED_WITH_INSTRUMENT_TRANSITION",
+      "attribute_boundaries": {
+        "share_class_figi": {
+          "value_before": "BBG001S5VPG8",
+          "value_after": null,
+          "last_before": "2023-09-22",
+          "first_after": "2023-09-25",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "composite_figi": {
+          "value_before": "BBG000BBLR09",
+          "value_after": null,
+          "last_before": "2023-09-22",
+          "first_after": "2023-09-25",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "type": {
+          "value_before": "ADRC",
+          "value_after": "CS",
+          "last_before": "2023-09-22",
+          "first_after": "2023-09-25",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        }
+      },
+      "attributes_without_transition": [
+        "cik",
+        "ticker",
+        "name"
+      ],
+      "legal_event": {
+        "effective_date": "2023-09-25",
+        "effective_time": null,
+        "precision": "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED",
+        "first_successor_session_stated": "2023-09-25",
+        "session_precision": "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED",
+        "instrument": "424B7",
+        "filed": "2023-09-20",
+        "accession": "0001193125-23-238082",
+        "sha256": "68206e0ac8755f0d",
+        "document": "CRH_424b7_68206e0a.htm",
+        "quotes": [
+          "Our American Depositary Shares, each representing one Ordinary Share (the “ADS”) are listed on the New York Stock Exchange (“NYSE”) under the symbol “CRH”.",
+          "On September 25, 2023, the ADSs will be cancelled and delisted from the NYSE and our Ordinary Shares will become listed on the NYSE under the symbol “CRH”."
+        ],
+        "caveat": "stated PROSPECTIVELY in a filing dated five days earlier. It is a filed statement of intent, not a confirmation that it occurred on that date. Precision is deliberately NOT upgraded to EXACT_XNYS_SESSION."
+      },
+      "economic_composition_transition": {
+        "present": true,
+        "security_continuity": true,
+        "economic_composition_continuity": true,
+        "instrument_representation_change": "ADRC -> CS",
+        "detail": "same research security, different instrument representation. ADR history must NOT be retrospectively relabelled CS.",
+        "precision": "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED"
+      },
+      "gap_sessions": 0
+    },
+    {
+      "security_key_v1": "efdc8c73e47572a689dbc12da00e9bf1fc8041531752a96bb12c6fde9349b635",
+      "current_ticker": "BG",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_original_start": "2024-01-02",
+      "v6_original_end": "2026-08-24",
+      "v6_start_on_anchor_grid": true,
+      "v6_not_yet_regular_way_before": "2024-01-02",
+      "v7_research_coverage_start": "2021-08-25",
+      "v7_research_coverage_end": "2026-08-24",
+      "v7_derivation": "constructed from audited security-level continuity, NOT by moving the V6 start backward",
+      "v6_displacement_sessions": {
+        "cik": 36,
+        "name": 41
+      },
+      "recovered_sessions": 590,
+      "continuity_classification": "CONTINUITY_CONFIRMED",
+      "attribute_boundaries": {
+        "cik": {
+          "value_before": "0001144519",
+          "value_after": "0001996862",
+          "last_before": "2023-11-07",
+          "first_after": "2023-11-08",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "name": {
+          "value_before": "Bunge Limited",
+          "value_after": "Bunge Global SA",
+          "last_before": "2023-10-31",
+          "first_after": "2023-11-01",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        }
+      },
+      "attributes_without_transition": [
+        "share_class_figi",
+        "composite_figi",
+        "ticker",
+        "type"
+      ],
+      "legal_event": {
+        "effective_date": null,
+        "precision": "NOT_AUDITED",
+        "why": "continuity for J/BG/LH/FERG was established via a stable identifier bridge, not via filings. The gate scopes these four to identifier and vendor boundaries only, so no legal date was sought."
+      },
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "gap_sessions": 0
+    },
+    {
+      "security_key_v1": "d6e3f76caa9241a4332830299b5758bcd1649ff2191434009289a2972b58f5c9",
+      "current_ticker": "LH",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_original_start": "2024-07-01",
+      "v6_original_end": "2026-08-24",
+      "v6_start_on_anchor_grid": true,
+      "v6_not_yet_regular_way_before": "2024-07-01",
+      "v7_research_coverage_start": "2021-08-25",
+      "v7_research_coverage_end": "2026-08-24",
+      "v7_derivation": "constructed from audited security-level continuity, NOT by moving the V6 start backward",
+      "v6_displacement_sessions": {
+        "share_class_figi": 28,
+        "composite_figi": 28,
+        "name": 28
+      },
+      "recovered_sessions": 714,
+      "continuity_classification": "CONTINUITY_CONFIRMED",
+      "attribute_boundaries": {
+        "share_class_figi": {
+          "value_before": "BBG001S7RX54",
+          "value_after": "BBG01MMT6PQ2",
+          "last_before": "2024-05-17",
+          "first_after": "2024-05-20",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "composite_figi": {
+          "value_before": "BBG000D9DMK0",
+          "value_after": "BBG01MMT6PL7",
+          "last_before": "2024-05-17",
+          "first_after": "2024-05-20",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "name": {
+          "value_before": "Laboratory Corporation of America Holdings",
+          "value_after": "Labcorp Holdings Inc.",
+          "last_before": "2024-05-17",
+          "first_after": "2024-05-20",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        }
+      },
+      "attributes_without_transition": [
+        "cik",
+        "ticker",
+        "type"
+      ],
+      "legal_event": {
+        "effective_date": null,
+        "precision": "NOT_AUDITED",
+        "why": "continuity for J/BG/LH/FERG was established via a stable identifier bridge, not via filings. The gate scopes these four to identifier and vendor boundaries only, so no legal date was sought."
+      },
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "gap_sessions": 0
+    },
+    {
+      "security_key_v1": "d177c46fe7e7ec9fa9556a4b2caedf74a2703ff596d1b4b91b874fd5de56d19c",
+      "current_ticker": "FERG",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_original_start": "2024-10-01",
+      "v6_original_end": "2026-08-24",
+      "v6_start_on_anchor_grid": true,
+      "v6_not_yet_regular_way_before": "2024-10-01",
+      "v7_research_coverage_start": "2021-08-25",
+      "v7_research_coverage_end": "2026-08-24",
+      "v7_derivation": "constructed from audited security-level continuity, NOT by moving the V6 start backward",
+      "v6_displacement_sessions": {
+        "cik": 40,
+        "share_class_figi": 42,
+        "composite_figi": 42,
+        "name": 42
+      },
+      "recovered_sessions": 778,
+      "continuity_classification": "CONTINUITY_CONFIRMED",
+      "attribute_boundaries": {
+        "cik": {
+          "value_before": "0001832433",
+          "value_after": "0002011641",
+          "last_before": "2024-08-02",
+          "first_after": "2024-08-05",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "share_class_figi": {
+          "value_before": null,
+          "value_after": "BBG01NMRD786",
+          "last_before": "2024-07-31",
+          "first_after": "2024-08-01",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "composite_figi": {
+          "value_before": null,
+          "value_after": "BBG01NMRD768",
+          "last_before": "2024-07-31",
+          "first_after": "2024-08-01",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "name": {
+          "value_before": "Ferguson plc",
+          "value_after": "Ferguson Enterprises Inc.",
+          "last_before": "2024-07-31",
+          "first_after": "2024-08-01",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        }
+      },
+      "attributes_without_transition": [
+        "ticker",
+        "type"
+      ],
+      "legal_event": {
+        "effective_date": null,
+        "precision": "NOT_AUDITED",
+        "why": "continuity for J/BG/LH/FERG was established via a stable identifier bridge, not via filings. The gate scopes these four to identifier and vendor boundaries only, so no legal date was sought."
+      },
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "gap_sessions": 0
+    },
+    {
+      "security_key_v1": "ec4b4f0f2cac042411785183b5508cfe7b996e7d8f619c6b24cd7ecba9bc55be",
+      "current_ticker": "BLK",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_original_start": "2025-01-02",
+      "v6_original_end": "2026-08-24",
+      "v6_start_on_anchor_grid": true,
+      "v6_not_yet_regular_way_before": "2025-01-02",
+      "v7_research_coverage_start": "2021-08-25",
+      "v7_research_coverage_end": "2026-08-24",
+      "v7_derivation": "constructed from audited security-level continuity, NOT by moving the V6 start backward",
+      "v6_displacement_sessions": {
+        "cik": 62,
+        "share_class_figi": 63,
+        "composite_figi": 63,
+        "legal_effective": 64
+      },
+      "recovered_sessions": 842,
+      "continuity_classification": "SECURITY_CONTINUITY_CONFIRMED",
+      "attribute_boundaries": {
+        "cik": {
+          "value_before": "0001364742",
+          "value_after": "0002012383",
+          "last_before": "2024-10-02",
+          "first_after": "2024-10-03",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "share_class_figi": {
+          "value_before": "BBG001SDBP55",
+          "value_after": "BBG01PSW2WR0",
+          "last_before": "2024-10-01",
+          "first_after": "2024-10-02",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "composite_figi": {
+          "value_before": "BBG000C2PW58",
+          "value_after": "BBG01PSW2WN4",
+          "last_before": "2024-10-01",
+          "first_after": "2024-10-02",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        }
+      },
+      "attributes_without_transition": [
+        "ticker",
+        "type",
+        "name"
+      ],
+      "legal_event": {
+        "effective_date": "2024-10-01",
+        "effective_time": null,
+        "precision": "CALENDAR_DATE_ONLY",
+        "first_successor_session_stated": null,
+        "session_precision": "NOT_STATED_IN_FILING",
+        "instrument": "8-K",
+        "filed": "2024-10-01",
+        "accession": "0001193125-24-229654",
+        "sha256": "ec81adf30f81a1f0",
+        "document": "BLK_8k_1001_ec81adf3.htm",
+        "quotes": [
+          "in connection with the completion on October 1, 2024 (the “Closing Date”) of the previously announced transactions contemplated by that certain Transaction Agreement, dated as of January 12, 2024",
+          "Amended and Restated Certificate of Incorporation of BlackRock Finance, Inc., effective as of October 1, 2024"
+        ]
+      },
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "gap_sessions": 0
+    },
+    {
+      "security_key_v1": "c6fd905a512fe41410a41637b0dcdd661540868a182e8ca62e3fc79a14f909f8",
+      "current_ticker": "XOM",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_original_start": "2026-08-24",
+      "v6_original_end": "2026-08-24",
+      "v6_start_on_anchor_grid": true,
+      "v6_not_yet_regular_way_before": "2026-08-24",
+      "v7_research_coverage_start": "2021-08-25",
+      "v7_research_coverage_end": "2026-08-24",
+      "v7_derivation": "constructed from audited security-level continuity, NOT by moving the V6 start backward",
+      "v6_displacement_sessions": {
+        "cik": 33,
+        "share_class_figi": 36,
+        "composite_figi": 36,
+        "name": 36,
+        "legal_effective": 37
+      },
+      "recovered_sessions": 1252,
+      "continuity_classification": "SECURITY_CONTINUITY_CONFIRMED",
+      "attribute_boundaries": {
+        "cik": {
+          "value_before": "0000034088",
+          "value_after": "0002115436",
+          "last_before": "2026-07-07",
+          "first_after": "2026-07-08",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "share_class_figi": {
+          "value_before": "BBG001S69V32",
+          "value_after": "BBG023CY9NL0",
+          "last_before": "2026-07-01",
+          "first_after": "2026-07-02",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "composite_figi": {
+          "value_before": "BBG000GZQ728",
+          "value_after": "BBG023CY9MM1",
+          "last_before": "2026-07-01",
+          "first_after": "2026-07-02",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        },
+        "name": {
+          "value_before": "Exxon Mobil Corporation",
+          "value_after": "ExxonMobil Holdings Corporation",
+          "last_before": "2026-07-01",
+          "first_after": "2026-07-02",
+          "precision": "EXACT_XNYS_SESSION_PAIR"
+        }
+      },
+      "attributes_without_transition": [
+        "ticker",
+        "type"
+      ],
+      "legal_event": {
+        "effective_date": "2026-07-01",
+        "effective_time": null,
+        "precision": "CALENDAR_DATE_ONLY",
+        "first_successor_session_stated": null,
+        "session_precision": "NOT_STATED_IN_FILING",
+        "instrument": "S-8 POS",
+        "filed": "2026-07-01",
+        "accession": "0001193125-26-292536",
+        "sha256": "a10664dec585d21f",
+        "document": "XOM_s8pos_a10664de.htm",
+        "quotes": [
+          "This Redomiciliation was effectuated on July 1, 2026 (the “Effective Date”) by merging Ensign LLC, a Texas limited liability company, with and into the Company",
+          "of the Company becoming shareholders of the Registrant. The Registrant is deemed to be the successor registrant of the Company’s common stock pursuant to Rule 12g-3(a)"
+        ],
+        "nature": "redomiciliation New Jersey -> Texas, not a business combination"
+      },
+      "economic_composition_transition": {
+        "present": false,
+        "security_continuity": true,
+        "economic_composition_continuity": true
+      },
+      "gap_sessions": 0
+    }
+  ],
+  "legal_vs_trading": {
+    "rule": "legal/corporate timestamps are NEVER coerced to XNYS sessions; they are stored in their own dataset",
+    "established_examples": [
+      {
+        "security": "APO",
+        "legal": "2022-01-01 01:00 ET",
+        "first_successor_session": "2022-01-03",
+        "figi": "2022-01-03",
+        "cik": "2022-01-03"
+      },
+      {
+        "security": "BLK",
+        "legal": "2024-10-01",
+        "figi": "2024-10-02",
+        "cik": "2024-10-03",
+        "v6_anchor": "2025-01-02",
+        "distinct_dates": 4
+      },
+      {
+        "security": "XOM",
+        "legal": "2026-07-01",
+        "figi": "2026-07-02",
+        "cik": "2026-07-08",
+        "v6_anchor": "2026-08-24",
+        "distinct_dates": 4
+      }
+    ],
+    "binding": "these are different facts and must not be collapsed"
+  },
+  "apo_structural_break": {
+    "event_type": "MATERIAL_ECONOMIC_COMPOSITION_TRANSITION",
+    "security_continuity": true,
+    "economic_composition_continuity": false,
+    "legal_transition": "2022-01-01 01:00 ET (AAM) / 01:01 ET (AHL)",
+    "first_successor_trading_session": "2022-01-03",
+    "session_precision": "EXACT_XNYS_SESSION",
+    "primary_evidence": {
+      "form": "8-K12B",
+      "filed": "2022-01-03",
+      "accession": "0001193125-22-000274",
+      "sha256": "7cbaf800866e0819"
+    },
+    "forbidden_encoding": "\"same security\" encoded as \"same economic object with no structural break\"",
+    "must_survive_downstream": true,
+    "v7_makes_no_inferential_decision": "a later research contract decides whether and how analyses may cross this boundary"
+  },
+  "crh_instrument_transition": {
+    "event_type": "INSTRUMENT_REPRESENTATION_TRANSITION",
+    "instrument_type": "ADRC -> CS",
+    "research_security_continuity": true,
+    "instrument_representation_continuity": false,
+    "ads_ratio": "1:1 — each ADS represented one Ordinary Share",
+    "documented": "ADSs cancelled and delisted from the NYSE; Ordinary Shares listed on the NYSE under the same symbol",
+    "boundary": "2023-09-25",
+    "legal_precision": "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED",
+    "vendor_corroboration": "the unfiltered reference endpoint switches type on exactly 2023-09-25; corroborative, and NOT grounds to upgrade the legal precision",
+    "forbidden": "relabelling historical ADRC observations as CS",
+    "bridge_note": "the deterministic 1:1 economic bridge supports research-security continuity but does not erase instrument-type history"
+  },
+  "not_audited_legal_dates": {
+    "securities": [
+      "J",
+      "BG",
+      "LH",
+      "FERG"
+    ],
+    "value": "legal_event_date = NOT_AUDITED",
+    "reason": "the boundary audit deliberately scoped these four to identifier and vendor boundaries only",
+    "may_not_be_populated_from": [
+      "FIGI change",
+      "CIK change",
+      "reference change",
+      "V6 anchor",
+      "ticker continuity"
+    ],
+    "coverage_still_valid": "the security-level coverage boundary is unambiguous (single monotone transition, gap_sessions = 0)",
+    "forbidden": "converting NOT_AUDITED into NULL-without-reason"
+  },
+  "ticker_intervals_preservation": {
+    "rule": "V7 must preserve V6's confirmed ticker-at-time lineage while repairing registrant/FIGI/type truncation",
+    "v6_renamed_in_window_canonical": 18,
+    "v6_renamed_structural": 22,
+    "examples": [
+      [
+        "BLL",
+        "BALL"
+      ],
+      [
+        "BK",
+        "BNY"
+      ],
+      [
+        "IIVI",
+        "COHR"
+      ],
+      [
+        "ABC",
+        "COR"
+      ],
+      [
+        "FLT",
+        "CPAY"
+      ],
+      [
+        "PEAK",
+        "DOC"
+      ],
+      [
+        "SATS",
+        "ECHO"
+      ],
+      [
+        "RE",
+        "EG"
+      ],
+      [
+        "ANTM",
+        "ELV"
+      ],
+      [
+        "CHK",
+        "EXE"
+      ],
+      [
+        "FISV",
+        "FISV"
+      ],
+      [
+        "NLOK",
+        "GEN"
+      ],
+      [
+        "FB",
+        "META"
+      ],
+      [
+        "MMC",
+        "MRSH"
+      ],
+      [
+        "PKI",
+        "RVTY"
+      ],
+      [
+        "EQR",
+        "VMRK"
+      ],
+      [
+        "WLTW",
+        "WTW"
+      ],
+      [
+        "SQ",
+        "XYZ"
+      ]
+    ],
+    "eight_cases_ticker_unchanged": true,
+    "warning": "the eight repaired securities happen to have unchanged ticker strings. That fact must NOT become a general rule."
+  },
+  "when_issued_policy": {
+    "preserved_from": "MASSIVE_TICKER_LINEAGE_V6",
+    "intervals": [
+      {
+        "ticker": "GEHC",
+        "when_issued": "GEHCV",
+        "dates": [
+          "2023-01-03",
+          "2023-01-04"
+        ]
+      },
+      {
+        "ticker": "GEV",
+        "when_issued": "GEVw",
+        "dates": [
+          "2024-04-01",
+          "2024-04-01"
+        ]
+      },
+      {
+        "ticker": "SOLV",
+        "when_issued": "SOLVw",
+        "dates": [
+          "2024-04-01",
+          "2024-04-01"
+        ]
+      },
+      {
+        "ticker": "VLTO",
+        "when_issued": "VLTOw",
+        "dates": [
+          "2023-10-02",
+          "2023-10-02"
+        ]
+      }
+    ],
+    "recorded_as": "lineage/source attributes",
+    "excluded_from": "canonical REGULAR_WAY research coverage",
+    "binding": "the V7 security-level continuity model must NOT absorb WI intervals into expected regular-way coverage",
+    "applied_before_availability": true
+  },
+  "dual_status_semantics": {
+    "discovered_in": "V6 while preparing this spec",
+    "fields": {
+      "status": "structural — a WI line counts as a ticker interval",
+      "canonical_status": "WI excluded"
+    },
+    "distributions": {
+      "status": {
+        "SINGLE_TICKER_WHOLE_WINDOW": 462,
+        "LISTED_LATER": 19,
+        "RENAMED_IN_WINDOW": 22
+      },
+      "canonical_status": {
+        "SINGLE_TICKER_WHOLE_WINDOW": 462,
+        "LISTED_LATER": 23,
+        "RENAMED_IN_WINDOW": 18
+      }
+    },
+    "divergent_rows": [
+      "GEHC",
+      "GEV",
+      "SOLV",
+      "VLTO"
+    ],
+    "divergent_count": 4,
+    "equals_when_issued_set": true,
+    "v6_summary_block_reports": "canonical_status",
+    "classification": "KNOWN_NON_ANOMALY",
+    "pre_registered_because": "an anomaly audit that sees 19 != 23 and 'repairs' it would destroy real semantics",
+    "v7_requirement": "both fields are carried; they are NOT flattened into one"
+  },
+  "supplemental_quarantine_policy": {
+    "artifact": "MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1",
+    "digest": "e8c8a648923e22a3",
+    "may_reference": "as evidence that historical source responses were retrievable",
+    "may_not": [
+      "promote payloads to canonical raw evidence",
+      "authorize derived consumption"
+    ],
+    "supplemental_data_status": "QUARANTINED_DIFFERENT_RETRIEVAL_VINTAGE",
+    "canonical_use_authorised": false,
+    "decided_by": "a separate gate",
+    "known_facts": {
+      "attempted": 5077,
+      "payloads_with_bars": 5069,
+      "empty_responses": 0,
+      "entitlement_unavailable": 8,
+      "entitlement_session_per_security": "2021-08-25",
+      "sha256_recorded_at_creation": "5069/5069",
+      "independent_rehash_sample": 40,
+      "mismatches": 0,
+      "role": "provenance/integrity facts — they do NOT promote the data"
+    }
+  },
+  "vendor_access_vintage_discipline": {
+    "audit_found": "no historical vendor-access transition across the 5,069 previously truncated sessions",
+    "forbidden_restatement": "\"vendor behavior was identical at original ingest time\"",
+    "because": "supplemental responses are LATER-VINTAGE evidence",
+    "v7_may_record": "currently observed aggregate access across interval, WITH retrieval vintage",
+    "original_ingest_provenance_rewritten": false
+  },
+  "boundary_precision": {
+    "source": "MASSIVE_SECURITY_LINEAGE_BOUNDARY_AUDIT_V1 (1d3ed5c970ea64c0)",
+    "audit_result": {
+      "exact_boundaries": 25,
+      "bounded_boundaries": 0,
+      "unresolved_boundaries": 0
+    },
+    "per_fact_rule": "precision is a property of each FACT, not of the security",
+    "forbidden_upgrades": [
+      "NOT_AUDITED legal dates upgraded because a vendor boundary is exact",
+      "prospective filing dates upgraded because a vendor boundary is exact"
+    ],
+    "vocabulary": [
+      "EXACT_XNYS_SESSION",
+      "EXACT_XNYS_SESSION_PAIR",
+      "BETWEEN_TWO_XNYS_SESSIONS",
+      "CALENDAR_DATE_ONLY",
+      "CALENDAR_DATE_ONLY_PROSPECTIVELY_STATED",
+      "BOUNDED_DATE_INTERVAL",
+      "NO_TRANSITION_IN_WINDOW",
+      "UNRESOLVED_NON_MONOTONE",
+      "NOT_AUDITED"
+    ]
+  },
+  "gap_overlap_validation": {
+    "per_coverage_interval": [
+      "no unexplained gap",
+      "no conflicting overlap"
+    ],
+    "eight_expected_gap_sessions": 0,
+    "measured_gap_sessions": {
+      "APO": 0,
+      "J": 0,
+      "CRH": 0,
+      "BG": 0,
+      "LH": 0,
+      "FERG": 0,
+      "BLK": 0,
+      "XOM": 0
+    },
+    "attribute_intervals_may_transition_on_different_sessions": true
+  },
+  "candidate_build_plan": {
+    "canonical": false,
+    "output": "versioned staging / scratch",
+    "overwrites_v6": false,
+    "must_include": "all 503 security identities",
+    "then": "full conformance before any canonical seal",
+    "seal_is_a_separate_gate": true
+  },
+  "global_anomaly_audit": {
+    "required_before_v7_finalization": true,
+    "scope": "all 503",
+    "rationale": "CRH exposed a defect class that could exist outside the known eight",
+    "not_permission_to_auto_repair": true,
+    "checks": [
+      "V6 says NOT_YET_REGULAR_WAY but historical aggregates exist",
+      "current-identifier filtering excludes historical same-security reference candidates",
+      "type changes such as ADRC -> CS around V6 coverage start",
+      "FIGI/CIK changes associated with suspicious coverage truncation",
+      "one-day or implausibly short full-window coverage for longstanding current securities",
+      "research coverage beginning at periodic anchor boundaries with older same-security evidence available"
+    ],
+    "known_non_anomalies": [
+      {
+        "pattern": "status vs canonical_status differ for GEHC/GEV/SOLV/VLTO",
+        "reason": "when-issued dual semantics — pre-registered above"
+      },
+      {
+        "pattern": "the eight known cases start on the anchor grid",
+        "reason": "already diagnosed and repaired by this spec"
+      },
+      {
+        "pattern": "19 LISTED_LATER by status vs 23 by canonical_status",
+        "reason": "same when-issued dual semantics"
+      }
+    ],
+    "on_new_candidate": "V7 FINALIZATION = HOLD; return the candidate evidence; do NOT append it to the eight and silently repair"
+  },
+  "negative_guards": [
+    "current CIK as timeless master identity",
+    "current FIGI as timeless master identity",
+    "type == \"CS\" as universal identity/coverage filter",
+    "ticker as timeless identity",
+    "V6 anchor automatically treated as event date",
+    "legal event date forced to equal FIGI/CIK/reference date",
+    "CRH ADR period dropped",
+    "CRH ADR rows relabeled as CS",
+    "APO structural composition break erased",
+    "eight repaired securities left truncated",
+    "supplemental payload promoted to canonical automatically",
+    "2021-08-25 entitlement failure interpreted as NOT_YET_LISTED",
+    "new anomaly outside known eight auto-repaired",
+    "V6 artifact overwritten"
+  ],
+  "negative_guards_binding": "the V7 implementation/conformance suite MUST REJECT each of the above; a guard that is documented but not tested does not satisfy this spec",
+  "acceptance": {
+    "503_research_identities_preserved": true,
+    "security_key_v1_unchanged": true,
+    "no_time_varying_identifier_as_master": true,
+    "eight_repair_rules_explicit": true,
+    "audited_boundaries_represented_independently": true,
+    "apo_composition_break_explicit": true,
+    "crh_adrc_cs_explicit": true,
+    "not_audited_legal_dates_preserved": true,
+    "v6_ticker_at_time_preserved": true,
+    "wi_exclusions_preserved": true,
+    "supplemental_remains_non_canonical": true,
+    "global_503_anomaly_audit_specified": true,
+    "candidate_first_workflow_specified": true,
+    "negative_guards_specified": true,
+    "no_v7_data_written": true
+  },
+  "mutations": {
+    "v6": 0,
+    "security_key_v1": 0,
+    "universe": 0,
+    "canonical_raw": 0,
+    "supplemental_quarantine": 0,
+    "derived_writes": 0,
+    "v7_rows_written": 0,
+    "v7_canonical_sealed": false,
+    "builder_spec_v2_sealed": false,
+    "smoke_executed": false
+  },
+  "downstream_sequence": [
+    "V7 candidate construction (NON-CANONICAL)",
+    "FULL LINEAGE CONFORMANCE / 503 anomaly audit",
+    "MASSIVE_MIXED_VINTAGE_SUPPLEMENTATION_POLICY_V1",
+    "supplemental integration decision",
+    "Builder Spec V2"
+  ],
+  "why_builder_cannot_follow_v7_directly": {
+    "problem": "V7 extends expected coverage over 5,069 security-sessions whose bars exist only in the quarantine at a different retrieval vintage",
+    "consequence": "expected minute + canonical original bar absent -> UNOBSERVED, so nearly the entire recovered history would be unusable",
+    "magnitude_rows": 1875525,
+    "resolution": "this is the CORRECT behaviour of an honest builder; the fix belongs in the mixed-vintage policy gate, NOT inside V7"
+  },
+  "next_step": "build NON-CANONICAL V7 candidate, then run full-universe conformance. Do NOT seal canonical V7 automatically.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 16:54 +04"
+}

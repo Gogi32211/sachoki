@@ -1,0 +1,234 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_A3_CANON69_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "VERDICT": "PASS",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "scope": "CONSOLIDATION ONLY. No feature computed, no availability reinterpreted. The monthly census, NO_LOOK/LOOK, settlement calls, forward evidence and inference are OUT OF SCOPE and NOT started.",
+  "AUTHORITY_BINDING": {
+    "canonical_surface": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1 · e8016cb7c39a969d",
+    "amendment": "..._AMENDMENT_1 · e59767fc6c231263",
+    "closure": "MASSIVE_NEW_FAMILY_X_SURFACE_CLOSURE_V1 · 228c9ceae10bd0cc",
+    "manifest": "CANONICAL_69_MANIFEST_V2.json",
+    "A2_stack_parent": "904873185d6b5346",
+    "consolidator": {
+      "module": "backend/forward_a3_canon69.py",
+      "file_byte_digest": "44620d17e0f32cc9"
+    },
+    "historical_consolidator_reference": "massive_new_family_runtime/consolidate69.py (CONSOLIDATION, NOT RECOMPUTATION)"
+  },
+  "DIGEST_TERMINOLOGY": {
+    "class": "two DIFFERENT identity questions, never to be conflated again",
+    "MANIFEST_SEMANTIC_DIGEST": {
+      "formula": "sha256(json.dumps(manifest, sort_keys=True))[:16]",
+      "V1": "a44fd5cda3f22ef9",
+      "V2": "58f21313250836bf",
+      "this_is_what_the_sealed_artifacts_record": true
+    },
+    "FILE_BYTE_DIGEST": {
+      "formula": "sha256(raw file bytes)[:16] — what t5_artifact.file_digest computes",
+      "V1_file": "f8f62ff35cf8656a",
+      "V2_file": "448a9981fc75c186"
+    },
+    "rule": "neither supersedes the other; they answer different questions. Checking a manifest with file_digest reports a FALSE mismatch, and that is what nearly happened here.",
+    "how_it_surfaced": "the cited Manifest V2 digest matched no file until the canonicalisation was identified; a HARD STOP was NOT declared because both manifests reproduced their sealed digests exactly under the convention the seals actually used"
+  },
+  "PROOF_1_VS_SEALED_CANON69": {
+    "expected_rows": 1065736326,
+    "rebuilt_rows": 1065736326,
+    "two_way_EXCEPT_ALL": "0 / 0",
+    "method": "PARTITIONED BY security_key_v1 — an exhaustive disjoint decomposition of the full table; k is a column of every row and both sides partition identically",
+    "partitions": 476,
+    "features": "69 / 69, sets identical",
+    "security_keys": 476,
+    "session_range": "2021-08-25 .. 2026-08-24, 1,254 sessions — identical on both sides",
+    "schema_match": true,
+    "sampling": "NONE",
+    "build_s": 1052,
+    "VERDICT": "EXACT"
+  },
+  "PROOF_2_VS_CURRENT_A2_SOURCES": {
+    "features": 69,
+    "exact": 69,
+    "failing": [],
+    "method": "per feature, two-way EXCEPT ALL on (k, bar_start, value, availability) between the CURRENT A2 family output and the canonical surface",
+    "by_family": {
+      "p39": 39,
+      "c4": 12,
+      "pd": 12,
+      "d6": 6
+    },
+    "canonical_rows_summed_over_features": 1065736326,
+    "why_this_proof_is_separate": "matching the historical CANON69 alone would still pass if the consolidator had silently read a STALE historical source. This proof binds the output to the CURRENT qualified A2 artifacts.",
+    "VERDICT": "EXACT"
+  },
+  "AVAILABILITY_AUTHORITY": {
+    "correction_made": "the first implementation used a census of the historical CANON69 as the ADMISSIBLE label set. That is wrong: a census is a conformance ORACLE, never an authority.",
+    "prompted_by": "the caller's caution that output census must not become authority for admitting a new label",
+    "now": {
+      "ADMISSIBILITY": "authority = the frozen SOURCE-FAMILY CONTRACT, read from each producer",
+      "REALISATION_CONFORMANCE": "oracle = the historical CANON69 census, applied only to a rebuild OF HISTORY"
+    },
+    "the_live_example": "pd's contract admits UNAVAILABLE_DEPENDENCY; the sealed PD_12_PRODUCTION records it observed ZERO times, because an EMA is UNAVAILABLE exactly when its bar is contaminated so UNAVAILABLE_CURRENT always fires first. Under the census-as-authority version a legitimate future UNAVAILABLE_DEPENDENCY would have been a violation.",
+    "literal_vocabularies": {
+      "pd": {
+        "contract": [
+          "AVAILABLE_VALID",
+          "INITIALIZATION_SENSITIVE",
+          "UNAVAILABLE_CURRENT",
+          "UNAVAILABLE_DEPENDENCY"
+        ],
+        "historically_realised": [
+          "AVAILABLE_VALID",
+          "INITIALIZATION_SENSITIVE",
+          "UNAVAILABLE_CURRENT"
+        ],
+        "admissible_but_unrealised": [
+          "UNAVAILABLE_DEPENDENCY"
+        ],
+        "row_counts": {
+          "AVAILABLE_VALID": 50162332,
+          "INITIALIZATION_SENSITIVE": 77255900,
+          "UNAVAILABLE_CURRENT": 57927216
+        }
+      },
+      "c4": {
+        "contract": [
+          "AVAILABLE_VALID",
+          "INITIALIZATION_SENSITIVE_HEAD",
+          "INITIALIZATION_SENSITIVE_POST_GAP",
+          "UNAVAILABLE_CURRENT"
+        ],
+        "admissible_but_unrealised": [],
+        "row_counts": {
+          "AVAILABLE_VALID": 43810006,
+          "INITIALIZATION_SENSITIVE_HEAD": 73952,
+          "INITIALIZATION_SENSITIVE_POST_GAP": 83534274,
+          "UNAVAILABLE_CURRENT": 57927216
+        }
+      },
+      "p39": {
+        "contract": [
+          "AVAILABLE_VALID",
+          "INITIALIZATION_SENSITIVE_HEAD",
+          "INITIALIZATION_SENSITIVE_POST_GAP",
+          "UNAVAILABLE_CURRENT"
+        ],
+        "admissible_but_unrealised": [],
+        "row_counts": {
+          "AVAILABLE_VALID": 361249224,
+          "INITIALIZATION_SENSITIVE_HEAD": 29041,
+          "INITIALIZATION_SENSITIVE_POST_GAP": 52830989,
+          "UNAVAILABLE_CURRENT": 188263452
+        }
+      },
+      "d6": {
+        "contract": [
+          "AVAILABLE_VALID",
+          "INITIALIZATION_SENSITIVE_HEAD",
+          "INITIALIZATION_SENSITIVE_POST_GAP",
+          "UNAVAILABLE_CURRENT",
+          "UNAVAILABLE_REQUIRED_HISTORY"
+        ],
+        "admissible_but_unrealised": [],
+        "row_counts": {
+          "AVAILABLE_VALID": 33638310,
+          "INITIALIZATION_SENSITIVE_HEAD": 22654,
+          "INITIALIZATION_SENSITIVE_POST_GAP": 24354378,
+          "UNAVAILABLE_CURRENT": 28963608,
+          "UNAVAILABLE_REQUIRED_HISTORY": 5693774
+        }
+      }
+    },
+    "pd_decomposition_rows_in_the_rebuild": 0,
+    "cross_feature_comparability": "only AVAILABLE_VALID vs NON_VALID is treated as comparable. NON-VALID reason codes are NOT assumed comparable across families anywhere in this layer.",
+    "VERDICT": "PASS"
+  },
+  "SCHEMA_CONFORMANCE": {
+    "columns": [
+      "k",
+      "bar_start",
+      "session_date",
+      "feature",
+      "bval",
+      "dval",
+      "sval",
+      "availability"
+    ],
+    "dtypes_identical_without_relying_on_implicit_casts": true,
+    "bval": "TINYINT, not widened",
+    "VERDICT": "PASS"
+  },
+  "FIXTURES": {
+    "total": 32,
+    "passed": 32,
+    "VERDICT": "PASS",
+    "cases": [
+      "manifest semantic digest matches the sealed V2",
+      "feature count is exactly 69",
+      "no missing / extra / renamed feature vs frozen",
+      "one of the 69 features missing -> A3Hold",
+      "extra 70th feature -> A3Hold",
+      "feature mapped to an unknown source family -> A3Hold",
+      "manifest key != feature identity -> A3Hold",
+      "manifest digest mismatch -> A3Hold",
+      "manifest missing -> A3Hold",
+      "slot mapping disagrees with the manifest -> A3Hold",
+      "required source family absent -> A3Hold",
+      "a feature has no rows in its source family -> A3Hold",
+      "every observed label is ADMISSIBLE under its source-family contract",
+      "admissible-but-unrealised labels are reported, not treated as violations",
+      "rebuild reproduces the historical realisation exactly",
+      "a label outside the family contract -> A3Hold",
+      "pd INITIALIZATION_SENSITIVE decomposed into HEAD -> A3Hold",
+      "pd decomposition rows in the rebuilt surface = 0",
+      "canonical schema identical (names, order, dtypes)",
+      "bval is TINYINT, not widened",
+      "reordered source partition -> identical canonical multiset",
+      "honest write COMPLETE and CURRENT",
+      "valid but partial canonical output NOT COMPLETE",
+      "stale completed output from another run NOT CURRENT",
+      "crash before the completion marker -> NOT COMPLETE",
+      "rerun is deterministic — identical output digest",
+      "short partition refused without corrupting prior bytes",
+      "no duplicate canonical key (k,bar_start,feature) — 476 partitions",
+      "regression output is NOT in the forward canonical root",
+      "forward canonical root untouched",
+      "module import executes no production",
+      "Y trap armed"
+    ]
+  },
+  "RESTART_CURRENCY": {
+    "authority": "A2_PARTITION_COMPLETION_V1 reused",
+    "valid_but_partial": "SIZE_MISMATCH",
+    "stale_run": "STALE_RUN",
+    "no_marker": "NO_COMPLETION_MARKER",
+    "rerun_deterministic": true,
+    "short_write_refused_without_corrupting_prior_bytes": true,
+    "duplicate_canonical_keys": 0
+  },
+  "OUTPUT_ISOLATION": {
+    "regression_namespace": "scratchpad/a3_canon69_out — a DEV namespace",
+    "forward_canonical_root": "/Users/sachoki/MASSIVE_DATA/forward/canon69/ — UNTOUCHED and still empty",
+    "authoritative_forward_writes": "remain blocked by A1a source-maturity gating"
+  },
+  "Y_BLINDNESS": {
+    "forbidden_opens_attempted": 0,
+    "VERDICT": "PASS"
+  },
+  "PERSISTENCE_REPAIR": {
+    "file": "CANONICAL_69_MANIFEST_V2.json",
+    "found": "only in the session scratchpad — no durable copy existed",
+    "action": "copied to backend/massive_new_family_runtime/ and MASSIVE_DATA/historical_producer_code/, digest-verified",
+    "explicitly": "PERSISTENCE_REPAIR — a lost durable copy was restored. The manifest CONTENT was not altered and this creates no new semantic authority."
+  },
+  "PERMITTED_CLAIM": "A3 is an exact consolidation of the qualified A2 surface, not a recomputation",
+  "LIMITATIONS": [
+    "proves consolidation over HISTORY only; forward behaviour is gated by A1a",
+    "row-count identity with CANON69 was never treated as sufficient — both exactness proofs were required",
+    "the regression output lives in a DEV namespace and is not an authoritative forward artifact"
+  ],
+  "runtime_s": 2558,
+  "STOP": "A3 is complete. The monthly X-support census, the NO_LOOK/LOOK ledger, trigger evaluation, settlement calls, forward evidence and inference are NOT started."
+}

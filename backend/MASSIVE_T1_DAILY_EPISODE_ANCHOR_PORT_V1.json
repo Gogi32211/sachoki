@@ -1,0 +1,151 @@
+{
+  "report_id": "MASSIVE_T1_DAILY_EPISODE_ANCHOR_PORT_V1",
+  "status": "MASSIVE_T1_DAILY_EPISODE_ANCHOR_PORT_V1_PASS",
+  "task_class": "EPISODE_ANCHOR_PORT_ONLY",
+  "bindings": {
+    "MASSIVE_T1_EPISODE_RULE_AUTHORITY_DECISION_V1.json": "6d733e1fa3bf3c3d",
+    "MASSIVE_T1_DAILY_ANCHOR_MATERIALIZER_PROVENANCE_V1.json": "7b4a7ac5facbf0a7",
+    "MASSIVE_T1_DAILY_ANCHOR_MATERIALIZER_PROVENANCE_V1_QUALIFICATION.json": "ded5c340dfb9fd6a",
+    "MASSIVE_T1_EPISODE_TEMPORAL_SEMANTICS_V1.json": "819329bf48bd7175",
+    "MASSIVE_T1_HISTORICAL_EPISODE_POPULATION_PRESERVATION_V1.json": "4a19b83f40adc6cc",
+    "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1_CORRECTION_REBIND.json": "d90a9c3a20f9a838",
+    "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1.json": "6ec73d5f462761f0",
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1.json": "7c0a5ad6b17d7ae0"
+  },
+  "role": "REGISTERED_EPISODE_ANCHOR_ONLY",
+  "registry": {
+    "RESEARCH_STATE_TIMEFRAMES": [
+      "15m"
+    ],
+    "EPISODE_SELECTOR_TIMEFRAMES": [
+      "1D"
+    ],
+    "disjoint_roles": true
+  },
+  "daily_anchor_port_hash": "2b4be28de7b28aeb",
+  "hash_is_role_bound": {
+    "timeframe": "1D",
+    "role": "EPISODE_SELECTOR_ONLY",
+    "distinct_from_15m_port": "0ca86eeb1f8ee8fe",
+    "why": "a 15m research port hash must not become a multi-timeframe T engine hash"
+  },
+  "identity": {
+    "anchor_key": [
+      "security_key_v1",
+      "session_date"
+    ],
+    "ticker_used": false,
+    "ticker_role": "historical diagnostic mapping only, via frozen authority"
+  },
+  "anchor_semantics": {
+    "basis": "priority-resolved FINAL daily T state",
+    "anchor_true_iff": "final_t_state == 'T1'",
+    "raw_predicate_insufficient": true,
+    "why": "the historical selector read bars.t_sig, the resolved label; a raw T1 outranked by T4/T6/T1G/T2G is ANCHOR_FALSE"
+  },
+  "availability_precedence": {
+    "frozen_here_for_1D": true,
+    "not_inherited_from_15m": true,
+    "order": [
+      "NO_PRIOR_BAR -> UNAVAILABLE_REQUIRED_HISTORY",
+      "prior exists + current not COMPLETE -> UNAVAILABLE_CURRENT_INPUT",
+      "current COMPLETE + prior not COMPLETE -> UNAVAILABLE_REQUIRED_HISTORY (PRIOR_INPUT_NOT_COMPLETE)",
+      "otherwise -> EVALUABLE"
+    ]
+  },
+  "temporal_semantics": {
+    "authority": "MASSIVE_T1_EPISODE_TEMPORAL_SEMANTICS_V1",
+    "digest": "819329bf48bd7175",
+    "anchor_session_date": "D",
+    "selected_opening_hour_session": "D",
+    "classification": "POST_EXPOSURE_SESSION_LOCALIZATION",
+    "prohibitions": [
+      "NOT a real-time predictor",
+      "NOT known at M1/M2/M3/M4",
+      "NOT tradable at an opening-hour slot on this anchor"
+    ]
+  },
+  "capability_census": {
+    "securities": 476,
+    "sessions": 1254,
+    "counts": {
+      "ANCHOR_TRUE": 8588,
+      "ANCHOR_FALSE": 171700,
+      "UNAVAILABLE_CURRENT_INPUT": 379984,
+      "UNAVAILABLE_REQUIRED_HISTORY": 35979,
+      "STRUCTURALLY_OUTSIDE_SUPPORT": 653
+    },
+    "unavailable_reasons": {
+      "NO_PRIOR_BAR": 476,
+      "PRIOR_INPUT_NOT_COMPLETE": 35503,
+      "CURRENT_BAR_NOT_COMPLETE": 379984
+    },
+    "securities_with_any_evaluable_day": 415,
+    "securities_with_any_T1_anchor": 335,
+    "zero_evaluable_securities": 61,
+    "zero_T1_securities": 141,
+    "no_support_threshold_invented": true
+  },
+  "historical_diagnostic": {
+    "preserved_total": 220351,
+    "unmapped_or_ambiguous": 189708,
+    "mapped_into_cohort": 30643,
+    "preserved_positives_in_cohort": 29542,
+    "within_massive_session_support": 28090,
+    "H_true_M_true": 8117,
+    "H_true_M_false": 231,
+    "H_true_M_unavailable": 19742,
+    "H_true_outside_massive_support": 1452,
+    "retention_on_evaluable": 0.972329,
+    "MASSIVE_POSITIVE_NOT_IN_PRESERVED_HISTORICAL_POSITIVE_SET": 471,
+    "note": "t1_episodes.parquet preserves POSITIVES only, so a Massive positive absent from it is NOT a historical negative and no confusion matrix is constructed from a complement that was never preserved"
+  },
+  "historical_authority": {
+    "used": "PRESERVED positive episode set (t1_episodes.parquet)",
+    "digest": "4a19b83f40adc6cc",
+    "forbidden": "engine(stored rounded daily OHLC) as truth",
+    "because": "daily same-input conformance is NOT_VERIFIABLE_FROM_PRESERVED_INPUTS"
+  },
+  "not_a_target": {
+    "value": 220351,
+    "why": "it describes a 5,252-ticker historical universe at its own vintage; this cohort is 476 securities on a different source"
+  },
+  "output": {
+    "path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_t1_daily_anchor_v1/anchors.parquet",
+    "rows": 596251,
+    "digest": "cd44ee764123cdec",
+    "schema": [
+      "security_key_v1",
+      "session_date",
+      "structural_support_state",
+      "anchor_availability",
+      "anchor_unavailable_reason",
+      "daily_final_t_state",
+      "anchor_true",
+      "anchor_information_available_at",
+      "priority_winner_code",
+      "producer_semantics_digest",
+      "daily_anchor_port_hash"
+    ]
+  },
+  "allowed_claim": "the historical daily T1 selector semantics are ported to Massive 1D source data using the resolved canonical producer path; exact same-input reproduction of the historical daily materialization cannot be tested because the unrounded historical input frame was not preserved",
+  "forbidden_claims": [
+    "Massive daily T1 exactly reproduces the historical daily T1 materializer population",
+    "1D T is a registered research state",
+    "the anchor is known during the opening hour"
+  ],
+  "pass_means_only": "a Massive-native daily T1 episode-selector layer was built on the frozen 476 cohort",
+  "pass_does_not_mean": [
+    "historical episode population reproduced",
+    "a 1D T edge",
+    "real-time predictability",
+    "opening-hour tradability",
+    "C4 authorized",
+    "Y exposure"
+  ],
+  "y_exposed": 0,
+  "z_outputs": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 2.4,
+  "sealed_at": "2026-08-27 10:06 +04"
+}

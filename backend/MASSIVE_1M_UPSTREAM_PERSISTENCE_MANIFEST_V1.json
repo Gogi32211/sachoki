@@ -1,0 +1,67 @@
+{
+  "artifact": "MASSIVE_1M_UPSTREAM_PERSISTENCE_MANIFEST_V1",
+  "status": "FROZEN",
+  "role": "closes residual risk #2 — the reconstruction root is no longer sole-resident on one external device",
+  "Y_EXPOSED": 0,
+  "SOURCE": "/Volumes/QUANT_RESEARCH/studio_data/derived  (disk5s1, a SEPARATE 2 TB device — the copy was a real cross-device transfer, not an APFS clone)",
+  "DEST": "/Users/sachoki/MASSIVE_DATA/historical_upstream",
+  "ROOTS": {
+    "massive_1m_base_v2": {
+      "n_files": 7524,
+      "rollup_digest": "57be28826bf9f3f900b3d700bfc93b2320c27548649d7c07bc4bf9394b95892c"
+    },
+    "massive_coarse_v1": {
+      "n_files": 5016,
+      "rollup_digest": "f8b0190a48caefcbcb5a64e5a8194f43bfd9885b9b9dc54a46aafd077ff66d87"
+    }
+  },
+  "TOTALS": {
+    "files": 12540,
+    "bytes": 4833491288,
+    "GB": 4.83,
+    "elapsed_s": 21,
+    "digest_mismatches": 0
+  },
+  "VERIFICATION": {
+    "per_file": "sha256 computed on SOURCE and DESTINATION for all 12,540 files inside the copier — 0 mismatches",
+    "rollup": "per-root sha256 over sorted (relpath : sha256) lines",
+    "independent": "4 randomly-strided parquet files re-verified with the system shasum(1) — a different implementation — across BOTH roots: 4/4 OK",
+    "file_count": "destination tree independently walked: 12,540 == source"
+  },
+  "SMOKE": {
+    "1_full_equivalence_from_the_PERSISTED_copy_only": {
+      "rows": 15445454,
+      "P_minus_A": 0,
+      "A_minus_P": 0,
+      "result": "EXACT",
+      "meaning": "the persisted copy ALONE reproduces the historical stage-A surface exactly. The external volume is no longer required to prove it."
+    },
+    "2_producer_input_surfaces": {
+      "minute_states": {
+        "rows": 231681810,
+        "keys": 476,
+        "required_columns": "all present"
+      },
+      "observed_regular_bars": {
+        "rows": 213979211,
+        "keys": 476,
+        "required_columns": "all present"
+      }
+    },
+    "3_partition_metadata": {
+      "massive_1m_base_v2/_partitions": 1254,
+      "massive_coarse_v1/_partitions": 1254
+    },
+    "result": "PASS"
+  },
+  "EXTERNAL_VOLUME_STATUS": "RETAINED, but NO LONGER THE SOLE AUTHORITY",
+  "COVERAGE_NOTE": "both roots were copied in full (all 6 subtrees of massive_1m_base_v2, not only the two the coarse producer reads). At 4.83 GB the completeness was cheaper than the judgement call about what might be needed later.",
+  "NOT_COVERED": [
+    "the raw Massive vendor feed upstream of massive_1m_base_v2 — outside this persistence and outside this programme's reconstruction scope",
+    "the other derived stores on the volume (massive_t_v1, massive_rvol_v1, massive_coarse_ema_v1, massive_t1_*) — not inputs to the stage-A chain"
+  ],
+  "closes": "residual risk #2 from MASSIVE_NEW_FAMILY_STAGEA_BUILDER_DISCOVERY_RESULT_V1 · acea1bec4100b297",
+  "sibling": "MASSIVE_NEW_FAMILY_DATA_PERSISTENCE_MANIFEST_V1 · deea3ff90c96fba4 (downstream, 20.27 GB)",
+  "producer_code_authority": "MASSIVE_1M_COARSE_PRODUCER_CODE_AUTHORITY_V1 · a829902a50056c01",
+  "FILE_DIGESTS": "the complete per-file sha256 table (12,540 entries) is stored alongside at MASSIVE_1M_UPSTREAM_PERSISTENCE_FILEDIGESTS_V1.json"
+}

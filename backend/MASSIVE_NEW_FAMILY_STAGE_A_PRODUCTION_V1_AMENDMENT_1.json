@@ -1,0 +1,18 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_A_PRODUCTION_V1_AMENDMENT_1",
+  "amends": "bcf90cbdd8e4b7dd",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "the artifact name implies a durable production surface. Nothing was written to any Massive surface.",
+  "STATUS_CORRECTION": {
+    "SEMANTIC_PRODUCTION_REPLAY": "PASS",
+    "AVAILABILITY_CENSUS": "PASS",
+    "DURABLE_FEATURE_STORE": "NOT_YET_MATERIALIZED"
+  },
+  "why_it_matters": "the 69-feature executable surface must not be frozen on ephemeral recomputation. A durable write is still required before the prespec can depend on it.",
+  "GUARD_SCOPE_CORRECTION": {
+    "previous": "value/state guard reported as CONFIRMED",
+    "correct": "VALUE_STATE_GUARD_SAMPLE = PASS, n_checked = 118,813",
+    "note": "this was a 6-security subset, not every valid cell. The full-store invariant AVAILABLE_VALID AND value IS NULL -> 0 rows must be asserted at durable-write time."
+  }
+}

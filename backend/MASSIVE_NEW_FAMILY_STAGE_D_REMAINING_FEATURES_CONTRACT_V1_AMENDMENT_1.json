@@ -1,0 +1,70 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_REMAINING_FEATURES_CONTRACT_V1_AMENDMENT_1",
+  "amends": "433bac36b58e3061",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "RATIFIED": {
+    "rsi_14": {
+      "rule": "contaminated -> UNAVAILABLE_CURRENT; age 1..13 -> INIT_SENSITIVE_HEAD / _POST_GAP; age >= 14 -> AVAILABLE_VALID",
+      "status": "APPROVED as DECLARED NEW-MASSIVE MEASUREMENT REGIME, not a recovered historical fact",
+      "consistency": "matches the already-frozen EMA convention first_valid_age = period"
+    },
+    "ATR14": {
+      "rule": "identical ladder, age >= 14 -> VALID",
+      "status": "APPROVED as declared new regime",
+      "role": "dependency layer for bar_gap_range only",
+      "acceptance": "legacy numeric equality is NOT an acceptance criterion"
+    }
+  },
+  "PROVENANCE_RECLASSIFICATION": {
+    "reason": "rsi_14 resets state at a contaminated gap where the historical recurrence does not license it. That is not a pure FULL_HISTORY_SEMANTIC_CORRECTION.",
+    "rsi_14_new_class": "NEW_MASSIVE_STATE_REGIME_SAME_FORMULA",
+    "matrix_counts_before": {
+      "FULL_HISTORY_SEMANTIC_CORRECTION": 43,
+      "NEW_MASSIVE_DERIVED_DEFINITION": 1
+    },
+    "matrix_counts_after": {
+      "FULL_HISTORY_SEMANTIC_CORRECTION": 42,
+      "NEW_MASSIVE_DERIVED_DEFINITION": 2
+    },
+    "total_unchanged": 69
+  },
+  "SIG_3G_ALIGNMENT": {
+    "question": "is first-valid age p or p+1?",
+    "source": "prev_below_all3 = (close.shift(1) < ema9.shift(1)) & (close.shift(1) < ema20.shift(1)) & (close.shift(1) < ema50.shift(1))",
+    "finding": "it consumes ema50.shift(1) — the PREVIOUS bar EMA50, which is VALID only when that bar had age >= 50",
+    "FIRST_VALID_AGE": 51,
+    "correction": "the EMA50 dependency class is right but the temporal alignment is period + 1. A p-not-p+1 implementation would emit one spuriously valid row per segment.",
+    "caller_hypothesis": "CONFIRMED"
+  },
+  "SIG_BUY_HOLD": {
+    "status": "HOLD — production not authorised",
+    "my_earlier_proposals_both_rejected": [
+      "age<7 -> UNAVAILABLE_HISTORY then INIT (too permissive)",
+      "all UNAVAILABLE_HISTORY to 50 (not derived)"
+    ],
+    "NODE_LEVEL_LADDER": {
+      "cons_high (min_periods=6 strict)": "age<7 UNAVAILABLE_HISTORY",
+      "vol_max40 (min_periods=10)": "age<10 UNAVAILABLE_HISTORY; 10..39 INIT_SENSITIVE; >=40 warmed",
+      "roc_40 (close.shift(40))": "age<41 UNAVAILABLE_HISTORY; >=41 computable",
+      "EMA50": "age 1..49 INIT_SENSITIVE; >=50 VALID"
+    },
+    "BASE_PREDICATE_CONTRACT": "age 1..40 -> UNAVAILABLE_HISTORY; 41..49 -> INITIALIZATION_SENSITIVE; >=50 -> would be VALID",
+    "why_my_age_lt_7_cutoff_was_wrong": "roc_40 dominates cons_high — it makes bars up to age 40 hard-unavailable, not merely init-sensitive",
+    "COOLDOWN_STATE_CONTRACT": {
+      "source": "indicators.apply_cooldown: last = -(n+1); if arr[i]: if i-last<n: arr[i]=False else: last=i",
+      "state": "last — index of the last ACCEPTED fire",
+      "OUTPUT_vs_STATE": "non-fire bar: output trivially False, last carries unchanged. Fire bar: output depends on incoming last; if REJECTED, last stays unknown, so ambiguity PROPAGATES rather than resolving.",
+      "why_a_simple_n_bar_rule_is_wrong": "an ambiguous fire at segment position q can push the determinism point to q+n. There is no fixed warmup that is safe in general.",
+      "sufficient_condition_identified": "if NO raw fire occurs in the first n-1 bars of a segment, the first fire at position p >= n-1 is accepted for every admissible incoming last (since i-last <= p+1), and it sets last deterministically",
+      "REQUIRED_IMPLEMENTATION": "forward-propagate the SET of admissible last values from segment start; a fire bar is AVAILABLE_VALID only when every admissible value yields the same accept/reject decision",
+      "status": "NOT YET IMPLEMENTED — this is the last place where INIT/UNKNOWN could silently become FALSE"
+    },
+    "blocking": "sig_buy stays HOLD until the admissible-set rule is implemented and fixture-tested"
+  },
+  "not_done": [
+    "sig_buy cooldown admissible-set implementation",
+    "no Stage D production",
+    "consolidation gate outstanding"
+  ]
+}

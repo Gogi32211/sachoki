@@ -1,0 +1,92 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PARALLEL_CI_EXECUTION_V1",
+  "status": "CI_ORCHESTRATION_QUALIFIED",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "REAL_Y_ACCESS": "NONE",
+  "CI_KERNEL": "CI_WEIGHT_ONLY_EXACT_KERNEL",
+  "SEMANTIC_AUTHORITY": {
+    "primitive": "WEIGHTED_MEDIAN_V2",
+    "artifact": "b082eae1574f0223",
+    "why_this_optimisation_is_admissible": "Y is INVARIANT across bootstrap draws; only the WEIGHTS change, so a one-time sort amortises across B_CI x claims_per_pool = 2000 x 3.91 = 7,820, against log2(pool) = 17.8. The rejected permutation pool-sort had only 3.91.",
+    "frozen_sort": "primary Y ascending, secondary canonical row_id ascending; NaN Y may never enter a pool"
+  },
+  "PRIMITIVE_FIXTURES": {
+    "boundary_suite": "15 / 15 bit-identical",
+    "exhaustive_n_le_5": "8,308,824 cases, 0 mismatches",
+    "randomized": "150,000 cases, 0 mismatches",
+    "NEGATIVE_FIXTURE_next_GROUP_row": {
+      "defect": "using the next nonzero POOL row instead of the next positive-weight row IN THE SAME GROUP",
+      "divergence": "7,801 / 75,386 = 10.35%",
+      "status": "DETECTED — the guard is non-vacuous"
+    }
+  },
+  "REFERENCE_EQUIVALENCE": {
+    "draws": 20,
+    "claims": 20751,
+    "claim_draws": 415020,
+    "theta_star": "BIT-IDENTICAL, 0 mismatches",
+    "defined_EMPTY_status": "EXACT, 0 mismatches",
+    "CI_STABILITY_GATE": "20/20 defined for every claim",
+    "CI_bounds_type7": "BIT-IDENTICAL across kernels; median width 0.05436"
+  },
+  "ORCHESTRATION": {
+    "CI_manifest": "sealed before any worker; per draw: security-weight digest, date-weight digest",
+    "worker_RNG_calls": 0,
+    "worker_verifies_both_weight_digests": true,
+    "all_20_draw_IDs_exactly_once": "both kernels",
+    "missing": 0,
+    "duplicate": 0,
+    "unexpected": 0
+  },
+  "CRASH_RESTART": {
+    "simulation": "2 shards removed, 1 partial .tmp left behind",
+    "result": "5/5 PASS — .tmp never accepted, same immutable draw reused, weight digests unchanged, recomputed theta* BIT-IDENTICAL",
+    "note": "NOT inherited from the permutation crash test — the worker kernel differs, so it was re-run"
+  },
+  "QUANTILE_AGGREGATION": {
+    "CI_TYPE": "95% percentile bootstrap interval",
+    "LOWER_Q": 0.025,
+    "UPPER_Q": 0.975,
+    "QUANTILE_METHOD": "Hyndman-Fan Type 7 (linear interpolation)",
+    "semantic_authority": "the Type 7 DEFINITION, not the NumPy method name",
+    "library_default": "FORBIDDEN — must be passed explicitly",
+    "evidence_of_exposure": "across 13 NumPy methods, 4 distinct 2.5% values at B=20 and 7 distinct at B=2000",
+    "guard": "CI bounds changing under another quantile convention is a NUMERICAL CONVENTION DIFFERENCE — not evidence, not a sensitivity finding",
+    "location": "percentile aggregation lives in the SHARED canonical aggregator so reference and parallel paths cannot diverge"
+  },
+  "GOVERNANCE_FINDINGS": [
+    {
+      "class": "TEST-HARNESS DEFECT",
+      "what": "~np.asarray([0,0,0,0]) produced an INTEGER bitwise complement, not a logical complement",
+      "effect": "12 of 15 boundary fixtures reported MISMATCH and the kernel was falsely accused",
+      "fix": "boolean dtype in the harness; the kernel then passed exhaustive qualification unchanged",
+      "RULE": "a test failure is NOT evidence of an implementation defect until the harness authority is itself correct"
+    },
+    {
+      "class": "MEASUREMENT FAILURE READ AS RESULT",
+      "what": "aggregate worker RSS reported as 0.01-0.02 GB for 2/4/8 workers",
+      "cause": "ps | grep parallel_ci missed spawn-created workers, whose command line differs",
+      "status": "NOT a finding — re-measured by walking parent/child PIDs",
+      "corrected_result": "aggregate RSS 18.78 GB (4w) and 35.94 GB (8w) on a 16 GB host, with system free+inactive dropping only 0.13 / 0.08 GB",
+      "what_that_PROVES": "the mmap pages are SHARED, not private. Private copies would need 8 x 4.78 = 38 GB and would swap catastrophically; swap did not grow at all."
+    }
+  ],
+  "MMAP_SHARING": {
+    "pool_order": "4.78 GB, np.load(mmap_mode='r')",
+    "claim_ranks": "0.29 GB, np.load(mmap_mode='r')",
+    "demonstrated": true,
+    "method": "aggregate RSS >> physical RAM while system free memory barely moves"
+  },
+  "REAL_Y_BOUNDARY": {
+    "rule": "real Y may be a new DATA INSTANCE, never a new IMPLEMENTATION DESIGN INPUT",
+    "frozen_and_unchangeable_after_real_Y": [
+      "sort algorithm",
+      "tie rule",
+      "rank representation",
+      "complement algorithm",
+      "worker topology selection rule",
+      "quantile convention"
+    ]
+  }
+}

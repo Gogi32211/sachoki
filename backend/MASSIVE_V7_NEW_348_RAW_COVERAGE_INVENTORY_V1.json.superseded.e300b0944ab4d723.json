@@ -1,0 +1,2054 @@
+{
+  "report_id": "MASSIVE_V7_NEW_348_RAW_COVERAGE_INVENTORY_V1",
+  "status": "NEW_348_RAW_COVERAGE_INVENTORY_COMPLETE",
+  "task_class": "READ_ONLY_INVENTORY",
+  "no_vendor_requests": {
+    "massive_requests_issued": 0,
+    "why": "the anomaly audit already established the vendor serves these sessions today. The open question is what bytes are ALREADY preserved and at which vintage, and that is answerable entirely offline."
+  },
+  "authoritative_input": {
+    "artifact": "MASSIVE_SECURITY_LINEAGE_V7_SPEC_AMENDMENT_V1.json",
+    "digest": "94d97c70acb41fa2",
+    "verified": true
+  },
+  "archives_examined": [
+    {
+      "name": "canonical_1m",
+      "vintage": "ORIGINAL_INGEST",
+      "layout": "one gzipped bundle per session; `securities` keyed by frozen ticker",
+      "canonical": true,
+      "path": "/Volumes/QUANT_RESEARCH/source_data/massive/canonical_1m"
+    },
+    {
+      "name": "supplemental_lineage_quarantine_v1",
+      "vintage": "SUPPLEMENTAL_QUARANTINE",
+      "canonical": false,
+      "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1",
+      "scope": "the original eight only",
+      "records_indexed": 5077
+    },
+    {
+      "name": "provenance/v7_anomaly_audit",
+      "vintage": "DIAGNOSTIC",
+      "canonical": false,
+      "path": "/Volumes/QUANT_RESEARCH/artifacts/provenance/v7_anomaly_audit",
+      "responses_indexed": 148,
+      "caveat": "these were retrieved to answer a lineage question. Bisection visits about log2(n) sessions of a range; it was never a preservation pass and must not be counted as one."
+    }
+  ],
+  "method": {
+    "membership_test": "regex for the entry signature '\"TICKER\":{\"massive_ticker\"' over the decompressed bundle",
+    "why": "only the key set matters here; full parsing would materialise ~190k bar rows per session for a question about presence",
+    "bundles_read": 346,
+    "bars_parsed": 0
+  },
+  "expectation_recorded_first": {
+    "expected": "sessions before a security's V6 start should be ABSENT from the canonical bundles, because V6's coverage governed which tickers the ingest requested — the same mechanism that produced the original 5,069",
+    "if_present_instead": "the ingest did not follow V6 exactly, which is a finding in its own right"
+  },
+  "totals": {
+    "security_sessions": 348,
+    "expected": 348,
+    "reconciled": true,
+    "by_state": {
+      "NEW_VINTAGE_ARCHIVED_ONLY": 39,
+      "NO_ARCHIVED_MARKET_BYTES": 309
+    }
+  },
+  "per_security": [
+    {
+      "security_key_v1": "7950a3c358b7cda006beaad43e00048af7ff1dbaa4c6ce34df01529443eb0f16",
+      "ticker": "SW",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2024-07-08",
+      "v6_regular_way_start": "2024-10-01",
+      "sessions": 60,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 4,
+        "NO_ARCHIVED_MARKET_BYTES": 56
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2024-07-08",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 385 rows is archived (sha ee4918d5), at diagnostic vintage"
+        },
+        {
+          "session": "2024-07-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-11",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 500 rows is archived (sha 70290d59), at diagnostic vintage"
+        },
+        {
+          "session": "2024-07-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-22",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 424 rows is archived (sha 939b85c1), at diagnostic vintage"
+        },
+        {
+          "session": "2024-07-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-30",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-07-31",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-01",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-02",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-06",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-07",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-08-30",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-04",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-06",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-09-30",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 412 rows is archived (sha aa984ced), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "03cb866cb9ea0402b48c41dedbe6d911c48c1199e0bc4bf3cbd050486690d151",
+      "ticker": "WBD",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2022-04-11",
+      "v6_regular_way_start": "2022-07-01",
+      "sessions": 56,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 3,
+        "NO_ARCHIVED_MARKET_BYTES": 53
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2022-04-11",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 648 rows is archived (sha 269fa9e0), at diagnostic vintage"
+        },
+        {
+          "session": "2022-04-12",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 528 rows is archived (sha 4f5dc7c1), at diagnostic vintage"
+        },
+        {
+          "session": "2022-04-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-04-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-02",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-04",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-06",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-05-31",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-01",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-02",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-06",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-07",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-06-30",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 493 rows is archived (sha acbc7002), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "b4e3cffd09deed70989c7038163733b1a99b696445c2d484d626169c9011ad8c",
+      "ticker": "CEG",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2022-02-02",
+      "v6_regular_way_start": "2022-04-01",
+      "sessions": 41,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 3,
+        "NO_ARCHIVED_MARKET_BYTES": 38
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2022-02-02",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 444 rows is archived (sha f3082840), at diagnostic vintage"
+        },
+        {
+          "session": "2022-02-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-04",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 401 rows is archived (sha 98dbec00), at diagnostic vintage"
+        },
+        {
+          "session": "2022-02-07",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-02-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-01",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-02",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-04",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-07",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-30",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2022-03-31",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 395 rows is archived (sha 40edfb8a), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "2ce8a5a673195d915d23f4cb15274a4f8bce6017432277d771c22924443866b6",
+      "ticker": "Q",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2025-11-03",
+      "v6_regular_way_start": "2026-01-02",
+      "sessions": 41,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 3,
+        "NO_ARCHIVED_MARKET_BYTES": 38
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2025-11-03",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 455 rows is archived (sha 96f5da5a), at diagnostic vintage"
+        },
+        {
+          "session": "2025-11-04",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-06",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-07",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-10",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 429 rows is archived (sha 4bd77772), at diagnostic vintage"
+        },
+        {
+          "session": "2025-11-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-11-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-01",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-02",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-04",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-30",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-12-31",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 364 rows is archived (sha fb838ba8), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "e285ef89c4084458c87ea48709edb6745695785b240ab3dc35e7a5b4be803e11",
+      "ticker": "KVUE",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2023-05-04",
+      "v6_regular_way_start": "2023-07-03",
+      "sessions": 40,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 4,
+        "NO_ARCHIVED_MARKET_BYTES": 36
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2023-05-04",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 285 rows is archived (sha 75d2bbd3), at diagnostic vintage"
+        },
+        {
+          "session": "2023-05-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-08",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 437 rows is archived (sha 87aab6f4), at diagnostic vintage"
+        },
+        {
+          "session": "2023-05-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-18",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 378 rows is archived (sha c141f3a6), at diagnostic vintage"
+        },
+        {
+          "session": "2023-05-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-30",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-05-31",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-01",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-02",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-06",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-07",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-06-30",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 388 rows is archived (sha 2dae7158), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "15f4235d8ec66648b24a380d15f3eb28f1c204480e610b60cf6a6106f13c083a",
+      "ticker": "PSKY",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2025-08-07",
+      "v6_regular_way_start": "2025-10-01",
+      "sessions": 38,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 3,
+        "NO_ARCHIVED_MARKET_BYTES": 35
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2025-08-07",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 421 rows is archived (sha 6deb7f0c), at diagnostic vintage"
+        },
+        {
+          "session": "2025-08-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-13",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 657 rows is archived (sha b0617194), at diagnostic vintage"
+        },
+        {
+          "session": "2025-08-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-08-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-02",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-04",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-09-30",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 432 rows is archived (sha e9a05f63), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "e15f386156b38d4996622f322bda80ae2225e5fb9031ed2109da0dcc942ffcea",
+      "ticker": "SNDK",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2025-02-24",
+      "v6_regular_way_start": "2025-04-01",
+      "sessions": 26,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 5,
+        "NO_ARCHIVED_MARKET_BYTES": 21
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2025-02-24",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 424 rows is archived (sha 5bcfed94), at diagnostic vintage"
+        },
+        {
+          "session": "2025-02-25",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 403 rows is archived (sha 5607eb66), at diagnostic vintage"
+        },
+        {
+          "session": "2025-02-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-02-27",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 404 rows is archived (sha bd2bc2c6), at diagnostic vintage"
+        },
+        {
+          "session": "2025-02-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-04",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-06",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-07",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-10",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 403 rows is archived (sha 167fda37), at diagnostic vintage"
+        },
+        {
+          "session": "2025-03-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2025-03-31",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 387 rows is archived (sha bf7cbe73), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "95c91d7a71f613f6cec23858c13e481f464709bf53ee5303d09abb5190ffb2be",
+      "ticker": "FDXF",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2026-06-01",
+      "v6_regular_way_start": "2026-07-01",
+      "sessions": 21,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 3,
+        "NO_ARCHIVED_MARKET_BYTES": 18
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2026-06-01",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 403 rows is archived (sha 17316b64), at diagnostic vintage"
+        },
+        {
+          "session": "2026-06-02",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 412 rows is archived (sha 884155ae), at diagnostic vintage"
+        },
+        {
+          "session": "2026-06-03",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-04",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-05",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-08",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-09",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-10",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-11",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-12",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-16",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-17",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-18",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-23",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-24",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-29",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2026-06-30",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 384 rows is archived (sha 9d493406), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "4f50ce52da2a20a0580c66b3681d496852fe928e7bf4d843afd74062565a4db6",
+      "ticker": "TKO",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2023-09-12",
+      "v6_regular_way_start": "2023-10-02",
+      "sessions": 14,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 3,
+        "NO_ARCHIVED_MARKET_BYTES": 11
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2023-09-12",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 364 rows is archived (sha 723e7261), at diagnostic vintage"
+        },
+        {
+          "session": "2023-09-13",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-14",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-15",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-18",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 373 rows is archived (sha 928d550e), at diagnostic vintage"
+        },
+        {
+          "session": "2023-09-19",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-20",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-21",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-25",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-28",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2023-09-29",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 388 rows is archived (sha 175bd476), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "0425a134ff8acab2c5d8bd31999eb0bd864093da4b09dae2d4eaa46027a768c6",
+      "ticker": "RDDT",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2024-03-21",
+      "v6_regular_way_start": "2024-04-01",
+      "sessions": 6,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 3,
+        "NO_ARCHIVED_MARKET_BYTES": 3
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2024-03-21",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 393 rows is archived (sha 051dad2a), at diagnostic vintage"
+        },
+        {
+          "session": "2024-03-22",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-03-25",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 808 rows is archived (sha 54e39ca4), at diagnostic vintage"
+        },
+        {
+          "session": "2024-03-26",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-03-27",
+          "state": "NO_ARCHIVED_MARKET_BYTES",
+          "reason": "absent from canonical, quarantine and diagnostic archives"
+        },
+        {
+          "session": "2024-03-28",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 789 rows is archived (sha 236698fc), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "94ca83c229531d0b68efab9a28304e2f495629744f55b218e6607b68e351bb7c",
+      "ticker": "HONA",
+      "repair_class": "SECURITY_LEVEL_COVERAGE_REPAIR",
+      "v7_regular_way_start": "2026-06-29",
+      "v6_regular_way_start": "2026-07-01",
+      "sessions": 2,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 2
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2026-06-29",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 452 rows is archived (sha 6f11c75b), at diagnostic vintage"
+        },
+        {
+          "session": "2026-06-30",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 416 rows is archived (sha ffddd6be), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "751cd10a480eb5838533ed1a1b7de5b55b5acc85c227199cc5b73d570e40b8bb",
+      "ticker": "GEHC",
+      "repair_class": "WI_BOUNDARY_CORRECTION",
+      "v7_regular_way_start": "2023-01-04",
+      "v6_regular_way_start": "2023-01-05",
+      "sessions": 1,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 1
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2023-01-04",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 470 rows is archived (sha b290d1e8), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "52660f0a6d9513c989be47137fb722c1015d097aeef8852c2e88b9dfbf909c05",
+      "ticker": "SOLV",
+      "repair_class": "WI_BOUNDARY_CORRECTION",
+      "v7_regular_way_start": "2024-04-01",
+      "v6_regular_way_start": "2024-04-02",
+      "sessions": 1,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 1
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2024-04-01",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 485 rows is archived (sha a16707d3), at diagnostic vintage"
+        }
+      ]
+    },
+    {
+      "security_key_v1": "213bc10dc2fca2cda679b90293e89b1cc168d07d3f53f37c0fd8fe9e08bbb750",
+      "ticker": "VLTO",
+      "repair_class": "WI_BOUNDARY_CORRECTION",
+      "v7_regular_way_start": "2023-10-02",
+      "v6_regular_way_start": "2023-10-03",
+      "sessions": 1,
+      "states": {
+        "NEW_VINTAGE_ARCHIVED_ONLY": 1
+      },
+      "canonical_bundles_missing": 0,
+      "session_detail": [
+        {
+          "session": "2023-10-02",
+          "state": "NEW_VINTAGE_ARCHIVED_ONLY",
+          "reason": "a diagnostic aggregate response with 397 rows is archived (sha d95b79fc), at diagnostic vintage"
+        }
+      ]
+    }
+  ],
+  "headline": {
+    "original_canonical_raw_present": 0,
+    "new_vintage_archived_only": 39,
+    "no_archived_market_bytes": 309,
+    "entitlement_unavailable": 0,
+    "source_identity_conflict": 0,
+    "unresolved": 0
+  },
+  "preservation_consequence": {
+    "required": true,
+    "sessions_needing_preservation": 309,
+    "binding": "if NO_ARCHIVED_MARKET_BYTES > 0 those bytes exist only at the vendor and are subject to the same rolling entitlement window that already expired 2021-08-25 for the original eight",
+    "next_gate": "a preservation gate for these sessions, before candidate V2"
+  },
+  "mixed_vintage_consequence": {
+    "note": "any session resolving to NEW_VINTAGE_ARCHIVED_ONLY extends the mixed-vintage problem beyond the original eight securities",
+    "affected_securities": [
+      "CEG",
+      "FDXF",
+      "GEHC",
+      "HONA",
+      "KVUE",
+      "PSKY",
+      "Q",
+      "RDDT",
+      "SNDK",
+      "SOLV",
+      "SW",
+      "TKO",
+      "VLTO",
+      "WBD"
+    ],
+    "decided_by": "MASSIVE_MIXED_VINTAGE_SUPPLEMENTATION_POLICY_V1, not here"
+  },
+  "mutations": {
+    "canonical_raw": 0,
+    "quarantine": 0,
+    "diagnostic_archives": 0,
+    "v6": 0,
+    "v7_candidate": 0,
+    "derived_writes": 0,
+    "promotions": 0,
+    "vendor_requests": 0
+  },
+  "does_not_authorize": "candidate V2, preservation, promotion, or canonical V7",
+  "elapsed_sec": 14.8,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 19:32 +04"
+}

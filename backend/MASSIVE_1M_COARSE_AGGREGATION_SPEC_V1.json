@@ -1,0 +1,361 @@
+{
+  "spec_id": "MASSIVE_1M_COARSE_AGGREGATION_SPEC_V1",
+  "status": "MASSIVE_1M_COARSE_AGGREGATION_SPEC_V1_FROZEN",
+  "task_class": "SPECIFICATION_ONLY",
+  "role": "faithful implementation of the charter's already-frozen aggregation_contract; this gate does NOT redesign it",
+  "authoritative_inputs": {
+    "MASSIVE_1M_STATE_TRANSITION_V1": {
+      "cited": "d73a88d836f36eea",
+      "actual": "d73a88d836f36eea",
+      "match": true
+    },
+    "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1": {
+      "cited": "5591685cfa33b62a",
+      "actual": "5591685cfa33b62a",
+      "match": true
+    },
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": {
+      "cited": "7c0a5ad6b17d7ae0",
+      "actual": "7c0a5ad6b17d7ae0",
+      "match": true
+    },
+    "MASSIVE_1M_DATA_CONTRACT_AMENDMENT_V1": {
+      "cited": "8aaef7196c420136",
+      "actual": "8aaef7196c420136",
+      "match": true
+    },
+    "MASSIVE_1M_EMA_RVOL_FEATURE_SPEC_V1": {
+      "cited": "da7249fc5e362b9f",
+      "actual": "da7249fc5e362b9f",
+      "match": true
+    }
+  },
+  "charter_clause_transcribed": {
+    "hierarchy": "1m -> 15m -> 1H -> 1D, each level derived DETERMINISTICALLY from 1m",
+    "single_source": "every timeframe is built from the SAME 1m atoms. A coarse bar is never taken from a vendor endpoint while its finer bars come from another — that is how two timeframes silently disagree.",
+    "boundary_convention": "left-closed, left-labelled: a bar stamped 09:30 covers [09:30, 09:45) for 15m. Stated because it is the single most common silent mismatch between two pipelines.",
+    "session_aligned_1H": {
+      "rule": "1H bars are aligned to the SESSION, not to the wall clock: 09:30-10:30, 10:30-11:30, ... , 15:30-16:00",
+      "why": "clock-aligned hours would split the opening 30 minutes into a stub bar and make the first hour non-comparable across days",
+      "last_bar": "the final session hour is a 30-minute stub and must be FLAGGED as short, never silently treated as a full hour"
+    },
+    "ohlcv_rules": {
+      "open": "first 1m open in the window",
+      "high": "max",
+      "low": "min",
+      "close": "last 1m close in the window",
+      "volume": "sum",
+      "transaction_count": "sum"
+    },
+    "vwap_rule": {
+      "correct": "recompute as sum(vw_i * v_i) / sum(v_i) over the constituent 1m bars",
+      "incorrect": "mean(vw_i) — an unweighted average of VWAPs is not a VWAP",
+      "zero_volume": "a window whose total volume is 0 has UNDEFINED vwap; it is recorded as null, never as 0 and never forward-filled"
+    },
+    "sparse_minutes": {
+      "expectation": "minutes with no trades are OMITTED by the vendor, so a 1m series is NOT a dense grid",
+      "volume_rule": "an absent minute means ZERO volume, not missing volume",
+      "price_rule": "an absent minute has NO price. It is not forward-filled in the stored atoms. Any feature needing a continuous price must declare its own fill rule in the feature dictionary.",
+      "why_it_matters": "slot-RVOL and CUM-RVOL divide by a per-slot baseline. If absent minutes are dropped instead of counted as zero, the baseline is computed over a biased subset of days and every RVOL is inflated for illiquid names."
+    },
+    "adjustment": {
+      "issue": "split/dividend adjustment is DECISION-CRITICAL over a multi-year 1m history: an unadjusted series has discontinuities at every split, and an adjusted one may be restated retroactively by the vendor",
+      "status": "UNRESOLVED",
+      "requirement": "the programme must choose ONE regime, seal it, and record the vendor's adjustment behaviour. Mixing adjusted coarse bars with unadjusted atoms is a defect, not a nuance."
+    }
+  },
+  "timeframe_registry": {
+    "registered": [
+      "15m",
+      "1H",
+      "1D"
+    ],
+    "source": "1m production derived base",
+    "excluded": [
+      "5m",
+      "30m",
+      "2H",
+      "4H",
+      "any other resolution"
+    ],
+    "rule": "an additional timeframe is search-space expansion and requires a separate pre-Y amendment",
+    "hierarchy": "1m -> 15m -> 1H -> 1D, each level derived DETERMINISTICALLY from 1m",
+    "single_source": "every timeframe is built from the SAME 1m atoms. A coarse bar is never taken from a vendor endpoint while its finer bars come from another — that is how two timeframes silently disagree."
+  },
+  "one_minute_role_preserved": {
+    "unchanged": true,
+    "amended": false,
+    "invariant": "1m is a measurement / clock layer; a 1m-derived quantity must name the coarser or session-level parent it measures",
+    "forbidden": [
+      "searching for thresholds, patterns or rules AT 1m granularity",
+      "promoting any 1m-native construct to a signal",
+      "using 1m to redefine a coarse-TF state after seeing outcomes"
+    ],
+    "why_this_gate_exists": "to give EMA a legitimate coarse-TF parent rather than amending the constraint away"
+  },
+  "interval_alignment": {
+    "convention": "left-closed, left-labelled: a bar stamped 09:30 covers [09:30, 09:45) for 15m. Stated because it is the single most common silent mismatch between two pipelines.",
+    "session_aligned": true,
+    "wall_clock_grouping": false,
+    "never_crosses": "an XNYS session boundary",
+    "measured_structure": {
+      "normal_session": {
+        "session": "2024-05-15",
+        "regular_minutes": 390,
+        "bars_15m": 26,
+        "stub_15m": null,
+        "bars_1H": 7,
+        "stub_1H_minutes": 30,
+        "full_1H": 6
+      },
+      "early_close_session": {
+        "session": "2024-07-03",
+        "regular_minutes": 210,
+        "bars_15m": 14,
+        "stub_15m": null,
+        "bars_1H": 4,
+        "stub_1H_minutes": 30,
+        "full_1H": 3
+      }
+    },
+    "measured_note": "both 390 and 210 divide evenly by 15, so 15m NEVER produces a stub. 1H produces exactly one 30-minute stub in BOTH cases — confirming the charter's stub applies to early closes too, not only to normal sessions.",
+    "derived_from": "the XNYS calendar, not from assumed clock times"
+  },
+  "hour_stub": {
+    "rule": "1H bars are aligned to the SESSION, not to the wall clock: 09:30-10:30, 10:30-11:30, ... , 15:30-16:00",
+    "why": "clock-aligned hours would split the opening 30 minutes into a stub bar and make the first hour non-comparable across days",
+    "last_bar": "the final session hour is a 30-minute stub and must be FLAGGED as short, never silently treated as a full hour",
+    "flag": "explicit stub flag, always carried",
+    "forbidden": [
+      "dropping it silently",
+      "extending it to 60 minutes",
+      "borrowing post-market minutes",
+      "mixing it with the session-close-boundary bar"
+    ],
+    "measured_normal_minutes": 30,
+    "measured_early_close_minutes": 30
+  },
+  "input_scope": {
+    "permitted": "regular-session observed 1m bars from the production V1 derived base",
+    "forbidden": [
+      "SESSION_CLOSE_BOUNDARY_BAR",
+      "EXTENDED_HOURS_BAR",
+      "WHEN_ISSUED_EXCLUDED",
+      "NOT_YET_REGULAR_WAY",
+      "synthetic rows",
+      "supplemental rows"
+    ],
+    "cohort": 476,
+    "source_policy": "ORIGINAL_VINTAGE_ONLY"
+  },
+  "unobserved_propagation": {
+    "inherited_rule": "a coarser bar (15m/1H/1D) whose window contains ANY UNOBSERVED minute is flagged UNOBSERVED_CONTAMINATED and carries the count of such minutes",
+    "state": "UNOBSERVED_CONTAMINATED",
+    "not_a_complete_observation": true,
+    "never": [
+      "volume 0",
+      "flat price",
+      "carried price",
+      "no trade"
+    ],
+    "forbidden": "silently computing an inferentially valid coarse bar from the remaining observed subset",
+    "required_accounting": [
+      "expected_constituent_minutes",
+      "observed_constituent_minutes",
+      "unobserved_constituent_minutes",
+      "coverage_state"
+    ],
+    "source_unobserved_minutes": 17702599
+  },
+  "measured_contamination": {
+    "headline": "under the strict any-UNOBSERVED rule roughly TWO THIRDS of daily bars are contaminated",
+    "sample_sessions": 20,
+    "sample_method": "every ~63rd session across the window",
+    "label_free": true,
+    "y_exposed": 0,
+    "by_timeframe": {
+      "15m": {
+        "intervals": 247234,
+        "contaminated": 76779,
+        "complete": 170455,
+        "contaminated_share": 0.3106,
+        "complete_share": 0.6894
+      },
+      "1H": {
+        "intervals": 66563,
+        "contaminated": 28052,
+        "complete": 38511,
+        "contaminated_share": 0.4214,
+        "complete_share": 0.5786
+      },
+      "1D": {
+        "intervals": 9509,
+        "contaminated": 6059,
+        "complete": 3450,
+        "contaminated_share": 0.6372,
+        "complete_share": 0.3628
+      }
+    },
+    "arithmetic": "7.6% of expected minutes are UNOBSERVED, and a daily interval has 390 chances to contain one",
+    "not_a_defect": "this is the inherited arithmetic of honest 1m accounting, not an aggregation error",
+    "consequence_for_ema": "an EMA over daily bars where only 36.3% are COMPLETE would either reset almost continuously or would have to consume contaminated bars",
+    "tolerance_not_set_here": true,
+    "why_not": "the charter says a contaminated bar 'is not silently dropped and not silently used; each study declares its own tolerance, and the declaration is part of that study's specification'. Setting one here would make that declaration for a study that does not exist yet.",
+    "why_measured_now": "so the tolerance is declared by someone who knows it is 63.7% at 1D and not 5% — while Y_EXPOSED is still 0",
+    "status": "INDICATIVE_PRE_REGISTRATION_OBSERVATION, not the capability run"
+  },
+  "observed_zero_vs_unobserved": {
+    "observed_zero": "an archived 1m vendor bar with volume 0 is an OBSERVED input",
+    "unobserved": "no source bar for an expected minute",
+    "distinction_preserved_through_aggregation": true
+  },
+  "coarse_ohlcv": {
+    "applies_to": "COMPLETE intervals only",
+    "rules": {
+      "open": "first 1m open in the window",
+      "high": "max",
+      "low": "min",
+      "close": "last 1m close in the window",
+      "volume": "sum",
+      "transaction_count": "sum"
+    },
+    "open": "first constituent observed open",
+    "close": "last constituent observed close",
+    "high": "max",
+    "low": "min",
+    "volume": "sum",
+    "forbidden": "using this formula to disguise missing expected input",
+    "vwap": {
+      "status": "DISABLED",
+      "reason": "carried from Builder Spec V2 — vendor vw may lie outside [low, high]; true VWAP cannot be reconstructed from OHLCV",
+      "charter_recompute_rule": "recompute as sum(vw_i * v_i) / sum(v_i) over the constituent 1m bars",
+      "note": "the charter's recompute rule is transcribed for provenance but the feature stays disabled in this programme"
+    }
+  },
+  "causal_availability": {
+    "fields": [
+      "bar_start",
+      "bar_end",
+      "feature_information_available_at"
+    ],
+    "rule": "a coarse bar becomes available only after its final required constituent minute completes",
+    "example": "a 15m bar cannot affect state at one of its own earlier constituent 1m minutes",
+    "inheritance": "any later EMA or other feature based on that coarse bar inherits this availability timestamp",
+    "no_intra_bar_hindsight": true
+  },
+  "daily_bars": {
+    "unit": "the XNYS session",
+    "midnight_bucketed": false,
+    "early_close_sessions_valid": true,
+    "may_not_be_completed_with": [
+      "extended-hours rows",
+      "close-boundary rows"
+    ]
+  },
+  "structural_no_trade": {
+    "capability": "UNAVAILABLE",
+    "may_be_derived_from_missing_1m": false,
+    "required_generated_count": 0
+  },
+  "coverage_states": {
+    "states": [
+      "COMPLETE",
+      "UNOBSERVED_CONTAMINATED",
+      "INELIGIBLE"
+    ],
+    "never_encoded_as": "unexplained NULL",
+    "eligibility_source": "scoped V6 lineage + frozen cohort"
+  },
+  "coarse_feature_eligibility": {
+    "rule": "future EMA may consume only coarse observations satisfying the frozen complete-input contract",
+    "contaminated_must_not_silently_enter": true,
+    "eventual_ema_spec_must_reference": "UNOBSERVED_CONTAMINATED explicitly"
+  },
+  "no_parameter_search": {
+    "geometry_is_frozen_research_design": true,
+    "may_not_be_chosen_from_outcomes": [
+      "timeframes",
+      "alignment",
+      "stub treatment",
+      "contamination tolerance",
+      "missing-minute threshold"
+    ],
+    "outcome_driven_optimization": false
+  },
+  "capability_plan": {
+    "label_free": true,
+    "may_measure": [
+      "coarse bars by TF",
+      "COMPLETE count",
+      "UNOBSERVED_CONTAMINATED count",
+      "coverage ratio",
+      "per-security completeness",
+      "per-session completeness",
+      "stub counts",
+      "early-close behaviour"
+    ],
+    "must_not_measure": "outcome association",
+    "classification": "capability / data anatomy only"
+  },
+  "negative_fixtures": {
+    "count": 13,
+    "required": [
+      "pre-market minute cannot enter a coarse regular bar",
+      "close-boundary bar cannot enter a coarse regular bar",
+      "post-market minute cannot enter a coarse regular bar",
+      "UNOBSERVED minute cannot become volume zero",
+      "UNOBSERVED-contaminated interval cannot be marked COMPLETE",
+      "missing minute cannot be forward-filled",
+      "a 15m bar cannot become available before its closing constituent minute",
+      "the 1H final 30-minute stub cannot be padded to 60 minutes",
+      "an early-close session cannot generate nonexistent later coarse bars",
+      "aggregation cannot cross an XNYS session boundary",
+      "a supplemental row cannot enter aggregation",
+      "an excluded security cannot enter output",
+      "an unregistered timeframe must fail"
+    ],
+    "standard": "each must show the dangerous version FAILS and the correct version PASSES"
+  },
+  "output_destination": {
+    "path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_coarse_v1",
+    "exists_now": false,
+    "mount_guard_required": true,
+    "overwrites_1m_base": false
+  },
+  "acceptance": {
+    "charter_digest_bound": true,
+    "production_base_bound": true,
+    "cohort_476_unchanged": true,
+    "one_minute_role_unchanged": true,
+    "timeframes_registered_15m_1H_1D": true,
+    "no_extra_timeframes": true,
+    "alignment_measured_not_assumed": true,
+    "stub_semantics_explicit": true,
+    "early_close_from_calendar": true,
+    "unobserved_propagation_explicit": true,
+    "contamination_measured_before_Y": true,
+    "tolerance_not_set_here": true,
+    "structural_no_trade_zero": true,
+    "negative_fixtures_defined": true,
+    "capability_plan_label_free": true,
+    "y_exposed_zero": true,
+    "production_writes_zero": true
+  },
+  "mutations": {
+    "charter": 0,
+    "derived_base": 0,
+    "cohort": 0,
+    "canonical_raw": 0,
+    "coarse_writes": 0,
+    "y_exposure": 0
+  },
+  "y_exposed": 0,
+  "production_writes": 0,
+  "forward_risk": {
+    "flagged": "the 1D COMPLETE share is 36.3%. Any downstream contract that requires strictly COMPLETE daily bars for a long-period EMA should expect heavy fragmentation.",
+    "decision_belongs_to": "the EMA/RVOL spec reissue, which must declare its contamination tolerance explicitly and before Y"
+  },
+  "next_step": "coarse aggregation smoke + label-free capability. Full coarse production is NOT built automatically.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 22:01 +04"
+}

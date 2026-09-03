@@ -1,0 +1,176 @@
+{
+  "report_id": "OPERATIONAL_ULTRA_CURRENT_UNIVERSE_FIX_V1",
+  "status": "HOLD",
+  "scope": "APPLICATION BEHAVIOUR ONLY — current operational scanning",
+  "architecture": {
+    "decision": "READ-TIME OPERATIONAL OVERLAY, not a DB repair",
+    "historical_universe": "bars.universe — 618 tickers, legacy historical semantics, UNCHANGED",
+    "current_operational": "frozen 503-security snapshot in Massive nomenclature",
+    "separation": "separate code paths; neither silently substitutes for the other",
+    "provider": "backend/current_universe.py",
+    "wired_into": [
+      "turbo_engine.py (Stage 1 operational scan)",
+      "studio/ultra_db_scan.py (DB-instant path)"
+    ],
+    "deliberately_untouched": "scanner.get_universe_tickers() — shared with signal_replay, pooled_stats, ultra_pump_research, bulk_export and the nightly writer; changing it would have moved far more than this operational scan"
+  },
+  "root_cause": {
+    "layer_1": "scanner.get_tickers() scrapes Wikipedia live then rewrites x.replace('.','-'), turning BRK.B into BRK-B",
+    "layer_2": "scanner._FALLBACK unions 671 hardcoded names, 132 of them not current",
+    "layer_3": "_is_valid_stock_ticker() rejects any dotted symbol as preferred, discarding BRK.B and BF.B",
+    "result": "618 scanned instead of 503: ~25 delisted/renamed and ~92 live ex-constituents"
+  },
+  "tests": {
+    "C5": {
+      "expected": 503,
+      "actual": 503,
+      "missing": [],
+      "extra": [],
+      "duplicates": [],
+      "frozen_set_digest": "a0f6e42a502b21667e70012ab117cdef5ec03e2b1aca5a200b620166e20e3d99",
+      "digest_matches_snapshot": true,
+      "derived_from": "frozen artifacts only — never bars.universe, never market data, never ticker availability"
+    },
+    "C6": {
+      "sp500_distinct_tickers": 618,
+      "expected_unchanged": 618,
+      "unchanged": true,
+      "universes": {
+        "nasdaq": 3673,
+        "index": 25,
+        "sp500": 618,
+        "russell2k": 5187
+      },
+      "total_rows": 8787711,
+      "membership_projection_digest": "9e69e3804c6e47b6",
+      "note": "the 117 non-current names remain in historical storage; they are excluded from the CURRENT operational scan, not deleted or relabelled"
+    },
+    "C7": {
+      "stale_fixtures": [
+        "SQ",
+        "RE",
+        "FLT",
+        "PEAK",
+        "MMC"
+      ],
+      "stale_present_in_candidates": [],
+      "replacements_present": {
+        "SQ": true,
+        "RE": true,
+        "FLT": true,
+        "PEAK": true,
+        "MMC": true
+      },
+      "note": "these five are regression FIXTURES, not implementation logic — the fix is the frozen map, not a hand-typed rename dictionary"
+    },
+    "C8": {
+      "dotted_in_candidates": {
+        "BRK.B": true,
+        "BF.B": true
+      },
+      "hyphen_form_absent": {
+        "BRK-B": true,
+        "BF-B": true
+      },
+      "legacy_filter_would_reject": {
+        "BRK.B": true,
+        "BF.B": true
+      },
+      "exempted_in_turbo": "frozen members bypass _is_valid_stock_ticker, which classifies any dotted symbol as preferred stock and would otherwise discard two ordinary index constituents"
+    },
+    "C1_C4": {
+      "verification": "CODE CONTRACT (static parse) PLUS a live browser cycle — see browser_verification below",
+      "explicit_state_machine": true,
+      "states_present": [
+        "COMPLETE",
+        "ERROR",
+        "NOT_RUN",
+        "RUNNING"
+      ],
+      "mount_reconciles_with_backend": false,
+      "running_only_after_trigger_accepted": true,
+      "poll_timeout_reclassifies": true,
+      "poll_cleanup_clears_timeout": true,
+      "unreachable_backend_not_running": true,
+      "cached_results_labelled": true
+    },
+    "browser_verification": {
+      "method": "in-app browser against http://127.0.0.1:8080 after a real backend restart and a full page reload",
+      "C1_NOT_RUN": {
+        "button": "🧬 Run ULTRA Scan",
+        "not_run_label": true,
+        "cached_from_previous_session_label": true,
+        "spinner": false,
+        "backend": "running=false, completed_at=None, turbo_total=0"
+      },
+      "C2_RUNNING": {
+        "button": "🧬 Scanning…",
+        "not_run_label_gone": true
+      },
+      "C3_COMPLETE": {
+        "button": "🧬 ULTRA Scan",
+        "spinner": false,
+        "not_run_label": false,
+        "cached_label": false,
+        "grid_counter": "286 / 501"
+      },
+      "spinner_was_honest": "while the spinner showed, two POST /api/studio/ultra-from-db requests were genuinely in flight; it cleared when they returned. This was checked rather than assumed — a persistent spinner is exactly the defect under repair, so it had to be distinguished from a real pending request.",
+      "defect_found_by_this_check": "the first mount implementation collapsed running=false into NOT_RUN, which would have labelled a COMPLETED scan 'not run yet'. completed_at is what separates the two and is now used.",
+      "second_defect_found": "fetchFromDB set `scanning` without setting scanState, so a DB-instant fetch rendered 'Scanning…' and 'not run yet' at the same time. Fixed."
+    },
+    "overlay_query_cost": {
+      "old": "universe='sp500' → 618 tickers in 0.02s",
+      "new": "ticker IN (503) → 501 tickers in 0.42s",
+      "ratio": "19.6x relative, 0.4s absolute",
+      "assessment": "acceptable; the DB-instant latency is downstream enrichment, not membership selection"
+    },
+    "C10": {
+      "after_restart_backend": "running=false, stage=None, turbo 0/0, error=None",
+      "auto_trigger": "none — no scan starts on its own",
+      "after_one_trigger": "turbo 503/503, elapsed 95.1s, error=None",
+      "candidate_universe_size": 503,
+      "previous_size": 619,
+      "massive_fetch_failures_during_scan": 0,
+      "previous_failures": "~20 per scan"
+    }
+  },
+  "acceptance": {
+    "current_universe_exactly_503": true,
+    "no_missing_no_extra_no_dupes": true,
+    "digest_matches_frozen_snapshot": true,
+    "historical_db_unchanged": true,
+    "no_stale_aliases_in_candidates": true,
+    "replacements_present": true,
+    "dotted_tickers_present": true,
+    "hyphen_forms_absent": true,
+    "frontend_explicit_state_machine": true,
+    "frontend_mount_reconciles": false,
+    "frontend_no_optimistic_running": true,
+    "frontend_timeout_reclassifies": true,
+    "frontend_cached_labelled": true,
+    "zero_canonical_duckdb_writes": true
+  },
+  "coverage_semantics": {
+    "current_universe_size": 503,
+    "note": "BRK.B and BF.B have no local bar rows and are reported as CURRENT_MEMBER_LOCAL_HISTORY_MISSING — a coverage state, never a membership change and never a silent drop",
+    "db_instant_measured": {
+      "universe": 503,
+      "evaluated": 501,
+      "local_history_missing": [
+        "BF.B",
+        "BRK.B"
+      ]
+    }
+  },
+  "untouched": {
+    "historical_db_mutations": 0,
+    "canonical_duckdb_writes": 0,
+    "MASSIVE_TICKER_LINEAGE_V6": "UNTOUCHED",
+    "SP500_CURRENT_SNAPSHOT_V1": "UNTOUCHED",
+    "SP500_CURRENT_MASSIVE_TICKER_MAP_V1": "UNTOUCHED",
+    "massive_raw_archive": "UNTOUCHED",
+    "internal_backup_84gb": "RETAINED"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 12:07 +04"
+}

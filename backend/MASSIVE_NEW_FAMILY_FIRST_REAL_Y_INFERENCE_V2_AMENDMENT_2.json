@@ -1,0 +1,24 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V2_AMENDMENT_2",
+  "status": "FROZEN",
+  "class": "DOCUMENTATION_PROVENANCE_DEFECT — not a statistical defect",
+  "amends": {
+    "target": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V2_AMENDMENT_1",
+    "target_digest": "b17f7841c0c094d3",
+    "target_not_rewritten": true
+  },
+  "DEFECT": "AMENDMENT_1 recorded Y_EXPOSED: 0 at seal time. That is IMPOSSIBLE: real Y was first read at 2026-08-30T12:09:13+0400, before AMENDMENT_1 was sealed.",
+  "ROOT_CAUSE": "a single flag was carrying two distinct facts — 'has the outcome been touched at all' and 'have the scientific results been read'. The first was already 1; only the second was 0.",
+  "CORRECT_HISTORICAL_STATE_AT_AMENDMENT_1_SEAL": {
+    "Y_EXPOSED_AT_SEAL": 1,
+    "SCIENTIFIC_RESULTS_READ_AT_SEAL": 0,
+    "meaning": "the outcome had been computed and sealed; theta / T / p_adj / M_b / CI had not been read by any human or model at that moment"
+  },
+  "WHAT_IS_UNAFFECTED": [
+    "the wording correction itself",
+    "every inferential artifact",
+    "every digest",
+    "the promotion gate"
+  ],
+  "STANDING_RULE": "Y_EXPOSED and RESULTS_READ are SEPARATE fields from this point forward. A single provenance flag may not carry two facts."
+}

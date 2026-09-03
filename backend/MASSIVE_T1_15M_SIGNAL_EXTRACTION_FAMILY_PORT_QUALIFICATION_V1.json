@@ -1,0 +1,140 @@
+{
+  "artifact": "MASSIVE_T1_15M_SIGNAL_EXTRACTION_FAMILY_PORT_QUALIFICATION_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "future_values_read": 0,
+  "ROLE": "T1_HISTORICAL_FAMILY_X_DEPENDENCY_ONLY",
+  "SCOPE_CORRECTION": "the 8 columns do NOT share one producer. full_suffix/ne_suffix/wick_suffix/close_suffix are built by studio/enricher.py::_compute_suffixes, NOT signal_extraction.py. The umbrella was kept but qualification is per sub-family, as instructed.",
+  "INPUT_SURFACE": {
+    "finding": "ALL FOUR sub-families are ENRICHER-PATH: exact only from the enriched store own 2dp OHLC",
+    "bar_line5": {
+      "enriched": 0,
+      "lean_base": 4044
+    },
+    "suffix": {
+      "enriched": 0,
+      "lean_base": "1384-5394 per column"
+    },
+    "rule_confirmed": "the input surface follows the WRITING PIPELINE, not the formula"
+  },
+  "S1_BAR_LINE5": {
+    "signature_enumeration": {
+      "revisions": 10,
+      "compute_line5_bodies": 1,
+      "_compute_psar_bodies": 1,
+      "note": "stable — no discrimination needed"
+    },
+    "full_store": {
+      "matched_rows": 91027821,
+      "mismatches": 676
+    },
+    "claim_relevance": {
+      "M1_M4_cells": 132,
+      "frozen_population_cells": 4,
+      "cells": [
+        [
+          "ARCC",
+          "2026-07-10",
+          "M1",
+          "calc PB-R2X vs stored VX-PB-R2X"
+        ],
+        [
+          "CPB",
+          "2026-07-10",
+          "M1",
+          "calc PB-R2X vs stored PS-R2X"
+        ],
+        [
+          "MLTX",
+          "2026-07-10",
+          "M1",
+          "calc PB-R2D vs stored PS-R2D"
+        ],
+        [
+          "MLTX",
+          "2026-07-10",
+          "M4",
+          "calc PB vs stored PS"
+        ]
+      ]
+    },
+    "VERDICT": "HOLD",
+    "reason": "claim-relevant divergence > 0 (4 cells, all 2026-07-10, post-boundary). Per the gate rule this requires a bounded mechanism probe, not acceptance.",
+    "physics_impact": "CRITICAL: the ARCC cell differs by the \"VX-\" prefix, and wvf_spike = bar_line5.str.contains(\"VX\") (enricher.py:193). So this cell propagates into physics phys_wyc. The physics prerequisite is NOT closed."
+  },
+  "S2_SUFFIX": {
+    "producer": "studio/enricher.py::_compute_suffixes",
+    "signature_enumeration": {
+      "enricher_revisions": 5,
+      "full_suffix_construction_variants": 1
+    },
+    "full_store": {
+      "matched_rows": 91027821,
+      "mismatches": {
+        "ne_suffix": 1,
+        "wick_suffix": 1,
+        "close_suffix": 1,
+        "full_suffix": 1
+      },
+      "total": 4
+    },
+    "detail": "all 4 cells sit on ONE row: META 2022-06-09 13:30:00, where the recompute yields \"\" and the store carries values — a series-head artifact (_compute_suffixes clears index 0), consistent with the producer frame having started earlier",
+    "claim_relevance": {
+      "frozen_population_cells": 0
+    },
+    "VERDICT": "PASS_FOR_T1_FAMILY_X_DEPENDENCY",
+    "three_line": {
+      "FULL_STORE": "NOT_EXACT (4 / 91,027,821)",
+      "FROZEN_T1_RELEVANT": "EXACT (0)",
+      "ROLE": "X dependency only"
+    }
+  },
+  "S3_WYC_PHASE": {
+    "signature_enumeration": {
+      "distinct_bodies": 2,
+      "representatives": [
+        "43cba77b (4 revs, carries Bug-fix v3.1)",
+        "05d4c198 (1 rev, pre-fix)"
+      ]
+    },
+    "discrimination": {
+      "43cba77b": 415,
+      "05d4c198": 599
+    },
+    "sample": "5 series / 165,909 rows",
+    "VERDICT": "HOLD",
+    "reason": "TRUE_SEMANTIC_MISMATCH — NEITHER historical signature reproduces the store, and the divergence is NOT confined to any materialization boundary",
+    "temporal": "477 of 488 sample mismatches fall BEFORE 2026-07-06, spread across the full history from 2021-07-02 — this is not a regime artifact"
+  },
+  "S4_AD": {
+    "signature_enumeration": {
+      "distinct_bodies": 2
+    },
+    "discrimination": {
+      "43cba77b": {
+        "ad_fresh": 42,
+        "ad_cluster": 31
+      },
+      "05d4c198": {
+        "ad_fresh": 42,
+        "ad_cluster": 19628
+      }
+    },
+    "note": "ad_fresh diverges identically (42) under BOTH signatures, so it is not a signature-selection issue",
+    "VERDICT": "HOLD",
+    "reason": "TRUE_SEMANTIC_MISMATCH — same temporal profile as S3, spread across history"
+  },
+  "UMBRELLA_VERDICT": "HOLD",
+  "umbrella_reason": "2 of 4 sub-families (S3, S4) show a genuine semantic mismatch unrelated to any known materialization regime, and S1 has 4 claim-relevant divergent cells that also block the physics prerequisite.",
+  "CONSEQUENCE": {
+    "physics_production": "REMAINS BLOCKED — bar_line5 is not qualified, so wvf_spike cannot be bound",
+    "columns_advanced": 4,
+    "columns_held": 4
+  },
+  "not_done": [
+    "S1 bounded mechanism probe",
+    "S3/S4 semantic investigation — a third signature source may exist outside signal_extraction.py",
+    "no Massive feature produced"
+  ]
+}

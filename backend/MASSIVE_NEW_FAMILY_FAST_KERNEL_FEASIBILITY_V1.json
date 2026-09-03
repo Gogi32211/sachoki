@@ -1,0 +1,97 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FAST_KERNEL_FEASIBILITY_V1",
+  "status": "BENCHMARK_ONLY",
+  "EVIDENTIARY_STATUS": "NONE — this artifact carries throughput measurements and a worker-count choice, nothing else",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "workload": {
+    "X": "REAL frozen registry and structural masks",
+    "Y": "SYNTHETIC",
+    "maps": "frozen synthetic manifest",
+    "real_Y_used": "NO — not even for benchmarking"
+  },
+  "host": {
+    "cores": 10,
+    "RAM_GB": 16
+  },
+  "protocol": {
+    "fixed_subset": "the same 10 draws (SCALE_0000..0004, NULL_0000..0004) for every worker count",
+    "worker_counts": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "BLAS/OpenMP threads per worker": 1
+  },
+  "RESULTS": [
+    {
+      "workers": 1,
+      "wall_s": 539.0,
+      "sec_per_draw": 53.9,
+      "draws_per_hour": 66.8,
+      "peak_RSS_GB": 0.54,
+      "speedup": 1.0,
+      "efficiency_pct": 100
+    },
+    {
+      "workers": 2,
+      "wall_s": 290.2,
+      "sec_per_draw": 29.0,
+      "draws_per_hour": 124.1,
+      "peak_RSS_GB": 0.55,
+      "pageouts": 57,
+      "speedup": 1.86,
+      "efficiency_pct": 93
+    },
+    {
+      "workers": 4,
+      "wall_s": 188.7,
+      "sec_per_draw": 18.9,
+      "draws_per_hour": 190.8,
+      "peak_RSS_GB": 0.54,
+      "pageouts": 33,
+      "speedup": 2.86,
+      "efficiency_pct": 71
+    },
+    {
+      "workers": 8,
+      "wall_s": 140.6,
+      "sec_per_draw": 14.1,
+      "draws_per_hour": 256.0,
+      "peak_RSS_GB": 0.53,
+      "pageouts": 208,
+      "speedup": 3.83,
+      "efficiency_pct": 48
+    }
+  ],
+  "PRODUCTION_WORKER_COUNT": {
+    "chosen": 8,
+    "criterion": "highest sustained throughput with zero swap/memory instability",
+    "evidence": "peak RSS ~0.55 GB of 16 GB at every count; pageouts remain negligible in absolute terms",
+    "note": "efficiency falls to 48% at 8 workers — memory-bandwidth bound on a 10-core host. Core count is not the objective; throughput is.",
+    "status": "a PERFORMANCE decision; it does not touch the statistic"
+  },
+  "PROJECTIONS": {
+    "permutation_SCALE_plus_NULL": {
+      "B": 2000,
+      "hours": 7.81,
+      "basis": "MEASURED at 256.0 draws/hour, 8 workers"
+    },
+    "CI_bootstrap": {
+      "B_CI": 2000,
+      "hours": "NOT ESTABLISHED",
+      "why": "the two-way weighted-median bootstrap has a DIFFERENT memory/computation profile; assuming permutation draw cost == CI draw cost is not permitted",
+      "required": "a separate parallel CI benchmark"
+    }
+  },
+  "RETRACTED_PROJECTION": {
+    "claim": "CI bootstrap ~7.81 h",
+    "reason": "it silently reused the permutation draw cost",
+    "status": "RETRACTED"
+  },
+  "IDEAL_SCALING_NOTE": {
+    "earlier_projection": "53.9 s/draw x 2000 / 8 = 3.74 h",
+    "status": "IDEAL LINEAR SCALING ONLY — the measured figure is 7.81 h, because efficiency at 8 workers is 48%, not 100%"
+  }
+}

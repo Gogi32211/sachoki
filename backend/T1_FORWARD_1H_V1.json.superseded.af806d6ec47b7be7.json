@@ -1,0 +1,112 @@
+{
+  "spec_id": "T1_FORWARD_1H_V1",
+  "status": "SEALED",
+  "family_id": "T1_MICROSTRUCTURE_DNA_V1",
+  "mode": "PROSPECTIVE — outcome-blind accrual",
+  "k": 9,
+  "inferential_family": [
+    {
+      "key": "j64",
+      "claim_id": "CROSS_DAY|2|L2→T1",
+      "j": 64,
+      "sealed_members": 897,
+      "membership_hash": "2072926d751bc95f"
+    },
+    {
+      "key": "j140",
+      "claim_id": "CROSS_DAY|2|VOL_L→T1",
+      "j": 140,
+      "sealed_members": 2825,
+      "membership_hash": "62da494ef5f8c201"
+    },
+    {
+      "key": "j295",
+      "claim_id": "CROSS_DAY|3|VOL_L→T1→T2",
+      "j": 295,
+      "sealed_members": 1065,
+      "membership_hash": "add75b12af0d9ba0"
+    },
+    {
+      "key": "j632",
+      "claim_id": "T1_INTRADAY|2|BUY→T2",
+      "j": 632,
+      "sealed_members": 3014,
+      "membership_hash": "187dc68f0307dc7c"
+    },
+    {
+      "key": "j726",
+      "claim_id": "T1_INTRADAY|2|SVS→T2",
+      "j": 726,
+      "sealed_members": 17201,
+      "membership_hash": "27f8cd12601a6cbd"
+    },
+    {
+      "key": "j742",
+      "claim_id": "T1_INTRADAY|2|VOL10X→T2",
+      "j": 742,
+      "sealed_members": 847,
+      "membership_hash": "2f098c614c996c19"
+    },
+    {
+      "key": "j781",
+      "claim_id": "T1_INTRADAY|3|BUY→T2→T2",
+      "j": 781,
+      "sealed_members": 774,
+      "membership_hash": "189a6ff6731c172e"
+    },
+    {
+      "key": "j869",
+      "claim_id": "T1_INTRADAY|3|SVS→T2→T2",
+      "j": 869,
+      "sealed_members": 4094,
+      "membership_hash": "9c61c97050aef676"
+    },
+    {
+      "key": "j883",
+      "claim_id": "T1_INTRADAY|3|VOL10X→T2→L2",
+      "j": 883,
+      "sealed_members": 378,
+      "membership_hash": "46da4aebac115a52"
+    }
+  ],
+  "why_medoids_not_survivors": "the forward family is the frozen overlap-cluster medoid set, not every historical survivor: within-cluster aliases carry the same membership and would inflate k without adding an independent structure. T9 6->4, T3 8->7, T1 9->9 (nine singleton components).",
+  "bound": {
+    "definition_hash": "a1c9b7eb94331751",
+    "membership_cache": "3b034ff4cbc9de00",
+    "claim_order": "cc650aa6761e39c2",
+    "historical_exposure": "97fc948c29c57204",
+    "characterization": "15e85de74ea7a44b",
+    "outcome_spec": "a04ec35867a03260",
+    "session_semantics": "0b3d1963c50c1033",
+    "source_gate": "0d100cdad3c4d377"
+  },
+  "decision_spec": {
+    "signal": "a canonical 1D episode of this family whose frozen 1H microstructure matches at least one medoid membership",
+    "evaluation": "membership is READ from the sealed cache semantics, never re-derived by a second implementation",
+    "entry": "next regular-session open after the episode date",
+    "horizon_sessions": 10,
+    "primary": "MFE_10D",
+    "secondary": "MFE_ATR_10D",
+    "maturity": "an episode is evidence-eligible only after its full 10-session path exists; before that it is FORWARD_X_UNMATURED and its outcome is not read"
+  },
+  "no_backfill": {
+    "rule": "forward evidence begins ONLY from signal episodes whose decision date is strictly AFTER this seal date",
+    "seal_date": "2026-08-22",
+    "seal_timestamp": "2026-08-22T17:26:33+0400",
+    "last_historical_episode_in_store": "2026-08-20",
+    "explicitly_not_evidence": "every episode dated 2026-08-20 or earlier, including today's, is historical — it cannot become prospective evidence by being noticed after the seal",
+    "t5_cutoff_not_reused": "the T5 discovery cutoff (2026-08-20) is a different family's instant and is not inherited here"
+  },
+  "source_gate_state": {
+    "verdict": "HOLD",
+    "consequence": "spec SEALED and the clock runs; prospective evidence accrual is HELD until the source qualifies. Signals may be shown as an explicitly labelled operational preview and counted nowhere."
+  },
+  "forbidden": [
+    "counting any pre-seal episode as prospective evidence",
+    "reading a forward outcome before maturity",
+    "re-deriving membership with a second implementation",
+    "changing the medoid set, entry, horizon or outcome after the seal"
+  ],
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22T17:26:33+0400"
+}

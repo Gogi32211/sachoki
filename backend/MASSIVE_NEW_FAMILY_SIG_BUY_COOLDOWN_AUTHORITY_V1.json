@@ -1,0 +1,104 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_SIG_BUY_COOLDOWN_AUTHORITY_V1",
+  "status": "FROZEN",
+  "raw_predicate_source_binding": {
+    "file": "backend/combo_engine.py",
+    "method": "AST",
+    "L44": "upmove_ok = trend_up & (roc_40 >= 8.0) & (vol_max40 > avg_vol * 1.4)",
+    "L72": "break_gate = (tight_gate & brk_cons) | (alt_gate & brk_nr)",
+    "L74": "buy_raw  = upmove_ok & break_gate",
+    "L75": "buy_2809 = _apply_cooldown(buy_raw, 6)",
+    "apply_cooldown_call_sites_in_module": 1,
+    "buy_2809_store_count": 1,
+    "buy_raw_store_count": 1,
+    "post_cooldown_transformation_of_buy_2809": "NONE (read once into 'rocket', a distinct column; returned as-is)",
+    "cooldown_identity": "indicators.apply_cooldown aliased at import -> canonical and shared engine are the SAME function",
+    "stateful_fns_inside_components": "none -> buy_raw is windowed-but-stateless",
+    "inversion_policy": "buy_raw MUST NOT be recovered from buy_2809; cooldown is information-losing"
+  },
+  "initial_state_freeze": {
+    "rule": "FRESH = OLD singleton, matching canonical last = -(n+1)",
+    "rejected": "arbitrary unknown prior-state powerset at series head",
+    "scope": "series head / declared producer start ONLY",
+    "interior": "admissible-state set MAY widen after interior information loss"
+  },
+  "identifiability_law": {
+    "statement": "UNKNOWN observation != automatically UNKNOWN output",
+    "authority": "reachable-state enumeration",
+    "rejected_shortcuts": [
+      "gap -> FALSE (permissive/wrong)",
+      "gap -> UNKNOWN (overly restrictive)"
+    ],
+    "worked_example": "unknown bars within n-1 of a proven accepted fire are IDENTIFIABLE: firing needs state>=6, states 1..5 unreachable from a fire"
+  },
+  "gates": {
+    "GATE1_RAW_PREDICATE_SOURCE_BOUND": "PASS",
+    "GATE_REDUCTION_to_canonical": {
+      "randomized": 56000,
+      "exhaustive_L_le_13": 16382,
+      "mismatches": 0,
+      "verdict": "PASS"
+    },
+    "GATE2_SAME_INPUT_CONFORMANCE": {
+      "securities": 7,
+      "selection": "zero incomplete bars",
+      "rows": 227388,
+      "cooled_fires": 421,
+      "row_mismatches": 0,
+      "non_buy_columns_under_neutralised_cooldown": "0 mismatches",
+      "verdict": "PASS"
+    },
+    "GATE3a_plain_double_cool": {
+      "verdict": "VACUOUS_BY_THEOREM",
+      "reason": "cooldown idempotent on its own output; exhaustive L<=13 divergences = 0",
+      "note": "non-vacuous plain double-cool fixture cannot be constructed; reported rather than invented"
+    },
+    "GATE3b_defective_composition": {
+      "pairs_enumerated": 1396052,
+      "divergences": 213504,
+      "verdict": "MUTATION_REJECTED",
+      "mutation": "per-segment optimistic-restart cooldown THEN availability engine",
+      "divergence_kinds_per_differing_bar": {
+        "defective=F correct=?": 192316,
+        "defective=F correct=T": 50476,
+        "defective=? correct=F": 92864,
+        "defective=T correct=?": 2616,
+        "defective=T correct=F": 712
+      },
+      "severity": "NOT availability-only: 51,188 differing bars are outright WRONG VALUES (F/correct=T 50,476; T/correct=F 712) where BOTH paths claim identifiability"
+    }
+  },
+  "fixture_file": "FIXTURE_cooldown_composition.json",
+  "fixture_count": 400,
+  "sig_buy_state_contract": {
+    "n": 6,
+    "states": "{0..5, OLD}",
+    "OLD": 6,
+    "recovery": "6 PROVEN FALSE observed bars -> recovery",
+    "still_cooling": "5 proven FALSE bars -> deterministic FALSE (not ambiguity)",
+    "unknown": "UNKNOWN raw across gaps -> BOTH branches propagated; output VALID only if all admissible paths agree"
+  },
+  "stage_d_run": {
+    "run_id": "STAGE_D_R2",
+    "EXECUTION_PATH": "VERIFIED_SERIAL_REFERENCE",
+    "STATUS": "RUNNING"
+  },
+  "parallel_implementation": {
+    "status": "NOT_REQUIRED_FOR_STAGE_D_EVIDENCE",
+    "classification": "FUTURE_PERFORMANCE_OPTIMIZATION",
+    "future_method": "shadow-replay against completed R2 serial result as ORACLE"
+  },
+  "killed_runs": [
+    {
+      "pid": 19604,
+      "reason": "double-cooling wiring defect",
+      "classification": "INCOMPLETE_RUN"
+    },
+    {
+      "pid": 19624,
+      "reason": "held pending gates; inline monkeypatch, not source-bound",
+      "classification": "INCOMPLETE_RUN"
+    }
+  ],
+  "evidence_reuse_policy": "partial output of killed runs NOT reusable as production evidence"
+}

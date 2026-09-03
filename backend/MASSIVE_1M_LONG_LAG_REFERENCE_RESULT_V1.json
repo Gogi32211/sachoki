@@ -1,0 +1,84 @@
+{
+  "artifact": "MASSIVE_1M_LONG_LAG_REFERENCE_RESULT_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "criterion": "MASSIVE_1M_SETTLEMENT_RELATIVE_CRITERION_V1 · e3675278ece6f27c (sealed BEFORE this call)",
+  "CALL": {
+    "session": "2024-02-22",
+    "role": "LONG_LAG_REFERENCE_DIAGNOSTIC",
+    "selected_deterministically_before_the_call": true,
+    "original_ingest_lag_days": 915,
+    "corpus_median_lag_days": 914.5,
+    "securities_requested": 490,
+    "not_yet_regular_way": 13,
+    "elapsed_s": 15,
+    "http_status_counts": {
+      "200": 490
+    },
+    "PRIMARY_USE": "FORBIDDEN",
+    "FORWARD_EVIDENCE": false
+  },
+  "GUARDS": {
+    "1_original_vintage_sealed": true,
+    "2_destination_outside_canonical_root": true,
+    "4_target_vintage_does_not_exist": true,
+    "2b_original_payload_unchanged_after_call": true,
+    "2c_original_manifest_unchanged_after_call": true
+  },
+  "CONTRACT": {
+    "top_level_schema_same": true,
+    "adjusted_true": true,
+    "source_same": true,
+    "session_same": true,
+    "per_security_key_sets_same": true,
+    "no_new_truncation": true
+  },
+  "CONTRACT_OK": true,
+  "R_REF_frozen_476_cohort": {
+    "minute_key_revision_rate": 0.0,
+    "common_bar_OHLCV_revision_rate": 0.0,
+    "p95_relative_close_revision": 0.0,
+    "support": {
+      "minute_keys_union": 186079,
+      "symmetric_difference": 0,
+      "common": 186079,
+      "changed": 0
+    }
+  },
+  "R_RAW_503_report_only": {
+    "minute_key_revision_rate": 0.0,
+    "common_bar_OHLCV_revision_rate": 0.0,
+    "p95_relative_close_revision": 0.0
+  },
+  "STRONGER_THAN_THE_METRIC": {
+    "finding": "the UNCOMPRESSED payload is BYTE-IDENTICAL to the original vintage",
+    "verification": "re-serialising both payloads with the producer's own separators gives identical 17,858,119-byte blobs",
+    "meaning": "after 915 days the vendor's 1-minute data for this session are completely frozen — not merely close, identical"
+  },
+  "METRIC_DEFINITION_DEFECT_MINOR": {
+    "observed": "the run first reported byte_identical = False",
+    "cause": "the digest was taken over the GZIP bytes, whose header embeds an mtime; the CONTENT is identical",
+    "correction": "byte-identity must be measured on the UNCOMPRESSED payload",
+    "affects_the_frozen_3_component_metric": "NO — those components are content-based and were computed correctly"
+  },
+  "CRITICAL_DESIGN_DEFECT_IN_THE_FROZEN_CRITERION": {
+    "severity": "the September experiment, as frozen, CANNOT ANSWER THE QUESTION IT WAS DESIGNED FOR",
+    "mechanism": "R_REF = (0,0,0). The frozen rule is R_30_MED <= R_REF component-wise on non-negative rates, so T+30 qualifies ONLY IF its revision is EXACTLY ZERO.",
+    "already_falsified": "the 2026-08-24 T+1 -> T+7 measurement alone gives minute-key additions of 215 and an OHLCV revision rate of 1.479%. R_30 for that session must be at least that large. The criterion is therefore guaranteed to return NOT QUALIFIED, for T+30 and for every other M.",
+    "ROOT_CAUSE": "R_REF and R_30 measure STRUCTURALLY DIFFERENT WINDOWS",
+    "R_REF_window": "age 915d -> age ~2,100d — residual drift of an ALREADY-MATURE vintage over 1,185 further days",
+    "R_30_window": "age 1d -> age 30d — revision ACCUMULATED FROM RAW over 29 days",
+    "why_that_breaks_it": "comparing accumulation-from-raw against residual-drift-when-mature is not apples to apples. The reference is not a tolerance for the thing being measured.",
+    "WHAT_IS_STILL_VALID": "the long-lag measurement itself is a clean and strong result: by 915 days the data are frozen. Only its USE as a nonexceedance threshold for R_30 is broken.",
+    "STATUS": "REPORTED BEFORE ANY T+30 RESULT EXISTS. No T+30 measurement has been taken, so correcting the criterion now is a pre-registration fix, not a post hoc adjustment.",
+    "NOT_DONE": "I did NOT weaken, rescale or reinterpret the frozen criterion on my own authority."
+  },
+  "PROPOSED_REFORMULATION_REQUIRES_APPROVAL": {
+    "estimand_wanted": "at what maturity M do the data stop changing",
+    "measurable_form": "INCREMENTAL stability between CONSECUTIVE vintages of the same session, rather than cumulative change from the raw baseline",
+    "concretely": "for each of the three registered sessions capture vintages at several maturities and compute R(V_a -> V_b) for consecutive pairs. M qualifies when the increment from M onward is zero, i.e. R(V_M -> V_later) = (0,0,0), which IS directly comparable to the long-lag reference.",
+    "cost": "one additional refetch per session per maturity point; each is a separate paid call and a separate authorisation",
+    "already_available_for_free": "2026-08-24 already has T+1 and T+7 vintages, so its first increment is measured",
+    "alternative_if_rejected": "abandon the empirical settlement study and freeze a maturity by judgement, recording it as JUDGEMENT_NOT_MEASURED"
+  }
+}

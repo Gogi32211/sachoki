@@ -1,0 +1,117 @@
+{
+  "report_id": "MASSIVE_T_LEGACY_15M_TOKEN_POSITION_PORTABILITY_V1",
+  "status": "TOKEN_POSITION_PORTABILITY_MEASURED",
+  "task_class": "X_ONLY_DIAGNOSTIC_AMENDMENT",
+  "amends": {
+    "artifact": "MASSIVE_T_LEGACY_15M_THREE_WAY_CONFORMANCE_V1",
+    "digest": "715765f2be4b8711",
+    "disposition": "MEASUREMENTS VALID / INTERPRETATION INCOMPLETE — not edited",
+    "what_was_wrong": "its position and pair slices were dominated by the blank-vs-NONE representational artefact and measured nothing about portability"
+  },
+  "normalization": {
+    "A": {
+      "T1..T12": "same T token",
+      "''": "NO_T_LABEL"
+    },
+    "B_and_C": {
+      "T1..T12": "same T token",
+      "engine NONE": "NO_T_LABEL"
+    },
+    "legacy_blank_means": "NO_MATERIALIZED_T_LABEL",
+    "legacy_blank_does_NOT_mean": "EVALUABLE_NO_T_STATE",
+    "why": "the legacy 15m store carries no availability column, so blank cannot distinguish 'nothing fired' from 'could not be evaluated'; reading it as the former would extract stronger semantics than the representation contains",
+    "measures": "MATERIALIZED_LABEL_PORTABILITY",
+    "does_not_measure": "AVAILABILITY_SEMANTIC_EQUIVALENCE"
+  },
+  "support": {
+    "primary_denominator": "S3 — current and required predecessor matched and usable on both sides",
+    "bars": 9339483
+  },
+  "overall_normalized": {
+    "A_vs_C": 0.998659,
+    "A_vs_B": 0.952063,
+    "B_vs_C": 0.950924,
+    "permitted_statement": "on jointly usable support, after normalizing legacy blank to 'no materialized T label', Massive and legacy materialized T tokens agree at this rate",
+    "forbidden_statement": "'T_MASSIVE_PORT reproduces the legacy materialized 15m T population' — legacy blank does not encode enough information to establish availability-semantic equivalence"
+  },
+  "by_position": {
+    "M1": {
+      "bars": 384493,
+      "A_vs_C": 0.996086,
+      "A_vs_B": 0.992627,
+      "B_vs_C": 0.988874
+    },
+    "M2": {
+      "bars": 355031,
+      "A_vs_C": 0.998234,
+      "A_vs_B": 0.971986,
+      "B_vs_C": 0.970445
+    },
+    "M3": {
+      "bars": 380631,
+      "A_vs_C": 0.99856,
+      "A_vs_B": 0.969882,
+      "B_vs_C": 0.968681
+    },
+    "M4": {
+      "bars": 384515,
+      "A_vs_C": 0.998505,
+      "A_vs_B": 0.962366,
+      "B_vs_C": 0.961141
+    },
+    "SESSION_FINAL": {
+      "bars": 501752,
+      "A_vs_C": 0.998671,
+      "A_vs_B": 0.957427,
+      "B_vs_C": 0.956307
+    },
+    "OTHER": {
+      "bars": 7333061,
+      "A_vs_C": 0.998828,
+      "A_vs_B": 0.947139,
+      "B_vs_C": 0.946163
+    }
+  },
+  "registered_position_pairs": {
+    "M1+M2": {
+      "comparable": 354186,
+      "both_same": 352693,
+      "exactly_one_differs": 1090,
+      "both_differ": 403,
+      "first_only": 890,
+      "second_only": 200,
+      "pair_portability": 0.995785
+    },
+    "M2+M3": {
+      "comparable": 340938,
+      "both_same": 340226,
+      "exactly_one_differs": 377,
+      "both_differ": 335,
+      "first_only": 202,
+      "second_only": 175,
+      "pair_portability": 0.997912
+    },
+    "M3+M4": {
+      "comparable": 357217,
+      "both_same": 356573,
+      "exactly_one_differs": 326,
+      "both_differ": 318,
+      "first_only": 154,
+      "second_only": 172,
+      "pair_portability": 0.998197
+    }
+  },
+  "pair_definition": {
+    "comparable": "both bars of the pair jointly usable on the same session date",
+    "portable": "BOTH tokens carry across",
+    "first_only": "only the first position's token differs",
+    "second_only": "only the second position's token differs",
+    "why_separate": "a pair claim can fail from either end and the two are not interchangeable"
+  },
+  "no_y": true,
+  "no_edge_interpretation": true,
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 54.6,
+  "sealed_at": "2026-08-26 23:21 +04"
+}

@@ -1,0 +1,175 @@
+{
+  "report_id": "MASSIVE_T1_OPENING_HOUR_SUPPORT_MAP_V1",
+  "status": "MASSIVE_T1_OPENING_HOUR_SUPPORT_MAP_V1_PASS",
+  "task_class": "X_SIDE_SUPPORT_GEOMETRY_ONLY",
+  "bindings": {
+    "MASSIVE_T1_EPISODE_RULE_AUTHORITY_DECISION_V1.json": "6d733e1fa3bf3c3d",
+    "MASSIVE_T1_EPISODE_TEMPORAL_SEMANTICS_V1.json": "819329bf48bd7175",
+    "MASSIVE_T1_DAILY_ANCHOR_MATERIALIZER_PROVENANCE_V1_QUALIFICATION.json": "ded5c340dfb9fd6a",
+    "MASSIVE_T1_DAILY_EPISODE_ANCHOR_PORT_V1.json": "26e7eda6ffd22a95",
+    "MASSIVE_T_FEATURE_PRODUCTION_V1.json": "ccdb0e35490794da",
+    "MASSIVE_T1_HISTORICAL_EPISODE_POPULATION_PRESERVATION_V1.json": "4a19b83f40adc6cc",
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1.json": "7c0a5ad6b17d7ae0"
+  },
+  "population": {
+    "C4_INPUT_ANCHORS": "all Massive-native ANCHOR_TRUE rows",
+    "count": 8588,
+    "cross_check_expectation": 8588,
+    "matches": true,
+    "explicitly_not": "the historical-positive intersection",
+    "why": "building on the intersection would convert a replication-like source and cohort port into a historical-intersection study and change the estimand without registration"
+  },
+  "slot_rule": {
+    "M1": "D 09:30 ET",
+    "M2": "D 09:45 ET",
+    "M3": "D 10:00 ET",
+    "M4": "D 10:15 ET",
+    "matching": "EXACT timestamp by CLOCK",
+    "forbidden": [
+      "next observed bar",
+      "nearest bar",
+      "forward fill",
+      "backfill",
+      "slot shifting"
+    ],
+    "example": "if 09:45 is absent, M2 is unavailable and 10:00 remains M3"
+  },
+  "three_facts_per_slot": {
+    "slot_row_present": "does the 15m row exist at all",
+    "slot_t_availability": "was T evaluable on it",
+    "slot_final_t_state": "what the state was",
+    "four_distinct": [
+      "row missing",
+      "row present but T unavailable",
+      "evaluable and NONE",
+      "evaluable and T*"
+    ],
+    "why": "collapsing them corrupts every downstream denominator"
+  },
+  "per_slot": {
+    "M1": {
+      "row_present": 8588,
+      "row_absent": 0,
+      "present_but_t_unavailable": 0,
+      "usable": 8588,
+      "usable_and_T": 6209,
+      "usable_and_NONE": 2379
+    },
+    "M2": {
+      "row_present": 8588,
+      "row_absent": 0,
+      "present_but_t_unavailable": 0,
+      "usable": 8588,
+      "usable_and_T": 5623,
+      "usable_and_NONE": 2965
+    },
+    "M3": {
+      "row_present": 8588,
+      "row_absent": 0,
+      "present_but_t_unavailable": 0,
+      "usable": 8588,
+      "usable_and_T": 5177,
+      "usable_and_NONE": 3411
+    },
+    "M4": {
+      "row_present": 8588,
+      "row_absent": 0,
+      "present_but_t_unavailable": 0,
+      "usable": 8588,
+      "usable_and_T": 5297,
+      "usable_and_NONE": 3291
+    }
+  },
+  "per_pair": {
+    "M1_M2": {
+      "both_rows_present": 8588,
+      "comparable_both_usable": 8588,
+      "lost_row_absent": 0,
+      "lost_row_present_but_unavailable": 0,
+      "classification": "POSITION_PAIR_SUPPORT",
+      "explicitly_not": "T_STATE_TRANSITION"
+    },
+    "M2_M3": {
+      "both_rows_present": 8588,
+      "comparable_both_usable": 8588,
+      "lost_row_absent": 0,
+      "lost_row_present_but_unavailable": 0,
+      "classification": "POSITION_PAIR_SUPPORT",
+      "explicitly_not": "T_STATE_TRANSITION"
+    },
+    "M3_M4": {
+      "both_rows_present": 8588,
+      "comparable_both_usable": 8588,
+      "lost_row_absent": 0,
+      "lost_row_present_but_unavailable": 0,
+      "classification": "POSITION_PAIR_SUPPORT",
+      "explicitly_not": "T_STATE_TRANSITION"
+    }
+  },
+  "all_four": {
+    "rows_present": 8588,
+    "all_usable": 8588
+  },
+  "support_decomposition": {
+    "anchors": 8588,
+    "retained_full_opening_hour": 8588,
+    "lost_exact_slot_absent": 0,
+    "lost_slot_present_but_feature_unavailable": 0,
+    "note": "shows how much further support the opening-hour layer costs after the daily availability loss already measured in C3"
+  },
+  "temporal_guard": {
+    "classification": "POST_EXPOSURE_SESSION_LOCALIZATION",
+    "anchor_information_available_at": "after D's daily bar completes — later than every slot it selects",
+    "forbidden_downstream": "anchor observed -> trade at M1",
+    "authority": "819329bf48bd7175"
+  },
+  "historical_overlap": {
+    "rows_flagged": 8117,
+    "not_flagged": 471,
+    "role": "DIAGNOSTIC FLAG ONLY",
+    "explicitly_not": "an inclusion criterion",
+    "not_in_preserved_set_means": "MASSIVE_POSITIVE_NOT_IN_PRESERVED_HISTORICAL_POSITIVE_SET, never a historical negative"
+  },
+  "pairs_are_not_transitions": {
+    "classification": "POSITION_PAIR_SUPPORT",
+    "arrow_meaning": "a position-pair claim from the recovered historical grammar",
+    "explicitly_not": "a T-state change"
+  },
+  "output": {
+    "path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_t1_opening_hour_v1/opening_hour_support.parquet",
+    "rows": 8588,
+    "digest": "86c79f15b555e6c5",
+    "schema": [
+      "security_key_v1",
+      "session_date",
+      "anchor_information_available_at",
+      "historical_preserved_positive_overlap",
+      "M1_row_present",
+      "M1_t_availability",
+      "M1_final_t_state",
+      "M2_row_present",
+      "M2_t_availability",
+      "M2_final_t_state",
+      "M3_row_present",
+      "M3_t_availability",
+      "M3_final_t_state",
+      "M4_row_present",
+      "M4_t_availability",
+      "M4_final_t_state"
+    ]
+  },
+  "computed_here": [
+    "support geometry"
+  ],
+  "not_computed_here": [
+    "Y",
+    "theta",
+    "M1->M2 / M2->M3 / M3->M4 outcomes",
+    "edge",
+    "transitions"
+  ],
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 2.6,
+  "sealed_at": "2026-08-27 10:12 +04"
+}

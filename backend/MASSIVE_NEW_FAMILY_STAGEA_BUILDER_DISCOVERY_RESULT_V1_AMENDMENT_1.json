@@ -1,0 +1,40 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGEA_BUILDER_DISCOVERY_RESULT_V1_AMENDMENT_1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_STAGEA_BUILDER_DISCOVERY_RESULT_V1",
+    "parent_digest": "acea1bec4100b297",
+    "parent_not_rewritten": true
+  },
+  "C1_STRUCTURAL_NO_TRADE": {
+    "class": "SUBSTANTIVE ERROR — a guard was read as a capability",
+    "RETRACTED": "'the producer additionally defines STRUCTURAL_NO_TRADE (validate_partition counts it) ... forward code must handle it'",
+    "EVIDENCE_I_MISREAD": "validate_partition computes structural_no_trade=int((coverage_state=='STRUCTURAL_NO_TRADE').sum()) and then raises AggHold if ANY counter is non-zero. It is a VIOLATION COUNTER, not a state definition.",
+    "WHAT_THE_SOURCE_ACTUALLY_SAYS": [
+      "coarse_aggregator_v1.aggregate(): bad_state = set(observation_state.unique()) - {'OBSERVED','UNOBSERVED'} -> raise AggHold('STRUCTURAL_NO_TRADE capability is UNAVAILABLE and may not be derived')",
+      "coarse_aggregator_v1.validate(): if (coverage_state=='STRUCTURAL_NO_TRADE').any() -> raise AggHold('GUARD structural_no_trade: capability UNAVAILABLE')"
+    ],
+    "CORRECT_STATEMENT": "STRUCTURAL_NO_TRADE is NOT an emittable coverage_state in this producer. It is a FAIL-CLOSED GUARD. The producer cannot label it; it refuses to run.",
+    "EMPIRICAL": "observation_state over 231,681,810 persisted minute_states rows takes EXACTLY two values: OBSERVED 213,979,211 and UNOBSERVED 17,702,599. No third value exists.",
+    "CONSEQUENCE_FOR_FIXTURE_8": {
+      "was": "positive fixture must make the producer EMIT STRUCTURAL_NO_TRADE",
+      "now": "positive fixture must make the producer RAISE AggHold and emit NOTHING; the negative fixture (only OBSERVED/UNOBSERVED) must NOT raise",
+      "qualification_wording": "FAIL-CLOSED GUARD QUALIFICATION = PASS/FAIL. Not 'the state was produced'. Historical observational support remains 0 and always will be, by construction."
+    },
+    "why_this_matters": "had it stood, forward code would have been built to CARRY a state the frozen producer refuses to accept, and the guard would have been read as a bug to work around"
+  },
+  "C2_TERMINOLOGY": {
+    "class": "PROVENANCE PRECISION",
+    "RETRACTED": "'stageA_input.duckdb is a BYTE-EXACT projection of massive_coarse_v1/15m'",
+    "WHY_WRONG": "a DuckDB table and a parquet file are not byte-identical representations. EXCEPT ALL proves ROW/VALUE MULTISET equality on the 10 shared columns, not byte identity.",
+    "CORRECT": "stageA_input.duckdb is an EXACT ROW/VALUE MULTISET PROJECTION of massive_coarse_v1/15m over the 10 shared columns",
+    "scientific_consequence": "NONE — the semantic conclusion is unchanged"
+  },
+  "C3_INCIDENTAL_FINDING": {
+    "observation": "validate_partition asserts invalid_stub = ((is_stub) & (timeframe=='15m')).sum() must be 0",
+    "meaning": "at 15m a stub interval is a VIOLATION, so 15m sessions always divide exactly: 390/15 = 26, early close 210/15 = 14",
+    "explains": "the observed interval_index range 0..25 with exactly 26 distinct values",
+    "status": "read from source and consistent with the data; recorded, not acted upon"
+  }
+}

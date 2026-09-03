@@ -1,0 +1,97 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_LSIG_FALLBACK_RESEAL_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "binds": [
+    "51488bfdfd904c37",
+    "0650f4bc695e4dac"
+  ],
+  "SUPERSEDES": "the provisional 21 VALID / 26 INIT split in 0650f4bc695e4dac",
+  "THREE_WAY_SEPARATION": {
+    "FORMULA": "UNCHANGED — no WLNBB or l_sig formula was altered",
+    "VALUE": "UNCHANGED — the computed categorical named-fallback value is the same",
+    "AVAILABILITY": "CORRECTED — by cooldown-state identifiability",
+    "significance": "this was an AVAILABILITY defect, not an underlying formula defect. The engine was right; the claim about when its output was knowable was not."
+  },
+  "BLAST_RADIUS_CENSUS": {
+    "method": "mechanical enumeration of every cooldown call site, then attribution to the 69 candidate columns",
+    "sites": {
+      "wlnbb.compute_wlnbb": "PRE_PUMP = cooldown(vsa_sum >= 2, 6)",
+      "combo.compute_combo": "buy_2809 = _apply_cooldown(buy_raw, 6)",
+      "vabs.compute_vabs": "0 uses",
+      "gog_engine": "10 uses — no GOG column is in the 69 candidate set"
+    },
+    "cooldown_dependent_searchable_surface": [
+      "l_sig (named fallback path only)",
+      "sig_buy (not yet produced)"
+    ],
+    "produced_impact": "confined to the 47 l_sig fallback rows",
+    "my_earlier_claim_corrected": "\"only l_sig\" was true for produced columns but incomplete as a general statement — sig_buy shares the dependency"
+  },
+  "CORRECTED_PROPAGATION": {
+    "OBSERVED_FALSE": "output VALID FALSE; admissible ages advance; 6 consecutive collapse to {OLD}",
+    "OBSERVED_TRUE": "per-state accept/reject; VALID only if every admissible state agrees",
+    "UNOBSERVED": "raw in {FALSE, TRUE}; BOTH branches propagated; output UNAVAILABLE_CURRENT; state neither reset nor treated as FALSE",
+    "canonical_notation": "state domain is {0,1,2,3,4,5,OLD}. The integer 6 printed earlier was the OLD sentinel and must not be read as a literal age.",
+    "replaces": "Stage A per-segment restart, which began each segment at last = -(n+1) = OLD"
+  },
+  "RECONCILIATION": {
+    "total_fallback_rows": 47,
+    "securities": 41,
+    "anchors_known": 21,
+    "cooldown_determined": 41,
+    "both": 19,
+    "CORRECTED": {
+      "AVAILABLE_VALID": 19,
+      "INIT_SENSITIVE_HEAD": 3,
+      "INIT_SENSITIVE_POST_GAP": 25,
+      "UNAVAILABLE_CURRENT": 0,
+      "SUM": 47
+    },
+    "unavailable_current_is_zero_because": "fallback rows are bounded-eligible (age>=20), hence on COMPLETE bars by construction"
+  },
+  "TRANSITION_MATRIX": {
+    "computed_directionally_without_assumption": true,
+    "VALID_to_VALID": 19,
+    "VALID_to_INIT": 2,
+    "INIT_to_VALID": 0,
+    "INIT_to_INIT": 26,
+    "sum": 47,
+    "old_VALID_total": 21,
+    "new_VALID_total": 19,
+    "KEY_FINDING": "2 rows were false-valid under the Stage A/C4 per-segment optimistic cooldown restart",
+    "INIT_to_VALID_is_zero": "the corrected propagation did not recover determinism on any row that was previously INIT — the correction is strictly restrictive here, though it was computed without assuming that direction"
+  },
+  "STAGE_C_RESEAL_CRITERIA": {
+    "47/47 fallback rows reconciled": "PASS",
+    "corrected cooldown propagation deterministic": "PASS",
+    "unknown gap raw never coerced FALSE": "PASS (N1: 6 unknown gap bars leave {1..5,OLD}, brute-force identical)",
+    "6 proven-FALSE recovery fixture": "PASS (collapses to {OLD})",
+    "5 proven-FALSE ambiguity fixture": "PASS (remains {5, OLD})",
+    "brute-force finite-state equivalence": "PASS (40 sequences, 0 mismatches, unknown raws included)",
+    "blast radius mechanically enumerated": "PASS"
+  },
+  "SHARED_IMPLEMENTATION_REQUIREMENT": "sig_buy MUST consume this same authoritative cooldown state engine, not a re-written copy, so l_sig and sig_buy semantics cannot diverge later",
+  "GENERAL_INVARIANT": {
+    "statement": "a missing observation is not evidence of a state transition; elapsed time is not evidence of non-occurrence",
+    "demonstrated_on": [
+      "g* arming latch",
+      "WLNBB ffill level carriers",
+      "CISD market structure",
+      "cooldown counter"
+    ],
+    "producer_level_rule": "every future stateful feature must propagate unknown raw across unobserved bars rather than defaulting it to FALSE"
+  },
+  "CHECKPOINT_DISCIPLINE_ADOPTED": {
+    "observability": "heartbeat every N securities AND every 60s with done/rows/current-ticker/elapsed/rows-per-sec",
+    "recoverability": "atomic checkpoint: write .tmp, flush/fsync, atomic rename — so a monitor can never read half-written JSON",
+    "durability": "persist partial production every 25-50 securities so a kill does not discard a 70-minute run",
+    "status_rule": "a partial checkpoint remains INCOMPLETE_RUN and is never counted as evidence",
+    "motivation": "this run wrote output only at completion; a kill would have lost 85 minutes"
+  },
+  "STATUS": {
+    "Stage C correction": "CLOSED",
+    "sig_buy cooldown authority": "FROZEN and inherited",
+    "Stage D HOLD": "RELEASED"
+  }
+}

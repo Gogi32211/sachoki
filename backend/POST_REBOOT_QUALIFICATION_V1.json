@@ -1,0 +1,106 @@
+{
+  "report_id": "POST_REBOOT_QUALIFICATION_V1",
+  "status": "PASS",
+  "uptime_seconds": 67,
+  "uptime_note": "this looks like a fresh boot",
+  "boot_order_race": {
+    "why_it_matters": "the external volume mounts asynchronously while launchd starts services in parallel. If the backend wins that race it comes up with the canonical data path dangling.",
+    "correct_outcome": "the guard refuses, no write occurs, and the service recovers once the volume is mounted",
+    "fatal_outcome": "a phantom /Volumes/QUANT_RESEARCH exists as an ordinary folder on the internal disk",
+    "observed_phantom": false
+  },
+  "volume": {
+    "path": "/Volumes/QUANT_RESEARCH",
+    "exists": true,
+    "is_mount_point": true,
+    "st_dev": 16777239,
+    "home_st_dev": 16777230,
+    "phantom_internal_folder": false,
+    "note": "existence proves nothing — a correctly mounted volume is also present here. The test is mount-point status on a non-home device."
+  },
+  "symlink": {
+    "logical": "/Users/sachoki/Desktop/sachoki-desktop/data",
+    "is_symlink": true,
+    "resolves_to": "/Volumes/QUANT_RESEARCH/source_data/studio",
+    "expected": "/Volumes/QUANT_RESEARCH/source_data/studio",
+    "resolves_correctly": true
+  },
+  "mount_guard": {
+    "ok": true,
+    "checks": {
+      "volume_exists": true,
+      "is_mount_point": true,
+      "distinct_filesystem_from_home": true,
+      "volume_identity_matches": true,
+      "sentinel_exists": true,
+      "sentinel_uuid_matches": true,
+      "logical_resolves_to_target": true,
+      "target_on_validated_filesystem": true
+    }
+  },
+  "services": {
+    "loaded": {
+      "com.sachoki.backend": {
+        "pid": "1755",
+        "last_exit": "0"
+      },
+      "com.sachoki.brainlearn": {
+        "pid": "-",
+        "last_exit": "0"
+      },
+      "com.sachoki.dbupdate": {
+        "pid": "-",
+        "last_exit": "0"
+      },
+      "com.sachoki.paperloop": {
+        "pid": "-",
+        "last_exit": "0"
+      }
+    },
+    "backend_health": {
+      "status": "ok",
+      "service": "tz-signal-dashboard",
+      "version": "2.8"
+    },
+    "backend_running": true
+  },
+  "representative_read": {
+    "store": "studio_analytics.duckdb",
+    "readable": true,
+    "rows": 8787711,
+    "st_dev": 16777239,
+    "on_external": true
+  },
+  "internal_backup": {
+    "comparison": "FULL — every file hashed",
+    "files_expected": 162,
+    "files_present": 162,
+    "missing": 0,
+    "extra": 0,
+    "mismatches": 0,
+    "mutation_since_migration": 0,
+    "detail": []
+  },
+  "massive_archive": {
+    "manifest_dir": "/Volumes/QUANT_RESEARCH/source_data/massive/canonical_1m/_manifest",
+    "manifests": 1254,
+    "expected": 1254
+  },
+  "acceptance": {
+    "volume_mounted": true,
+    "volume_on_external_device": true,
+    "no_phantom_internal_folder": true,
+    "symlink_resolves_correctly": true,
+    "mount_guard_pass": true,
+    "services_all_loaded": true,
+    "backend_healthy": true,
+    "representative_store_readable": true,
+    "representative_store_on_external": true,
+    "backup_mutation_zero": true,
+    "massive_archive_intact": true
+  },
+  "read_only": "this qualification repairs nothing and starts nothing; a service that is down is reported as down",
+  "backup_retention": "the 84 GB internal backup remains RETAINED. Deletion is a SEPARATE cleanup gate and is not authorised by this artifact.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 09:27 +04"
+}

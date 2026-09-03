@@ -1,0 +1,60 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_2",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_1",
+    "parent_digest": "7b52b9df13764228",
+    "parent_not_rewritten": true,
+    "nature": "WORDING CORRECTION ONLY — the permutation mechanism is UNCHANGED"
+  },
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "CORRECTION_1_EARLY_CLOSE_MASS": {
+    "RETRACTED_WORDING": "'the residual pressure is ANTI-conservative and is bounded by the 0.805% share'",
+    "why_retracted": [
+      "an episode-mass share cannot bound a Type-I error distortion",
+      "it cannot bound a max-stat tail distortion",
+      "the median is NONLINEAR, so mass share does not translate into statistic distortion",
+      "claims differ in exposure: a SPECIFIC claim's EARLY_CLOSE share may be far above the aggregate"
+    ],
+    "CORRECT_STATEMENT": {
+      "measure": "EARLY_CLOSE non-randomised episode mass = 23,780 / 2,952,695 = 0.805% of aggregate DEV opening-hour mass",
+      "what_it_quantifies": "the amount of episode mass held FIXED",
+      "what_it_does_NOT_bound": [
+        "Type-I error distortion",
+        "max-stat tail distortion",
+        "claim-level fixed-mass share",
+        "conservatism or anti-conservatism"
+      ]
+    },
+    "DIRECTION_OF_INFERENTIAL_EFFECT": "NOT ESTABLISHED",
+    "why_not_even_the_direction": [
+      "EARLY_CLOSE identity means the inference is CONDITIONAL on those fixed blocks",
+      "the early-close X-Y alignment is neither broken nor randomised — it is carried identically into every null draw",
+      "an apparent association arising only from those days therefore persists in the null too, which often REDUCES significance rather than inflating it",
+      "but median nonlinearities preclude any general directional theorem"
+    ],
+    "canonical_label": "NON_RANDOMIZED_FIXED_MASS, DIRECTION_OF_INFERENTIAL_EFFECT = NOT ESTABLISHED",
+    "REQUIRED_DIAGNOSTIC": "report the PER-CLAIM EARLY_CLOSE share of positive and evaluable episodes; the aggregate 0.805% must not stand in for the claim-level figure"
+  },
+  "CORRECTION_2_ASSUMPTION_NAMING": {
+    "RETRACTED_IMPLICATION": "that temporal exchangeability is now 'solved'",
+    "what_was_actually_dropped": "GLOBAL_DATE_EXCHANGEABILITY — the new null no longer relies on it",
+    "what_is_now_ASSUMED": "TIME_LOCAL_CYCLIC_SHIFT_INVARIANCE",
+    "precise_content": "within each calendar year-month, the FULL_REGULAR Y-block sequence is treated as admissible under uniform CYCLIC ROTATIONS; i.e. the within-month cyclic alignment of X and Y is treated as randomisable under H0",
+    "what_it_preserves": "Y's internal within-month ordering under rotation",
+    "status": "an ASSUMPTION — narrower than the parent's, but still an assumption",
+    "the_smoke_cannot_prove_it": "a synthetic-Y smoke can only verify CORRECT IMPLEMENTATION of this contract; it can never establish that the contract holds of real data"
+  },
+  "MECHANISM_UNCHANGED": {
+    "FULL_REGULAR": "one uniform cyclic offset per calendar year-month per draw, shared across all securities, all 3 position pairs, all 20,751 claims",
+    "EARLY_CLOSE": "identity",
+    "guards": "unchanged",
+    "negative_fixtures": "unchanged",
+    "explicit": "no permutation, map, guard or statistic is altered by this amendment"
+  },
+  "STANDING_LESSON": {
+    "class": "a measured QUANTITY was silently promoted into a BOUND on a different quantity",
+    "rule": "a share, count or rate may be reported as what it measures; converting it into a bound on an inferential error requires a derivation, not an adjacency"
+  }
+}

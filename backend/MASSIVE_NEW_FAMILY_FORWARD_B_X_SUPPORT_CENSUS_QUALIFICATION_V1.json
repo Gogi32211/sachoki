@@ -1,0 +1,162 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_B_X_SUPPORT_CENSUS_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "VERDICT": "PASS",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "scope": "X-ONLY ENGINEERING QUALIFICATION. No forward evidence created, no trigger evaluated, no vendor call, no inference.",
+  "authorities": {
+    "X_support_semantics": "MASSIVE_NEW_FAMILY_FORWARD_X_SUPPORT_COUNT_SPEC_V1 · 7b8d1b1ffa2e5458",
+    "universe_reconciliation": "MASSIVE_NEW_FAMILY_FORWARD_X_SUPPORT_UNIVERSE_RECONCILIATION_V1 · aa2f76a34f244d6b",
+    "episode_and_oracle_discovery": "MASSIVE_NEW_FAMILY_FORWARD_B0_EPISODE_AND_ORACLE_DISCOVERY_V1 · c4bc2058ff9cb8ba",
+    "canonical_X": "MASSIVE_NEW_FAMILY_FORWARD_A3_CANON69_QUALIFICATION_V1 · 3840a5df1a626aa1",
+    "hubs": "MASSIVE_NEW_FAMILY_FORWARD_HUB_REGISTRATION_V1 · 751058971beae07c",
+    "prespec": "MASSIVE_NEW_FAMILY_FORWARD_HUB_PRESPEC_V1 · 627c767ef9708549",
+    "cohort": "MASSIVE_NEW_FAMILY_FORWARD_COHORT_BINDING_V1 · 2cbb4b900d8a4a2e"
+  },
+  "module": {
+    "path": "backend/forward_b_x_support_census.py",
+    "file_digest": "28013a8ac86abb69ab69120502322a1e6f89d9b8e05a765d487e1ef07720a04e"
+  },
+  "TWO_LAYERS_KEPT_SEPARATE": {
+    "class": "the correction the caller insisted on, and it is load-bearing",
+    "X_POSITIVE_SEMANTICS": "Option A, UNCHANGED. token_A at its registered position AVAILABLE_VALID and TRUE; token_B likewise. The availability of any UNRELATED feature is irrelevant.",
+    "EPISODE_STRUCTURAL_INTEGRITY": "a separate UPSTREAM INVARIANT, not a predicate term. Every admitted (security, session) existing in Stage-A must carry presence mask 1111.",
+    "on_violation": [
+      "BHold(UPSTREAM_EPISODE_STRUCTURE_VIOLATION)",
+      "do NOT count",
+      "do NOT classify as negative",
+      "do NOT silently pick pair-local or four-position semantics"
+    ],
+    "why_this_is_not_Option_B_by_stealth": "the mask is asserted BEFORE any counting and never enters the predicate. A 1110 episode does not produce X_positive = 0; it produces a HOLD.",
+    "why_decided_now": "the first such forward occurrence would otherwise demand a decision taken with forward X already in view. The answer is fixed in advance: HOLD and investigate the source."
+  },
+  "PROOF_1_POS4_RECONSTRUCTION": {
+    "persisted_rows": 164565276,
+    "rebuilt_rows": 164565276,
+    "except_all_new_minus_old": 0,
+    "except_all_old_minus_new": 0,
+    "schema_match": true,
+    "arithmetic": "596,251 episodes x 4 positions x 69 features",
+    "presence_mask_census": {
+      "[1, 1, 1, 1]": 596251
+    },
+    "method": "PARTITIONED BY k",
+    "elapsed_s": 89,
+    "VERDICT": "EXACT"
+  },
+  "PROOF_2_SUPPORT_ORACLE": {
+    "claims_compared": 45387,
+    "DEV_positive_mismatches": 0,
+    "DEV_evaluable_mismatches": 0,
+    "join_left_only": 0,
+    "join_right_only": 0,
+    "tolerance": 0,
+    "source": "b_reconcile.py, rebuilt from the persisted POS4 under the frozen X_positive_episode_n definition",
+    "VERDICT": "EXACT"
+  },
+  "PROOF_3_HUB_CENSUS": {
+    "hubs": {
+      "H1_VOL_BUCKET": {
+        "registered_member_n": 460,
+        "members_ge_100": 460,
+        "required_member_n": 230,
+        "condition_b": true,
+        "X_positive_min": 106,
+        "X_positive_median": 2115,
+        "X_evaluable_min": 121920,
+        "membership_digest": "b0d6f9b4d67d2b6d"
+      },
+      "H2_GAP_V": {
+        "registered_member_n": 173,
+        "members_ge_100": 173,
+        "required_member_n": 87,
+        "condition_b": true,
+        "X_positive_min": 168,
+        "X_positive_median": 9863,
+        "X_evaluable_min": 121920,
+        "membership_digest": "c814b6ddaf166f3d"
+      },
+      "H3_VOL_CONSTRUCT": {
+        "registered_member_n": 61,
+        "members_ge_100": 61,
+        "required_member_n": 31,
+        "condition_b": true,
+        "X_positive_min": 118,
+        "X_positive_median": 1090,
+        "X_evaluable_min": 214759,
+        "membership_digest": "b4d902efd7103dfb"
+      },
+      "H4_LSIG_M1_STAR": {
+        "registered_member_n": 48,
+        "members_ge_100": 48,
+        "required_member_n": 24,
+        "condition_b": true,
+        "X_positive_min": 170,
+        "X_positive_median": 2992,
+        "X_evaluable_min": 178234,
+        "membership_digest": "938a6f0f5eb6a9b7"
+      }
+    },
+    "thresholds_untouched": true,
+    "note": "computed on the FULL DEV window as a mechanical exercise of the hub logic. This is NOT a forward trigger evaluation and creates no forward evidence.",
+    "X_positive_floor": 100
+  },
+  "PROOF_3_PRODUCTION_MODE": {
+    "blocked": true,
+    "reason": "PRODUCTION_MODE_BLOCKED: missing ['final_source_maturity_authority', 'forward_evidentiary_start']. The settlement study has not established M; no test value may",
+    "test_maturity_rejected": true,
+    "test_maturity_reason": "PRODUCTION_MODE_BLOCKED: a DRY_RUN/NON_EVIDENTIARY maturity value was presented to production mode"
+  },
+  "PROOF_4_ENGINEERING": {
+    "fixtures": 26,
+    "passed": 26,
+    "VERDICT": "PASS",
+    "cases": [
+      "1 both VALID+TRUE -> exactly one X-positive episode",
+      "2 token_B NON_VALID -> NOT positive (and not coerced to FALSE)",
+      "3 token_A NON_VALID -> NOT positive",
+      "4a unrelated position EXISTS but its feature NON_VALID -> pair STILL counts",
+      "4b presence mask 1110 -> UPSTREAM_EPISODE_STRUCTURE_VIOLATION",
+      "4b the violation is NOT reported as X_positive = 0",
+      "4b mask 1111 alone passes",
+      "5 required pair row missing -> not positive, never synthesised",
+      "6 same token A/B evaluated INDEPENDENTLY at the two positions",
+      "6 same token true at both -> counts",
+      "7 correct token at the WRONG position -> not counted",
+      "8 duplicate (session, et, feature) -> HARD FAIL",
+      "count identity: at most one positive per (security, session)",
+      "categorical token matches on the registered category",
+      "categorical token does NOT match a different category",
+      "9 token dictionary missing -> BHold",
+      "11 hub membership digest mismatch -> BHold",
+      "12 cohort digest mismatch -> BHold",
+      "claim grammar violation -> BHold",
+      "non-adjacent position pair -> BHold",
+      "unknown position label -> BHold",
+      "14 final maturity authority absent in PRODUCTION MODE -> HARD FAIL",
+      "15 dry-run test maturity presented to PRODUCTION MODE -> HARD FAIL",
+      "16 Y trap armed",
+      "16 PROMOTED_732.csv is not an input anywhere in B",
+      "17 module import executes no production"
+    ],
+    "the_two_that_separate_the_layers": {
+      "4a": "an unrelated position EXISTS but its feature is NON_VALID -> the pair STILL counts (observed 1)",
+      "4b": "presence mask 1110 -> UPSTREAM_EPISODE_STRUCTURE_VIOLATION, raised BEFORE any counting"
+    },
+    "meaning": "PHYSICAL POSITION EXISTENCE != FEATURE AVAILABILITY, demonstrated in both directions"
+  },
+  "PRODUCTION_MODE": {
+    "status": "BLOCKED, as expected and as required",
+    "reason": "final source maturity M does not exist; the settlement study has not established it",
+    "test_maturity_rejected": true,
+    "no_workaround_built": true
+  },
+  "PERMITTED_CONCLUSION": "Frozen Option-A token semantics exactly reproduce the complete pre-Y support oracle over the entire historical claim universe. Historical data contain no episode in which the pair-local and four-position physical-presence universes differ.",
+  "FORBIDDEN_CONCLUSION": "that the historical authors definitely intended Option A",
+  "HUB_CENSUS_NOTE": "the hub numbers below were computed on the FULL DEV window as a mechanical exercise of the hub logic. They are NOT a forward trigger evaluation, they create no forward evidence, and they do not start any clock.",
+  "runtime_s": 89,
+  "y_forbidden_opens": 0,
+  "NEXT": "C — the DRY_RUN_NON_EVIDENTIARY month-end decision ledger. The production evidentiary chain is NOT created."
+}

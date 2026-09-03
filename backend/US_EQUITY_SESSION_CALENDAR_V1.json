@@ -1,0 +1,101 @@
+{
+  "spec_id": "US_EQUITY_SESSION_CALENDAR_V1",
+  "status": "QUALIFIED",
+  "role": "THE SESSION AUTHORITY for this programme — sessions are defined here, never inferred from where vendor data stops",
+  "pinned_source": {
+    "library": "exchange_calendars",
+    "version": "4.13.2",
+    "calendar": "XNYS",
+    "coverage": "2006-08-25 to 2027-08-25",
+    "pinning_rule": "the version is recorded; a version change is a new artifact and must be re-qualified against these same fixtures"
+  },
+  "session_definition": {
+    "normal": "09:30-16:00 America/New_York",
+    "early_close": "09:30-13:00 America/New_York",
+    "holiday": "not a session"
+  },
+  "fixtures": {
+    "source": "the 2024 dates frozen in MASSIVE_1M_PROBE_SPEC_V1 P9, fixed before any calendar candidate existed",
+    "full_closures": {
+      "2024-01-01": {
+        "is_session": false
+      },
+      "2024-01-15": {
+        "is_session": false
+      },
+      "2024-02-19": {
+        "is_session": false
+      },
+      "2024-03-29": {
+        "is_session": false
+      },
+      "2024-05-27": {
+        "is_session": false
+      },
+      "2024-06-19": {
+        "is_session": false
+      },
+      "2024-07-04": {
+        "is_session": false
+      },
+      "2024-09-02": {
+        "is_session": false
+      },
+      "2024-11-28": {
+        "is_session": false
+      },
+      "2024-12-25": {
+        "is_session": false
+      }
+    },
+    "early_closes": {
+      "2024-07-03": {
+        "is_session": true,
+        "close_et": "13:00"
+      },
+      "2024-11-29": {
+        "is_session": true,
+        "close_et": "13:00"
+      },
+      "2024-12-24": {
+        "is_session": true,
+        "close_et": "13:00"
+      }
+    },
+    "normal_controls": {
+      "2024-05-15": {
+        "is_session": true,
+        "open_et": "09:30",
+        "close_et": "16:00"
+      },
+      "2024-09-18": {
+        "is_session": true,
+        "open_et": "09:30",
+        "close_et": "16:00"
+      },
+      "2025-03-12": {
+        "is_session": true,
+        "open_et": "09:30",
+        "close_et": "16:00"
+      }
+    }
+  },
+  "acceptance": {
+    "all_closures_are_not_sessions": true,
+    "all_early_closes_are_sessions": true,
+    "all_early_closes_at_1300": true,
+    "normal_controls_are_sessions": true,
+    "normal_controls_open_0930": true,
+    "normal_controls_close_1600": true
+  },
+  "acceptance_rule": "the candidate must reproduce all ten full closures and all three early closes exactly; one mismatch rejects it",
+  "relationship_to_vendor": {
+    "rule": "the calendar defines the session; Massive data is MEASURED against it",
+    "forbidden": "inferring a session boundary from where vendor bars stop",
+    "close_boundary_bar": "Massive's bar stamped at the session close is interpreted USING this calendar (16:00 normal, 13:00 early), not the other way round",
+    "p9_note": "P9's vendor side remains FAIL in its original artifact; this calendar does not overwrite that verdict"
+  },
+  "licenses": "a qualified calendar is one of the preconditions the minute-availability amendment requires before an absent minute may be promoted to STRUCTURAL_NO_TRADE",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:45 +04"
+}

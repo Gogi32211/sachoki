@@ -1,0 +1,88 @@
+{
+  "artifact": "MASSIVE_T1_15M_WLNBB_MATERIALIZATION_REGIME_INVESTIGATION_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": {
+    "l_gate": "3ca679df606958f9",
+    "pd_decision": "4fc579ab064bbded"
+  },
+  "scope": {
+    "mismatch_universe": 1104,
+    "claim_relevant": 13,
+    "families": [
+      "bx_up",
+      "be_up",
+      "bo_up",
+      "vol_bucket",
+      "l_sig",
+      "l22",
+      "l34",
+      "l43"
+    ]
+  },
+  "VERDICT": "LOCALIZED_WLNBB_MATERIALIZATION_MECHANISM_CONFIRMED",
+  "MECHANISM": {
+    "name": "UNBOUNDED_FFILL_LEVEL_STATE_TRUNCATED_BY_INCREMENTAL_WARMUP",
+    "distinct_from_PD": "P/D diverged through EMA convergence deficit. WLNBB diverges through an UNBOUNDED forward-filled level that the warmup window cannot reach. Same regime, different proximate cause — the P/D mechanism was NOT transferred.",
+    "code": [
+      "indicators.py:163  ffill_when(s, cond) = s.where(cond).ffill().fillna(0)  <- unbounded memory",
+      "wlnbb_engine.py:127-130  l34_hi/l34_lo/l43_hi/l43_lo = ffill_when(h|l, L34|L43)",
+      "wlnbb_engine.py:153-154  setup_body_hi/lo = ffill_when(body_hi|body_lo, setup_event)",
+      "wlnbb_engine.py:137  BO_UP = (c > l34_hi) & ~prev_above_l34 & ~L34 & (l34_hi > 0)",
+      "wlnbb_engine.py:139  BX_UP = (c > l43_hi) & ~prev_above_l43 & ~L43 & (l43_hi > 0)",
+      "wlnbb_engine.py:161  BE_UP_BO = bo_break_up & (o <= setup_body_lo)",
+      "derive_intraday.py:71  _INCR_WARMUP_DAYS = 45"
+    ],
+    "causal_chain": "incremental run sees only 45 days -> a ticker whose last L34/L43 bar predates the window gets ffill -> fillna(0) -> the (level > 0) guard fails -> the breakout flag is SUPPRESSED in the store",
+    "prediction": "divergence must be overwhelmingly calc=1 / stored=0 in level-dependent columns, and directionally neutral in non-level L flags"
+  },
+  "EVIDENCE": {
+    "structural": "ffill_when memory is unbounded while the warmup window is 45 days — the level guard is (level > 0)",
+    "directional": {
+      "level_dependent": {
+        "suppressed_1_to_0": 751,
+        "added_0_to_1": 38,
+        "suppressed_share": "95.2%",
+        "be_up": "283 vs 2 (99.3%)",
+        "bx_up": "454 vs 14 (97.0%)",
+        "bo_up": "14 vs 22"
+      },
+      "non_level_L_flags": {
+        "suppressed": 3,
+        "added": 7,
+        "note": "no directional bias, as predicted"
+      }
+    },
+    "horizon": {
+      "cells_tested": 116,
+      "reproduces_stored": {
+        "30d": "64.7%",
+        "45d": "64.7%",
+        "60d": "22.4%",
+        "90d": "1.7%",
+        "full_history": "0%"
+      },
+      "reading": "the sharp fall between 45d and 90d localizes the truncation horizon in the 30-45 day range, matching _INCR_WARMUP_DAYS=45"
+    },
+    "temporal": "1,104 / 1,104 divergent cells on or after 2026-07-06 13:30:00; ZERO in the preceding five years"
+  },
+  "honesty": "the 64.7% reproduction is supporting, not complete: real warmup boundaries are 45 days before EACH incremental run last-bar, not before each divergent bar, so exact reproduction needs per-run boundaries that were not preserved. The verdict rests on the convergence of code + direction + horizon + temporal confinement, not on 64.7%.",
+  "bo_up_exception": {
+    "observed": "bo_up is 14 suppressed vs 22 added, unlike be_up/bx_up",
+    "status": "NOT EXPLAINED",
+    "n": 36,
+    "note": "small count; recorded as an open detail rather than smoothed over"
+  },
+  "C_EXACT_MEMBERSHIP": {
+    "status": "BLOCKED_NOT_SKIPPED",
+    "reason": "an exact membership recompute needs, for each affected episode, the value of the PAIRED token at the paired slot — that spans all 144 tokens, i.e. the E2b token frame, which does not exist yet",
+    "consequence": "1,388 remains an UPPER BOUND; the exact figure cannot be produced before E2b"
+  },
+  "next_decision": "mechanism is now confirmed, so an ACCEPT_AND_DECLARE ruling for L/WLNBB is available on the same footing as P/D — but its enumerated impact stays an upper bound until E2b",
+  "not_done": [
+    "exact membership recompute (blocked on E2b)",
+    "bo_up directional exception unexplained",
+    "no Massive L feature produced"
+  ]
+}

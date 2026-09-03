@@ -1,0 +1,137 @@
+{
+  "spec_id": "T9_15M_RESUME_IDENTITY_V1",
+  "status": "EXECUTION_CLOSURE",
+  "family": "T9",
+  "result": "PASS",
+  "purpose": "the gate that must pass before SIGCONT",
+  "pause_artifact": "703fc810dc60e15c",
+  "process": {
+    "pid": 94877,
+    "alive": true,
+    "state": "TN",
+    "start_time_now": "Sat Aug 22 21:36:49 2026",
+    "start_time_at_launch": "Sat Aug 22 21:36:49 2026",
+    "start_time_matches": true,
+    "still_stopped": true,
+    "command_matches": true,
+    "pid_reuse_excluded_because": "a recycled pid necessarily starts after the original died; an unchanged start time cannot be an impostor"
+  },
+  "outcome": {
+    "expected": "2a32d7e1e81f5892",
+    "observed": "2a32d7e1e81f5892",
+    "matches": true,
+    "source": "t9_outcomes.parquet"
+  },
+  "ledger": {
+    "rows": 6,
+    "completed_cells": 1,
+    "checkpointed_at_pause": 1,
+    "checkpoint_key": [
+      {
+        "needle": "q10",
+        "world_id": 0
+      }
+    ],
+    "checkpoint_identity_reproduced": true,
+    "duplicate_needle_world_delta": 0,
+    "all_rows_carry_expected_outcome_digest": true,
+    "distinct_outcome_digests": [
+      "2a32d7e1e81f5892"
+    ],
+    "detection_values_read": "NO",
+    "ledger_payload_read": "identity columns only — needle, world_id, delta_pp, outcome_source_digest",
+    "note": "the earlier progress message that said 0 checkpoints was written before this cell landed; the correct count at the pause is recorded here and in the baseline, so that report stays traceable rather than silently corrected"
+  },
+  "frozen_digests": {
+    "T9_15M_CAPABILITY_PROTOCOL_V1.json": {
+      "at_launch": "542db7425ee3f27f",
+      "now": "542db7425ee3f27f",
+      "matches": true
+    },
+    "T9_15M_ESTIMAND_V1.json": {
+      "at_launch": "6ceec7f0eb25a93c",
+      "now": "6ceec7f0eb25a93c",
+      "matches": true
+    },
+    "T9_15M_CLAIM_ORDER_V1.json": {
+      "at_launch": "a5ef183b520d8da6",
+      "now": "a5ef183b520d8da6",
+      "matches": true
+    },
+    "T9_15M_ENGINE_STATE_V1.json": {
+      "at_launch": "a9968dcbb4ef4197",
+      "now": "a9968dcbb4ef4197",
+      "matches": true
+    },
+    "T9_15M_PRE_Y_GATES_V1.json": {
+      "at_launch": "7932050783a4ff5c",
+      "now": "7932050783a4ff5c",
+      "matches": true
+    },
+    "rng_root": {
+      "at_launch": "9270f9e91d22dd76",
+      "now": "9270f9e91d22dd76",
+      "matches": true
+    }
+  },
+  "code_provenance": {
+    "modules": {
+      "t15m_capability.py": {
+        "launch_time_digest": "95185d0fbecb40bc",
+        "working_tree_now": "95185d0fbecb40bc",
+        "working_tree_unchanged": true
+      },
+      "t5_15m_capability.py": {
+        "launch_time_digest": "c35794281409d767",
+        "working_tree_now": "c35794281409d767",
+        "working_tree_unchanged": true
+      },
+      "t5_artifact.py": {
+        "launch_time_digest": "18c16e20d5f9a7aa",
+        "working_tree_now": "18c16e20d5f9a7aa",
+        "working_tree_unchanged": true
+      },
+      "t9_dna.py": {
+        "launch_time_digest": "2edf4a0c1f5ca697",
+        "working_tree_now": "2edf4a0c1f5ca697",
+        "working_tree_unchanged": true
+      },
+      "t9_sequence_estimand.py": {
+        "launch_time_digest": "7df5900a418c26b7",
+        "working_tree_now": "7df5900a418c26b7",
+        "working_tree_unchanged": true
+      },
+      "t5_sequence_estimand.py": {
+        "launch_time_digest": "91bef445feef7ad2",
+        "working_tree_now": "91bef445feef7ad2",
+        "working_tree_unchanged": true
+      },
+      "t15m_x.py": {
+        "launch_time_digest": "2e88c4f8b04e8845",
+        "working_tree_now": "2e88c4f8b04e8845",
+        "working_tree_unchanged": true
+      }
+    },
+    "binding": "provenance binds the LAUNCH-TIME digests above. The running process cannot re-read the working tree, so a file that changed during the pause does not alter this run's semantics — but it is recorded, never silently adopted.",
+    "baseline_captured_at": "2026-08-23 08:12 +04"
+  },
+  "checks": {
+    "process_alive_and_stopped": true,
+    "process_start_time_matches": true,
+    "process_command_matches": true,
+    "outcome_digest_unchanged": true,
+    "ledger_single_outcome_vintage": true,
+    "no_duplicate_cells": true,
+    "checkpoint_identity_reproduced": true,
+    "frozen_digests_unchanged": true
+  },
+  "on_pass": "SIGCONT -> same process -> same in-memory Y -> same RNG progression -> the resume skips exactly the checkpointed work",
+  "outcome_exposure": "NOT_EXPOSED — file hashes and identity columns only; no detection value was selected from the ledger",
+  "hard_state": {
+    "T9 15M OBSERVED Z": "NOT COMPUTED",
+    "T9 15M theta": "NOT COMPUTED",
+    "T9 15M WINNERS/SURVIVORS": "UNKNOWN"
+  },
+  "sealed_at": "2026-08-23 08:23 +04",
+  "runtime_min": 0.0
+}

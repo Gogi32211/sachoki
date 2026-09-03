@@ -1,0 +1,63 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PARALLEL_REFERENCE_EXECUTION_V1",
+  "status": "ORCHESTRATION_QUALIFIED",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "REAL_Y_ACCESS": "NONE",
+  "SEMANTIC_CONTRACT": {
+    "STATISTIC_KERNEL": "UNCHANGED qualified reference",
+    "RANDOMIZATION": "pre-generated sealed draw manifest",
+    "WORKER_RNG_CALLS": 0,
+    "WORKER_SEMANTIC_LOGIC_CHANGES": 0,
+    "PARALLEL_UNIT": "one draw",
+    "OUTPUT": "one immutable shard per draw",
+    "AGGREGATION": "canonical draw_id order only"
+  },
+  "DRAW_MANIFEST": {
+    "digest": "d54378212391c6a6",
+    "n_draws": 50,
+    "per_draw": [
+      "draw_id",
+      "phase",
+      "index",
+      "master_seed",
+      "substream",
+      "map_digest"
+    ],
+    "worker_verifies_map_digest_before_computing": true
+  },
+  "ORCHESTRATION_INTEGRITY": {
+    "4-worker": "all 50 draw IDs exactly once; missing 0, duplicate 0, unexpected 0",
+    "1-worker": "same",
+    "header/map-digest/COMPLETED": "valid on all 100 shards",
+    "no_tmp_shards_left": true
+  },
+  "EXACT_EQUIVALENCE_4_WORKER_vs_1_WORKER_ORACLE": {
+    "claim_draws_compared": 1037550,
+    "defined_mask": "EXACT, 0 mismatches",
+    "group_counts": "EXACT, 0 mismatches",
+    "theta": "BIT-IDENTICAL, 0 mismatches",
+    "terminal_checksums": "identical",
+    "aggregate": {
+      "c_j": "BIT-IDENTICAL",
+      "s_j": "BIT-IDENTICAL",
+      "stable/degenerate status": "EXACT",
+      "T_j^(b)": "BIT-IDENTICAL",
+      "M_b": "BIT-IDENTICAL",
+      "p_adj": "BIT-IDENTICAL"
+    },
+    "independent_cross_check": "p_adj_min = 0.322581 reproduces the time-local synthetic smoke exactly"
+  },
+  "CRASH_RESTART_FIXTURE": {
+    "simulation": "3 shards removed, 1 partial .tmp left behind by a killed worker",
+    "result": {
+      "all 50 draws present after restart": "PASS",
+      "post-restart output BIT-IDENTICAL to oracle": "PASS",
+      "partial .tmp NOT treated as complete": "PASS — recomputed from the SAME immutable draw",
+      "no new RNG; map digests unchanged": "PASS"
+    },
+    "principle_upheld": "a crash is an EXECUTION event, never a STATISTICAL event"
+  },
+  "TOTALS": "16/16 orchestration equivalence + 4/4 crash-restart",
+  "CI_PARALLELISATION": "NOT YET QUALIFIED — a separate branch, per the frozen spec"
+}

@@ -1,0 +1,723 @@
+{
+  "spec_id": "T9_15M_SURVIVOR_STRUCTURE_V1",
+  "status": "STRUCTURE_CHARACTERIZED",
+  "family": "T9",
+  "spec": "ae9d76d348f006e6",
+  "historical_exposed": "292e7518d734b454",
+  "n_survivors": 533,
+  "n_overlap_components": 260,
+  "n_medoids": 260,
+  "component_size_distribution": {
+    "singletons": 191,
+    "largest": 34,
+    "median": 1,
+    "mean": 2.05,
+    "top10": [
+      34,
+      32,
+      23,
+      23,
+      22,
+      16,
+      14,
+      14,
+      14,
+      8
+    ]
+  },
+  "relations": {
+    "edges_J_ge_050": 617,
+    "near_alias_J_ge_090": 55,
+    "strict_subset_pairs": 72,
+    "total_pairs": 141778
+  },
+  "by_position_family": {
+    "M1→M2": {
+      "eligible": 11839,
+      "survivors": 353,
+      "survival_rate": 0.02982,
+      "components": 168,
+      "medoids": 166
+    },
+    "M2→M3": {
+      "eligible": 12505,
+      "survivors": 122,
+      "survival_rate": 0.00976,
+      "components": 71,
+      "medoids": 66
+    },
+    "M3→M4": {
+      "eligible": 12332,
+      "survivors": 58,
+      "survival_rate": 0.0047,
+      "components": 31,
+      "medoids": 28
+    }
+  },
+  "M1_L3": {
+    "eligible_claims_with_M1_L3": 84,
+    "eligible_claims_without": 36592,
+    "survivors_with_M1_L3": 59,
+    "survivors_without": 474,
+    "p_survive_given_M1_L3": 0.70238,
+    "p_survive_given_not": 0.01295,
+    "lift": 54.22,
+    "distinct_components_containing_M1_L3": 42,
+    "distinct_medoids_with_M1_L3": 42,
+    "reading": "whether M1:L3 is a motif REPEATED across independent structures, or one large correlated cluster, is decided by the component count — not by how many rows carry it"
+  },
+  "medoids": [
+    {
+      "j": 710,
+      "representative": "M1→M2|BW_F→VOL_B",
+      "position_family": "M1→M2",
+      "support": 3470,
+      "component": 2,
+      "component_size": 2
+    },
+    {
+      "j": 1428,
+      "representative": "M1→M2|BW_X→H0",
+      "position_family": "M1→M2",
+      "support": 48750,
+      "component": 5,
+      "component_size": 2
+    },
+    {
+      "j": 1858,
+      "representative": "M1→M2|C1→VOL_B",
+      "position_family": "M1→M2",
+      "support": 3855,
+      "component": 7,
+      "component_size": 1
+    },
+    {
+      "j": 1987,
+      "representative": "M1→M2|C2→VOL_B",
+      "position_family": "M1→M2",
+      "support": 3176,
+      "component": 8,
+      "component_size": 1
+    },
+    {
+      "j": 2989,
+      "representative": "M1→M2|E2→GR_V",
+      "position_family": "M1→M2",
+      "support": 29197,
+      "component": 3,
+      "component_size": 3
+    },
+    {
+      "j": 3973,
+      "representative": "M1→M2|GR_V→VOL_B",
+      "position_family": "M1→M2",
+      "support": 8301,
+      "component": 0,
+      "component_size": 34
+    },
+    {
+      "j": 3976,
+      "representative": "M1→M2|GR_V→VOL_VB",
+      "position_family": "M1→M2",
+      "support": 2843,
+      "component": 1,
+      "component_size": 23
+    },
+    {
+      "j": 4351,
+      "representative": "M1→M2|K0→VOL_B",
+      "position_family": "M1→M2",
+      "support": 3863,
+      "component": 9,
+      "component_size": 2
+    },
+    {
+      "j": 4353,
+      "representative": "M1→M2|K0→VOL_N",
+      "position_family": "M1→M2",
+      "support": 16427,
+      "component": 10,
+      "component_size": 1
+    },
+    {
+      "j": 4482,
+      "representative": "M1→M2|K1→VOL_B",
+      "position_family": "M1→M2",
+      "support": 4750,
+      "component": 11,
+      "component_size": 1
+    },
+    {
+      "j": 4908,
+      "representative": "M1→M2|L34x→S3D",
+      "position_family": "M1→M2",
+      "support": 653,
+      "component": 12,
+      "component_size": 1
+    },
+    {
+      "j": 4923,
+      "representative": "M1→M2|L3→BW_BB",
+      "position_family": "M1→M2",
+      "support": 698,
+      "component": 13,
+      "component_size": 1
+    },
+    {
+      "j": 4924,
+      "representative": "M1→M2|L3→BW_F",
+      "position_family": "M1→M2",
+      "support": 2988,
+      "component": 14,
+      "component_size": 1
+    },
+    {
+      "j": 4925,
+      "representative": "M1→M2|L3→BW_J",
+      "position_family": "M1→M2",
+      "support": 2104,
+      "component": 15,
+      "component_size": 1
+    },
+    {
+      "j": 4928,
+      "representative": "M1→M2|L3→BW_S",
+      "position_family": "M1→M2",
+      "support": 2420,
+      "component": 17,
+      "component_size": 1
+    },
+    {
+      "j": 4930,
+      "representative": "M1→M2|L3→BW_X",
+      "position_family": "M1→M2",
+      "support": 2023,
+      "component": 18,
+      "component_size": 2
+    },
+    {
+      "j": 4933,
+      "representative": "M1→M2|L3→C0",
+      "position_family": "M1→M2",
+      "support": 1861,
+      "component": 19,
+      "component_size": 1
+    },
+    {
+      "j": 4934,
+      "representative": "M1→M2|L3→C1",
+      "position_family": "M1→M2",
+      "support": 3716,
+      "component": 20,
+      "component_size": 1
+    },
+    {
+      "j": 4935,
+      "representative": "M1→M2|L3→C2",
+      "position_family": "M1→M2",
+      "support": 2871,
+      "component": 21,
+      "component_size": 1
+    },
+    {
+      "j": 4938,
+      "representative": "M1→M2|L3→CL_O",
+      "position_family": "M1→M2",
+      "support": 1531,
+      "component": 22,
+      "component_size": 1
+    },
+    {
+      "j": 4939,
+      "representative": "M1→M2|L3→D2",
+      "position_family": "M1→M2",
+      "support": 569,
+      "component": 23,
+      "component_size": 1
+    },
+    {
+      "j": 4940,
+      "representative": "M1→M2|L3→D50",
+      "position_family": "M1→M2",
+      "support": 694,
+      "component": 24,
+      "component_size": 1
+    },
+    {
+      "j": 4943,
+      "representative": "M1→M2|L3→E2",
+      "position_family": "M1→M2",
+      "support": 4027,
+      "component": 25,
+      "component_size": 1
+    },
+    {
+      "j": 4944,
+      "representative": "M1→M2|L3→ESTAR",
+      "position_family": "M1→M2",
+      "support": 2052,
+      "component": 26,
+      "component_size": 1
+    },
+    {
+      "j": 4947,
+      "representative": "M1→M2|L3→GR_N",
+      "position_family": "M1→M2",
+      "support": 3712,
+      "component": 27,
+      "component_size": 1
+    },
+    {
+      "j": 4948,
+      "representative": "M1→M2|L3→GR_V",
+      "position_family": "M1→M2",
+      "support": 3731,
+      "component": 28,
+      "component_size": 1
+    },
+    {
+      "j": 4949,
+      "representative": "M1→M2|L3→H0",
+      "position_family": "M1→M2",
+      "support": 4299,
+      "component": 29,
+      "component_size": 1
+    },
+    {
+      "j": 4951,
+      "representative": "M1→M2|L3→K0",
+      "position_family": "M1→M2",
+      "support": 4040,
+      "component": 30,
+      "component_size": 1
+    },
+    {
+      "j": 4952,
+      "representative": "M1→M2|L3→K1",
+      "position_family": "M1→M2",
+      "support": 3869,
+      "component": 31,
+      "component_size": 1
+    },
+    {
+      "j": 4955,
+      "representative": "M1→M2|L3→L2",
+      "position_family": "M1→M2",
+      "support": 6915,
+      "component": 16,
+      "component_size": 14
+    },
+    {
+      "j": 4956,
+      "representative": "M1→M2|L3→L3",
+      "position_family": "M1→M2",
+      "support": 538,
+      "component": 32,
+      "component_size": 1
+    },
+    {
+      "j": 4957,
+      "representative": "M1→M2|L3→L4",
+      "position_family": "M1→M2",
+      "support": 550,
+      "component": 33,
+      "component_size": 1
+    },
+    {
+      "j": 4961,
+      "representative": "M1→M2|L3→L5_PS",
+      "position_family": "M1→M2",
+      "support": 1617,
+      "component": 35,
+      "component_size": 1
+    },
+    {
+      "j": 4962,
+      "representative": "M1→M2|L3→L5_R2D",
+      "position_family": "M1→M2",
+      "support": 2690,
+      "component": 34,
+      "component_size": 4
+    },
+    {
+      "j": 4964,
+      "representative": "M1→M2|L3→M2",
+      "position_family": "M1→M2",
+      "support": 963,
+      "component": 36,
+      "component_size": 1
+    },
+    {
+      "j": 4965,
+      "representative": "M1→M2|L3→NE_E",
+      "position_family": "M1→M2",
+      "support": 2457,
+      "component": 37,
+      "component_size": 1
+    },
+    {
+      "j": 4970,
+      "representative": "M1→M2|L3→PEN_H",
+      "position_family": "M1→M2",
+      "support": 1283,
+      "component": 38,
+      "component_size": 1
+    },
+    {
+      "j": 4971,
+      "representative": "M1→M2|L3→PEN_P",
+      "position_family": "M1→M2",
+      "support": 2455,
+      "component": 39,
+      "component_size": 1
+    },
+    {
+      "j": 4973,
+      "representative": "M1→M2|L3→PH_MARKUP",
+      "position_family": "M1→M2",
+      "support": 3134,
+      "component": 40,
+      "component_size": 2
+    },
+    {
+      "j": 4975,
+      "representative": "M1→M2|L3→RA",
+      "position_family": "M1→M2",
+      "support": 2429,
+      "component": 41,
+      "component_size": 1
+    },
+    {
+      "j": 4976,
+      "representative": "M1→M2|L3→REG_D",
+      "position_family": "M1→M2",
+      "support": 2425,
+      "component": 42,
+      "component_size": 2
+    },
+    {
+      "j": 4978,
+      "representative": "M1→M2|L3→RF",
+      "position_family": "M1→M2",
+      "support": 2581,
+      "component": 43,
+      "component_size": 1
+    },
+    {
+      "j": 4979,
+      "representative": "M1→M2|L3→RN",
+      "position_family": "M1→M2",
+      "support": 3436,
+      "component": 44,
+      "component_size": 1
+    },
+    {
+      "j": 4983,
+      "representative": "M1→M2|L3→RSI_60_70",
+      "position_family": "M1→M2",
+      "support": 1903,
+      "component": 45,
+      "component_size": 1
+    },
+    {
+      "j": 4987,
+      "representative": "M1→M2|L3→T2",
+      "position_family": "M1→M2",
+      "support": 1402,
+      "component": 46,
+      "component_size": 1
+    },
+    {
+      "j": 4992,
+      "representative": "M1→M2|L3→VOL_B",
+      "position_family": "M1→M2",
+      "support": 1981,
+      "component": 47,
+      "component_size": 1
+    },
+    {
+      "j": 4993,
+      "representative": "M1→M2|L3→VOL_L",
+      "position_family": "M1→M2",
+      "support": 2755,
+      "component": 48,
+      "component_size": 1
+    },
+    {
+      "j": 4994,
+      "representative": "M1→M2|L3→VOL_N",
+      "position_family": "M1→M2",
+      "support": 2769,
+      "component": 49,
+      "component_size": 1
+    },
+    {
+      "j": 4995,
+      "representative": "M1→M2|L3→VOL_VB",
+      "position_family": "M1→M2",
+      "support": 856,
+      "component": 50,
+      "component_size": 2
+    },
+    {
+      "j": 4996,
+      "representative": "M1→M2|L3→WK_D",
+      "position_family": "M1→M2",
+      "support": 1190,
+      "component": 51,
+      "component_size": 1
+    },
+    {
+      "j": 5001,
+      "representative": "M1→M2|L3→Z3",
+      "position_family": "M1→M2",
+      "support": 804,
+      "component": 52,
+      "component_size": 1
+    },
+    {
+      "j": 5002,
+      "representative": "M1→M2|L3→Z4",
+      "position_family": "M1→M2",
+      "support": 412,
+      "component": 53,
+      "component_size": 1
+    },
+    {
+      "j": 5004,
+      "representative": "M1→M2|L3→Z9",
+      "position_family": "M1→M2",
+      "support": 1251,
+      "component": 54,
+      "component_size": 1
+    },
+    {
+      "j": 5007,
+      "representative": "M1→M2|L46x→BW_F",
+      "position_family": "M1→M2",
+      "support": 1162,
+      "component": 55,
+      "component_size": 2
+    },
+    {
+      "j": 5010,
+      "representative": "M1→M2|L46x→BW_S",
+      "position_family": "M1→M2",
+      "support": 975,
+      "component": 57,
+      "component_size": 2
+    },
+    {
+      "j": 5013,
+      "representative": "M1→M2|L46x→C0",
+      "position_family": "M1→M2",
+      "support": 1055,
+      "component": 58,
+      "component_size": 2
+    },
+    {
+      "j": 5014,
+      "representative": "M1→M2|L46x→C1",
+      "position_family": "M1→M2",
+      "support": 1152,
+      "component": 59,
+      "component_size": 2
+    },
+    {
+      "j": 5018,
+      "representative": "M1→M2|L46x→CL_O",
+      "position_family": "M1→M2",
+      "support": 875,
+      "component": 60,
+      "component_size": 7
+    },
+    {
+      "j": 5019,
+      "representative": "M1→M2|L46x→E2",
+      "position_family": "M1→M2",
+      "support": 1516,
+      "component": 61,
+      "component_size": 2
+    },
+    {
+      "j": 5020,
+      "representative": "M1→M2|L46x→ESTAR",
+      "position_family": "M1→M2",
+      "support": 738,
+      "component": 62,
+      "component_size": 2
+    },
+    {
+      "j": 5021,
+      "representative": "M1→M2|L46x→GR_N",
+      "position_family": "M1→M2",
+      "support": 1350,
+      "component": 63,
+      "component_size": 2
+    },
+    {
+      "j": 5022,
+      "representative": "M1→M2|L46x→GR_V",
+      "position_family": "M1→M2",
+      "support": 1413,
+      "component": 64,
+      "component_size": 2
+    },
+    {
+      "j": 5037,
+      "representative": "M1→M2|L46x→NE_E",
+      "position_family": "M1→M2",
+      "support": 701,
+      "component": 65,
+      "component_size": 2
+    },
+    {
+      "j": 5038,
+      "representative": "M1→M2|L46x→NE_N",
+      "position_family": "M1→M2",
+      "support": 2412,
+      "component": 56,
+      "component_size": 32
+    },
+    {
+      "j": 5041,
+      "representative": "M1→M2|L46x→PEN_R",
+      "position_family": "M1→M2",
+      "support": 1229,
+      "component": 66,
+      "component_size": 2
+    },
+    {
+      "j": 5044,
+      "representative": "M1→M2|L46x→RA",
+      "position_family": "M1→M2",
+      "support": 811,
+      "component": 68,
+      "component_size": 2
+    },
+    {
+      "j": 5047,
+      "representative": "M1→M2|L46x→RF",
+      "position_family": "M1→M2",
+      "support": 1107,
+      "component": 69,
+      "component_size": 2
+    },
+    {
+      "j": 5048,
+      "representative": "M1→M2|L46x→RN",
+      "position_family": "M1→M2",
+      "support": 1184,
+      "component": 70,
+      "component_size": 2
+    },
+    {
+      "j": 5057,
+      "representative": "M1→M2|L46x→VOL_B",
+      "position_family": "M1→M2",
+      "support": 645,
+      "component": 71,
+      "component_size": 2
+    },
+    {
+      "j": 5059,
+      "representative": "M1→M2|L46x→VOL_N",
+      "position_family": "M1→M2",
+      "support": 1044,
+      "component": 72,
+      "component_size": 2
+    },
+    {
+      "j": 5060,
+      "representative": "M1→M2|L46x→WK_D",
+      "position_family": "M1→M2",
+      "support": 957,
+      "component": 73,
+      "component_size": 2
+    },
+    {
+      "j": 5064,
+      "representative": "M1→M2|L46x→Z2",
+      "position_family": "M1→M2",
+      "support": 465,
+      "component": 74,
+      "component_size": 2
+    },
+    {
+      "j": 5074,
+      "representative": "M1→M2|L4→BW_X",
+      "position_family": "M1→M2",
+      "support": 1107,
+      "component": 75,
+      "component_size": 1
+    },
+    {
+      "j": 5108,
+      "representative": "M1→M2|L4→PEN_P",
+      "position_family": "M1→M2",
+      "support": 581,
+      "component": 76,
+      "component_size": 1
+    },
+    {
+      "j": 5132,
+      "representative": "M1→M2|L4→WK_U",
+      "position_family": "M1→M2",
+      "support": 850,
+      "component": 77,
+      "component_size": 1
+    },
+    {
+      "j": 5133,
+      "representative": "M1→M2|L4→WYC_MARKUP",
+      "position_family": "M1→M2",
+      "support": 1510,
+      "component": 67,
+      "component_size": 4
+    },
+    {
+      "j": 6316,
+      "representative": "M1→M2|NE_E→GR_V",
+      "position_family": "M1→M2",
+      "support": 43810,
+      "component": 4,
+      "component_size": 6
+    },
+    {
+      "j": 7290,
+      "representative": "M1→M2|PEN_R→VOL_B",
+      "position_family": "M1→M2",
+      "support": 1218,
+      "component": 78,
+      "component_size": 1
+    },
+    {
+      "j": 7610,
+      "representative": "M1→M2|RA→E2",
+      "position_family": "M1→M2",
+      "support": 8611,
+      "component": 80,
+      "component_size": 1
+    },
+    {
+      "j": 7622,
+      "representative": "M1→M2|RA→H0",
+      "position_family": "M1→M2",
+      "support": 10304,
+      "component": 81,
+      "component_size": 1
+    }
+  ],
+  "interpretation": {
+    "survivors_are_not_discoveries": "533 threshold-passing claims resolve to 260 overlap components",
+    "medoid_rule": "max mean Jaccard within component, tie-break frozen j — never Z",
+    "descriptive_only": "every incidence figure is post-exposure descriptive characterization, not a new promotion test"
+  },
+  "theta": "NOT COMPUTED",
+  "magnitude": "NOT COMPUTED",
+  "table": {
+    "path": "t9_15m_survivor_structure.parquet",
+    "digest": "f161c8db375b5ce9"
+  },
+  "runtime_min": 0.1
+}

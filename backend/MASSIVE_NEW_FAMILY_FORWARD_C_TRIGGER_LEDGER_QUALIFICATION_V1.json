@@ -1,0 +1,101 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_C_TRIGGER_LEDGER_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "VERDICT": "PASS",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "scope": "DRY_RUN_NON_EVIDENTIARY ONLY. The production evidentiary chain was NOT created and no production genesis exists.",
+  "module": {
+    "path": "backend/forward_c_month_end_ledger.py",
+    "file_digest": "0f5407582d332abd"
+  },
+  "DIGEST_CONVENTION": {
+    "name": "LEDGER_RECORD_DIGEST_V1",
+    "digest_payload": "canonical JSON of the COMPLETE record EXCLUDING record_digest",
+    "canonicalisation": "UTF-8, sort_keys=True, separators=(',',':'), no pretty-print dependence",
+    "record_digest": "SHA-256(digest_payload)",
+    "genesis": "same convention, excluding its own record_digest",
+    "why": "a record cannot contain its own hash. Freezing this now avoids the self-reference ambiguity and the same failure class as MANIFEST_SEMANTIC_DIGEST vs FILE_BYTE_DIGEST.",
+    "verified": [
+      "digest is key-order independent",
+      "digest excludes record_digest itself",
+      "sealing an already-sealed record is refused"
+    ]
+  },
+  "DECISION_vs_IDENTITY": {
+    "DECISION_SEMANTICS": "reproducible from frozen inputs AS-OF effective_month_end",
+    "RECORD_IDENTITY": "additionally includes executed_at, so it identifies THIS ledger event",
+    "consequence": "a re-run may recompute the same decision but MAY NOT append a second record",
+    "enforcement": "DUPLICATE_MONTH_RECORD — verified live with a different executed_at"
+  },
+  "CHAIN_ISOLATION": {
+    "dry_run_root": "/Users/sachoki/MASSIVE_DATA/forward_qualification/dry_run_ledger",
+    "production_ledger_root": "/Users/sachoki/MASSIVE_DATA/forward/ledger — ABSENT",
+    "production_genesis_created": 0,
+    "production_records_created": 0,
+    "forward_canon69_root": "still empty"
+  },
+  "GENESIS": {
+    "digest": "8c63472e1b68046f855bcd507fa834be46dcc9a632d27b6c8bf42119d1048b0f",
+    "chain_role": "DRY_RUN_NON_EVIDENTIARY",
+    "statement": "THIS CHAIN IS NOT EVIDENTIARY",
+    "purpose": "ENGINEERING_QUALIFICATION_ONLY",
+    "first_monthly_points_at_genesis": true,
+    "second_genesis_refused": true,
+    "append_without_genesis_refused": true
+  },
+  "HASH_CHAIN": {
+    "verified": {
+      "records": 4,
+      "genesis_digest": "8c63472e1b68046f855bcd507fa834be46dcc9a632d27b6c8bf42119d1048b0f",
+      "head_digest": "c8265f796e44b7b94ca08baf80c22f6cba620a54a4f7c7727bf285178a19fc0a",
+      "terminal": true
+    },
+    "mutation_of_a_prior_record": "CHAIN_BROKEN — digest mismatch surfaced downstream",
+    "forged_previous_record_digest": "CHAIN_BROKEN",
+    "restoration_restores_verification": true
+  },
+  "TRIGGER_OUTCOMES": {
+    "month_5_support_passes": "NO_LOOK (condition_a false)",
+    "month_6_one_hub_fails": "NO_LOOK (H3 30 of 31)",
+    "month_6_all_hubs_pass": "LOOK / SUPPORT_TRIGGER",
+    "month_12_support_fails": "LOOK / BACKSTOP",
+    "thresholds_used": {
+      "H1_VOL_BUCKET": 230,
+      "H2_GAP_V": 87,
+      "H3_VOL_CONSTRUCT": 31,
+      "H4_LSIG_M1_STAR": 24
+    },
+    "unchanged": true
+  },
+  "TERMINALITY": {
+    "append_after_LOOK": "CHAIN_TERMINAL",
+    "chain_reports_terminal": true
+  },
+  "CALENDAR_MATURITY": {
+    "convention": "MASSIVE_NEW_FAMILY_FORWARD_MONTH_END_CONVENTION_V1 · c36a72cbc11e709c",
+    "month_end_may_be_a_holiday": "2027-05-31 confirmed",
+    "partial_first_forward_month_excluded": true,
+    "worked_example": "evidentiary start 2026-10-28, M=30 — at 2027-05-31 six months qualify (2026-11 .. 2027-04); at 2027-04-30 only five do, because April is not yet mature",
+    "SOURCE_HOLD": "does NOT stop calendar time; missing evidence shows up in the B support counts only"
+  },
+  "FIXTURES": {
+    "total": 40,
+    "passed": 40,
+    "VERDICT": "PASS"
+  },
+  "ONE_FIXTURE_HONESTLY_DOWNGRADED": {
+    "was": "'11 DRY_RUN record appended with a production role -> CHold'",
+    "reality": "that call hit GUARD no_genesis because the directory did not exist. It never reached the role guard.",
+    "action": "relabelled to '11a append to a non-existent chain -> no_genesis (NOT the role guard)', and a separate entry 11b records that the DRY_RUN-into-PRODUCTION direction is covered by CODE INSPECTION only",
+    "why_not_executed": "exercising it live would require creating a PRODUCTION_EVIDENTIARY genesis, which this task forbids",
+    "what_IS_executed": "the reverse direction — a PRODUCTION-role append into a DRY_RUN chain — raises chain_role_boundary live, and the guard is symmetric in source",
+    "class": "a fixture that passed for the wrong reason; disclosed rather than counted"
+  },
+  "Y_BLINDNESS": {
+    "forbidden_opens_attempted": 0,
+    "VERDICT": "PASS"
+  },
+  "PRODUCTION_STATUS": "qualification PASS != forward evidence opened. Real production B+C remain BLOCKED until final source maturity M is sealed, end-to-end A1 is qualified, the forward evidentiary start is sealed, and authoritative forward X accumulation has begun."
+}

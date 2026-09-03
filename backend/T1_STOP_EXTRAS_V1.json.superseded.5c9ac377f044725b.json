@@ -1,0 +1,216 @@
+{
+  "spec_id": "T1_STOP_EXTRAS_V1",
+  "result": "FAIL",
+  "semantic_sweep": {
+    "gate": "FOREIGN_FAMILY_SEMANTIC_SWEEP",
+    "result": "FAIL",
+    "scope": "T3/T9 residue is forbidden anywhere active; T5 modules named in the governance reuse list are registered shared infrastructure and are reported separately, not as residue",
+    "foreign_k_constants": [
+      853,
+      863,
+      890
+    ],
+    "foreign_hashes_checked": 6,
+    "active_residues_source": [
+      {
+        "file": "t1_sequence_grammar.py",
+        "line": 35,
+        "kind": "IMPORT",
+        "reason": "imports a foreign family module",
+        "text": "t5_sequence_grammar"
+      },
+      {
+        "file": "t1_stop_extras.py",
+        "line": 27,
+        "kind": "NUMBER",
+        "reason": "another family's k",
+        "text": "853"
+      },
+      {
+        "file": "t1_stop_extras.py",
+        "line": 27,
+        "kind": "NUMBER",
+        "reason": "another family's k",
+        "text": "890"
+      },
+      {
+        "file": "t1_stop_extras.py",
+        "line": 27,
+        "kind": "NUMBER",
+        "reason": "another family's k",
+        "text": "863"
+      }
+    ],
+    "active_residues_artifact": [
+      {
+        "file": "T1_SEQUENCE_ESTIMAND_V1.json",
+        "path": ".retention_is_not_a_gate.t5_contrast",
+        "role": "KEY"
+      },
+      {
+        "file": "T1_FAMILY_GOVERNANCE_V1.json",
+        "path": ".relationship_to_t5",
+        "role": "KEY"
+      }
+    ],
+    "registered_shared_infrastructure": [
+      {
+        "file": "t1_dna.py",
+        "line": 1,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "T1_MICROSTRUCTURE_DNA_V1 — X-only foundation. A FOURTH independent research family.\n\n    family_id     T1_MICR"
+      },
+      {
+        "file": "t1_dna.py",
+        "line": 45,
+        "kind": "IMPORT",
+        "reason": "registered shared infrastructure (governance relationship_to_t5.reused)",
+        "text": "t5_dna"
+      },
+      {
+        "file": "t1_dna.py",
+        "line": 75,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "the T1 episode SQL must differ from t5_dna's by the t_sig literal ONLY"
+      },
+      {
+        "file": "t1_family_freeze.py",
+        "line": 19,
+        "kind": "IMPORT",
+        "reason": "registered shared infrastructure (governance relationship_to_t5.reused)",
+        "text": "t5_artifact"
+      },
+      {
+        "file": "t1_outcomes.py",
+        "line": 1,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "T1 outcome sidecar — computed, sealed, NOT exposed.\n\nMirror of the T5 sidecar (same economic question, T9-spec"
+      },
+      {
+        "file": "t1_outcomes.py",
+        "line": 14,
+        "kind": "IMPORT",
+        "reason": "registered shared infrastructure (governance relationship_to_t5.reused)",
+        "text": "t5_outcomes"
+      },
+      {
+        "file": "t1_outcomes.py",
+        "line": 52,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "t5_outcomes.build_outcomes — REUSED byte-identical, output path overridden; a second implementation of entry/m"
+      },
+      {
+        "file": "t1_sequence_estimand.py",
+        "line": 1,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "T1_SEQUENCE_ESTIMAND_V1 — comparator, blocks, mobility, k_final. X-only, mirror of T5's.\n\n    Delta_sb = media"
+      },
+      {
+        "file": "t1_sequence_estimand.py",
+        "line": 27,
+        "kind": "IMPORT",
+        "reason": "registered shared infrastructure (governance relationship_to_t5.reused)",
+        "text": "t5_sequence_estimand"
+      },
+      {
+        "file": "t1_stop_closure.py",
+        "line": 22,
+        "kind": "IMPORT",
+        "reason": "registered shared infrastructure (governance relationship_to_t5.reused)",
+        "text": "t5_artifact"
+      },
+      {
+        "file": "t1_stop_closure.py",
+        "line": 24,
+        "kind": "IMPORT",
+        "reason": "registered shared infrastructure (governance relationship_to_t5.reused)",
+        "text": "t5_sequence_estimand"
+      },
+      {
+        "file": "t1_stop_extras.py",
+        "line": 11,
+        "kind": "IMPORT",
+        "reason": "registered shared infrastructure (governance relationship_to_t5.reused)",
+        "text": "t5_artifact"
+      },
+      {
+        "file": "t1_stop_extras.py",
+        "line": 26,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "t5_artifact"
+      },
+      {
+        "file": "t1_stop_extras.py",
+        "line": 26,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "t5_dna"
+      },
+      {
+        "file": "t1_stop_extras.py",
+        "line": 26,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "t5_sequence_estimand"
+      },
+      {
+        "file": "t1_stop_extras.py",
+        "line": 26,
+        "kind": "SHARED",
+        "reason": "names registered shared infrastructure",
+        "text": "t5_outcomes"
+      }
+    ],
+    "inert_mentions": 57,
+    "comment_references": 11
+  },
+  "coverage_bias": {
+    "gate": "COVERAGE_BIAS",
+    "n_covered": 157403,
+    "n_missing": 62948,
+    "medians": {
+      "price": {
+        "covered_median": 34.62,
+        "missing_median": 9.27
+      },
+      "dollar_volume_20d": {
+        "covered_median": 22758682.61,
+        "missing_median": 369990.43
+      },
+      "atr_pct": {
+        "covered_median": 0.034594,
+        "missing_median": 0.065317
+      },
+      "rv20": {
+        "covered_median": 0.022985,
+        "missing_median": 0.037703
+      }
+    },
+    "role": "OBSERVED_1H_SUBPOPULATION — the 1H-covered set is liquidity- and price-selected, so every T1 1H result describes THAT subpopulation and is never generalized to the full canonical T1 population"
+  },
+  "prespec": {
+    "gate": "PRESPEC_PROVENANCE",
+    "result": "PASS",
+    "digest": "71d49dcde8921eb3",
+    "definition_hash": "a1c9b7eb94331751",
+    "sealed_at": "2026-08-21 21:48",
+    "grammar_sealed_at": "2026-08-21 23:36",
+    "checks": {
+      "opening hour only": true,
+      "2-bar position families exactly M1->M2, M2->M3, M3->M4": true,
+      "2-bar grammar only": true,
+      "3-bar excluded from V1": true,
+      "frozen before the T1 historical outcome": true,
+      "sealed before the grammar": true,
+      "sealed before the X freeze": true
+    }
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 17.7
+}

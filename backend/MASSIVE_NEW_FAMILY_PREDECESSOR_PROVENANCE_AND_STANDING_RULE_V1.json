@@ -1,0 +1,56 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PREDECESSOR_PROVENANCE_AND_STANDING_RULE_V1",
+  "status": "FROZEN",
+  "KILLED_PREDECESSOR_PROVENANCE": {
+    "pids": [
+      19604,
+      19624
+    ],
+    "STATUS": "INCOMPLETE_RUN",
+    "EVIDENTIARY_USE": "NONE",
+    "DEFECT": "PRODUCER_COMPOSITION_ERROR",
+    "VALUE_CORRUPTION_RISK": "PROVEN",
+    "AVAILABILITY_ERROR": "PROVEN",
+    "MECHANISM_RECOVERED": "YES",
+    "explicitly_not": "FAIL",
+    "proof_refs": {
+      "value_error_bars": 51188,
+      "availability_error_bars": 287796,
+      "amendment": "MASSIVE_NEW_FAMILY_SIG_BUY_COOLDOWN_AUTHORITY_AMENDMENT_V1"
+    }
+  },
+  "STANDING_RULE_STATEFUL_PRODUCER_ACCEPTANCE": {
+    "rule": "Exact value conformance on fully observed histories does NOT validate an availability-aware producer.",
+    "scope": "ALL stateful producers, not sig_buy specifically",
+    "derivation": "GATE2 ran on securities with zero incomplete bars and returned 0 mismatches over 227,388 rows; the defect is invisible there BY CONSTRUCTION. GATE3b, on gapped inputs, exposed 51,188 outright value errors.",
+    "required_companion_gate": "a missingness-aware composition gate on gapped inputs, with reachable-state enumeration as authority",
+    "reusable_for": [
+      "future stateful producers",
+      "any ffill/cooldown/state-machine carrier",
+      "CISD-class non-recoverable state"
+    ]
+  },
+  "CONSOLIDATION_RAW_SOURCE_GUARD": {
+    "applies_to": "sig_buy 7-cell raw/output cross-tab at 69-column durable consolidation",
+    "REQUIRED": "raw stream computed from the mechanically bound PRE-COOLDOWN predicate (combo_engine.py L74 buy_raw = upmove_ok & break_gate), obtained via compute_combo_uncooled",
+    "FORBIDDEN": [
+      "derive raw from buy_2809",
+      "derive raw from any post-cooldown or post-transform surface",
+      "invert the cooldown"
+    ],
+    "rationale": "cooldown is information-losing; only the pre-cooldown predicate yields a real identifiability census"
+  },
+  "SEQUENCE_FROZEN": [
+    "R2 completion",
+    "frozen acceptance gate",
+    "Stage D support census",
+    "69-column durable consolidation + sig_buy 7-cell raw/output census",
+    "final executable X surface",
+    "support-floor prespec",
+    "searchable registry / k freeze",
+    "multiplicity freeze",
+    "synthetic-Y smoke",
+    "FIRST REAL Y"
+  ],
+  "next_meaningful_decision": "AFTER acceptance results only"
+}

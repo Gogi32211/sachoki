@@ -1,0 +1,84 @@
+{
+  "spec_id": "T3_STOP_CLOSURE_2_V1",
+  "result": "FAIL",
+  "item1": {
+    "gate": "K_ACCOUNTING_CLOSURE",
+    "result": "FAIL",
+    "initial": {
+      "names": 945,
+      "classes": 885,
+      "aliases": 60
+    },
+    "final": {
+      "names": 907,
+      "classes": 853,
+      "aliases": 54
+    },
+    "removed": {
+      "names": 38,
+      "whole_classes_lost": 32,
+      "names_in_lost_classes": 38,
+      "alias_names_lost_from_surviving_classes": 0,
+      "fail_census": {
+        "TREATED_FLOOR": 33,
+        "DATE_SHARE": 3,
+        "TREATED_FLOOR,DATE_SHARE": 2
+      }
+    },
+    "merges": 0,
+    "splits": 0,
+    "identities": {
+      "945 = 885 + 60": true,
+      "907 = 853 + 54": true,
+      "945 - 907 = 38": true,
+      "885 - 853 = 32": true,
+      "60 - 54 = 6": true,
+      "38 = 32 + 6": false,
+      "census total 38": true,
+      "merges = 0": true,
+      "splits = 0": true
+    },
+    "supersedes": "T3_HOLD_CLOSURE_V1.item2.syntactic.support_qualified_grammar (a T9 literal 980; the correct T3 value is 945) and the report phrase '54 excluded names' (54 is the FINAL alias count; removed names = 38)"
+  },
+  "item2": {
+    "gate": "DETERMINISM_TWO_RUN",
+    "result": "PASS",
+    "run1_digest": "256825450ab04d28",
+    "run2_digest": "256825450ab04d28",
+    "sealed_digest": "256825450ab04d28",
+    "frozen_expectation": "256825450ab04d28",
+    "equality": {
+      "class_digest": true,
+      "claim_set": true,
+      "membership_hash": true,
+      "representative": true,
+      "alias_sets": true,
+      "full_claim_table": true
+    },
+    "note": "run2 consumed a row-shuffled source (seed 707, a NEW seed, not the build's 101) — digest equality is therefore both a rerun proof and an order-independence proof"
+  },
+  "item3": {
+    "gate": "DOJI_PROVENANCE",
+    "result": "PASS",
+    "semantic_same_input": {
+      "statement": "previous-doji T3 = 0",
+      "bars_tested": 172068,
+      "engine_bc9": 6929,
+      "engine_bc9_with_exact_prev_doji": 0,
+      "impossibility": "pc==po contradicts (c>pc)&(c<po); the engine reproduces this on identical bars — machine PASS, not argument",
+      "result": "PASS"
+    },
+    "cross_vintage_diagnostic": {
+      "statement": "materialized canonical T3 joined to current/reconstructed bars: 284 observations appear doji/precision-boundary-like (284 at the sealed 2026-08-17 build vintage)",
+      "canonical_rows_current_vintage": 214832,
+      "prev_doji_rows_current_vintage": 284,
+      "raw_geometry_satisfied_among_them": 0,
+      "prev_price_sub_5_share": 0.9718,
+      "role": "DIAGNOSTIC ONLY — NOT evidence that T3 semantics admit previous-doji cases; historical canonical membership repair FORBIDDEN",
+      "vintage_note": "counts against the CURRENT store are window-vintage-dependent by the vintage law; the sealed build-vintage figure remains 284"
+    },
+    "supersedes": "the T3_DNA audit phrase 'canonical prev-doji = 284' is to be read ONLY under the split above; T3_HOLD_CLOSURE_V1.item1.cross_vintage.canonical_population contained a T9 literal — the canonical population is materialized t_sig='T3'"
+  },
+  "relation": "supersedes the mislabeled fields named in item1/item3 'supersedes'; T3_HOLD_CLOSURE_V1 stays sealed as history, its machine results are unchanged",
+  "runtime_s": 1047.5
+}

@@ -1,0 +1,426 @@
+{
+  "spec_id": "MASSIVE_1M_EMA_RVOL_FEATURE_SPEC_V1",
+  "status": "HOLD",
+  "verdict_reason": "the EMA family cannot be frozen on a 1m base without overruling the charter's one_minute_role clause. Everything else is resolved and recorded.",
+  "task_class": "SPECIFICATION_ONLY",
+  "authoritative_inputs": {
+    "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1": {
+      "cited": "5591685cfa33b62a",
+      "actual": "5591685cfa33b62a",
+      "match": true
+    },
+    "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V2": {
+      "cited": "3af8cc42370fda86",
+      "actual": "3af8cc42370fda86",
+      "match": true
+    },
+    "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V2_AMENDMENT_1": {
+      "cited": "317759f7fc843ccd",
+      "actual": "317759f7fc843ccd",
+      "match": true
+    },
+    "MASSIVE_1M_DERIVED_BASE_SMOKE_V2": {
+      "cited": "bce44a9000ca3a5f",
+      "actual": "bce44a9000ca3a5f",
+      "match": true
+    },
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": {
+      "cited": "7c0a5ad6b17d7ae0",
+      "actual": "7c0a5ad6b17d7ae0",
+      "match": true
+    },
+    "MASSIVE_1M_STATE_TRANSITION_V1": {
+      "cited": null,
+      "actual": "d73a88d836f36eea",
+      "match": true
+    },
+    "MASSIVE_1M_DATA_CONTRACT_AMENDMENT_V1": {
+      "cited": null,
+      "actual": "8aaef7196c420136",
+      "match": true
+    },
+    "MASSIVE_1M_DERIVED_SEMANTICS_AMENDMENT_V1": {
+      "cited": "3eb4e01940b62e92",
+      "actual": "3eb4e01940b62e92",
+      "match": true
+    }
+  },
+  "parameter_provenance_registry": [
+    {
+      "family": "EMA",
+      "parameters": [
+        9,
+        20,
+        50,
+        200
+      ],
+      "classification": "CURRENT_PROGRAM_CANDIDATE_BLOCKED",
+      "evidence": "the dominant EMA family in this codebase by a wide margin — e9 164, e200 148, e20 137, e50 122 occurrences; the ribbon periods are vestigial beside them",
+      "existing_coarse_parents": "already defined at 15m / 1H / 4H by the MTF EMA stack work, so this family DOES have coarse-TF parents",
+      "blocked_because": "a 1m-native EMA of these periods would still have no coarse-TF parent; only the coarse-TF definitions are admissible",
+      "admissible_form": "EMA defined at 15m / 1H / 1D per the charter's aggregation_contract, with 1m used to time when the coarse condition first became true"
+    },
+    {
+      "family": "EMA_RIBBON",
+      "parameters": [
+        8,
+        13,
+        21,
+        34,
+        55,
+        89,
+        200
+      ],
+      "classification": "LEGACY_REFERENCE_ONLY",
+      "evidence": "near-vestigial in code — EMA89 8, ewm(span=89) 3, ewm(span=34) 2, EMA21 2, ewm(span=8) 1",
+      "origin": "TZ_WLNBB Pine-script era",
+      "not_carried_forward": "not pre-registered for this programme; using it later requires a new hypothesis family with its own multiplicity treatment"
+    },
+    {
+      "family": "VOLUME_20_BAR_AVERAGE",
+      "parameters": [
+        "volume / rolling(20).mean"
+      ],
+      "classification": "LEGACY_REFERENCE_ONLY",
+      "evidence": "rolling(20).mean 29 occurrences, vol_ratio 32",
+      "superseded_by": "slot-RVOL and CUM-RVOL, which are charter-named families whose baseline membership is already frozen",
+      "why": "a flat 20-bar mean ignores minute-of-session shape entirely, and the charter's own rationale for slot baselines is exactly that"
+    },
+    {
+      "family": "SLOT_RVOL",
+      "parameters": [
+        "per-slot baseline"
+      ],
+      "classification": "CURRENT_PROGRAM_PRE_REGISTERED",
+      "source": "MASSIVE_1M_STATE_TRANSITION_V1.feature_families",
+      "semantics_already_frozen_in": "MASSIVE_1M_DATA_CONTRACT_AMENDMENT_V1",
+      "frozen_rule": "the per-slot baseline is computed over OBSERVED and STRUCTURAL_NO_TRADE minutes only; UNOBSERVED minutes are excluded from both numerator and denominator",
+      "coarse_parent": "session-level volume state; 1m measures WHEN within the session it is reached",
+      "blocked": false
+    },
+    {
+      "family": "CUM_RVOL",
+      "parameters": [
+        "cumulative session curve"
+      ],
+      "classification": "CURRENT_PROGRAM_PRE_REGISTERED",
+      "source": "MASSIVE_1M_STATE_TRANSITION_V1.feature_families",
+      "frozen_rule": "a cumulative curve crossing an UNOBSERVED minute is flagged from that point forward for that session",
+      "coarse_parent": "session-level cumulative volume state",
+      "blocked": false
+    }
+  ],
+  "registry_resolution": {
+    "resolved": true,
+    "current_program_pre_registered": [
+      "SLOT_RVOL",
+      "CUM_RVOL"
+    ],
+    "legacy_reference_only": [
+      "EMA_RIBBON 8/13/21/34/55/89/200",
+      "VOLUME_20_BAR_AVERAGE"
+    ],
+    "blocked_pending_decision": [
+      "EMA 9/20/50/200"
+    ],
+    "rejected_for_current_program": [],
+    "method": "occurrence inventory across the codebase plus a read of the frozen charter; conflicting historical implementations were NOT merged",
+    "charter_wins": "the charter names slot-RVOL and CUM-RVOL as feature families and their baseline semantics are already frozen, so they take precedence over the legacy 20-bar volume ratio"
+  },
+  "blocking_conflict": {
+    "severity": "BLOCKING — this is why the verdict is HOLD",
+    "discovered": "while checking whether the charter already fixed parameters, as the gate instructed",
+    "charter": "MASSIVE_1M_STATE_TRANSITION_V1",
+    "charter_digest": "d73a88d836f36eea",
+    "clause": "one_minute_role",
+    "quoted_enforcement": "the FEATURE / CLOCK DICTIONARY must name, for every 1m-derived quantity, the coarser-TF definition it measures. A 1m quantity with no coarse-TF parent is inadmissible by construction.",
+    "quoted_forbidden": [
+      "searching for thresholds, patterns or rules AT 1m granularity",
+      "promoting any 1m-native construct to a signal",
+      "using 1m to redefine a coarse-TF state after seeing outcomes"
+    ],
+    "quoted_rationale": "1m over a decade of S&P 500 names is on the order of 10^9 bars. An unrestricted search there would generate a multiplicity burden that no deflation procedure could honestly absorb. Restricting 1m to MEASUREMENT of already-fixed definitions keeps the number of inferential claims tied to the coarse-TF layer, where it is countable.",
+    "consequence": "an EMA over 1-minute closes with an N-minute span has no coarse-TF parent. It is not a measurement of a 15m/1H/1D object; it is a new 1m-native object, and the charter calls that inadmissible by construction.",
+    "why_not_overruled_here": "freezing 1m EMA periods would silently overrule a sealed charter, and the charter's stated reason for the clause is the multiplicity burden of searching ~10^9 bars — the exact failure this programme exists to prevent",
+    "also_relevant": {
+      "feature_families_status": "NAMED ONLY — the dictionary that defines them, with each one's coarse-TF parent and determinable-at rule, is a later step and is not frozen here",
+      "not_yet_frozen": [
+        "FEATURE / CLOCK DICTIONARY",
+        "EPISODE DEFINITION",
+        "OUTCOME / ESTIMAND",
+        "NULL / MULTIPLICITY / INFERENCE",
+        "FREEZE"
+      ],
+      "note": "the FEATURE / CLOCK DICTIONARY is itself listed as not yet frozen, and this gate is a legitimate place to write it — but it must obey one_minute_role while doing so"
+    },
+    "prerequisite_missing": {
+      "what": "the 1m -> 15m / 1H / 1D aggregation layer",
+      "why": "Builder Spec V2 deliberately set higher_timeframe_rule.aggregated_in_v2 = false, so no coarse bars exist yet for a coarse EMA to be defined on",
+      "already_specified_by": "the charter's aggregation_contract, which fixes the hierarchy, left-closed left-labelled boundaries, session-aligned 1H with a flagged 30-minute stub, and the UNOBSERVED_CONTAMINATED propagation rule",
+      "so": "the aggregation gate is specified but not built"
+    },
+    "options": [
+      {
+        "id": "A",
+        "recommended": true,
+        "name": "build the coarse aggregation layer first, then define EMA there",
+        "effect": "EMA is defined at 15m/1H/1D from the same 1m atoms; the 1m layer times when a coarse EMA condition first became true",
+        "charter_amendment_required": false,
+        "cost": "one additional build gate before features",
+        "why_recommended": "it is what the charter already contemplates, the aggregation contract is already frozen in detail, and it keeps the countable inferential claims at the coarse layer where multiplicity can be deflated honestly"
+      },
+      {
+        "id": "B",
+        "recommended": false,
+        "name": "amend one_minute_role to admit a named 1m-native EMA family",
+        "effect": "1m EMA periods become admissible as an explicitly registered hypothesis family",
+        "charter_amendment_required": true,
+        "cost": "the new family carries its own multiplicity and provenance burden, and the ~10^9-bar search-space rationale must be answered rather than bypassed",
+        "why_not_recommended": "it reopens the constraint that keeps this programme's claim count countable; it should be a deliberate decision, never a side effect of a feature spec"
+      }
+    ],
+    "not_blocking": [
+      "SLOT_RVOL",
+      "CUM_RVOL"
+    ],
+    "rvol_may_proceed": "both RVOL families have session-level coarse parents and already have their missing-data semantics frozen; nothing in this conflict prevents them"
+  },
+  "causal_timestamp_contract": {
+    "feature_information_cutoff": "CLOSE_OF_BAR_T",
+    "rule": "a feature value at regular minute t may use only information available through the close of minute t",
+    "never": [
+      "t+1 price",
+      "t+1 volume",
+      "future session volume",
+      "future daily totals",
+      "future realized volatility",
+      "future membership/reference state"
+    ],
+    "observability": "a state using feature[t] is known only AFTER bar t completes",
+    "earliest_execution_interpretation": "NEXT ACTIONABLE MARKET OPPORTUNITY",
+    "forbidden_shortcut": "treating a close-derived feature as executable at the same bar's open, or at a price already used to construct it",
+    "charter_alignment": "NO D+1 INFORMATION MAY ENTER FORMATION X. Persistence is an OUTCOME, never a feature."
+  },
+  "input_bar_policy": {
+    "permitted": [
+      "observed_regular_bars within REGULAR_WAY_EXPECTED"
+    ],
+    "forbidden": [
+      "SESSION_CLOSE_BOUNDARY_BAR",
+      "EXTENDED_HOURS_BAR",
+      "WHEN_ISSUED_EXCLUDED",
+      "NOT_YET_REGULAR_WAY",
+      "synthetic bars",
+      "supplemental / new-vintage bars"
+    ],
+    "source_policy": "ORIGINAL_VINTAGE_ONLY",
+    "derived_base": {
+      "artifact": "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1",
+      "digest": "5591685cfa33b62a",
+      "observed_regular_bars": 213979211,
+      "unobserved_minutes": 17702599
+    }
+  },
+  "missing_data_semantics": {
+    "unobserved_count": 17702599,
+    "never_means": [
+      "zero volume",
+      "unchanged price",
+      "no trade"
+    ],
+    "forbidden": [
+      "skip the minute and pretend time was contiguous",
+      "carry OHLCV through it",
+      "insert a zero-volume candle",
+      "forward-fill close",
+      "interpolate price"
+    ],
+    "observed_zero_volume_vs_unobserved": {
+      "observed_zero": "an actual archived vendor bar with volume 0 is an OBSERVED zero-volume input",
+      "unobserved": "no source bar for an expected minute",
+      "must_remain_distinct_throughout": [
+        "EMA",
+        "RVOL"
+      ]
+    },
+    "structural_no_trade": {
+      "capability": "UNAVAILABLE",
+      "consequence": "the charter's STRUCTURAL_NO_TRADE state exists and enters RVOL baselines, but this programme cannot yet prove its preconditions, so no minute may be promoted into it",
+      "baseline_effect": "in practice the slot-RVOL baseline is computed over OBSERVED minutes only, and the excluded-minute count must be reported alongside every value"
+    }
+  },
+  "ema_contract": {
+    "status": "DRAFTED_BUT_NOT_FROZEN — blocked by the one_minute_role conflict",
+    "alpha": "2 / (p + 1)",
+    "time_axis": "the ordered sequence of EXPECTED REGULAR minutes for one security across eligible sessions",
+    "overnight": "non-session time is NOT an expected-minute gap; 15:59 and the next eligible 09:30 may remain consecutive in the regular-market stream",
+    "session_policy_default": "CARRY_ACROSS_ELIGIBLE_SESSIONS",
+    "session_policy_note": "frozen explicitly rather than left implicit; if the T/Z semantics later require a daily reset, that becomes the authoritative rule",
+    "break_rule": "an expected REGULAR_WAY minute marked UNOBSERVED BREAKS input continuity; the next observed minute begins a NEW segment",
+    "no_silent_bridging": true,
+    "emitted_fields": [
+      "ema_value",
+      "ema_period",
+      "ema_segment_id",
+      "ema_age_observed_bars",
+      "ema_reset_reason"
+    ],
+    "warm_up": "no universal threshold is invented here; ema_age_observed_bars is preserved so a downstream contract can require an explicitly pre-registered minimum age",
+    "at_unobserved_minute": "ema_value = UNAVAILABLE, never carried forward",
+    "validity_states": [
+      "VALID",
+      "INITIALIZATION_SENSITIVE",
+      "UNAVAILABLE_INPUT",
+      "INELIGIBLE"
+    ],
+    "null_policy": "unavailable EMA is never a bare NULL; it carries a reason"
+  },
+  "rvol_contract": {
+    "status": "READY_TO_FREEZE — not blocked",
+    "families": [
+      "SLOT_RVOL",
+      "CUM_RVOL"
+    ],
+    "label_discipline": "the word RVOL is not used until its denominator is fully specified",
+    "slot_rvol": {
+      "numerator": "observed volume in minute-of-session slot s of the current session",
+      "denominator": "baseline over the same minute-of-session slot s across prior eligible sessions",
+      "lookback_unit": "same-minute-of-session observations",
+      "lookback_length": "TO BE FROZEN IN THE SAME DECISION AS THE EMA RESOLUTION — no value is invented here",
+      "current_session_excluded_from_own_baseline": true,
+      "prior_only": true,
+      "baseline_membership": "the per-slot baseline is computed over OBSERVED and STRUCTURAL_NO_TRADE minutes only; UNOBSERVED minutes are excluded from both numerator and denominator",
+      "minimum_sample_count": "explicit, uniform, and NOT lowered per security",
+      "zero_denominator": "value UNAVAILABLE with reason, never division by zero",
+      "missing_history": "excluded from the denominator and counted, never treated as zero volume",
+      "early_close": "slot positions come from the XNYS calendar; an early-close session has 210 slots and no post-close slot may be invented"
+    },
+    "cum_rvol": {
+      "definition": "cumulative session volume relative to the cumulative baseline at the same session position",
+      "contamination": "a cumulative curve crossing an UNOBSERVED minute is flagged from that point forward for that session",
+      "flagged_forward": "once the curve crosses an UNOBSERVED minute it is flagged from that point forward for that session"
+    },
+    "reported_with_every_value": "every RVOL-family feature reports the count of excluded UNOBSERVED minutes alongside its value",
+    "emitted_fields": [
+      "rvol_value",
+      "rvol_baseline_value",
+      "rvol_sample_count",
+      "rvol_expected_sample_count",
+      "rvol_excluded_unobserved_count",
+      "rvol_validity_state",
+      "rvol_unavailable_reason"
+    ]
+  },
+  "feature_schemas": {
+    "outputs": [
+      "ema_features",
+      "rvol_features",
+      "feature_validity"
+    ],
+    "additive": true,
+    "must_not_mutate": [
+      "minute_states",
+      "observed_regular_bars",
+      "session_close_boundary_bars",
+      "extended_hours_bars"
+    ],
+    "identity_fields": [
+      "security_key_v1",
+      "session_date",
+      "minute_ts",
+      "feature_definition_version",
+      "input_validity_state"
+    ],
+    "ticker": "descriptive metadata only; never the primary identity",
+    "provenance_binding": [
+      "derived-base artifact 5591685cfa33b62a",
+      "feature spec digest",
+      "feature implementation hash",
+      "cohort digest",
+      "calendar authority",
+      "parameter registry digest"
+    ],
+    "provenance_level": "FILE_LEVEL — no stronger claim than is implemented"
+  },
+  "negative_fixtures": {
+    "count": 14,
+    "required": [
+      "future bar cannot affect EMA[t]",
+      "future volume cannot affect RVOL[t]",
+      "UNOBSERVED minute cannot become a zero-volume observation",
+      "EMA cannot bridge an UNOBSERVED expected minute silently",
+      "EMA unavailable minute cannot be forward-filled",
+      "extended-hours bar cannot affect EMA",
+      "close-boundary bar cannot affect EMA",
+      "WI bar cannot affect a regular-way feature",
+      "NOT_YET bar cannot affect a feature",
+      "RVOL denominator cannot use a current or future observation under prior-only semantics",
+      "missing historical RVOL input cannot become zero",
+      "early-close session cannot create nonexistent late-session positions",
+      "feature-unavailable observation cannot silently remove a security from the cohort",
+      "a parameter outside the frozen registry must fail"
+    ],
+    "standard": "each must show the dangerous version FAILS and the correct version PASSES"
+  },
+  "capability_plan": {
+    "label_free": true,
+    "runs_before": "production feature construction",
+    "may_answer": [
+      "what fraction of expected eligible observations can receive each EMA",
+      "how often each EMA resets because of UNOBSERVED minutes",
+      "the distribution of ema_age_observed_bars",
+      "what fraction can receive valid RVOL",
+      "RVOL sample counts by minute / session / security"
+    ],
+    "must_not_answer": [
+      "does EMA/RVOL predict Y"
+    ],
+    "classification": "X / DATA CAPABILITY DIAGNOSTIC — not evidence of predictive edge",
+    "if_it_changes_parameters": "record as pre-Y design provenance and freeze before any Y calculation",
+    "why_before_full_build": "with 17.7M UNOBSERVED minutes, long-period EMAs may reset often. That would not make a period bad — it would tell us where the feature is actually defined, and we should know that before seeing T/Z"
+  },
+  "cohort_and_feature_validity": {
+    "cohort": 476,
+    "membership_source": "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1",
+    "rule": "a security is NOT removed from the cohort because a feature is unavailable at some timestamps",
+    "separation": "cohort membership and feature validity are different dimensions",
+    "downstream": "analysis may use feature-valid observations only, but must report availability and exclusion accounting"
+  },
+  "parameter_search_rule": {
+    "registry_is_part_of_the_search_space": true,
+    "after_freeze": "adding another EMA period or RVOL lookback after observing T/Z/Y requires registering a NEW hypothesis family with its own multiplicity and provenance treatment",
+    "no_post_Y_expansion": true
+  },
+  "y_exposed": 0,
+  "feature_production_writes": 0,
+  "acceptance": {
+    "production_derived_base_bound": true,
+    "cohort_476_unchanged": true,
+    "supplemental_prohibited": true,
+    "parameter_registry_frozen": false,
+    "legacy_conflicts_resolved_explicitly": true,
+    "ema_causality_frozen": false,
+    "rvol_causality_frozen": true,
+    "unobserved_never_no_trade": true,
+    "ema_gap_reset_explicit": true,
+    "rvol_missing_baseline_explicit": true,
+    "early_close_explicit": true,
+    "validity_separate_from_cohort": true,
+    "negative_fixtures_defined": true,
+    "capability_diagnostics_defined": true,
+    "y_exposed_zero": true,
+    "feature_production_writes_zero": true
+  },
+  "mutations": {
+    "derived_base": 0,
+    "cohort": 0,
+    "charter": 0,
+    "canonical_raw": 0,
+    "feature_writes": 0,
+    "y_exposure": 0
+  },
+  "decision_required": "choose option A (build the coarse aggregation layer, then define EMA there) or option B (amend one_minute_role to admit a named 1m-native EMA family). RVOL is unblocked either way.",
+  "next_step_if_A": "freeze MASSIVE_1M_COARSE_AGGREGATION_SPEC (the charter's aggregation_contract is already detailed), build it, then reissue this feature spec with EMA defined at 15m/1H/1D",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 21:26 +04"
+}

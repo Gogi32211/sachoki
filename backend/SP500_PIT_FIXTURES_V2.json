@@ -1,0 +1,384 @@
+{
+  "spec_id": "SP500_PIT_FIXTURES_V2",
+  "status": "FROZEN BEFORE SOURCE SELECTION — no candidate source has been evaluated",
+  "supersedes": {
+    "artifact": "SP500_PIT_FIXTURES_V1.json",
+    "digest": "3492fd1a1a3b2c94",
+    "scope": "supersedes V1 FOR SOURCE QUALIFICATION ONLY",
+    "v1_state": "VALID and PRESERVED — V1 is not rewritten, not withdrawn, and not wrong; it was incomplete for one specific failure mode"
+  },
+  "reason_for_v2": {
+    "gap": "pre-2012 deletion-history coverage was not tested by V1",
+    "failure_mode": "a source may begin reliable change tracking at year T while retaining pre-T join dates for surviving constituents, so that constituents deleted before T are absent entirely",
+    "why_v1_could_not_see_it": "V1's fixtures span 2014-2025; a survivor-only history passes all of them",
+    "discovered_from": "the qualification design during candidate enumeration",
+    "NOT_discovered_from": "any candidate result, membership row, price series or outcome — zero candidates had been evaluated when this gap was identified"
+  },
+  "lineage": {
+    "inherits": "all V1 fixtures, unchanged",
+    "mechanism": "the inherited block is LOADED from the sealed V1 artifact rather than retyped, so equality is structural",
+    "inherited_ids": [
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
+      "F7"
+    ],
+    "added_ids": [
+      "F8",
+      "F9"
+    ]
+  },
+  "selection_rule_fixed_in_advance": {
+    "maximum": "at most 2 pre-2012 deletion fixtures",
+    "criterion": "best primary-source boundary certainty",
+    "explicitly_not": "candidate behaviour — this rule was fixed before any source was searched, so a second fixture cannot be added later because the first proved inconvenient",
+    "outcome": "two found with equal boundary certainty; both included"
+  },
+  "insufficient_coverage_rule": {
+    "statement": "absence of the deleted security or event is NOT evidence that it was never a constituent",
+    "rule": "if a candidate's historical coverage begins after a fixture's effective deletion date, the classification is INSUFFICIENT_HISTORICAL_COVERAGE",
+    "explicitly_not_PASS": "silence must never be scored as agreement",
+    "explicitly_not_NOT_A_MEMBER": "silence must never be scored as a factual negative",
+    "why": "this is the same FALSE vs UNAVAILABLE distinction the minute-availability amendment draws for market data. A universe history needs it for the same reason: 'we have no record' and 'it was not a member' are different statements, and conflating them manufactures a clean-looking universe.",
+    "related": "MASSIVE_1M_DATA_CONTRACT_AMENDMENT_V1 three-valued availability"
+  },
+  "boundary_convention": {
+    "our_rule": "effective prior to the open of session E means E-1 is the last session of old membership and E is the first session of new membership",
+    "v2_addition": "F8 and F9 are phrased 'after the close of trading on D', which means D is the last session of old membership and the next session is the first without it",
+    "equivalence": "both phrasings describe the same boundary from opposite sides; a source must map them identically",
+    "calendar_independence": "both V2 fixtures were checked to fall on a Friday whose following Monday is a trading day, so neither depends on the unresolved P9 exchange calendar"
+  },
+  "residual_limitation": {
+    "issue": "both pre-2012 fixtures are M&A-driven deletions",
+    "consequence": "a pre-2012 MARKET-CAP-driven deletion is not separately covered, so a source that records pre-2012 acquisitions but not pre-2012 rebalance removals would still pass",
+    "status": "RECORDED, NOT PATCHED — the selection rule caps this set at two, and that cap was fixed before searching. Recording the residue is preferable to quietly exceeding the rule that makes the set credible.",
+    "note": "the defect class V2 targets — no pre-T deletions at all — is covered"
+  },
+  "n_fixtures": 9,
+  "fixtures": [
+    {
+      "fixture_id": "F1",
+      "transition_type": "scheduled addition",
+      "entity": {
+        "incoming": {
+          "name": "Tesla Inc.",
+          "ticker": "TSLA",
+          "exchange": "NASDAQ"
+        },
+        "outgoing": {
+          "name": "Apartment Investment and Management Co.",
+          "ticker": "AIV",
+          "exchange": "NYSE"
+        }
+      },
+      "announcement_date": "2020-11-16 (addition announced; replaced company NOT named)",
+      "second_announcement": "2020-12-11 17:59 ET — names Apartment Investment and Management Co. (AIV) as the removed company",
+      "effective_wording": "effective prior to the open of trading on Monday, December 21, to coincide with the December quarterly rebalance",
+      "effective_date": "2020-12-21",
+      "first_new_membership_session": "2020-12-21",
+      "last_old_membership_session": "2020-12-18",
+      "tests": [
+        "announcement_date != effective_date, with a 35-day separation",
+        "a single transition can carry MORE THAN ONE announcement; a source keyed on 'the' announcement date will mis-handle this",
+        "boundary: AIV must be a constituent on 2020-12-18 and not on 2020-12-21; TSLA the reverse"
+      ],
+      "primary_source": {
+        "url": "https://press.spglobal.com/2020-11-16-Tesla-Set-to-Join-S-P-500",
+        "publisher": "S&P Dow Jones Indices",
+        "quote": "Tesla Inc. (NASD:TSLA) will be added to the S&P 500 effective prior to the open of trading on Monday, December 21 to coincide with the December quarterly rebalance.",
+        "note": "does NOT name the removed company"
+      },
+      "secondary_source": {
+        "url": "https://www.prnewswire.com/news-releases/tesla-set-to-join-sp-500--100-apartment-income-reit-to-join-sp-midcap-400-301191493.html",
+        "publisher": "S&P Dow Jones Indices release distributed via PR Newswire",
+        "quote": "Apartment Investment and Management is spinning off Apartment Income REIT in a transaction expected to be completed post close on Monday, December 14."
+      },
+      "retrieved_at": "2026-08-24"
+    },
+    {
+      "fixture_id": "F2",
+      "transition_type": "spin-off (companion to F1)",
+      "entity": {
+        "parent": {
+          "name": "Apartment Investment and Management Co.",
+          "ticker": "AIV"
+        },
+        "spun_off": {
+          "name": "Apartment Income REIT Corp.",
+          "ticker": "AIRC"
+        }
+      },
+      "announcement_date": "2020-12-11",
+      "effective_wording": "spin-off expected to be completed post close on Monday, December 14; AIRC added to S&P MidCap 400 replacing Dunkin' Brands Group Inc.",
+      "effective_date": "2020-12-14 (spin-off completion, post close)",
+      "first_new_membership_session": "NOT APPLICABLE — AIRC enters MidCap 400, not the S&P 500",
+      "last_old_membership_session": "NOT APPLICABLE",
+      "tests": [
+        "entity continuity across a spin-off: does the source treat AIV post-spin as the SAME entity, and AIRC as a NEW one",
+        "a spun-off entity may enter a DIFFERENT index than its parent",
+        "the removal reason is structural, not market drift: 'Post spin-off, Apartment Investment and Management will no longer be representative of the S&P Composite 1500 indices market cap ranges'"
+      ],
+      "primary_source": {
+        "url": "https://www.prnewswire.com/news-releases/tesla-set-to-join-sp-500--100-apartment-income-reit-to-join-sp-midcap-400-301191493.html",
+        "publisher": "S&P Dow Jones Indices release distributed via PR Newswire",
+        "quote": "Post spin-off, Apartment Investment and Management will no longer be representative of the S&P Composite 1500 indices market cap ranges."
+      },
+      "secondary_source": null,
+      "status": "SUPPORTING — exercises spin-off identity; not one of the six required types",
+      "retrieved_at": "2026-08-24"
+    },
+    {
+      "fixture_id": "F3",
+      "transition_type": "scheduled deletion (market capitalisation)",
+      "entity": {
+        "incoming": {
+          "name": "AppLovin Corp.",
+          "ticker": "APP"
+        },
+        "outgoing": {
+          "name": "MarketAxess Holdings Inc.",
+          "ticker": "MKTX"
+        }
+      },
+      "announcement_date": "2025-09-05",
+      "effective_wording": "effective prior to the open of trading on Monday, September 22, to coincide with the quarterly rebalance",
+      "effective_date": "2025-09-22",
+      "first_new_membership_session": "2025-09-22",
+      "last_old_membership_session": "2025-09-19",
+      "tests": [
+        "a deletion driven by index representativeness rather than a corporate action — the removed company continues to exist and trade",
+        "the removed company moves DOWN to another index rather than disappearing; a source modelling deletion as 'end of life' fails here",
+        "boundary: MKTX constituent on 2025-09-19, not on 2025-09-22"
+      ],
+      "companion_changes": "the same release moves Robinhood Markets (HOOD) in for Caesars Entertainment (CZR) and Emcor Group (EME) in for Enphase Energy (ENPH) on the same effective date",
+      "primary_source": {
+        "url": "https://press.spglobal.com/2025-09-05-AppLovin,-Robinhood-Markets-and-Emcor-Group-Set-to-Join-S-P-500-Others-to-Join-S-P-100,-S-P-MidCap-400-and-S-P-SmallCap-600",
+        "publisher": "S&P Dow Jones Indices",
+        "quote": "The changes ensure each index is more representative of its market capitalization range."
+      },
+      "secondary_source": null,
+      "retrieved_at": "2026-08-24"
+    },
+    {
+      "fixture_id": "F4",
+      "transition_type": "M&A-driven replacement",
+      "entity": {
+        "incoming": {
+          "name": "Arch Capital Group Ltd.",
+          "ticker": "ACGL"
+        },
+        "outgoing": {
+          "name": "Twitter Inc.",
+          "ticker": "TWTR"
+        }
+      },
+      "announcement_date": "2022-10-27",
+      "effective_wording": "effective prior to the opening of trading on Tuesday, November 1",
+      "effective_date": "2022-11-01",
+      "first_new_membership_session": "2022-11-01",
+      "last_old_membership_session": "2022-10-31",
+      "tests": [
+        "removal caused by an acquisition CLOSING, not by index policy",
+        "the acquisition was expected to close 2022-10-28 while index removal took effect 2022-11-01 — deal close date and membership effective date are DIFFERENT and a source conflating them fails",
+        "boundary: TWTR constituent on 2022-10-31, not on 2022-11-01"
+      ],
+      "primary_source": {
+        "url": "https://press.spglobal.com/2022-10-27-Arch-Capital-Group-Set-to-Join-S-P-500-RXO-to-Join-S-P-MidCap-400-Bread-Financial-Holdings-to-Join-S-P-SmallCap-600",
+        "publisher": "S&P Dow Jones Indices",
+        "quote": "effective prior to the opening of trading on Tuesday, November 1",
+        "reason": "Elon Musk is acquiring Twitter in a transaction expected to close on October 28."
+      },
+      "secondary_source": null,
+      "retrieved_at": "2026-08-24"
+    },
+    {
+      "fixture_id": "F5",
+      "transition_type": "ticker change with entity continuity",
+      "entity": {
+        "name": "Meta Platforms, Inc.",
+        "ticker_before": "FB",
+        "ticker_after": "META",
+        "exchange": "NASDAQ",
+        "entity_continuity": "PRESERVED",
+        "security_continuity": "PRESERVED"
+      },
+      "announcement_date": "2022-05-31",
+      "effective_wording": "ticker symbol change effective prior to market open on June 9, 2022",
+      "effective_date": "2022-06-09",
+      "first_new_membership_session": "2022-06-09 (first session under META)",
+      "last_old_membership_session": "2022-06-08 (last session under FB)",
+      "membership_change": "NONE — the company remained an S&P 500 constituent throughout; this fixture tests IDENTITY, not membership",
+      "tests": [
+        "the CUSIP is explicitly unchanged, so entity and security identity are continuous while the ticker is not",
+        "a source keyed on ticker will show a spurious deletion of FB and a spurious addition of META on 2022-06-09 — this is the single most direct test of requirement 2 (security identity)",
+        "a correct source reports ONE continuous membership with a ticker_at_time change"
+      ],
+      "primary_source": {
+        "url": "https://investor.atmeta.com/investor-news/press-release-details/2022/Meta-Platforms-Inc.-to-Change-Ticker-Symbol-to-META-on-June-9/default.aspx",
+        "publisher": "Meta Platforms investor relations",
+        "quote": "The company's Class A common stock will continue to be listed on NASDAQ and its CUSIP number will remain unchanged."
+      },
+      "secondary_source": null,
+      "retrieved_at": "2026-08-24"
+    },
+    {
+      "fixture_id": "F6",
+      "transition_type": "share-class / security transition",
+      "entity": {
+        "name": "Google Inc. (later Alphabet Inc.)",
+        "class_a": {
+          "ticker": "GOOGL"
+        },
+        "class_c": {
+          "ticker": "GOOG"
+        },
+        "entity_continuity": "PRESERVED",
+        "securities": "ONE entity, TWO index securities"
+      },
+      "announcement_date": "2014-03-11",
+      "effective_wording": "new Class C shares distributed as a dividend on June 20, 2014",
+      "effective_date": "2014-06-20",
+      "first_new_membership_session": "UNCONFIRMED",
+      "last_old_membership_session": "UNCONFIRMED",
+      "boundary_status": "EXCLUDED FROM THE BOUNDARY TEST. The exact first session on which the S&P 500 carried two Alphabet index lines was not established from a primary source, and is NOT derived by assuming it equals the distribution date. This fixture tests identity representation only.",
+      "tests": [
+        "can the source represent ONE entity holding TWO distinct index securities simultaneously",
+        "a schema of ticker|start|end cannot express this and will either drop a line or duplicate the entity",
+        "S&P DJI reversed a PREVIOUSLY ANNOUNCED treatment in this same release, so a source that recorded the earlier plan without the revision carries a stale decision"
+      ],
+      "policy_context": "S&P DJI announced that all eligible trading lines meeting liquidity and materiality thresholds would be included, transitioning from September 2015; indices therefore hold more share lines than companies",
+      "primary_source": {
+        "url": "https://press.spglobal.com/2014-03-11-S-P-Dow-Jones-Indices-Announces-Changes-in-Treatment-of-Multiple-Share-Classes-in-U-S-Indices-and-Revises-Previously-Announced-Treatment-of-Google-Stock-Split",
+        "publisher": "S&P Dow Jones Indices",
+        "quote": "Both Google Class A and Google Class C will be included in the S&P 500 and S&P 100."
+      },
+      "secondary_source": null,
+      "retrieved_at": "2026-08-24"
+    },
+    {
+      "fixture_id": "F7",
+      "transition_type": "bankruptcy / delisting removal",
+      "entity": {
+        "incoming": {
+          "name": "Insulet Corp.",
+          "ticker": "PODD"
+        },
+        "outgoing": {
+          "name": "SVB Financial Group",
+          "ticker": "SIVB"
+        }
+      },
+      "announcement_date": "2023-03-10",
+      "effective_wording": "effective prior to the opening of trading on Wednesday, March 15",
+      "effective_date": "2023-03-15",
+      "first_new_membership_session": "2023-03-15",
+      "last_old_membership_session": "2023-03-14",
+      "tests": [
+        "removal for INELIGIBILITY following FDIC receivership — neither a scheduled rebalance nor a completed acquisition",
+        "the announcement-to-effective gap is only 5 calendar days, versus 35 in F1; a source assuming a fixed lead time fails on one of the two",
+        "boundary: SIVB constituent on 2023-03-14, not on 2023-03-15"
+      ],
+      "replaces_dropped_proposal": "the originally proposed Hertz (HTZ) bankruptcy case could NOT be confirmed as an S&P 500 membership transition and was dropped rather than assumed",
+      "primary_source": {
+        "url": "https://press.spglobal.com/2023-03-10-Insulet-Set-to-Join-S-P-500",
+        "publisher": "S&P Dow Jones Indices",
+        "quote": "The Federal Deposit Insurance Corporation (FDIC) announced that it has taken SVB Financial Group into FDIC Receivership and therefore SVB Financial Group is no longer eligible for inclusion."
+      },
+      "secondary_source": {
+        "note": "a companion S&P DJI release of 2023-03-13 records Bunge Limited (BG) replacing Signature Bank (SBNY) on the same effective date, 2023-03-15, for the same receivership reason"
+      },
+      "retrieved_at": "2026-08-24"
+    },
+    {
+      "fixture_id": "F8",
+      "transition_type": "PRE_TRACKING_HISTORY_DELETION",
+      "entity": {
+        "outgoing": {
+          "name": "Genzyme Corp.",
+          "ticker": "GENZ",
+          "exchange": "NASDAQ"
+        },
+        "incoming": {
+          "name": "BlackRock Inc.",
+          "ticker": "BLK",
+          "exchange": "NYSE"
+        }
+      },
+      "announcement_date": "2011-03-29",
+      "effective_wording": "after the close of trading on Friday, April 1, 2011",
+      "effective_boundary_side": "AFTER THE CLOSE of D — the opposite phrasing from every V1 fixture",
+      "last_old_membership_session": "2011-04-01",
+      "first_non_member_session": "2011-04-04",
+      "deletion_reason": "Sanofi-aventis (NYSE: SNY) acquiring Genzyme; deal expected to complete pending final conditions",
+      "ceased_membership_before_2012": "YES",
+      "unquestionably_a_member_before_E": "YES — Genzyme was a large-cap S&P 500 biotechnology constituent",
+      "tests": [
+        "a source whose change history begins after 2011 cannot produce this departure at all; survivor-only history fails here and passes every V1 fixture",
+        "'after the close of D' must map to the same boundary semantics as 'prior to the open of E'; a source hard-coding one reading is one session off",
+        "boundary: GENZ a constituent on 2011-04-01, not on 2011-04-04"
+      ],
+      "calendar_note": "2011-04-01 was a Friday; the next session is Monday 2011-04-04. Good Friday 2011 fell on April 22, so no holiday intervenes and the boundary is determinable without the unresolved P9 calendar.",
+      "primary_source": {
+        "url": "https://www.prnewswire.com/news-releases/standard--poors-announces-change-to-us-index-118873854.html",
+        "publisher": "Standard & Poor's Index Services, distributed via PR Newswire",
+        "quote": "BlackRock Inc. (NYSE: BLK) will replace Genzyme Corp. (NASD: GENZ) in the S&P 500 index after the close of trading on Friday, April 1, 2011."
+      },
+      "secondary_source": null,
+      "retrieved_at": "2026-08-25"
+    },
+    {
+      "fixture_id": "F9",
+      "transition_type": "PRE_TRACKING_HISTORY_DELETION",
+      "entity": {
+        "outgoing": {
+          "name": "Cephalon Inc.",
+          "ticker": "CEPH",
+          "exchange": "NASDAQ"
+        },
+        "incoming": {
+          "name": "TE Connectivity Ltd.",
+          "ticker": "TEL",
+          "exchange": "NYSE"
+        }
+      },
+      "announcement_date": "2011-10-11",
+      "effective_wording": "after the close of trading on Friday, October 14",
+      "effective_boundary_side": "AFTER THE CLOSE of D",
+      "last_old_membership_session": "2011-10-14",
+      "first_non_member_session": "2011-10-17",
+      "deletion_reason": "Teva Pharmaceutical Industries (NASD: TEVA) acquiring Cephalon; deal expected to complete on or about that date",
+      "ceased_membership_before_2012": "YES",
+      "unquestionably_a_member_before_E": "YES — Cephalon was an S&P 500 biopharmaceutical constituent",
+      "tests": [
+        "a second, independent pre-2012 departure, so the coverage test does not rest on one company or one month",
+        "the announcement omits the YEAR in its effective sentence ('Friday, October 14'), which the release date resolves — a source parsing announcement text must handle that",
+        "boundary: CEPH a constituent on 2011-10-14, not on 2011-10-17"
+      ],
+      "calendar_note": "2011-10-14 was a Friday; the next session is Monday 2011-10-17. Columbus Day is not an NYSE holiday, so no holiday intervenes.",
+      "primary_source": {
+        "url": "https://www.prnewswire.com/news-releases/sp-indices-announces-change-to-us-index-131552863.html",
+        "publisher": "S&P Indices, distributed via PR Newswire",
+        "quote": "Cephalon is being acquired by Teva Pharmaceutical Industries Ltd. (NASD: TEVA) in a deal expected to be completed on or about that date pending final approvals."
+      },
+      "secondary_source": null,
+      "retrieved_at": "2026-08-25"
+    }
+  ],
+  "source_archive": {
+    "artifact": "SP500_PIT_FIXTURE_SOURCE_ARCHIVE_V2.json",
+    "digest": "4d0454eec4f93948",
+    "state": "all nine fixtures have a raw snapshot whose bytes were verified to contain the cited sentence"
+  },
+  "qualification": {
+    "artifact": "SP500_PIT_UNIVERSE_SOURCE_QUALIFICATION_V1.json",
+    "digest": "88d3455ab79bbf72"
+  },
+  "candidate_source_evaluations": 0,
+  "price_joins": 0,
+  "episode_or_outcome_access": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 00:24 +04"
+}

@@ -1,0 +1,101 @@
+{
+  "artifact": "MASSIVE_1M_CANONICAL_RAW_PERSISTENCE_MANIFEST_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "AUTHORITY_DISTINCTION": {
+    "this_copy_is": "RAW PERSISTENCE AUTHORITY — immutable evidence / reconstruction archive",
+    "this_copy_is_NOT": "PRODUCTION EXECUTION ROOT",
+    "production_path_unchanged": "massive_ingest.py and DerivedBaseBuilderV2 continue to require the frozen external canonical root; nothing was repointed"
+  },
+  "SOURCE": "/Volumes/QUANT_RESEARCH/source_data/massive/canonical_1m",
+  "DEST": "/Users/sachoki/MASSIVE_DATA/historical_raw/canonical_1m",
+  "CONTENTS": {
+    "files": 2508,
+    "bytes": 4842123899,
+    "GB": 4.84,
+    "raw_payloads": 1254,
+    "retrieval_manifests": 1254,
+    "window": "2021-08-25 .. 2026-08-24",
+    "rollup_digest": "3c7f056c112f0cdb",
+    "elapsed_s": 13
+  },
+  "PER_FILE": {
+    "recorded": [
+      "relative path",
+      "byte size",
+      "sha256"
+    ],
+    "table": "manifests/MASSIVE_1M_CANONICAL_RAW_FILEDIGESTS_V1.json (2,508 entries)"
+  },
+  "INTEGRITY": {
+    "copy_mismatches": 0,
+    "payload_sha256_cross_check": "each retrieval manifest records its payload's sha256; verified against the PERSISTED payload",
+    "checked": 1254,
+    "mismatches": 0,
+    "manifest_payload_missing": 0,
+    "meaning": "the archive is internally consistent, not merely copied"
+  },
+  "PER_RETRIEVAL_MANIFEST": {
+    "fields_present": [
+      "session",
+      "payload",
+      "sha256",
+      "bytes",
+      "uncompressed_bytes",
+      "rows",
+      "observed",
+      "unobserved",
+      "not_yet_regular_way",
+      "states.{ticker}",
+      "ingested_at"
+    ],
+    "retrieval_timestamp": "ingested_at",
+    "table": "manifests/MASSIVE_1M_CANONICAL_RAW_RETRIEVAL_V1.json"
+  },
+  "SOURCE_REGIME_RECORDED_IN_THE_PAYLOAD_ITSELF": {
+    "finding": "I expected endpoint/query semantics to be missing from the retrieval manifest. They are — but they are recorded in the PAYLOAD, which is stronger: the archived evidence carries its own regime.",
+    "verified_across_ALL_1254_payloads": true,
+    "top_level_key_set": [
+      "adjusted",
+      "securities",
+      "session",
+      "source"
+    ],
+    "uniform": "1254/1254",
+    "adjusted": "True in 1254/1254",
+    "source": "'massive /v2/aggs 1m' — the frozen endpoint family",
+    "per_security_fields": [
+      "massive_ticker",
+      "results",
+      "truncated"
+    ],
+    "securities_per_payload": 480,
+    "note": "480 tickers appear in the raw payload against a 476 cohort — exactly the contract that raw data MAY exist for non-members and is simply NOT ADMITTED downstream"
+  },
+  "PARSE_SMOKE": {
+    "days": [
+      "2021-08-25",
+      "2024-02-23",
+      "2026-08-24"
+    ],
+    "result": "PASS — gzip+json parsed from the PERSISTED copy"
+  },
+  "CREDENTIALS": "no token or credential value is recorded anywhere in this artifact or its side tables",
+  "ORIGINAL_VINTAGE_RULE": {
+    "invariant": "THE FIRST ARCHIVED VINTAGE IS AUTHORITATIVE FOR THAT FORWARD OBSERVATION",
+    "later_vendor_refetch": [
+      "MAY be stored as a NEW vintage for diagnostics",
+      "MAY explain source drift",
+      "MAY NOT overwrite the original vintage",
+      "MAY NOT replace it in primary forward evidence"
+    ],
+    "forward_raw_store": "APPEND-ONLY",
+    "existing_target": "if (security_key, session_date, vintage) already exists, SILENT OVERWRITE IS FORBIDDEN",
+    "refetch": "a later refetch of the same session requires a NEW vintage identity"
+  },
+  "MONTHLY_TRIGGER_CONSEQUENCE": "each month-end NO_LOOK/LOOK record binds to the authoritative archived vintages AS OF THAT MOMENT. A later vendor backfill may not change the X-support census that produced a past NO_LOOK.",
+  "siblings": [
+    "MASSIVE_NEW_FAMILY_DATA_PERSISTENCE_MANIFEST_V1 · deea3ff90c96fba4",
+    "MASSIVE_1M_UPSTREAM_PERSISTENCE_MANIFEST_V1 · dbc83dcec780fcb8"
+  ]
+}

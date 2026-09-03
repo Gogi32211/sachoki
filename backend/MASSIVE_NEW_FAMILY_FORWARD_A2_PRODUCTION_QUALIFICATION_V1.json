@@ -1,0 +1,88 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_A2_PRODUCTION_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "VERDICT": "A2 STACK COMPLETE — all four producer families qualified",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "scope": "A2 ONLY. A3 canonical-69 consolidation, the monthly X-support census, the NO_LOOK/LOOK runner, settlement refetches, forward evidence and inference are all OUT OF SCOPE and NOT started.",
+  "module": {
+    "path": "backend/forward_a2_producers.py",
+    "sha256": "0a0648b66518f1364ec26b17a23ff70db363d14ed2ecb1a5c50be400cf2619a3"
+  },
+  "FAMILIES": {
+    "pd12": {
+      "digest": "e0d163b7b8b39faf",
+      "columns": 12,
+      "rows": 185345448,
+      "except_all": "0/0"
+    },
+    "stageC4": {
+      "digest": "35aad7b17e686027",
+      "columns": 12,
+      "rows": 185345448,
+      "except_all": "0/0"
+    },
+    "PHASE1_R1": {
+      "digest": "74768739c721477d",
+      "columns": 39,
+      "rows": 602372706,
+      "except_all": "0/0"
+    },
+    "STAGE_D_R2": {
+      "digest": "663a60bb47fc9561",
+      "columns": 6,
+      "rows": 92672724,
+      "except_all": "0/0"
+    }
+  },
+  "TOTALS": {
+    "columns": 69,
+    "rows_replayed": 1065736326,
+    "matches_CANON69": "1,065,736,326 — identical to the sealed canonical surface row count",
+    "mismatches_anywhere": 0,
+    "sampling": "NONE — every family replayed in full"
+  },
+  "STATE_TAXONOMY_ESTABLISHED": {
+    "pd12": "ROW-LOCAL — no shift, no rolling, no accumulator",
+    "stageC4": "WITHIN-SEGMENT (wlnbb rolling/shift, accumulate ladders) + WHOLE-HISTORY is_head",
+    "PHASE1_R1": "per-segment engines + TWO whole-series reachable passes (sig_tz_flip, vbo_up)",
+    "STAGE_D_R2": "per-segment engines + a whole-series COOLDOWN reachable state"
+  },
+  "RESUME_CONTRACTS": {
+    "pd12": "append rows once the EMA states exist; no replay required",
+    "stageC4": "replay the open segment; carry head_closed",
+    "PHASE1_R1": "replay the open segment; carry tz state set, vbo state MATERIALISED as {s:(hi[s],ok[s])}, prev_ok/prev_cl",
+    "STAGE_D_R2": "replay the open segment; carry the cooldown state SET and the previous bar's EMA validity"
+  },
+  "STATE_MATERIALISATION_POLICY": {
+    "rule": "a serialization may be new; the SEMANTIC state may not",
+    "proof_obligation": "losslessness is never assumed — it is established by full-vs-resumed replay",
+    "instances": [
+      "PHASE1_R1 vbo {s:(hi[s],ok[s])}",
+      "STAGE_D_R2 cooldown state set"
+    ]
+  },
+  "DEFECTS_FOUND_BY_THE_FIXTURES": {
+    "in_the_wrapper": [
+      "KeyError instead of A2Hold on a missing upstream column",
+      "BIGINT instead of the frozen TINYINT",
+      "completion decided by file readability alone",
+      "vbo live state outside the window (guard fired, drove the materialisation design)",
+      "resumed eprev silently assumed False (guard added)"
+    ],
+    "in_my_own_fixtures": [
+      "a 602M-row join that exhausted 49 GiB of temp",
+      "a vbo state fixture whose state was too old for the engine to ever consult",
+      "a duplicate-key scan that OOM'd",
+      "one fixture EXPECTATION that was wrong: 'a refused write must make the prior partition INCOMPLETE'"
+    ],
+    "tolerances_introduced": 0
+  },
+  "NOT_CLAIMED": [
+    "that any producer is byte-identical to its original at the file level",
+    "that the original producer code was reused where it was transcribed",
+    "anything about forward data, forward Y, or inference"
+  ],
+  "NEXT": "A3 — canonical 69-X forward consolidation. NOT started, and it is a separate task."
+}

@@ -1,0 +1,360 @@
+{
+  "spec_id": "MASSIVE_T_FEATURE_PORT_SPEC_V1",
+  "status": "MASSIVE_T_FEATURE_PORT_SPEC_V1_FROZEN",
+  "task_class": "PORT_SPEC_AND_CONFORMANCE_DESIGN",
+  "production_t_written": false,
+  "y_exposed": 0,
+  "authoritative_semantics": {
+    "recovery_artifact": "MASSIVE_T_PINE_SEMANTIC_RECOVERY_V1.json",
+    "recovery_digest": "7d00e3908feb26d5",
+    "pine_source": "260523_TZ_F_WLNBB_CMB_pattern.pine",
+    "pine_digest": "696f40d730662a60",
+    "raw_predicates": {
+      "T1G": "prev1IsBear and (open > close[1]) and (open > open[1]) and (close > open[1]) and isBull",
+      "T1": "prev1IsBear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull",
+      "T2G": "prev1IsBull and (open >= open[1]) and (open > close[1]) and (close > close[1]) and isBull",
+      "T2": "prev1IsBull and (open >= open[1]) and (open <= close[1]) and (close > close[1]) and isBull",
+      "T3": "prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])",
+      "T4": "prevBear and isBull and fullyEngulfs",
+      "T5": "prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)",
+      "T6": "prevBull and isBull and fullyEngulfs",
+      "T9": "prev1IsBear and isBull and isInside",
+      "T10": "prev1IsBull and isBull and isInside",
+      "T11": "prev1IsBull and isBull and (open < open[1]) and (close >= open[1]) and (close < close[1])",
+      "T12": "prev1IsBull and isBull and (open < open[1]) and (close < open[1])"
+    },
+    "supporting_predicates": {
+      "isDoji": "close == open",
+      "isBull": "close > open",
+      "isBear": "close < open",
+      "prev1IsBull": "close[1] > open[1]",
+      "prev1IsBear": "close[1] < open[1] or Z7_raw[1]",
+      "prevBull": "prev1IsBull",
+      "prevBear": "prev1IsBear",
+      "fullyEngulfs": "eHigh >= ePH and ePL >= eLow and bodyRatioOk",
+      "isInside": "currTop <= prevTop and currBot >= prevBot",
+      "bodyRatioOk": "(currBody / prevBodySafe) >= minBodyRatio",
+      "prevBodySafe": "math.max(prevBody, syminfo.mintick)",
+      "anyOtherBullRaw": "T1G_raw or T1_raw or T2G_raw or T2_raw or T3_raw or T4_raw or T5_raw or T6_raw or T9_raw or T10_raw or T11_raw or T12_raw",
+      "anyOtherBearRaw": "Z1G_raw or Z1_raw or Z2G_raw or Z2_raw or Z3_raw or Z4_raw or Z5_raw or Z6_raw or Z9_raw or Z10_raw or Z11_raw or Z12_raw",
+      "Z7_clean": "Z7_raw and not anyOtherBullRaw and not anyOtherBearRaw",
+      "eHigh": "useWick ? high    : currTop",
+      "eLow": "useWick ? low     : currBot",
+      "ePH": "useWick ? high[1] : prevTop",
+      "ePL": "useWick ? low[1]  : prevBot"
+    },
+    "priority_chain": [
+      "T4",
+      "T6",
+      "T1G",
+      "T2G",
+      "T1",
+      "T2",
+      "T9",
+      "T10",
+      "T3",
+      "T11",
+      "T5",
+      "T12"
+    ],
+    "reconstructed_from_prose": false
+  },
+  "portability_claim": {
+    "allowed": "THE SAME RECOVERED PINE SEMANTIC PROGRAM, EXECUTED ON MASSIVE SOURCE DATA",
+    "not_allowed": "THE SAME MATERIALISED POPULATION",
+    "why": "the legacy comparison target carries its own 2-decimal storage loss; identity with legacy t_sig is not a claim the evidence supports",
+    "upgradeable_only_if": "the matched cross-feed comparison actually supports the stronger claim"
+  },
+  "provenance": {
+    "classification": [
+      "PREVIOUSLY_EXPOSED_HYPOTHESIS",
+      "CURRENT_PRE_REGISTERED_SOURCE_PORT"
+    ],
+    "explicitly_not": "NEW_DISCOVERY",
+    "multiplicity_ledger": "NOT reset; a new feed and a new pipeline do not make an exposed hypothesis fresh",
+    "inherited_from": "MASSIVE_1M_STATE_TRANSITION_V1.hypothesis_provenance"
+  },
+  "naming": {
+    "machine_identifiers": [
+      "T4_MASSIVE_PORT_V1",
+      "T6_MASSIVE_PORT_V1",
+      "T1G_MASSIVE_PORT_V1",
+      "T2G_MASSIVE_PORT_V1",
+      "T1_MASSIVE_PORT_V1",
+      "T2_MASSIVE_PORT_V1",
+      "T9_MASSIVE_PORT_V1",
+      "T10_MASSIVE_PORT_V1",
+      "T3_MASSIVE_PORT_V1",
+      "T11_MASSIVE_PORT_V1",
+      "T5_MASSIVE_PORT_V1",
+      "T12_MASSIVE_PORT_V1"
+    ],
+    "metadata": {
+      "semantic_parent": "LEGACY_PINE_T_STATE",
+      "source_semantics_digest": "696f40d730662a60"
+    },
+    "display": "a report may show the human label T1/T3/...",
+    "binding": "machine identity must retain the MASSIVE_PORT provenance; legacy names may not be reused as if byte-identical"
+  },
+  "timeframe_scope": {
+    "registered": [
+      "15m"
+    ],
+    "authority": "T1_15M_X_ONLY_V1 (status X_ONLY_PRE_Y) is the pre-Y registered family",
+    "excluded": [
+      "1H",
+      "1D",
+      "1m",
+      "4H"
+    ],
+    "why_explicit": "1H and 1D datasets now exist; dataset availability is NOT hypothesis registration",
+    "adding_one": "a new search-space member requiring its own pre-Y registration",
+    "one_minute_role": "unchanged"
+  },
+  "pine_input_configuration": {
+    "declarations": {
+      "useWick": {
+        "type": "bool",
+        "source_default": "false",
+        "declaration": "useWick      = input.bool(false, \"Use Wick (vs Body)\", group=grpE)"
+      },
+      "minBodyRatio": {
+        "type": "float",
+        "source_default": "1.0",
+        "declaration": "minBodyRatio = input.float(1.0, \"Min body ratio\", minval=0.5, step=0.05, group=grpE)",
+        "encoded_domain": {
+          "minval": 0.5,
+          "step": 0.05
+        }
+      }
+    },
+    "source_default_configuration": {
+      "useWick": false,
+      "minBodyRatio": 1.0,
+      "read_from": "the authoritative Pine source, verbatim"
+    },
+    "legacy_runtime_configuration": "UNKNOWN",
+    "legacy_note": "Pine inputs are set at runtime; the materialisation's configuration was never captured. This spec does NOT assert the old export ran on defaults.",
+    "current_port_configuration": {
+      "useWick": false,
+      "minBodyRatio": 1.0,
+      "chosen_because": "they are the source defaults",
+      "explicitly_not_because": "they maximise agreement with the legacy materialisation"
+    },
+    "sweep_disposition": {
+      "finding": "minBodyRatio=0.5 agreed with the legacy materialisation slightly BETTER than 1.0 (99.1409% vs 99.0827%)",
+      "decision": "1.0 is frozen anyway",
+      "reasoning": "selecting a parameter by how well it reproduces a target is fitting, not porting — and the target is a rounded column whose disagreements are already known to be storage artifacts",
+      "what_the_sweep_is_used_for": "diagnostic evidence that useWick=False is correct (True costs 6-7 points)",
+      "what_it_is_not": "a parameter-selection oracle"
+    }
+  },
+  "output_model": {
+    "layers": [
+      "raw T-state booleans",
+      "priority winner",
+      "final priority-resolved label"
+    ],
+    "collapsed": false,
+    "why": "every bar must be inspectable at all three layers for conformance diagnosis",
+    "states": [
+      "T_STATE_VALID",
+      "T_STATE_UNAVAILABLE_INPUT",
+      "T_STATE_UNAVAILABLE_CONTAMINATED_COARSE",
+      "T_STATE_UNAVAILABLE_INITIALIZATION"
+    ],
+    "false_vs_unavailable": "FALSE and UNAVAILABLE remain separate at every layer"
+  },
+  "lookback_and_startup": {
+    "requirement": "exactly one immediately preceding coarse bar",
+    "derivation": "every recovered predicate references [1] only, including prev1IsBear's Z7_raw[1]",
+    "at_segment_start": "UNAVAILABLE_INITIALIZATION",
+    "forbidden": [
+      "substituting zeros",
+      "treating a missing prior bar as a false predicate",
+      "evaluating partially initialised logic"
+    ]
+  },
+  "session_semantics": {
+    "recovered": "the T-predicate block contains no session guard, no timeframe request and no reset; predicates reference the previous CHART bar",
+    "frozen": "no daily reset is introduced, because the source has none",
+    "but": "a missing or contaminated required prior Massive bar is an unavailable input and may never be bridged as though observed"
+  },
+  "massive_input_authority": {
+    "artifact": "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1",
+    "digest": "6ec73d5f462761f0",
+    "timeframe": "15m",
+    "admissible": "coverage_state = COMPLETE only",
+    "contaminated": "UNOBSERVED_CONTAMINATED -> T state UNAVAILABLE, never FALSE",
+    "forbidden": "computing T from contaminated partial OHLC",
+    "pairwise_consequence": {
+      "rule": "a T state needs the current AND the immediately preceding 15m interval both COMPLETE",
+      "single_bar_completeness": "68.8% (coarse census)",
+      "pairwise": "LOWER — must be MEASURED in the smoke gate, not assumed",
+      "why_flagged": "it is the binding availability constraint on the whole port"
+    }
+  },
+  "cross_feed_conformance_plan": {
+    "three_way": {
+      "A": "legacy materialised T label",
+      "B": "recovered semantics applied to legacy stored inputs",
+      "C": "recovered semantics applied to Massive data"
+    },
+    "comparisons": {
+      "A_vs_B": "can rounded legacy storage reproduce the historical materialisation?",
+      "B_vs_C": "how much does feed/input data change the SAME executable semantics?",
+      "A_vs_C": "overall historical-versus-current-port divergence"
+    },
+    "do_not_collapse": "these answer different questions and may not be reported as one match percentage",
+    "matched_on": [
+      "security_key_v1",
+      "timeframe",
+      "bar timestamp"
+    ],
+    "identity_rule": "matched via the frozen research identity / lineage mapping, NEVER by ticker string alone",
+    "recorded_per_observation": [
+      "security_key_v1",
+      "legacy identifier",
+      "Massive identifier",
+      "bar timestamp",
+      "timeframe",
+      "legacy OHLC",
+      "Massive OHLC",
+      "legacy materialised label",
+      "legacy-recomputed label",
+      "Massive-port label"
+    ],
+    "price_diagnostics": [
+      "open/high/low/close deltas",
+      "body sign difference",
+      "previous-body sign difference",
+      "engulfing boundary difference",
+      "body-ratio boundary crossing"
+    ],
+    "y_touched": false
+  },
+  "divergence_taxonomy": [
+    "LEGACY_STORAGE_PRECISION_LIMITATION",
+    "SOURCE_FEED_OHLC_DIFFERENCE",
+    "PREDICATE_BOUNDARY_SENSITIVITY",
+    "PINE_INPUT_CONFIGURATION_AMBIGUITY",
+    "PRIORITY_RESOLUTION_DIFFERENCE",
+    "IMPLEMENTATION_DEFECT",
+    "MISSING_OR_CONTAMINATED_MASSIVE_INPUT",
+    "UNRESOLVED"
+  ],
+  "noise_label_forbidden": true,
+  "legacy_precision_limitation": {
+    "bound_finding": "legacy `bars` OHLC is stored rounded to 2 decimals while Pine operated on higher-precision values",
+    "consequence": "legacy materialised t_sig is NOT a perfect recomputation target from stored rounded OHLC",
+    "binding": "disagreement may not be auto-attributed to implementation error",
+    "evidence": "74.1% of residuals (33,600 of 45,358) sit on a bar whose current or prior body is at most $0.011"
+  },
+  "conformance_threshold": {
+    "value": null,
+    "invented": false,
+    "rule": "this gate MEASURES divergence; whether it is acceptable for a replication-like port is an explicit X-side decision made BEFORE Y",
+    "forbidden": "choosing the threshold after observing Y",
+    "explicitly_not": "a 99% or 95% bar invented here"
+  },
+  "no_family_expansion": {
+    "portable": [
+      "T4",
+      "T6",
+      "T1G",
+      "T2G",
+      "T1",
+      "T2",
+      "T9",
+      "T10",
+      "T3",
+      "T11",
+      "T5",
+      "T12"
+    ],
+    "forbidden": [
+      "T-derived slopes",
+      "distances",
+      "hybrid EMA-T states",
+      "RVOL-T crosses",
+      "new thresholds",
+      "new priority orders"
+    ],
+    "requires": "explicit later pre-Y registration"
+  },
+  "z_firewall": {
+    "Z_STATUS": "DISCOVERY_EVIDENCE_ONLY",
+    "ported": false,
+    "in_t_port_search_space": false,
+    "discovery_is_not_registration": true,
+    "requires": "MASSIVE_Z_PROVENANCE_QUALIFICATION_V1"
+  },
+  "y_firewall": {
+    "y_exposed": 0,
+    "forbidden": [
+      "forward returns",
+      "theta",
+      "transition enrichment",
+      "win rate",
+      "P&L",
+      "future path",
+      "outcome-conditioned mismatch"
+    ],
+    "comparison": "X-side only"
+  },
+  "negative_fixtures": {
+    "count": 14,
+    "required": [
+      "a wrong source digest is rejected",
+      "an unregistered timeframe is rejected",
+      "a contaminated coarse input yields UNAVAILABLE, not FALSE",
+      "a missing required prior bar yields UNAVAILABLE",
+      "a priority-order permutation changes output and is rejected",
+      "raw boolean and final priority-resolved label remain distinguishable",
+      "a source-default configuration mutation is rejected",
+      "the legacy runtime configuration is not falsely claimed known",
+      "a rounded-legacy-OHLC mismatch cannot be auto-labelled an implementation defect",
+      "a Massive feed difference cannot be silently ignored",
+      "an undeclared T-derived feature is rejected",
+      "a Z output request is rejected",
+      "Y access is rejected",
+      "supplemental data is rejected"
+    ]
+  },
+  "binds": {
+    "pre_y_dictionary": "cadd09add79457f5",
+    "eligibility": "7c0a5ad6b17d7ae0",
+    "cohort": 476,
+    "coarse_production": "6ec73d5f462761f0"
+  },
+  "acceptance": {
+    "recovery_artifact_bound": true,
+    "pine_digest_verified": true,
+    "source_defaults_read_exactly": true,
+    "legacy_runtime_config_marked_unknown": true,
+    "config_not_chosen_by_agreement": true,
+    "timeframe_scoped_to_registered_15m": true,
+    "raw_and_final_layers_preserved": true,
+    "false_vs_unavailable_preserved": true,
+    "three_way_comparison_not_collapsed": true,
+    "divergence_taxonomy_defined": true,
+    "no_conformance_threshold_invented": true,
+    "provenance_dual_class": true,
+    "z_not_ported": true,
+    "negative_fixtures_defined": true,
+    "y_exposed_zero": true,
+    "production_t_writes_zero": true
+  },
+  "mutations": {
+    "recovery_artifact": 0,
+    "pine_source": 0,
+    "coarse_production": 0,
+    "cohort": 0,
+    "t_production_writes": 0,
+    "z_writes": 0,
+    "y_exposure": 0
+  },
+  "next_gate": "T PORT SMOKE + MATCHED X-ONLY FEED CONFORMANCE. Full Massive T production is not built automatically.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 07:43 +04"
+}

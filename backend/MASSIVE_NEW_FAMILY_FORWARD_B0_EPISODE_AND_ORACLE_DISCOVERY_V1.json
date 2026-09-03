@@ -1,0 +1,114 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_B0_EPISODE_AND_ORACLE_DISCOVERY_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "SCIENTIFIC_RESULTS_READ": 0,
+  "VERDICT": "AUTHORITIES FOUND — no ambiguity; B implementation may proceed",
+  "method": "enumerated + schema-signature conjunction search, not filename matching. Every candidate opened and read.",
+  "B0_EPISODE_AND_POSITION_AUTHORITY": {
+    "store": "POS4.duckdb table pos4",
+    "schema": [
+      "k",
+      "session_date",
+      "feature",
+      "bval",
+      "sval",
+      "availability",
+      "et"
+    ],
+    "rows": 164565276,
+    "arithmetic": "596,251 episodes x 4 positions x 69 features = 164,565,276 exactly",
+    "episodes": 596251,
+    "securities": 476,
+    "sessions": 1254,
+    "POSITION_MAP_PROVEN_NOT_ASSUMED": {
+      "et_values": [
+        "09:30",
+        "09:45",
+        "10:00",
+        "10:15"
+      ],
+      "maps_to": "stage-A interval_index 0, 1, 2, 3",
+      "verification": "joined POS4's distinct (k, session_date, et) against stageA_input interval_index<4: 596,251 rows matched at EACH of the four indices — no residue",
+      "M1_M2_M3_M4": "09:30 M1 · 09:45 M2 · 10:00 M3 · 10:15 M4, confirmed against MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_V1"
+    },
+    "episode_completeness": "596,251 of the 596,904 possible (security x session) pairs have a complete opening hour; 653 do not and are absent by construction",
+    "PRODUCER": {
+      "status": "DOES NOT EXIST in the enumerated universe",
+      "evidence": "zero files create table pos4 or open POS4.duckdb for writing; all six referencing modules open it read_only=True",
+      "class": "same as the ema3489 case — the materialiser was almost certainly run inline and never saved",
+      "consequence": "the CODE is unavailable, but the CONTRACT is fully recoverable: POS4 = CANON69 restricted to interval_index in {0,1,2,3}, labelled et, requiring all four positions present",
+      "permitted_claim_when_rebuilt": "SEMANTICALLY RECONSTRUCTED AND EXACTLY QUALIFIED AGAINST THE FROZEN OUTPUT",
+      "forbidden_claim": "SAME ORIGINAL PRODUCER"
+    }
+  },
+  "B0_2_PRE_Y_X_SUPPORT_ORACLE": {
+    "producer": "massive_new_family_runtime/support_census.py — PRESENT and persisted",
+    "code_sha256": "b2ae30e4563c28c580bb45fd38dc921ab779c9c70d123ff0cd68755211e93a69",
+    "sealed_authority": "MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_V1",
+    "spec": "MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_SPEC_V1 · faaa0a70aa050c93",
+    "Y_blind": "the sealed acceptance records no_Y_read: true, and the producer opens no outcome data",
+    "output": "SUPPORT_CENSUS.duckdb table census — 45,387 rows, one per claim in the frozen universe",
+    "columns": [
+      "claim_id",
+      "token_a",
+      "token_b",
+      "position_pair",
+      "type_pair",
+      "DEV_evaluable",
+      "DEV_positive",
+      "DEV_positive_rate",
+      "DEV_sec_evaluable",
+      "DEV_sec_positive",
+      "DEV_top10_share_evaluable",
+      "DEV_top10_share_positive",
+      "HOLDOUT_*"
+    ],
+    "EXHAUSTIVE": "per-claim counts exist for ALL 45,387 claims, therefore for all 20,751 registered ones — the B oracle is exhaustive, not distributional"
+  },
+  "PRE_REGISTRATION_HELD": {
+    "what_was_frozen_first": "MASSIVE_NEW_FAMILY_FORWARD_X_SUPPORT_COUNT_SPEC_V1 · 7b8d1b1ffa2e5458, sealed BEFORE the oracle producer was read",
+    "what_the_frozen_producer_actually_does": [
+      "valid = (availability == 'AVAILABLE_VALID')",
+      "BOOLEAN token: valid AND bval == 1",
+      "CATEGORICAL token: valid AND sval == the registered category",
+      "positive = Tm[left] @ Tm[right].T — token_A valid+true at its position AND token_B valid+true at its position, per session",
+      "evaluable = V[left] @ V[right].T — both SOURCE FEATURES AVAILABLE_VALID at their positions",
+      "no four-position gate anywhere",
+      "no Y read"
+    ],
+    "MATCH": "this is EXACTLY Option A as pre-registered, including the explicit absence of an all-four-positions requirement",
+    "consequence": "NO HARD STOP. The definition was not adjusted to fit the oracle; it was frozen first and the oracle confirmed it."
+  },
+  "PERSISTENCE_MISCLASSIFICATION_CORRECTED": {
+    "defect": "MASSIVE_NEW_FAMILY_DATA_PERSISTENCE_MANIFEST_V1 listed POS4.duckdb under CLASSIFIED_REPRODUCIBLE as an 'intermediate position store'",
+    "why_wrong": "its producer does not exist, so it was not reproducible in the sense that classification implied",
+    "second_instance": "this is the SECOND time that manifest's reproducible classification proved wrong — ema3489.duckdb was the first",
+    "standing_lesson": "'reproducible' must mean a producer EXISTS and has been located, not that the data looks derivable",
+    "remediation": {
+      "POS4.duckdb": {
+        "bytes": 700723200,
+        "sha256": "5e239fcbdbd208cb...",
+        "persisted": true,
+        "smoke": "PASS"
+      },
+      "SUPPORT_CENSUS.duckdb": {
+        "bytes": 5255168,
+        "sha256": "1e4207137c1636e4...",
+        "persisted": true,
+        "smoke": "PASS",
+        "note": "the B oracle itself had NO durable copy either"
+      },
+      "TOKEN_DICTIONARY_123.json": "also copied to historical_producer_code/"
+    }
+  },
+  "REMAINING_FOR_B": [
+    "rebuild POS4 from CANON69 and prove it exactly against the persisted store",
+    "implement the census under the frozen X_positive_episode_n definition",
+    "compare exhaustively against SUPPORT_CENSUS.census for all 20,751 registered claims, tolerance 0",
+    "negative fixtures, completion/currency, Y-blindness"
+  ],
+  "PRODUCTION_MODE": "expected to be BLOCKED — final source maturity M does not exist yet. No workaround will be built."
+}

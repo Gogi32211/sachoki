@@ -1,0 +1,154 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_EMA3489_AUTHORITY_RECONCILIATION_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "VERDICT": "A. PRE_Y_AUTHORITY_CONFIRMED",
+  "supersedes_findings_in": {
+    "artifact": "MASSIVE_NEW_FAMILY_FORWARD_A2_DISCOVERY_RESULT_V1",
+    "digest": "5e9a0a9da22406b4",
+    "parent_not_rewritten": true,
+    "which_findings": [
+      "PROBLEM_1_NO_PRODUCER",
+      "PROBLEM_2_FROZEN_SIBLING_FORBIDS_THEM",
+      "PROBLEM_3_NEVER_BOUND"
+    ],
+    "status_of_those_findings": "ALL THREE RETRACTED"
+  },
+  "MY_ERROR": {
+    "claimed": "'periods 34 and 89 are NOWHERE registered, bound, or acknowledged in the MASSIVE_NEW_FAMILY chain'",
+    "reality": "a complete four-artifact pre-Y chain exists and was missed",
+    "ROOT_CAUSE": "I searched for the literal FILENAME token 'ema3489' and for numeric '34, 89' patterns inside .py files. I never ran a content search over the ARTIFACT corpus for the semantic terms EMA34 / EMA89.",
+    "aggravating": "my own A2 protocol required schema-signature search precisely because 'the builder may not be NAMED X'. I applied that discipline to the stage-A builder hunt and then failed to apply it here.",
+    "error_class": "NEGATIVE_SEARCH_WITHOUT_ENUMERATION — repeated",
+    "how_it_was_caught": "the user supplied the digest 77e7113b174129ac. Digesting all 628 backend json files resolved it in one pass."
+  },
+  "Q1_PRE_Y_AND_PRE_SEARCH": {
+    "artifact": "MASSIVE_COARSE_EMA_34_89_PRODUCTION_V1",
+    "digest": "77e7113b174129ac",
+    "Y_EXPOSED": 0,
+    "binds": "0e33b4f878194ac7",
+    "chain_all_at_Y_EXPOSED_0": [
+      "MASSIVE_NEW_FAMILY_EMA_SUPPORT_FEASIBILITY_NOTE_V1 — surfaced that 34/89 are absent from massive_coarse_ema_v1 BEFORE production effort was spent",
+      "MASSIVE_NEW_FAMILY_PD_DEPENDENCY_GRAPH_V1 — mechanically extracted graph; STAGE_B1_REQUIREMENT: 'EMA34 and EMA89 must still be produced'",
+      "MASSIVE_COARSE_EMA_34_89_PRODUCTION_V1 — the B1 production authority",
+      "MASSIVE_NEW_FAMILY_PD_12_PRODUCTION_V1 — binds BOTH 0e33b4f878194ac7 and 77e7113b174129ac"
+    ],
+    "verdict": "PRE-Y and PRE-SEARCH CONFIRMED"
+  },
+  "Q2_ROLE": {
+    "self_description": "'ADDITIVE EXTENSION of the frozen EMA feature spec — the existing massive_coarse_ema_v1 artifact is NOT mutated'",
+    "evidence_of_production_role": [
+      "PRODUCTION block: 476/476 securities, 30,890,908 rows written == expected",
+      "determinism: two independent builds bitwise identical",
+      "FULL_STORE_INVARIANTS asserted over ALL 30,890,908 rows, not sampled",
+      "consumed downstream by PD_12_PRODUCTION_V1, which binds it explicitly"
+    ],
+    "verdict": "PRODUCTION FEATURE EXTENSION — not diagnostic, not benchmark, not legacy reference"
+  },
+  "Q3_SEMANTIC_BINDING": {
+    "periods": [
+      34,
+      89
+    ],
+    "input": "massive_coarse_v1/15m",
+    "usable_input": "coverage_state == COMPLETE",
+    "recursion": "alpha = 2/(p+1); seed = close at segment start; equivalent to ewm(span=p, adjust=False) restarted per segment",
+    "contaminated_gap": "resets state",
+    "validity": {
+      "age < p": "INITIALIZATION_SENSITIVE",
+      "age >= p": "VALID",
+      "contaminated": "UNAVAILABLE"
+    },
+    "verdict": "FULLY BOUND — formulas, initialisation, availability, reset and input surface all explicit"
+  },
+  "Q4_PHYSICAL_BINDING": {
+    "gap_found": "the B1 artifact binds NO file digest for its output",
+    "what_it_does_bind": "rows_written = 30,890,908",
+    "resolution_by_measurement": {
+      "ema3489.duckdb rows": 30890908,
+      "match": "EXACT",
+      "sha256": "3eaed288685b9b832f8eef4da6dbb6872aff51ce014185f5fc0b40fabb7be080",
+      "pd_input join": "p=34 and p=89 each 15,445,454 rows, same_v 100%, same_st 100%",
+      "note": "the physical binding is now established by THIS artifact, and independently by the reconstruction below"
+    },
+    "verdict": "RESOLVED — but the gap in the original artifact is recorded, not papered over"
+  },
+  "Q5_SCOPE_CONFLICT": {
+    "read_literally": true,
+    "base_spec": "MASSIVE_COARSE_EMA_FEATURE_SPEC_V1",
+    "its_scope_field": "'EMA ONLY — the RVOL family is specified separately'",
+    "registry.periods": [
+      9,
+      20,
+      50,
+      200
+    ],
+    "registry.excluded_periods": [
+      8,
+      13,
+      21,
+      34,
+      55,
+      89
+    ],
+    "registry.legacy_ribbon": {
+      "periods": [
+        8,
+        13,
+        21,
+        34,
+        55,
+        89,
+        200
+      ],
+      "classification": "LEGACY_REFERENCE_ONLY",
+      "importable": false
+    },
+    "the_guard_I_misread": {
+      "text": "'a legacy ribbon period outside the registry cannot enter production'",
+      "its_actual_location": "negative_fixtures.required[12]",
+      "meaning": "a REQUIRED NEGATIVE FIXTURE OF THAT PRODUCER — it asserts that the massive_coarse_ema_v1 producer must REFUSE an unregistered period",
+      "what_it_is_not": "a global prohibition binding every future separately-registered extension"
+    },
+    "consistency": "B1 does not mutate the base store and explicitly does NOT write to a Massive derived surface ('held in a local durable table pending prespec'). The two authorities are CONSISTENT.",
+    "verdict": "NO GLOBAL CONFLICT — my PROBLEM_2 was a scope misreading"
+  },
+  "Q6_PRODUCER_RECOVERY": {
+    "code_search": "no .py writes ema_segment_local; no .py references 77e7113b174129ac or the artifact name",
+    "verdict_on_code": "GENUINELY UNAVAILABLE — and it is therefore NOT called SAME ORIGINAL PRODUCER",
+    "CONTRACT_SUFFICIENCY_TEST": {
+      "method": "implemented the B1 SPEC verbatim and replayed it against the persisted ema3489.duckdb",
+      "securities": 476,
+      "rows_compared": 30890908,
+      "ema_value_mismatches": 0,
+      "validity_state_mismatches": 0,
+      "age_valid_bars_mismatches": 0,
+      "elapsed_s": 12,
+      "VERDICT": "EXACT",
+      "no_sampling": "all 30,890,908 rows",
+      "meaning": "the frozen semantic contract is SUFFICIENT to reconstruct the producer bit-for-bit on values, validity states and age counters"
+    },
+    "permitted_claim": "SEMANTICALLY RECONSTRUCTED AND QUALIFIED AGAINST THE FROZEN OUTPUT",
+    "forbidden_claim": "SAME ORIGINAL PRODUCER"
+  },
+  "PD_DEP_MATERIALISATION": {
+    "/tmp/pd_dep.json vs sealed PD_DEPENDENCY_GRAPH_V1.DEPENDENCIES": "IDENTICAL",
+    "consequence": "the /tmp file was a materialisation of a SEALED artifact, not an unregistered input. Its /tmp residency was still a real persistence risk and the copy stands.",
+    "sha256": "8d1beeeb976a9885ba6151c06c9f301a559987876fe7f2a59b8f4b7a53b14f13"
+  },
+  "CONSEQUENCES": {
+    "HISTORICAL_INFERENCE": "NOT RECLASSIFIED — no X-authority violation occurred",
+    "FIRST_REAL_Y_INFERENCE_V2": "324690afd38e3ffb remains the CURRENT inferential authority, unchanged",
+    "the_17_promoted_claims": "RETAINED — they rest on a properly pre-registered X feature",
+    "k": "20,751 UNCHANGED",
+    "promoted_set": "732 UNCHANGED",
+    "forward_hub_membership": "UNCHANGED",
+    "A2_pd12_branch": "UNBLOCKED",
+    "reclassified_defect": "what remains is an ENGINEERING / REPRODUCIBILITY defect only: the original B1 producer CODE is lost, and the B1 artifact bound no output digest. Both are now mitigated — the data is persisted and digest-bound, and the contract is proven sufficient to rebuild it exactly."
+  },
+  "REMAINING_A2_BLOCKERS": [
+    "none of authority type",
+    "segment-length distribution still unmeasured",
+    "A2 wrapper, incremental-vs-full equivalence, restart/idempotency, input-order, 10 negative fixtures: NOT STARTED"
+  ]
+}

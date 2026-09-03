@@ -1,0 +1,294 @@
+{
+  "report_id": "MASSIVE_T_PINE_SEMANTIC_RECOVERY_V1",
+  "status": "T_PINE_SEMANTICS_RECOVERED",
+  "task_class": "SEMANTIC_RECOVERY_ONLY",
+  "authoritative_source": {
+    "path": "/Users/sachoki/Desktop/sachoki-desktop/analysis/260523_TZ_F_WLNBB_CMB_pattern.pine",
+    "sha256": "696f40d730662a602d134bd7b8e162cf8a9cc4d8423c3839166bbe4338c71bac",
+    "lines": 1194,
+    "title": "indicator(\"260523_TZ_F_WLNBB_CMB — TZ+WLNBB+AD-FRESH+WYC Phase + ★Z11 Reversal\",",
+    "pine_version": "//@version=5",
+    "identified_by": "content — its bullCode == 5 is exactly the bullCode==5 named in the frozen T1 definition, not by filename",
+    "duplicate_copy": "an identical copy exists in the sachoki-t5-runtime worktree (same sha)"
+  },
+  "binds": {
+    "pre_y_dictionary": "cadd09add79457f5",
+    "frozen_t1_definition_hash": "a1c9b7eb94331751"
+  },
+  "raw_definitions": {
+    "T1G": "prev1IsBear and (open > close[1]) and (open > open[1]) and (close > open[1]) and isBull",
+    "T1": "prev1IsBear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull",
+    "T2G": "prev1IsBull and (open >= open[1]) and (open > close[1]) and (close > close[1]) and isBull",
+    "T2": "prev1IsBull and (open >= open[1]) and (open <= close[1]) and (close > close[1]) and isBull",
+    "T3": "prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])",
+    "T4": "prevBear and isBull and fullyEngulfs",
+    "T5": "prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)",
+    "T6": "prevBull and isBull and fullyEngulfs",
+    "T9": "prev1IsBear and isBull and isInside",
+    "T10": "prev1IsBull and isBull and isInside",
+    "T11": "prev1IsBull and isBull and (open < open[1]) and (close >= open[1]) and (close < close[1])",
+    "T12": "prev1IsBull and isBull and (open < open[1]) and (close < open[1])"
+  },
+  "supporting_predicates": {
+    "isDoji": "close == open",
+    "isBull": "close > open",
+    "isBear": "close < open",
+    "prev1IsBull": "close[1] > open[1]",
+    "prev1IsBear": "close[1] < open[1] or Z7_raw[1]",
+    "prevBull": "prev1IsBull",
+    "prevBear": "prev1IsBear",
+    "fullyEngulfs": "eHigh >= ePH and ePL >= eLow and bodyRatioOk",
+    "isInside": "currTop <= prevTop and currBot >= prevBot",
+    "bodyRatioOk": "(currBody / prevBodySafe) >= minBodyRatio",
+    "prevBodySafe": "math.max(prevBody, syminfo.mintick)",
+    "anyOtherBullRaw": "T1G_raw or T1_raw or T2G_raw or T2_raw or T3_raw or T4_raw or T5_raw or T6_raw or T9_raw or T10_raw or T11_raw or T12_raw",
+    "anyOtherBearRaw": "Z1G_raw or Z1_raw or Z2G_raw or Z2_raw or Z3_raw or Z4_raw or Z5_raw or Z6_raw or Z9_raw or Z10_raw or Z11_raw or Z12_raw",
+    "Z7_clean": "Z7_raw and not anyOtherBullRaw and not anyOtherBearRaw",
+    "eHigh": "useWick ? high    : currTop",
+    "eLow": "useWick ? low     : currBot",
+    "ePH": "useWick ? high[1] : prevTop",
+    "ePL": "useWick ? low[1]  : prevBot"
+  },
+  "priority_resolution": {
+    "bullCode": "T4?1 : T6?2 : T1G?3 : T2G?4 : T1?5 : T2?6 : T9?7 : T10?8 : T3?9 : T11?10 : T5?11 : T12?12 : 0",
+    "order": [
+      "T4",
+      "T6",
+      "T1G",
+      "T2G",
+      "T1",
+      "T2",
+      "T9",
+      "T10",
+      "T3",
+      "T11",
+      "T5",
+      "T12"
+    ],
+    "final_state": "T1 == (bullCode == 5)",
+    "raw_vs_final": "RAW_STATE_BOOLEAN and FINAL_PRIORITY_RESOLVED_STATE are distinct and both recovered; the raw booleans overlap, the final label does not",
+    "corroborates_frozen": "the frozen definition's priority exclusions (T4 46,160 / T1G 2,008 / T6 632 / T2G 313) are consequences of this order"
+  },
+  "hidden_dependencies": [
+    {
+      "name": "prev1IsBear includes a prior doji",
+      "recovered": "close[1] < open[1] or Z7_raw[1]",
+      "why_it_matters": "a formula-only reading would use 'previous bar bearish'; the source counts a prior doji as bearish, which changes the eligible population for every T state built on it",
+      "corroborates": "the frozen T1 text says exactly this — 'prev1IsBear (close[1]<open[1] OR doji[1])'"
+    },
+    {
+      "name": "fullyEngulfs depends on two user INPUTS",
+      "recovered": "eHigh >= ePH and ePL >= eLow and bodyRatioOk",
+      "inputs": {
+        "useWick": "input.bool(false)",
+        "minBodyRatio": "input.float(1.0)"
+      },
+      "why_it_matters": "the source does not fix these values; the materialisation used whatever was set when the export ran, and that configuration is recorded nowhere",
+      "resolved_by": "the input sweep above, which identifies the body-based default"
+    },
+    {
+      "name": "Z7_clean is cross-family",
+      "recovered": "Z7_raw and not anyOtherBullRaw and not anyOtherBearRaw",
+      "why_it_matters": "the doji state only fires when NO other bull or bear raw state does, so it cannot be evaluated per-family in isolation"
+    },
+    {
+      "name": "the emitted label passes through display toggles",
+      "detail": "tBase applies showT1, showT4, ... to bullCode before producing a label",
+      "defaults": "all true",
+      "why_it_matters": "if the materialised column came from tBase rather than bullCode, a disabled toggle would suppress a state entirely; with the defaults the two coincide"
+    }
+  ],
+  "legacy_conformance": {
+    "method": "the recovered semantics were executed against the legacy bars table and the resulting label compared to materialised t_sig, exactly, including the priority chain",
+    "target": "legacy `bars` (daily, 2021-05-26 .. 2026-08-25), deduplicated one row per (ticker, date) with sp500 < nasdaq < russell2k",
+    "rows_evaluable": 5274453,
+    "first_bar_per_ticker_excluded": 5414,
+    "pooled_exact_match": 0.9914,
+    "by_universe": {
+      "sp500": {
+        "matched": 778540,
+        "of": 779056,
+        "rate": 0.999338,
+        "residual": 516
+      },
+      "russell2k": {
+        "matched": 1481698,
+        "of": 1491776,
+        "rate": 0.993244,
+        "residual": 10078
+      },
+      "nasdaq": {
+        "matched": 2968857,
+        "of": 3003621,
+        "rate": 0.988426,
+        "residual": 34764
+      }
+    },
+    "input_sweep": {
+      "searched": {
+        "useWick": [
+          false,
+          true
+        ],
+        "minBodyRatio": [
+          0.5,
+          1.0,
+          1.5
+        ]
+      },
+      "best": "useWick=False, minBodyRatio in [0.5, 1.0]",
+      "note": "no configuration reaches exactness; useWick=True is decisively worse (92-93%), confirming the body-based default",
+      "why_searched": "the source fixes the FORMULAS but not the INPUT VALUES used at materialisation time; recovering them is part of recovering the semantics, and this search is X-only"
+    }
+  },
+  "residual_inventory": {
+    "total": 45358,
+    "share": 0.0086,
+    "dominant_class": {
+      "name": "STORAGE_PRECISION_ROUNDING",
+      "evidence": "74.1% of residuals (33,600 of 45,358) sit on a bar whose current or prior body is at most $0.011",
+      "mechanism": "`bars` stores OHLC rounded to two decimals; Pine computed on full precision. On low-priced names the rounding destroys the sign of sub-cent bodies, so isBull/isBear/isDoji flip.",
+      "worked_example": "AACB 2025-04-11 stored open 9.88 close 9.88 is materialised T10, which requires close > open — impossible at the stored values, ordinary at full precision",
+      "concentration": "nasdaq 34,764 and russell2k 10,078 versus sp500 516; the effect scales with how large a cent is relative to the price",
+      "relation_to_frozen_artifact": "this IS the 'feed/tick class' the frozen T1 definition named. It is now explained rather than labelled."
+    },
+    "unexplained": {
+      "count": 11758,
+      "share_of_residual": 0.259,
+      "classification": "UNRESOLVED",
+      "note": "not absorbed into the rounding account; 26% of residuals remain uncharacterised and are recorded as such"
+    },
+    "classes_used": [
+      "STORAGE_PRECISION_ROUNDING",
+      "UNRESOLVED"
+    ],
+    "classes_not_used": [
+      "PRIORITY_RESOLUTION_DEFECT",
+      "IMPLEMENTATION_DEFECT"
+    ],
+    "why_not_priority_defect": "a priority defect can only REASSIGN among simultaneously firing states; it cannot make a state fire where every recovered predicate is false, which is the largest residual class"
+  },
+  "z_discovery": {
+    "found": true,
+    "what": "a complete thirteen-state bearCode priority chain mirroring bullCode",
+    "states": [
+      "Z4",
+      "Z6",
+      "Z1G",
+      "Z2G",
+      "Z1",
+      "Z2",
+      "Z9",
+      "Z10",
+      "Z3",
+      "Z11",
+      "Z5",
+      "Z12",
+      "Z7_clean"
+    ],
+    "raw_definitions": {
+      "Z7": "isDoji",
+      "Z1G": "prev1IsBull and (open < close[1]) and (open < open[1]) and (close < open[1]) and isBear",
+      "Z1": "prev1IsBull and (open <= close[1]) and (open > open[1]) and (close < open[1]) and isBear",
+      "Z2G": "prev1IsBear and (open <= open[1]) and (open < close[1]) and (close < close[1]) and isBear",
+      "Z2": "prev1IsBear and (open <= open[1]) and (open >= close[1]) and (close < close[1]) and isBear",
+      "Z3": "prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close < close[1])",
+      "Z4": "prevBull and isBear and fullyEngulfs",
+      "Z5": "prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close >= close[1])",
+      "Z6": "prevBear and isBear and fullyEngulfs",
+      "Z9": "prev1IsBull and isBear and isInside",
+      "Z10": "prev1IsBear and isBear and isInside",
+      "Z11": "prev1IsBear and (open > open[1]) and isBear and (close > close[1] or close > open[1])",
+      "Z12": "prev1IsBull and (open <= open[1]) and (close < open)"
+    },
+    "classification": "DISCOVERY_EVIDENCE",
+    "Z_STATUS": "UNDEFINED_IN_FROZEN_AUTHORITY",
+    "not_adopted": "finding an executable Z definition in the Pine source does NOT make it the current-program Z definition",
+    "requires": "its own provenance qualification gate before any use",
+    "instruction_honoured": "Z was not derived from this gate's T recovery and is not declared here"
+  },
+  "portability": {
+    "T1": {
+      "raw_definition": null,
+      "priority_rank": 5,
+      "classification": "PORTABLE_WITH_EXPLICIT_SOURCE_SEMANTIC_CHANGE",
+      "why": "the semantics are fully recovered and reproduce the legacy materialisation at 99.93% on the S&P 500, but Massive is a DIFFERENT PRICE FEED and that divergence is unmeasured — it cannot be measured without computing T on Massive, which this gate forbids",
+      "not_exactly_portable": "identity across feeds may not be assumed",
+      "consequence": "a Massive construct carrying this definition requires its own provenance and must not be silently equated with the legacy state"
+    },
+    "T3": {
+      "raw_definition": null,
+      "priority_rank": 9,
+      "classification": "PORTABLE_WITH_EXPLICIT_SOURCE_SEMANTIC_CHANGE",
+      "why": "the semantics are fully recovered and reproduce the legacy materialisation at 99.93% on the S&P 500, but Massive is a DIFFERENT PRICE FEED and that divergence is unmeasured — it cannot be measured without computing T on Massive, which this gate forbids",
+      "not_exactly_portable": "identity across feeds may not be assumed",
+      "consequence": "a Massive construct carrying this definition requires its own provenance and must not be silently equated with the legacy state"
+    },
+    "T5": {
+      "raw_definition": null,
+      "priority_rank": 11,
+      "classification": "PORTABLE_WITH_EXPLICIT_SOURCE_SEMANTIC_CHANGE",
+      "why": "the semantics are fully recovered and reproduce the legacy materialisation at 99.93% on the S&P 500, but Massive is a DIFFERENT PRICE FEED and that divergence is unmeasured — it cannot be measured without computing T on Massive, which this gate forbids",
+      "not_exactly_portable": "identity across feeds may not be assumed",
+      "consequence": "a Massive construct carrying this definition requires its own provenance and must not be silently equated with the legacy state"
+    },
+    "T9": {
+      "raw_definition": null,
+      "priority_rank": 7,
+      "classification": "PORTABLE_WITH_EXPLICIT_SOURCE_SEMANTIC_CHANGE",
+      "why": "the semantics are fully recovered and reproduce the legacy materialisation at 99.93% on the S&P 500, but Massive is a DIFFERENT PRICE FEED and that divergence is unmeasured — it cannot be measured without computing T on Massive, which this gate forbids",
+      "not_exactly_portable": "identity across feeds may not be assumed",
+      "consequence": "a Massive construct carrying this definition requires its own provenance and must not be silently equated with the legacy state"
+    },
+    "T4": {
+      "raw_definition": null,
+      "priority_rank": 1,
+      "classification": "PORTABLE_WITH_EXPLICIT_SOURCE_SEMANTIC_CHANGE",
+      "why": "the semantics are fully recovered and reproduce the legacy materialisation at 99.93% on the S&P 500, but Massive is a DIFFERENT PRICE FEED and that divergence is unmeasured — it cannot be measured without computing T on Massive, which this gate forbids",
+      "not_exactly_portable": "identity across feeds may not be assumed",
+      "consequence": "a Massive construct carrying this definition requires its own provenance and must not be silently equated with the legacy state"
+    },
+    "T6": {
+      "raw_definition": null,
+      "priority_rank": 2,
+      "classification": "PORTABLE_WITH_EXPLICIT_SOURCE_SEMANTIC_CHANGE",
+      "why": "the semantics are fully recovered and reproduce the legacy materialisation at 99.93% on the S&P 500, but Massive is a DIFFERENT PRICE FEED and that divergence is unmeasured — it cannot be measured without computing T on Massive, which this gate forbids",
+      "not_exactly_portable": "identity across feeds may not be assumed",
+      "consequence": "a Massive construct carrying this definition requires its own provenance and must not be silently equated with the legacy state"
+    },
+    "T1G": {
+      "raw_definition": null,
+      "priority_rank": 3,
+      "classification": "PORTABLE_WITH_EXPLICIT_SOURCE_SEMANTIC_CHANGE",
+      "why": "the semantics are fully recovered and reproduce the legacy materialisation at 99.93% on the S&P 500, but Massive is a DIFFERENT PRICE FEED and that divergence is unmeasured — it cannot be measured without computing T on Massive, which this gate forbids",
+      "not_exactly_portable": "identity across feeds may not be assumed",
+      "consequence": "a Massive construct carrying this definition requires its own provenance and must not be silently equated with the legacy state"
+    },
+    "T2G": {
+      "raw_definition": null,
+      "priority_rank": 4,
+      "classification": "PORTABLE_WITH_EXPLICIT_SOURCE_SEMANTIC_CHANGE",
+      "why": "the semantics are fully recovered and reproduce the legacy materialisation at 99.93% on the S&P 500, but Massive is a DIFFERENT PRICE FEED and that divergence is unmeasured — it cannot be measured without computing T on Massive, which this gate forbids",
+      "not_exactly_portable": "identity across feeds may not be assumed",
+      "consequence": "a Massive construct carrying this definition requires its own provenance and must not be silently equated with the legacy state"
+    }
+  },
+  "massive_t_written": false,
+  "y_exposed": 0,
+  "outcome_access": {
+    "future_returns": 0,
+    "win_rate": 0,
+    "theta": 0,
+    "enrichment": 0,
+    "note": "the conformance test compares X labels to X labels; no outcome column was read"
+  },
+  "known_limitations": [
+    "26% of residuals are unexplained after the rounding account and are classified UNRESOLVED",
+    "the Massive-vs-legacy feed divergence is unmeasured and cannot be measured without computing T on Massive, which this gate forbids",
+    "the materialisation-time input values were recovered by sweep, not from a recorded configuration",
+    "conformance was run on daily bars; the 15m variant shares the definition hash but its materialisation was not separately conformance-tested here"
+  ],
+  "next_gate": "MASSIVE_T_FEATURE_PORT_SPEC_V1 — not started. Z remains HOLD pending its own provenance qualification.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 07:36 +04"
+}

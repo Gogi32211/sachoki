@@ -1,0 +1,139 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1_AMENDMENT_1",
+  "status": "SYNTHETIC_PIPELINE_REQUALIFIED_UNDER_TIME_LOCAL_NULL",
+  "EXPLICITLY_NOT": [
+    "STATISTIC_VALIDATED",
+    "POWER_VALIDATED",
+    "EVIDENCE_FOUND",
+    "any statement stronger than correct implementation of the frozen contract"
+  ],
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "REAL_Y_ACCESS": "NONE",
+  "LINKAGE": {
+    "PARENT_SMOKE": "f6a043d3f188e8f8",
+    "NEW_NULL_AUTHORITY": "7b52b9df13764228",
+    "WORDING_AUTHORITY": "48bf72d9bbe00000",
+    "SMOKE_SPEC": "91b46aa46e9ecaa0"
+  },
+  "PARENT_STATUS": {
+    "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1": "SUPERSEDED as final qualification authority",
+    "reason": "the null mechanism changed from a global date permutation to a time-local synchronized circular map; a qualification obtained under the old null cannot certify the new one",
+    "what_survives": "its Gate-1 fabricated fixtures (see UNCHANGED_COMPONENT)"
+  },
+  "UNCHANGED_COMPONENT": {
+    "component": "fabricated outcome-builder fixtures (F1-F9, N8/N9/N10/N11)",
+    "disposition": "INHERITED UNCHANGED — not re-run",
+    "reason": "the Y-builder code path and the outcome semantics (claim-known time, entry authority, horizon, EARLY_CLOSE validity, PATH_UNAVAILABLE, ATR_PRIOR authority) are untouched by the null-map amendment; those fixtures depend on neither the permutation map nor the statistic",
+    "parent_result": "18 / 18 PASS"
+  },
+  "MAP_AND_STAT_DEPENDENT_GUARDS_UNDER_NEW_AUTHORITY": {
+    "TIME_LOCALITY_GUARD": "PASS",
+    "CYCLIC_STRUCTURE_GUARD": "PASS",
+    "EARLY_CLOSE_IDENTITY_GUARD": "PASS",
+    "CROSS_SECURITY_SYNC": "PASS",
+    "CROSS_POSITION_SYNC": "PASS",
+    "SESSION_LENGTH_STRATUM": "PASS",
+    "FIXED_MAX_SET": "PASS",
+    "STUDENTIZATION": "PASS",
+    "DETERMINISTIC_REPLAY": "PASS",
+    "PLUS_ONE_TIE_RULE": "PASS",
+    "PAYLOAD_ATOMICITY": "PASS",
+    "ACTIVE_WINDOW": "PASS",
+    "guard_run": "14 / 14 (7 positive, 4 negative, 3 determinism)",
+    "asserts_are_in_the_PRODUCTION_path": "time-locality, cyclic structure and EARLY_CLOSE identity are asserted on EVERY draw inside the runner, not only in a separate test"
+  },
+  "NEW_NEGATIVE_FIXTURES": {
+    "N12": "global cross-month permutation -> FAIL_TIME_LOCALITY (rejected)",
+    "N13": "arbitrary within-month permutation -> FAIL_CYCLIC_STRUCTURE (rejected)",
+    "N14": "EARLY_CLOSE randomised -> FAIL_EARLY_CLOSE_IDENTITY (rejected)",
+    "N4_parent_map": "the SUPERSEDED global map itself fails guard_time_locality (rejected)"
+  },
+  "FULL_REGISTRY_RUN_UNDER_TIME_LOCAL_NULL": {
+    "exit_code": 0,
+    "map": "TIME_LOCAL_CIRCULAR",
+    "results": {
+      "K": 20751,
+      "stable": 20751,
+      "unstable": 0,
+      "B_SCALE": 20,
+      "B_NULL": 30,
+      "p_adj_min": 0.3225806451612903,
+      "p_adj_max": 1.0,
+      "p_zero": 0,
+      "monotone_violations": 0,
+      "grid_ok": true,
+      "M_matches_max": true,
+      "fixed_max_set": true,
+      "defined_scale_min": 20,
+      "defined_null_min": 30,
+      "map": "TIME_LOCAL_CIRCULAR"
+    },
+    "B_SCALE": 20,
+    "B_NULL": 30,
+    "reading": {
+      "K": 20751,
+      "stable": 20751,
+      "unstable": 0,
+      "every_claim_defined": "20/20 SCALE and 30/30 NULL draws",
+      "fixed_max_set": "true — every M_b over the SAME index set",
+      "p_grid": "all p_adj on {1/31 .. 31/31}",
+      "p_zero": 0,
+      "monotone_violations": 0
+    }
+  },
+  "COMPARISON_WITH_SUPERSEDED_RUN": {
+    "identical": [
+      "K",
+      "stable",
+      "unstable",
+      "defined_scale_min",
+      "defined_null_min",
+      "fixed_max_set",
+      "M_matches_max",
+      "grid_ok",
+      "p_zero",
+      "monotone_violations",
+      "p_adj_max"
+    ],
+    "changed": {
+      "p_adj_min": {
+        "global": 0.6774,
+        "time_local": 0.3226
+      }
+    },
+    "interpretation": "the time-local map randomises less, so the max-stat null is narrower and observed T sits relatively higher. This CONFIRMS the amendment was substantive.",
+    "NOT_an_interpretation": [
+      "a power statement",
+      "evidence of anything",
+      "a reason to prefer either map on results"
+    ],
+    "both_runs": "pure-null synthetic worlds; nothing is significant in either"
+  },
+  "FROZEN_REPORT_ONLY_DIAGNOSTIC": {
+    "fields": [
+      "early_close_share_evaluable (per claim)",
+      "early_close_share_positive (per claim)"
+    ],
+    "status": "REPORT-ONLY, frozen BEFORE any figure exists",
+    "rule": "if a surviving claim later shows a large share of its positive episodes on early-close dates, that is a CAVEAT in the report",
+    "MUST_NOT": [
+      "change frozen family membership",
+      "change k = 20,751",
+      "trigger claim deletion or resurrection"
+    ],
+    "why_frozen_now": "so the rule cannot be written after the number is seen"
+  },
+  "STANDING_RULE_FOR_OPTIMISATION": {
+    "rule": "optimisation may change the EXECUTION PLAN only, never the statistic",
+    "consequence": "if exact rank arithmetic or pool dedup disagrees with the reference implementation in even ONE case, the fast path is FAIL",
+    "explicit": "reference semantics are NEVER relaxed for performance"
+  },
+  "NEXT_GATE": [
+    "EXACT FAST-KERNEL SPEC / QUALIFICATION",
+    "REFERENCE-vs-FAST EQUIVALENCE",
+    "MULTICORE FEASIBILITY BENCHMARK",
+    "FIRST REAL Y"
+  ],
+  "REAL_Y": "STILL CLOSED"
+}

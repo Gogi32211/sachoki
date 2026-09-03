@@ -1,0 +1,1195 @@
+{
+  "report_id": "MASSIVE_T_LEGACY_DATA_SURFACE_INVENTORY_V1",
+  "status": "ENUMERATION_COMPLETE",
+  "task_class": "DATA_SURFACE_INVENTORY_ONLY",
+  "why_this_exists": "three sealed absence claims in this programme were wrong, all in one shape: a bounded search returned nothing and the nothing was reported as non-existence",
+  "removes_error_by_construction": "permission to say 'does not exist' now depends on a measured property of the search, not on confidence",
+  "search_space": {
+    "declared_roots": [
+      "/Users/sachoki/Desktop/sachoki-desktop",
+      "/Users/sachoki/Desktop/sachoki-desktop/data",
+      "/Users/sachoki/Desktop/sachoki-desktop/backend",
+      "/Users/sachoki/Desktop/sachoki-desktop/analysis",
+      "/Users/sachoki/Desktop/sachoki-desktop/exports",
+      "/Users/sachoki/Desktop/sachoki-desktop/scripts",
+      "/Users/sachoki/Desktop/sachoki-desktop/tests",
+      "/Users/sachoki/Desktop/sachoki-desktop/tz_intelligence_package",
+      "/Users/sachoki/Desktop/sachoki-desktop/pine",
+      "/Volumes/QUANT_RESEARCH",
+      "/Volumes/QUANT_RESEARCH/source_data",
+      "/Volumes/QUANT_RESEARCH/studio_data",
+      "/Volumes/QUANT_RESEARCH/research",
+      "/Volumes/QUANT_RESEARCH/archive",
+      "/Volumes/QUANT_RESEARCH/artifacts",
+      "/Volumes/QUANT_RESEARCH/scratch"
+    ],
+    "declared_roots_count": 16,
+    "visited_roots_count": 16,
+    "visited_roots": [
+      "/Users/sachoki/Desktop/sachoki-desktop",
+      "/Users/sachoki/Desktop/sachoki-desktop/data",
+      "/Users/sachoki/Desktop/sachoki-desktop/backend",
+      "/Users/sachoki/Desktop/sachoki-desktop/analysis",
+      "/Users/sachoki/Desktop/sachoki-desktop/exports",
+      "/Users/sachoki/Desktop/sachoki-desktop/scripts",
+      "/Users/sachoki/Desktop/sachoki-desktop/tests",
+      "/Users/sachoki/Desktop/sachoki-desktop/tz_intelligence_package",
+      "/Users/sachoki/Desktop/sachoki-desktop/pine",
+      "/Volumes/QUANT_RESEARCH",
+      "/Volumes/QUANT_RESEARCH/source_data",
+      "/Volumes/QUANT_RESEARCH/studio_data",
+      "/Volumes/QUANT_RESEARCH/research",
+      "/Volumes/QUANT_RESEARCH/archive",
+      "/Volumes/QUANT_RESEARCH/artifacts",
+      "/Volumes/QUANT_RESEARCH/scratch"
+    ],
+    "unvisited_roots": [],
+    "database_extensions": [
+      ".duckdb",
+      ".db",
+      ".sqlite",
+      ".sqlite3"
+    ],
+    "data_extensions": [
+      ".parquet",
+      ".csv",
+      ".feather",
+      ".arrow",
+      ".jsonl",
+      ".npz"
+    ],
+    "excluded_subtrees": [
+      "node_modules",
+      ".git",
+      ".venv"
+    ],
+    "exclusion_is_declared": true
+  },
+  "completeness_guard": {
+    "permission_failures": 0,
+    "permission_failure_detail": [],
+    "encountered_system_metadata_files": 2,
+    "excluded_by_declared_scope": 2,
+    "excluded_paths": [
+      "/Volumes/QUANT_RESEARCH/.Spotlight-V100/Store-V2/CD0356F3-930C-41F7-8C5F-73288C3650A5/.store.db",
+      "/Volumes/QUANT_RESEARCH/.Spotlight-V100/Store-V2/CD0356F3-930C-41F7-8C5F-73288C3650A5/store.db"
+    ],
+    "exclusion_basis": "path/type semantics — macOS search-index internals; NOT unreadability",
+    "exclusion_sound": true,
+    "exclusion_cannot_dispose_of_unreadable_files": true,
+    "unreadable_in_included_scope": 0,
+    "walk_errors": 0,
+    "broken_symlinks": 0,
+    "unreadable_databases": 0,
+    "unreadable_detail": [],
+    "schema_read_failures": 0,
+    "schema_failure_detail": [],
+    "enumeration_complete": true,
+    "negative_existence_claims_permitted": true,
+    "rule": "if any declared root is unvisited, or any read fails, NO downstream artifact may assert that something does not exist"
+  },
+  "databases": [
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/backend/sachoki.db",
+      "size_bytes": 0,
+      "mtime": "2026-05-26",
+      "fingerprint": "2fc96b16e2ca07c0",
+      "engine": "sqlite",
+      "tables": {}
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/ai_journal.duckdb",
+      "size_bytes": 32780288,
+      "mtime": "2026-08-24",
+      "fingerprint": "fc62c6465377ee9d",
+      "engine": "duckdb",
+      "tables": {
+        "atomic_position": {
+          "rows": 438,
+          "n_columns": 21,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "calibration": {
+          "rows": 0,
+          "n_columns": 6,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "capit_position": {
+          "rows": 253,
+          "n_columns": 20,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "combo_catalog": {
+          "rows": 614,
+          "n_columns": 29,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "combo_catalog_pnl": {
+          "rows": 12549,
+          "n_columns": 20,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "insider_ingest_log": {
+          "rows": 58,
+          "n_columns": 4,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "insider_ticker_cache": {
+          "rows": 254,
+          "n_columns": 5,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "insider_tx": {
+          "rows": 78307,
+          "n_columns": 12,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "journal_position": {
+          "rows": 40,
+          "n_columns": 31,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "journal_session_log": {
+          "rows": 62,
+          "n_columns": 6,
+          "signal_columns": [],
+          "time_range": [
+            "2026-06-05 22:05:41.710680",
+            "2026-08-24 15:31:56.956802"
+          ]
+        },
+        "journal_state": {
+          "rows": 1,
+          "n_columns": 5,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "pattern_memory": {
+          "rows": 176,
+          "n_columns": 6,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "shadow_position": {
+          "rows": 0,
+          "n_columns": 9,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "signal_blacklist": {
+          "rows": 0,
+          "n_columns": 5,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "signal_outcomes": {
+          "rows": 35,
+          "n_columns": 19,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "signal_outcomes_pnl": {
+          "rows": 140,
+          "n_columns": 17,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "ticker_meta": {
+          "rows": 4931,
+          "n_columns": 9,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "trade_lesson": {
+          "rows": 32,
+          "n_columns": 13,
+          "signal_columns": [],
+          "time_range": null
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/company_graph.duckdb",
+      "size_bytes": 3158016,
+      "mtime": "2026-08-14",
+      "fingerprint": "07329afe284ce7b0",
+      "engine": "duckdb",
+      "tables": {
+        "edge": {
+          "rows": 277,
+          "n_columns": 24,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "entity": {
+          "rows": 231,
+          "n_columns": 11,
+          "signal_columns": [
+            "state"
+          ],
+          "time_range": null
+        },
+        "harvest_run": {
+          "rows": 35,
+          "n_columns": 13,
+          "signal_columns": [],
+          "time_range": null
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/fundamentals.duckdb",
+      "size_bytes": 77082624,
+      "mtime": "2026-08-10",
+      "fingerprint": "faf112603ec39a96",
+      "engine": "duckdb",
+      "tables": {
+        "facts": {
+          "rows": 3606317,
+          "n_columns": 14,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "ingest_log": {
+          "rows": 4675,
+          "n_columns": 5,
+          "signal_columns": [],
+          "time_range": [
+            "2026-08-10 11:35:09.982602",
+            "2026-08-10 12:52:32.340484"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/m15_dayrsi.duckdb",
+      "size_bytes": 49295360,
+      "mtime": "2026-08-22",
+      "fingerprint": "b1391e5f0732b5cf",
+      "engine": "duckdb",
+      "tables": {
+        "day_rsi": {
+          "rows": 3633196,
+          "n_columns": 3,
+          "signal_columns": [],
+          "time_range": null
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_15m.duckdb",
+      "size_bytes": 43028590592,
+      "mtime": "2026-08-22",
+      "fingerprint": "525023b05f9ed0fd",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 90788281,
+          "n_columns": 418,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-07-02 13:30:00",
+            "2026-08-21 19:45:00"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_15m_TEST_timing.duckdb",
+      "size_bytes": 1323008,
+      "mtime": "2026-07-09",
+      "fingerprint": "414ff8c4c621d9f5",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 0,
+          "n_columns": 394,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "None",
+            "None"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_15m_base.duckdb",
+      "size_bytes": 15883055104,
+      "mtime": "2026-08-22",
+      "fingerprint": "131e6eafb767108b",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 90792718,
+          "n_columns": 8,
+          "signal_columns": [],
+          "time_range": [
+            "2021-07-02 13:30:00",
+            "2026-08-21 19:45:00"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_1h.duckdb",
+      "size_bytes": 13469757440,
+      "mtime": "2026-08-22",
+      "fingerprint": "fa9dd9590f94d37a",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 24838705,
+          "n_columns": 418,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-07-02 13:30:00",
+            "2026-08-21 19:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_1w.duckdb",
+      "size_bytes": 601108480,
+      "mtime": "2026-08-22",
+      "fingerprint": "ea30c3f0dd09ec74",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 1119785,
+          "n_columns": 418,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-06-13",
+            "2026-08-16"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_4h.duckdb",
+      "size_bytes": 3874762752,
+      "mtime": "2026-08-22",
+      "fingerprint": "abc75d18a3b92531",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 7102388,
+          "n_columns": 418,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-07-02 13:30:00",
+            "2026-08-21 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_analytics.duckdb",
+      "size_bytes": 4687409152,
+      "mtime": "2026-08-22",
+      "fingerprint": "c5f462f13354e145",
+      "engine": "duckdb",
+      "tables": {
+        "acc_exit_lift_v1": {
+          "rows": 148,
+          "n_columns": 9,
+          "signal_columns": [
+            "signal"
+          ],
+          "time_range": null
+        },
+        "backtest_results": {
+          "rows": 0,
+          "n_columns": 16,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "bar_descriptions": {
+          "rows": 0,
+          "n_columns": 4,
+          "signal_columns": [],
+          "time_range": [
+            "None",
+            "None"
+          ]
+        },
+        "bars": {
+          "rows": 8778665,
+          "n_columns": 439,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-05-26",
+            "2026-08-21"
+          ]
+        },
+        "custom_scores": {
+          "rows": 1,
+          "n_columns": 6,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "events": {
+          "rows": 394708,
+          "n_columns": 14,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "import_log": {
+          "rows": 24,
+          "n_columns": 11,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "mined_patterns": {
+          "rows": 1644,
+          "n_columns": 13,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "ticker_signal_lift_v1": {
+          "rows": 89970,
+          "n_columns": 11,
+          "signal_columns": [
+            "signal"
+          ],
+          "time_range": null
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/ai_journal.duckdb",
+      "size_bytes": 32780288,
+      "mtime": "2026-08-26",
+      "fingerprint": "d623439b3f9a1583",
+      "engine": "duckdb",
+      "tables": {
+        "atomic_position": {
+          "rows": 461,
+          "n_columns": 21,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "calibration": {
+          "rows": 0,
+          "n_columns": 6,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "capit_position": {
+          "rows": 264,
+          "n_columns": 20,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "combo_catalog": {
+          "rows": 614,
+          "n_columns": 29,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "combo_catalog_pnl": {
+          "rows": 12549,
+          "n_columns": 20,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "insider_ingest_log": {
+          "rows": 60,
+          "n_columns": 4,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "insider_ticker_cache": {
+          "rows": 254,
+          "n_columns": 5,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "insider_tx": {
+          "rows": 80374,
+          "n_columns": 12,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "journal_position": {
+          "rows": 42,
+          "n_columns": 31,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "journal_session_log": {
+          "rows": 64,
+          "n_columns": 6,
+          "signal_columns": [],
+          "time_range": [
+            "2026-06-05 22:05:41.710680",
+            "2026-08-26 15:30:37.612571"
+          ]
+        },
+        "journal_state": {
+          "rows": 1,
+          "n_columns": 5,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "pattern_memory": {
+          "rows": 208,
+          "n_columns": 6,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "shadow_position": {
+          "rows": 0,
+          "n_columns": 9,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "signal_blacklist": {
+          "rows": 0,
+          "n_columns": 5,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "signal_outcomes": {
+          "rows": 35,
+          "n_columns": 19,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "signal_outcomes_pnl": {
+          "rows": 140,
+          "n_columns": 17,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "ticker_meta": {
+          "rows": 4931,
+          "n_columns": 9,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "trade_lesson": {
+          "rows": 34,
+          "n_columns": 13,
+          "signal_columns": [],
+          "time_range": null
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/company_graph.duckdb",
+      "size_bytes": 3158016,
+      "mtime": "2026-08-14",
+      "fingerprint": "07329afe284ce7b0",
+      "engine": "duckdb",
+      "tables": {
+        "edge": {
+          "rows": 277,
+          "n_columns": 24,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "entity": {
+          "rows": 231,
+          "n_columns": 11,
+          "signal_columns": [
+            "state"
+          ],
+          "time_range": null
+        },
+        "harvest_run": {
+          "rows": 35,
+          "n_columns": 13,
+          "signal_columns": [],
+          "time_range": null
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/fundamentals.duckdb",
+      "size_bytes": 77082624,
+      "mtime": "2026-08-10",
+      "fingerprint": "faf112603ec39a96",
+      "engine": "duckdb",
+      "tables": {
+        "facts": {
+          "rows": 3606317,
+          "n_columns": 14,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "ingest_log": {
+          "rows": 4675,
+          "n_columns": 5,
+          "signal_columns": [],
+          "time_range": [
+            "2026-08-10 11:35:09.982602",
+            "2026-08-10 12:52:32.340484"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/m15_dayrsi.duckdb",
+      "size_bytes": 49557504,
+      "mtime": "2026-08-26",
+      "fingerprint": "c8e6bd4e17d28249",
+      "engine": "duckdb",
+      "tables": {
+        "day_rsi": {
+          "rows": 3639420,
+          "n_columns": 3,
+          "signal_columns": [],
+          "time_range": null
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_15m.duckdb",
+      "size_bytes": 43078397952,
+      "mtime": "2026-08-26",
+      "fingerprint": "2a40274f634adeed",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 90948070,
+          "n_columns": 418,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-07-02 13:30:00",
+            "2026-08-25 19:45:00"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_15m_TEST_timing.duckdb",
+      "size_bytes": 1323008,
+      "mtime": "2026-07-09",
+      "fingerprint": "414ff8c4c621d9f5",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 0,
+          "n_columns": 394,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "None",
+            "None"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_15m_base.duckdb",
+      "size_bytes": 15915298816,
+      "mtime": "2026-08-26",
+      "fingerprint": "c465d3bfda9c706e",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 90952507,
+          "n_columns": 8,
+          "signal_columns": [],
+          "time_range": [
+            "2021-07-02 13:30:00",
+            "2026-08-25 19:45:00"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_1h.duckdb",
+      "size_bytes": 13613150208,
+      "mtime": "2026-08-26",
+      "fingerprint": "528bb493fc6742ce",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 24838685,
+          "n_columns": 418,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-07-02 13:30:00",
+            "2026-08-25 19:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_1w.duckdb",
+      "size_bytes": 601108480,
+      "mtime": "2026-08-22",
+      "fingerprint": "ea30c3f0dd09ec74",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 1119785,
+          "n_columns": 418,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-06-13",
+            "2026-08-16"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_4h.duckdb",
+      "size_bytes": 3938988032,
+      "mtime": "2026-08-26",
+      "fingerprint": "dfeced6ab30af841",
+      "engine": "duckdb",
+      "tables": {
+        "bars": {
+          "rows": 7102385,
+          "n_columns": 418,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-07-02 13:30:00",
+            "2026-08-25 18:30:00"
+          ]
+        }
+      }
+    },
+    {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_analytics.duckdb",
+      "size_bytes": 4685049856,
+      "mtime": "2026-08-26",
+      "fingerprint": "d689128fefe62102",
+      "engine": "duckdb",
+      "tables": {
+        "acc_exit_lift_v1": {
+          "rows": 148,
+          "n_columns": 9,
+          "signal_columns": [
+            "signal"
+          ],
+          "time_range": null
+        },
+        "backtest_results": {
+          "rows": 0,
+          "n_columns": 16,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "bar_descriptions": {
+          "rows": 0,
+          "n_columns": 4,
+          "signal_columns": [],
+          "time_range": [
+            "None",
+            "None"
+          ]
+        },
+        "bars": {
+          "rows": 8796472,
+          "n_columns": 439,
+          "signal_columns": [
+            "full_suffix",
+            "l_sig",
+            "t_sig",
+            "vol_bucket",
+            "z_sig"
+          ],
+          "time_range": [
+            "2021-05-26",
+            "2026-08-25"
+          ]
+        },
+        "custom_scores": {
+          "rows": 1,
+          "n_columns": 6,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "events": {
+          "rows": 394708,
+          "n_columns": 14,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "import_log": {
+          "rows": 24,
+          "n_columns": 11,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "mined_patterns": {
+          "rows": 1644,
+          "n_columns": 13,
+          "signal_columns": [],
+          "time_range": null
+        },
+        "ticker_signal_lift_v1": {
+          "rows": 89970,
+          "n_columns": 11,
+          "signal_columns": [
+            "signal"
+          ],
+          "time_range": null
+        }
+      }
+    }
+  ],
+  "database_count": 23,
+  "signal_bearing_tables": [
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/company_graph.duckdb",
+      "table": "entity",
+      "rows": 231,
+      "signal_columns": [
+        "state"
+      ],
+      "time_range": null
+    },
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_15m.duckdb",
+      "table": "bars",
+      "rows": 90788281,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-07-02 13:30:00",
+        "2026-08-21 19:45:00"
+      ]
+    },
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_15m_TEST_timing.duckdb",
+      "table": "bars",
+      "rows": 0,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "None",
+        "None"
+      ]
+    },
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_1h.duckdb",
+      "table": "bars",
+      "rows": 24838705,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-07-02 13:30:00",
+        "2026-08-21 19:30:00"
+      ]
+    },
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_1w.duckdb",
+      "table": "bars",
+      "rows": 1119785,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-06-13",
+        "2026-08-16"
+      ]
+    },
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_4h.duckdb",
+      "table": "bars",
+      "rows": 7102388,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-07-02 13:30:00",
+        "2026-08-21 18:30:00"
+      ]
+    },
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_analytics.duckdb",
+      "table": "acc_exit_lift_v1",
+      "rows": 148,
+      "signal_columns": [
+        "signal"
+      ],
+      "time_range": null
+    },
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_analytics.duckdb",
+      "table": "bars",
+      "rows": 8778665,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-05-26",
+        "2026-08-21"
+      ]
+    },
+    {
+      "store": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/studio_analytics.duckdb",
+      "table": "ticker_signal_lift_v1",
+      "rows": 89970,
+      "signal_columns": [
+        "signal"
+      ],
+      "time_range": null
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/company_graph.duckdb",
+      "table": "entity",
+      "rows": 231,
+      "signal_columns": [
+        "state"
+      ],
+      "time_range": null
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_15m.duckdb",
+      "table": "bars",
+      "rows": 90948070,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-07-02 13:30:00",
+        "2026-08-25 19:45:00"
+      ]
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_15m_TEST_timing.duckdb",
+      "table": "bars",
+      "rows": 0,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "None",
+        "None"
+      ]
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_1h.duckdb",
+      "table": "bars",
+      "rows": 24838685,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-07-02 13:30:00",
+        "2026-08-25 19:30:00"
+      ]
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_1w.duckdb",
+      "table": "bars",
+      "rows": 1119785,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-06-13",
+        "2026-08-16"
+      ]
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_4h.duckdb",
+      "table": "bars",
+      "rows": 7102385,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-07-02 13:30:00",
+        "2026-08-25 18:30:00"
+      ]
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_analytics.duckdb",
+      "table": "acc_exit_lift_v1",
+      "rows": 148,
+      "signal_columns": [
+        "signal"
+      ],
+      "time_range": null
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_analytics.duckdb",
+      "table": "bars",
+      "rows": 8796472,
+      "signal_columns": [
+        "full_suffix",
+        "l_sig",
+        "t_sig",
+        "vol_bucket",
+        "z_sig"
+      ],
+      "time_range": [
+        "2021-05-26",
+        "2026-08-25"
+      ]
+    },
+    {
+      "store": "/Users/sachoki/Desktop/sachoki-desktop/data/studio_analytics.duckdb",
+      "table": "ticker_signal_lift_v1",
+      "rows": 89970,
+      "signal_columns": [
+        "signal"
+      ],
+      "time_range": null
+    }
+  ],
+  "signal_bearing_count": 18,
+  "data_file_counts": {
+    ".csv": 102,
+    ".jsonl": 15,
+    ".npz": 9,
+    ".parquet": 16574
+  },
+  "notable_parquet": [
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t5_episodes.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t5_15m_capability_ledger.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t1_15m_k_closure.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t1_estimand_population.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t9_sequence_estimand_claims.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t9_15m_k_closure.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t1_15m_population.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t1_sequence_estimand_claims.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t3_15m_k_closure.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t5_15m_claims.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t5_15m_population.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t5_sequence_estimand_claims.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t1_episodes.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t4_episodes.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t9_15m_population.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t3_15m_population.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t3_15m_claims.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t5_episode_outcomes.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t3_15m_capability_ledger.parquet",
+    "/Users/sachoki/Desktop/sachoki-desktop/data/t5_capability_ledger.parquet"
+  ],
+  "y_exposed": 0,
+  "read_only": true,
+  "writes": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 5.7,
+  "sealed_at": "2026-08-26 22:20 +04"
+}

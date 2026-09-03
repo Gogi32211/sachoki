@@ -1,0 +1,35 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V1_RECLASSIFICATION",
+  "status": "FROZEN",
+  "reclassifies": {
+    "artifact": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V1",
+    "digest": "78afe3898e08f72e",
+    "artifact_NOT_deleted": "it is the provenance record of the defect"
+  },
+  "NEW_STATUS": "EXECUTION_COMPLETE_BUT_PRIMARY_NULL_SCOPE_VIOLATION",
+  "SCIENTIFIC_RESULTS": "SEALED_UNREAD",
+  "INFERENTIAL_USE": "FORBIDDEN",
+  "INVALID_FOR_INFERENCE": [
+    "c_j",
+    "s_j",
+    "T_j",
+    "M_b",
+    "p_adj"
+  ],
+  "REMAIN_VALID": [
+    "outcome build",
+    "theta_obs (identity map)",
+    "identity-map denominators",
+    "CI base-row scope (proved DEV-only)"
+  ],
+  "HISTORICAL_HOLDOUT_STATUS": {
+    "was": "limited temporal confirmation, untouched",
+    "now": "CONTAMINATED_BY_INFERENTIAL_PIPELINE / NON-PRISTINE / NOT AN INDEPENDENT CONFIRMATION AUTHORITY",
+    "evidence": "5,950 DEV->HOLDOUT payload mappings entered the primary null machinery",
+    "what_this_does_NOT_mean": "HOLDOUT outcomes were used to SELECT a hypothesis — they were not, and no result was read",
+    "what_it_DOES_mean": "strict holdout isolation was broken, so a future HOLDOUT success may NEVER be presented as independent confirmation",
+    "permitted_future_role": "post-exposure / contaminated historical diagnostic",
+    "TRUE_FORWARD": "remains the ONLY clean primary confirmation authority"
+  },
+  "Y_EXPOSED": "1 — does not revert"
+}

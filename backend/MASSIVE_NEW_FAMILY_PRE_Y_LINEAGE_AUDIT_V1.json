@@ -1,0 +1,654 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PRE_Y_LINEAGE_AUDIT_V1",
+  "status": "LINEAGE_AUDIT_PASS",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "REAL_Y_ACCESS": "NONE",
+  "scope": "LINEAGE / CONFORMANCE REVIEW ONLY — no new metric, threshold or design decision was introduced",
+  "artifacts_enumerated": 69,
+  "this_session": 44,
+  "pre_existing": 25,
+  "CHAIN": [
+    {
+      "semantic_role": "RAW / ELIGIBILITY",
+      "artifact": "MASSIVE_NEW_FAMILY_FEATURE_ELIGIBILITY_MATRIX_V1",
+      "digest": "391a8fcccf93e539",
+      "status": "(pre-session)",
+      "parents": "—",
+      "current_authority": "NO",
+      "Y_exposure_at_creation": 0,
+      "note": "superseded on provenance by AMENDMENT_2"
+    },
+    {
+      "semantic_role": "RAW / ELIGIBILITY",
+      "artifact": "MASSIVE_NEW_FAMILY_FEATURE_ELIGIBILITY_MATRIX_V1_AMENDMENT_2",
+      "digest": "685ef5df1afc2a7f",
+      "status": "FROZEN",
+      "parents": "391a8fcccf93e539",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "rsi_14 -> NEW_MASSIVE_STATE_REGIME_SAME_FORMULA; 42/13/12/1/1 = 69"
+    },
+    {
+      "semantic_role": "X PRODUCER — Stage D",
+      "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_PRODUCTION_V1",
+      "digest": "21032d2cfc56e8c5",
+      "status": "ACCEPTED",
+      "parents": "—",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": "field absent",
+      "note": "6 columns, 92,672,724 rows"
+    },
+    {
+      "semantic_role": "X PRODUCER — Stage D census",
+      "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_SUPPORT_CENSUS_V1",
+      "digest": "933280157dbf6201",
+      "status": "SUPPORT_CHARACTERIZED",
+      "parents": "21032d2cfc56e8c5",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "X PRODUCER — Stage D census amendment",
+      "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_CENSUS_AMENDMENT_V1",
+      "digest": "13bae76c5575f76e",
+      "status": "FROZEN",
+      "parents": "933280157dbf6201; 21032d2cfc56e8c5",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": "field absent",
+      "note": "bar_gap_range categorical; 170 residual UNRESOLVED_FROM_D6_ALONE"
+    },
+    {
+      "semantic_role": "X PRODUCER — sig_buy cooldown",
+      "artifact": "MASSIVE_NEW_FAMILY_SIG_BUY_COOLDOWN_AUTHORITY_V1",
+      "digest": "edb215dff040cf18",
+      "status": "FROZEN",
+      "parents": "—",
+      "current_authority": "NO",
+      "Y_exposure_at_creation": "field absent",
+      "note": "superseded on denominators by AMENDMENT"
+    },
+    {
+      "semantic_role": "X PRODUCER — sig_buy cooldown",
+      "artifact": "MASSIVE_NEW_FAMILY_SIG_BUY_COOLDOWN_AUTHORITY_AMENDMENT_V1",
+      "digest": "8c47daa217fcdd38",
+      "status": "FROZEN",
+      "parents": "edb215dff040cf18",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": "field absent",
+      "note": "213,504 units vs 338,984 bars; 51,188 VALUE errors"
+    },
+    {
+      "semantic_role": "X PRODUCER — Phase 0 binding",
+      "artifact": "MASSIVE_NEW_FAMILY_PHASE0_PRODUCER_BINDING_V1",
+      "digest": "628a0a2bc655a241",
+      "status": "FROZEN",
+      "parents": "—",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "X PRODUCER — Phase 0 depth",
+      "artifact": "MASSIVE_NEW_FAMILY_PHASE0_DEPTH_AND_AVAILABILITY_BINDING_V1_PARTIAL",
+      "digest": "d141d2d3d3261330",
+      "status": "PARTIAL",
+      "parents": "—",
+      "current_authority": "NO",
+      "Y_exposure_at_creation": 0,
+      "note": "SUPERSEDED"
+    },
+    {
+      "semantic_role": "X PRODUCER — Phase 0 depth",
+      "artifact": "MASSIVE_NEW_FAMILY_PHASE0_DEPTH_AND_AVAILABILITY_BINDING_V1",
+      "digest": "cd1e0ca82135e02f",
+      "status": "COMPLETE",
+      "parents": "d141d2d3d3261330",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "vbo_up base depth 22"
+    },
+    {
+      "semantic_role": "X PRODUCER — sig_tz_flip state",
+      "artifact": "MASSIVE_NEW_FAMILY_SIG_TZ_FLIP_STATE_AUTHORITY_V1",
+      "digest": "996570d102551aa5",
+      "status": "FROZEN",
+      "parents": "—",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "X PRODUCER — vbo_up state",
+      "artifact": "MASSIVE_NEW_FAMILY_VBO_UP_STATE_AUTHORITY_V1",
+      "digest": "7bf34a5275f152e3",
+      "status": "STRUCTURE_RESOLVED_DEPTH_CONVENTION_OPEN",
+      "parents": "—",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "STATUS LINE STALE — see DOCUMENTATION_FINDINGS"
+    },
+    {
+      "semantic_role": "X PRODUCER — Phase 1",
+      "artifact": "MASSIVE_NEW_FAMILY_PHASE1_PRODUCTION_V1",
+      "digest": "27577029aeb5085a",
+      "status": "ACCEPTED",
+      "parents": "628a0a2bc655a241; cd1e0ca82135e02f",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "39 columns, 602,372,706 rows, exit_code captured"
+    },
+    {
+      "semantic_role": "CANON69",
+      "artifact": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1",
+      "digest": "e8016cb7c39a969d",
+      "status": "ACCEPTED",
+      "parents": "21032d2cfc56e8c5; 27577029aeb5085a; PD_12; STAGE_C4",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "1,065,736,326 rows"
+    },
+    {
+      "semantic_role": "CANON69",
+      "artifact": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1_AMENDMENT_1",
+      "digest": "e59767fc6c231263",
+      "status": "FROZEN",
+      "parents": "e8016cb7c39a969d",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "lineage hygiene: artifact vs physical digest"
+    },
+    {
+      "semantic_role": "X_LAYER_CLOSED",
+      "artifact": "MASSIVE_NEW_FAMILY_X_SURFACE_CLOSURE_V1",
+      "digest": "228c9ceae10bd0cc",
+      "status": "X_LAYER_CLOSED",
+      "parents": "e8016cb7c39a969d; e59767fc6c231263",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "TOKEN DICTIONARY",
+      "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_TOKEN_DICTIONARY_V1",
+      "digest": "4944126121f8fe16",
+      "status": "FROZEN",
+      "parents": "228c9ceae10bd0cc",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "123 tokens = 60 + 63"
+    },
+    {
+      "semantic_role": "CLAIM GRAMMAR",
+      "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_CLAIM_GRAMMAR_V1",
+      "digest": "4f07512770af4615",
+      "status": "FROZEN",
+      "parents": "4944126121f8fe16",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "45,387 claims"
+    },
+    {
+      "semantic_role": "CENSUS SPEC",
+      "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_SPEC_V1",
+      "digest": "faaa0a70aa050c93",
+      "status": "FROZEN",
+      "parents": "4f07512770af4615",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "SUPPORT CENSUS",
+      "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_V1",
+      "digest": "8215d99503f5ff2d",
+      "status": "SUPPORT_DISTRIBUTION_CHARACTERIZED",
+      "parents": "faaa0a70aa050c93",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "SUPPORT FLOOR",
+      "artifact": "MASSIVE_NEW_FAMILY_SUPPORT_FLOOR_PRESPEC_V1",
+      "digest": "aeab8354237def8c",
+      "status": "FROZEN",
+      "parents": "8215d99503f5ff2d",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "sealed BEFORE application; k not computed at seal time"
+    },
+    {
+      "semantic_role": "FINAL REGISTRY",
+      "artifact": "MASSIVE_NEW_FAMILY_FINAL_SEARCHABLE_CLAIM_REGISTRY_V1",
+      "digest": "6900f9d3cf6f13e5",
+      "status": "FROZEN",
+      "parents": "aeab8354237def8c; 8215d99503f5ff2d",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "k = 20,751 as a RESULT"
+    },
+    {
+      "semantic_role": "MULTIPLICITY UNIVERSE",
+      "artifact": "MASSIVE_NEW_FAMILY_MULTIPLICITY_UNIVERSE_V1",
+      "digest": "a9852e1e4a9495c3",
+      "status": "FROZEN",
+      "parents": "6900f9d3cf6f13e5",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "clustering may not reduce k"
+    },
+    {
+      "semantic_role": "PRECEDENT REVIEW",
+      "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRECEDENT_REVIEW_V1",
+      "digest": "bd0acec96d26d5b6",
+      "status": "PRECEDENTS_CHARACTERIZED",
+      "parents": "—",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "design-only, no evidence read"
+    },
+    {
+      "semantic_role": "INFERENTIAL PRESPEC",
+      "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1",
+      "digest": "8f112d7e760953b5",
+      "status": "FROZEN",
+      "parents": "a9852e1e4a9495c3; bd0acec96d26d5b6",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "amended twice"
+    },
+    {
+      "semantic_role": "INFERENTIAL PRESPEC",
+      "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1_AMENDMENT_1",
+      "digest": "5e6a3788f06c4dc4",
+      "status": "FROZEN",
+      "parents": "8f112d7e760953b5",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "mechanics: Y formula, ATR_PRIOR, T_j, B, RNG, tie, p_adj"
+    },
+    {
+      "semantic_role": "INFERENTIAL PRESPEC",
+      "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1_AMENDMENT_2",
+      "digest": "b082eae1574f0223",
+      "status": "FROZEN",
+      "parents": "8f112d7e760953b5; 5e6a3788f06c4dc4",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "WEIGHTED_MEDIAN_V2; CI_STABILITY_GATE"
+    },
+    {
+      "semantic_role": "PERMUTATION AUTHORITY",
+      "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1",
+      "digest": "ccdaa6a6f08e8588",
+      "status": "FROZEN",
+      "parents": "8f112d7e760953b5",
+      "current_authority": "NO",
+      "Y_exposure_at_creation": 0,
+      "note": "global date map — SUPERSEDED as the null"
+    },
+    {
+      "semantic_role": "PERMUTATION AUTHORITY",
+      "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_1",
+      "digest": "7b52b9df13764228",
+      "status": "FROZEN",
+      "parents": "ccdaa6a6f08e8588",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "time-local circular; EARLY_CLOSE identity"
+    },
+    {
+      "semantic_role": "PERMUTATION AUTHORITY",
+      "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_2",
+      "digest": "48bf72d9bbe00000",
+      "status": "FROZEN",
+      "parents": "7b52b9df13764228",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "wording: 0.805% not a bound; TIME_LOCAL_CYCLIC_SHIFT_INVARIANCE"
+    },
+    {
+      "semantic_role": "SMOKE SPEC",
+      "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_SPEC_V1",
+      "digest": "91b46aa46e9ecaa0",
+      "status": "FROZEN",
+      "parents": "—",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "SYNTHETIC QUALIFICATION",
+      "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1",
+      "digest": "f6a043d3f188e8f8",
+      "status": "SYNTHETIC_PIPELINE_QUALIFIED",
+      "parents": "91b46aa46e9ecaa0",
+      "current_authority": "NO",
+      "Y_exposure_at_creation": 0,
+      "note": "under the GLOBAL null — SUPERSEDED as final authority"
+    },
+    {
+      "semantic_role": "SYNTHETIC QUALIFICATION",
+      "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1_AMENDMENT_1",
+      "digest": "1568b798a0a8aed5",
+      "status": "SYNTHETIC_PIPELINE_REQUALIFIED_UNDER_TIME_LOCAL_NULL",
+      "parents": "f6a043d3f188e8f8; 7b52b9df13764228",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "SYNTHETIC QUALIFICATION",
+      "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1_AMENDMENT_2",
+      "digest": "b546c50b6bb0394b",
+      "status": "FROZEN",
+      "parents": "1568b798a0a8aed5",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "CI subsection requalified under V2"
+    },
+    {
+      "semantic_role": "EXECUTION SPEC",
+      "artifact": "MASSIVE_NEW_FAMILY_EXACT_FAST_KERNEL_SPEC_V1",
+      "digest": "f5147df02ce3eab5",
+      "status": "FROZEN",
+      "parents": "—",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "EXECUTION SPEC",
+      "artifact": "MASSIVE_NEW_FAMILY_EXACT_FAST_KERNEL_SPEC_V1_AMENDMENT_1",
+      "digest": "9fb7ff920ef49e3b",
+      "status": "FROZEN",
+      "parents": "f5147df02ce3eab5; b082eae1574f0223",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "REJECTED CANDIDATE",
+      "artifact": "MASSIVE_NEW_FAMILY_POOL_SORT_FAST_KERNEL_FEASIBILITY_V1",
+      "digest": "738f939c1cb757c8",
+      "status": "CORRECT_BUT_REJECTED_FOR_PRODUCTION",
+      "parents": "f5147df02ce3eab5",
+      "current_authority": "NO (dead path)",
+      "Y_exposure_at_creation": 0,
+      "note": "correct but 0.45x"
+    },
+    {
+      "semantic_role": "PERMUTATION EXECUTION",
+      "artifact": "MASSIVE_NEW_FAMILY_PARALLEL_REFERENCE_EXECUTION_V1",
+      "digest": "2946a87660e45e84",
+      "status": "ORCHESTRATION_QUALIFIED",
+      "parents": "f5147df02ce3eab5; 7b52b9df13764228",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "1,037,550 claim-draws bit-identical"
+    },
+    {
+      "semantic_role": "PERMUTATION BENCHMARK",
+      "artifact": "MASSIVE_NEW_FAMILY_FAST_KERNEL_FEASIBILITY_V1",
+      "digest": "dc16721c0e192d4b",
+      "status": "BENCHMARK_ONLY",
+      "parents": "2946a87660e45e84",
+      "current_authority": "YES (no evidentiary status)",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "CI EXECUTION",
+      "artifact": "MASSIVE_NEW_FAMILY_PARALLEL_CI_EXECUTION_V1",
+      "digest": "2e7a6f2938f634b7",
+      "status": "CI_ORCHESTRATION_QUALIFIED",
+      "parents": "b082eae1574f0223; 9fb7ff920ef49e3b",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "415,020 claim-draws bit-identical"
+    },
+    {
+      "semantic_role": "CI BENCHMARK",
+      "artifact": "MASSIVE_NEW_FAMILY_CI_EXECUTION_FEASIBILITY_V1",
+      "digest": "2fd35df020afc301",
+      "status": "BENCHMARK_ONLY",
+      "parents": "2e7a6f2938f634b7",
+      "current_authority": "YES (no evidentiary status)",
+      "Y_exposure_at_creation": 0,
+      "note": ""
+    },
+    {
+      "semantic_role": "EXECUTION STACK",
+      "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_EXECUTION_STACK_QUALIFICATION_V1",
+      "digest": "6ef4ad29672a4a41",
+      "status": "INFERENTIAL_EXECUTION_STACK_QUALIFIED",
+      "parents": "2946a87660e45e84; 2e7a6f2938f634b7; 7b52b9df13764228; b082eae1574f0223",
+      "current_authority": "YES",
+      "Y_exposure_at_creation": 0,
+      "note": "FIRST REAL Y gate OPEN, not run"
+    }
+  ],
+  "INVARIANTS": {
+    "result": "22 / 22 PASS",
+    "detail": [
+      {
+        "n": "k = 20,751 present and never contradicted",
+        "pass": true
+      },
+      {
+        "n": "token dictionary = 123",
+        "pass": true
+      },
+      {
+        "n": "raw claim universe = 45,387",
+        "pass": true
+      },
+      {
+        "n": "registry k = 20,751 and is a RESULT",
+        "pass": true
+      },
+      {
+        "n": "multiplicity k = 20,751, clustering forbidden from reducing it",
+        "pass": true
+      },
+      {
+        "n": "null authority = TIME_LOCAL_CYCLIC_SHIFT_INVARIANCE",
+        "pass": true
+      },
+      {
+        "n": "GLOBAL_DATE_EXCHANGEABILITY explicitly dropped",
+        "pass": true
+      },
+      {
+        "n": "A1 binds parent ccdaa6a6f08e8588",
+        "pass": true
+      },
+      {
+        "n": "A2 binds A1 7b52b9df13764228",
+        "pass": true
+      },
+      {
+        "n": "CI primitive = WEIGHTED_MEDIAN_V2",
+        "pass": true
+      },
+      {
+        "n": "old lower-weighted-median SUPERSEDED",
+        "pass": true
+      },
+      {
+        "n": "percentile = Hyndman-Fan Type 7, library default FORBIDDEN",
+        "pass": false
+      },
+      {
+        "n": "CI kernel semantic authority = WEIGHTED_MEDIAN_V2",
+        "pass": true
+      },
+      {
+        "n": "permutation kernel UNCHANGED reference",
+        "pass": true
+      },
+      {
+        "n": "pool-sort kernel remains REJECTED",
+        "pass": true
+      },
+      {
+        "n": "umbrella does NOT claim a qualified fast kernel",
+        "pass": true
+      },
+      {
+        "n": "worker RNG calls = 0",
+        "pass": true
+      },
+      {
+        "n": "old global-null smoke marked SUPERSEDED",
+        "pass": true
+      },
+      {
+        "n": "old CI plumbing PASS marked SUPERSEDED",
+        "pass": true
+      },
+      {
+        "n": "PARTIAL depth binding superseded by COMPLETE",
+        "pass": true
+      },
+      {
+        "n": "no artifact declares Y_EXPOSED != 0",
+        "pass": true
+      },
+      {
+        "n": "Y_EXPOSED field present on all CURRENT session authorities",
+        "pass": true
+      }
+    ],
+    "corrected_check": {
+      "which": "percentile = Type 7 / library default FORBIDDEN",
+      "initial": "FAIL",
+      "cause": "my predicate used exact equality against 'FORBIDDEN' while the sealed value is 'FORBIDDEN — must be passed explicitly'",
+      "status": "HARNESS DEFECT — the artifact was correct; re-checked with startswith and PASSES",
+      "class": "second occurrence of TEST-HARNESS DEFECT in this session"
+    }
+  },
+  "SUPERSEDED_DEAD_PATHS": {
+    "rule": "a real-Y producer MUST NOT bind any of these",
+    "entries": [
+      {
+        "path": "OLD GLOBAL-DATE NULL",
+        "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1",
+        "digest": "ccdaa6a6f08e8588",
+        "superseded_by": "7b52b9df13764228",
+        "why": "assumed GLOBAL_DATE_EXCHANGEABILITY; fails guard_time_locality"
+      },
+      {
+        "path": "OLD SYNTHETIC QUALIFICATION UNDER GLOBAL NULL",
+        "artifact": "MASSIVE_NEW_FAMILY_SYNTHETIC_Y_SMOKE_V1",
+        "digest": "f6a043d3f188e8f8",
+        "superseded_by": "1568b798a0a8aed5",
+        "why": "a qualification obtained under the old null cannot certify the new one"
+      },
+      {
+        "path": "OLD LOWER-WEIGHTED-MEDIAN CI",
+        "artifact": "inside MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1 / smoke CI plumbing",
+        "superseded_by": "b082eae1574f0223 (WEIGHTED_MEDIAN_V2)",
+        "why": "did not reproduce the frozen theta even under unit weights; disagreed in 49.9% of unit-weight samples"
+      },
+      {
+        "path": "REJECTED POOL-SORT PERMUTATION FAST KERNEL",
+        "artifact": "MASSIVE_NEW_FAMILY_POOL_SORT_FAST_KERNEL_FEASIBILITY_V1",
+        "digest": "738f939c1cb757c8",
+        "status": "CORRECT_BUT_REJECTED_FOR_PRODUCTION",
+        "why": "bit-identical but 2.2x slower; claims_per_pool 3.91 vs log2(pool) 17.8"
+      },
+      {
+        "path": "PARTIAL DEPTH BINDING",
+        "artifact": "MASSIVE_NEW_FAMILY_PHASE0_DEPTH_AND_AVAILABILITY_BINDING_V1_PARTIAL",
+        "digest": "d141d2d3d3261330",
+        "superseded_by": "cd1e0ca82135e02f"
+      },
+      {
+        "path": "PRE-AMENDMENT ELIGIBILITY PROVENANCE",
+        "artifact": "MASSIVE_NEW_FAMILY_FEATURE_ELIGIBILITY_MATRIX_V1",
+        "digest": "391a8fcccf93e539",
+        "superseded_by": "685ef5df1afc2a7f",
+        "why": "carried rsi_14 under the pre-Stage-D provenance class; MEMBERSHIP unchanged"
+      },
+      {
+        "path": "PRE-AMENDMENT sig_buy DENOMINATORS",
+        "artifact": "MASSIVE_NEW_FAMILY_SIG_BUY_COOLDOWN_AUTHORITY_V1",
+        "digest": "edb215dff040cf18",
+        "superseded_by": "8c47daa217fcdd38",
+        "why": "conflated 213,504 comparison units with 338,984 differing bars"
+      },
+      {
+        "path": "PRE-AMENDMENT 0.805% WORDING",
+        "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_1",
+        "digest": "7b52b9df13764228",
+        "superseded_by": "48bf72d9bbe00000 (WORDING ONLY)",
+        "why": "the mass share was stated as a bound on inferential error; MECHANISM unchanged"
+      },
+      {
+        "path": "KILLED STAGE D PREDECESSOR RUNS",
+        "pids": [
+          19604,
+          19624
+        ],
+        "status": "INCOMPLETE_RUN / NON_EVIDENTIARY",
+        "artifact": "13bc27b5c16c91f6"
+      }
+    ]
+  },
+  "DOCUMENTATION_FINDINGS": [
+    {
+      "class": "STALE STATUS LINE",
+      "artifact": "MASSIVE_NEW_FAMILY_VBO_UP_STATE_AUTHORITY_V1",
+      "digest": "7bf34a5275f152e3",
+      "status_reads": "STRUCTURE_RESOLVED_DEPTH_CONVENTION_OPEN",
+      "reality": "the depth convention WAS closed downstream in cd1e0ca82135e02f (COMPLETE) at BASE_TRIGGER_FULLY_VALID_AGE = 22, and that artifact correctly cites this digest",
+      "classification": "DOCUMENTATION STALENESS, not a semantic conflict",
+      "impact_on_real_Y": "NONE — the binding authority is the COMPLETE artifact"
+    },
+    {
+      "class": "MISSING Y_EXPOSED FIELD",
+      "count": 6,
+      "artifacts": [
+        "PREDECESSOR_PROVENANCE_AND_STANDING_RULE_V1",
+        "PRODUCER_LAUNCH_AND_COMPLETION_RULE_V1",
+        "SIG_BUY_COOLDOWN_AUTHORITY_V1",
+        "SIG_BUY_COOLDOWN_AUTHORITY_AMENDMENT_V1",
+        "STAGE_D_CENSUS_AMENDMENT_V1",
+        "STAGE_D_PRODUCTION_V1"
+      ],
+      "reading": "these are X-only BY ROLE, but the absence of the field is a DOCUMENTATION GAP, not a proven 0",
+      "explicitly_not": "treated as compliant by default"
+    }
+  ],
+  "CURRENT_AUTHORITY_PER_ROLE": {
+    "eligibility": "685ef5df1afc2a7f",
+    "X surface": "e8016cb7c39a969d + e59767fc6c231263",
+    "X closure": "228c9ceae10bd0cc",
+    "token dictionary": "4944126121f8fe16",
+    "claim grammar": "4f07512770af4615",
+    "support census": "8215d99503f5ff2d",
+    "support floor": "aeab8354237def8c",
+    "registry": "6900f9d3cf6f13e5",
+    "multiplicity": "a9852e1e4a9495c3",
+    "inferential prespec": "8f112d7e760953b5 + 5e6a3788f06c4dc4 + b082eae1574f0223",
+    "null": "7b52b9df13764228 + 48bf72d9bbe00000",
+    "synthetic qualification": "1568b798a0a8aed5 + b546c50b6bb0394b",
+    "permutation execution": "2946a87660e45e84",
+    "CI execution": "2e7a6f2938f634b7",
+    "stack": "6ef4ad29672a4a41",
+    "check": "exactly one CURRENT authority per role — verified"
+  },
+  "VERDICT": {
+    "lineage": "PASS",
+    "invariants": "22 / 22",
+    "semantic_conflicts": 0,
+    "documentation_findings": 2,
+    "dead_paths_enumerated": 9,
+    "blocking_for_real_Y": "NONE",
+    "note": "the two documentation findings are recorded, not silently closed; neither changes any binding authority"
+  },
+  "REAL_Y": "STILL CLOSED — this audit does not authorise a run"
+}

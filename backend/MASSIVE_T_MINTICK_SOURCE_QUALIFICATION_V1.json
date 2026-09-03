@@ -1,0 +1,152 @@
+{
+  "spec_id": "MASSIVE_T_MINTICK_SOURCE_QUALIFICATION_V1",
+  "status": "MINTICK_SOURCE_QUALIFIED",
+  "task_class": "SOURCE_QUALIFICATION_ONLY",
+  "unblocks": {
+    "artifact": "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_1",
+    "digest": "de60bdc75fc61e3c",
+    "previous_status": "HOLD",
+    "resolved_gap": "Massive-port mintick binding"
+  },
+  "headline": {
+    "finding": "mintick was never syminfo.mintick",
+    "detail": "the legacy materialisation was produced by a PYTHON engine, not the Pine indicator. That engine uses a fixed numerical epsilon of 1e-10 as a divide-by-zero guard.",
+    "consequence": "no per-symbol tick metadata exists to obtain, no venue disambiguation is needed, and no regulatory MPV question arises — no trading increment enters the computation at all",
+    "tradingview_needed": false,
+    "app_launch_avoided": true
+  },
+  "authority": {
+    "artifact": "T4_ENGULF_CONFIG_V1",
+    "digest": "713f09144a245408",
+    "status": "FROZEN",
+    "mintick_semantics": "prevBodySafe = max(prevBody, 1e-10); ratio = currBody/prevBodySafe",
+    "use_wick": false,
+    "min_body_ratio": 1.0,
+    "source_identity": [
+      "analyzers/tz_wlnbb/config.py:51-55 (USE_WICK, MIN_BODY_RATIO, DOJI_THRESH)",
+      "signal_engine.py:67-69,97-122 (defaults + kernel)"
+    ],
+    "located_not_assumed": "both call sites pass the config constants; no caller overrides",
+    "classification": "ALREADY_FROZEN_PROJECT_AUTHORITY",
+    "hierarchy_rank": "pre-empts the TradingView search entirely — the value is not a tick size and TradingView is not its authority"
+  },
+  "source_verification": {
+    "checked": {
+      "analyzers/tz_wlnbb/signal_logic.py": true,
+      "signal_engine.py": true
+    },
+    "signal_logic_line": "analyzers/tz_wlnbb/signal_logic.py:140  prev_body_safe = max(prev_body, 1e-10)",
+    "signal_engine_line": "signal_engine.py:99  mintick = 1e-10",
+    "config_constants": "analyzers/tz_wlnbb/config.py: USE_WICK=False, MIN_BODY_RATIO=1.0, DOJI_THRESH=0.05",
+    "epsilon_not_tick": "1e-10 is a divide-by-zero guard, not a trading increment"
+  },
+  "supersedes_amendment_1_requirement": {
+    "amendment_1_demanded": "an authoritative point-in-time tick-size source with effective_from / effective_to per security",
+    "why_that_was_wrong": "it presumed the materialisation evaluated syminfo.mintick. It did not. The requirement was built on a Pine construct the legacy pipeline never used.",
+    "user_correction_acknowledged": "syminfo.mintick is symbol-level static metadata in Pine, not a per-bar PIT series — and here it is not used at all",
+    "amendment_1_disposition": "remains an immutable HOLD artifact; not edited",
+    "no_fallback_rule": "not violated — 1e-10 is not a fallback, it is the frozen authoritative value from the implementation that produced the column"
+  },
+  "correction_to_my_own_prior_framing": {
+    "severity": "MATERIAL — this corrects the recovery artifact's comparison, not just a detail",
+    "what_i_did": "treated the Pine script as the authority and measured recovered Pine semantics against the materialised column, reporting 99.14% and characterising the residual",
+    "what_was_already_frozen": "raw_T4(current_store_OHLC) == materialized_canonical_T4 — the two sides do not share an input vintage",
+    "valid_invariant": "identical input bars + identical config + identical implementation => raw_T4 == canonical_T4",
+    "frozen_result": "PASSED — engine_vs_SQL_same_input 78,181/78,181, 0 mismatches",
+    "meaning": "under the valid invariant the legacy engine reproduces its own column EXACTLY (78,181/78,181, 0 mismatches). My 0.86% residual was not a semantic gap — it was the invalid comparison a frozen artifact had already retired.",
+    "recovery_artifact_disposition": "MASSIVE_T_PINE_SEMANTIC_RECOVERY_V1 (7d00e3908feb26d5) remains immutable; its Pine extraction is correct and independently useful, but its conformance FRAMING should be read alongside this correction",
+    "not_edited": true
+  },
+  "repo_inconsistency_found": {
+    "severity": "MATERIAL — reported, not fixed",
+    "two_implementations_disagree_on": "isDoji",
+    "signal_logic": {
+      "path": "analyzers/tz_wlnbb/signal_logic.py:117-118",
+      "code": "is_doji = (c == o)",
+      "comment": "# Pine 260506: isDoji = close == open (exact equality)",
+      "doji_thresh": "present as a parameter, UNUSED in is_doji"
+    },
+    "signal_engine": {
+      "path": "signal_engine.py:101",
+      "code": "isDoji = (rng>0) & ((bdy/rng) <= doji_thresh)",
+      "doji_thresh": 0.05,
+      "used": true
+    },
+    "which_is_the_materialiser": {
+      "answer": "signal_logic.py",
+      "evidence": "exact-equality doji reproduces the materialised column at 99.14%; threshold doji reproduces it at 98.10%",
+      "measured_on": "legacy daily bars, deduplicated, full population"
+    },
+    "frozen_artifact_citation_issue": {
+      "claim": "isDoji = (close == open) EXACTLY; doji_thresh=0.05 exists as a parameter but does not participate in isDoji (verified in source)",
+      "cites": "signal_engine.py:67-69,97-122",
+      "problem": "the claim describes signal_logic.py's behaviour while citing signal_engine.py, which does use the threshold",
+      "assessment": "the CLAIM is supported by the data; the CITATION appears to point at the wrong file",
+      "not_resolved_here": true
+    },
+    "why_it_matters": "isDoji feeds prev1IsBear, which gates T1, T3, T5, T9 and T1G — most of the family. Which implementation a future port binds is a material choice and is not mine to make."
+  },
+  "per_security_binding": {
+    "model": "a single scalar constant, not a per-security table",
+    "value": 1e-10,
+    "applies_to": "all 476 securities uniformly",
+    "symbol_mapping_required": false,
+    "venue_disambiguation_required": false,
+    "unresolved_securities": 0,
+    "coverage": 1.0,
+    "why": "the value is implementation-level, not instrument-level"
+  },
+  "legacy_runtime_status": {
+    "LEGACY_RUNTIME_MINTICK": "KNOWN — 1e-10, from the implementation that produced the column",
+    "note": "this is a stronger statement than Amendment 1 could make, because the authority turned out to be the materialising code itself rather than external metadata",
+    "use_wick": "False (frozen)",
+    "min_body_ratio": "1.0 (frozen)",
+    "still_unknown": "nothing required for mintick"
+  },
+  "regulatory_consistency_audit": {
+    "performed": false,
+    "reason": "not applicable — 1e-10 is an epsilon guard, so comparing it to an exchange minimum price variation would be a category error",
+    "not_collected": "SEC Rule 612 / venue MPV values were not adopted or compared"
+  },
+  "carried_forward": {
+    "timestamp_alignment": {
+      "status": "RESOLVED",
+      "rule": "legacy.date == Massive.bar_start, exact, UTC bar start",
+      "not_reopened": true
+    },
+    "price_basis": {
+      "status": "INDICATIVE / REQUIRES FULL MATCHED CONFIRMATION",
+      "not_upgraded": true,
+      "note": "exact 2-decimal rounding equivalence demonstrated on limited matched evidence only"
+    },
+    "z7": {
+      "classification": "T_INTERNAL_SUPPORTING_PREDICATE",
+      "Z_research_family": "HOLD"
+    }
+  },
+  "forbidden_inference_not_used": [
+    "OHLC decimal places",
+    "minimum observed price difference",
+    "minimum non-zero return",
+    "legacy 2-decimal storage",
+    "ticker",
+    "price level",
+    "security type convention",
+    "assumed $0.01",
+    "agreement-maximizing search"
+  ],
+  "y_exposed": 0,
+  "t_production_writes": 0,
+  "z_research_outputs": 0,
+  "smoke_started": false,
+  "port_spec_amended": false,
+  "decision_required": {
+    "summary": "the mintick gap is closed, but the inventory raised a question that must be answered before the port proceeds",
+    "question": "which implementation is the authoritative semantic target for the Massive port — signal_logic.py (exact-equality doji, matches the materialisation) or the Pine indicator (also exact-equality, but a sibling implementation)?",
+    "secondary": "whether the T4_ENGULF_CONFIG_V1 source citation should be corrected by its own amendment",
+    "not_chosen_here": true
+  },
+  "next_step": "a narrow amendment binding mintick=1e-10 and resolving the implementation authority question. Smoke remains not started.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 08:16 +04"
+}

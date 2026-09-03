@@ -1,0 +1,142 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_C1_WLNBB_STATE_CONTRACT_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "scope": [
+    "l_sig",
+    "l22",
+    "l34",
+    "l43",
+    "be_up",
+    "bo_up",
+    "bx_up",
+    "vol_bucket"
+  ],
+  "METHOD": "contract derived from wlnbb_engine source. \"Unbounded\" was NOT inferred from the historical 45-day divergence — that inference is explicitly rejected.",
+  "REJECTED_INFERENCE": "historical incremental divergence => unbounded state. The divergence is evidence that SOME state was truncated, not evidence about which columns carry it.",
+  "BOUNDED_COLUMNS": {
+    "cols": [
+      "vol_bucket",
+      "l34",
+      "l22",
+      "l43"
+    ],
+    "depth": 20,
+    "basis": "bucket from v.rolling(_BB_PERIOD=20, min_periods=1) mean/std(ddof=0); L3/L4/L6 from vol_up/down_adapted and prior-bar close/high/low comparisons",
+    "min_periods": "1 — partial windows produce values, so age<20 is INITIALIZATION_SENSITIVE, not UNAVAILABLE_HISTORY"
+  },
+  "UNBOUNDED_CARRIERS": {
+    "mechanism": "indicators.ffill_when(s, cond) = s.where(cond).ffill().fillna(0) — unbounded memory",
+    "carriers": {
+      "l34_hi/l34_lo": "anchored by first L34 bar in segment",
+      "l43_hi/l43_lo": "anchored by first L43 bar",
+      "setup_body_hi/lo": "anchored by first setup_event = L34 | L22",
+      "bx_body_hi/lo": "anchored by first L43 bar"
+    },
+    "consumers": {
+      "bo_up": "l34_hi",
+      "bx_up": "l43_hi",
+      "be_up": "BE_UP_BO(setup_body_lo) | BE_UP_BX(bx_body_lo)"
+    },
+    "UNDER_FIRE_RISK": "the (l34_hi > 0) guard means an unanchored carrier yields 0 and the breakout is suppressed — identical in form to the g* latch under-fire risk"
+  },
+  "STATE_ANCHOR_RULE": {
+    "principle": "same reasoning that corrected g*: identify the observed event that forces every possible prior state to the same value",
+    "anchors_are_themselves_bounded": "L34, L22 and L43 are depth-20 features, so each anchor becomes computable once age >= 20",
+    "rule": {
+      "before first anchor in segment": "INITIALIZATION_SENSITIVE_POST_GAP (or _HEAD at series start)",
+      "from first anchor onward": "AVAILABLE_VALID",
+      "be_up": "requires BOTH the setup anchor and the L43 anchor, since BE_UP = BE_UP_BO | BE_UP_BX and an undetermined disjunct leaves the OR undetermined unless the other is True"
+    }
+  },
+  "L_SIG_CLASSIFICATION": {
+    "structure": "ascending-digit concat of L1..L6 (bounded), falling back to a named list that includes BO_UP/BE_UP/BX_UP (unbounded) and PRE_PUMP (cooldown, bounded n=6)",
+    "measured": "on all sampled bounded bars an L-digit was active (100%), so the unbounded fallback path was never taken",
+    "classification": "EFFECTIVELY BOUNDED at depth 20",
+    "caveat": "100% is MEASURED on 3 securities, not proven universally. If any bar has no active L-digit, l_sig on that bar inherits the unbounded anchor requirement."
+  },
+  "MEASURED_ANCHOR_COST": {
+    "securities_sampled": 3,
+    "table": [
+      {
+        "complete_pct": 91.7,
+        "COMPLETE": 14257,
+        "age_ge_20": 7835,
+        "plus_L34_anchor": 7671,
+        "plus_L43_anchor": 4208,
+        "plus_setup": 7699
+      },
+      {
+        "complete_pct": 72.4,
+        "COMPLETE": 23517,
+        "age_ge_20": 3991,
+        "plus_L34_anchor": 3860,
+        "plus_L43_anchor": 878,
+        "plus_setup": 3886
+      },
+      {
+        "complete_pct": 6.0,
+        "COMPLETE": 1956,
+        "age_ge_20": 0,
+        "note": "no segment reaches 20 bars"
+      }
+    ],
+    "reading": {
+      "bo_up": "cheap — L34 anchor present on 97-98% of bounded bars",
+      "bx_up": "EXPENSIVE — L43 anchor covers only 22-54% of bounded bars",
+      "be_up": "inherits the L43 cost through BE_UP_BX"
+    }
+  },
+  "PER_COLUMN_CONTRACT": {
+    "vol_bucket": {
+      "class": "BOUNDED",
+      "depth": 20
+    },
+    "l34": {
+      "class": "BOUNDED",
+      "depth": 20
+    },
+    "l22": {
+      "class": "BOUNDED",
+      "depth": 20
+    },
+    "l43": {
+      "class": "BOUNDED",
+      "depth": 20
+    },
+    "l_sig": {
+      "class": "EFFECTIVELY_BOUNDED",
+      "depth": 20,
+      "caveat": "fallback path would be unbounded"
+    },
+    "bo_up": {
+      "class": "ANCHORED_UNBOUNDED",
+      "anchor": "first L34 in segment",
+      "depth": 20
+    },
+    "bx_up": {
+      "class": "ANCHORED_UNBOUNDED",
+      "anchor": "first L43 in segment",
+      "depth": 20
+    },
+    "be_up": {
+      "class": "ANCHORED_UNBOUNDED",
+      "anchor": "first (L34|L22) AND first L43",
+      "depth": 20
+    }
+  },
+  "EXPANDED_REASON_CODES": [
+    "AVAILABLE_VALID",
+    "INITIALIZATION_SENSITIVE_HEAD",
+    "INITIALIZATION_SENSITIVE_POST_GAP",
+    "UNAVAILABLE_CURRENT",
+    "UNAVAILABLE_REQUIRED_HISTORY",
+    "UNAVAILABLE_DEPENDENCY"
+  ],
+  "not_done": [
+    "C2 CISD state contract not yet derived",
+    "no negative fixtures run",
+    "no production"
+  ]
+}

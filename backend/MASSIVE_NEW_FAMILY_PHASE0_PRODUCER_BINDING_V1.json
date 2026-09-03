@@ -1,0 +1,98 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PHASE0_PRODUCER_BINDING_V1",
+  "status": "FROZEN",
+  "purpose": "bind producer authority for the 39 columns missing from the durable surface, BEFORE any row is written",
+  "rows_written": 0,
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "GROUP_T12_Z13": {
+    "producer": "signal_engine.compute_signals",
+    "status": "BOUND",
+    "evidence": "proven earlier this session; SIG_NAMES 0..25 with _ZC_TO_SID remap; bulk_export.py:208-209 confirms T and Z share ONE producer",
+    "resolution": "one-hot resolved from sig id",
+    "depth": "2 bars (prev-bar comparisons)"
+  },
+  "GROUP_G4": {
+    "producer": "signal_engine.compute_g_signals",
+    "status": "BOUND",
+    "contract": "OUTPUT uses INCOMING state; any_g also determines state; non-firing bars trivially valid",
+    "note": "corrected contract already frozen earlier this session"
+  },
+  "GROUP_SUFFIX4": {
+    "columns": [
+      "ne_suffix",
+      "wick_suffix",
+      "close_suffix",
+      "full_suffix"
+    ],
+    "status": "BOUND_BY_DISCRIMINATION",
+    "authority": "studio/enricher.py::_compute_suffixes",
+    "competing_candidate_rejected": "analyzers/tz_wlnbb/signal_logic.py",
+    "discriminating_evidence": [
+      "enricher._compute_suffixes STORES all six: ne/wick/penetration/close/full/composite_full",
+      "signal_logic.py defines NO standalone full_suffix (only composite_full_suffix at L479)",
+      "studio/db.py::_ENRICHMENT_VARCHAR_COLS carries all four target columns -> enricher is the DB write path"
+    ],
+    "role_of_rejected_candidate": "export / analyzer path, not the DB producer",
+    "error_class_avoided": "WRONG_INPUT_SURFACE_ASSUMED_FROM_COLOCATION (the l_signal_label class)"
+  },
+  "GROUP_VOL3": {
+    "columns": [
+      "sig_vol_5x",
+      "sig_vol_10x",
+      "sig_vol_20x"
+    ],
+    "status": "BOUND",
+    "authority": "main.py:5477-5479",
+    "definition": "int(vol_ratio >= 5 / 10 / 20)",
+    "vol_ratio": "main.py:4688  volume / volume.shift(1)  -- CURRENT BAR vs PREVIOUS BAR",
+    "CRITICAL_DISCRIMINATION": {
+      "finding": "vol_ratio is NOT the same series as sig_va's _vr",
+      "sig_va_denominator": "main.py:4681  _avg20 = volume.rolling(20).mean()",
+      "vol_x_denominator": "main.py:4687  vol_prev = volume.shift(1)",
+      "consequence": "different availability contracts: sig_va depth 21, sig_vol_* depth 2",
+      "risk_if_assumed": "the two definitions sit 6 lines apart in one export block; assuming a shared denominator would have produced silently wrong values AND a wrong depth floor"
+    },
+    "negative_search_discipline": {
+      "initial_reading": "'only consumers found — producer not located'",
+      "status_of_that_reading": "PREMATURE NEGATIVE, retracted",
+      "enumerated_universe": {
+        "python_files": 964,
+        "json_files": 891,
+        "pine_files": 19
+      },
+      "occurrences_found": 176,
+      "producer_located_at": "main.py:5477-5479",
+      "lesson": "NEGATIVE_SEARCH_WITHOUT_ENUMERATION would have wrongly blocked 3 columns"
+    }
+  },
+  "GROUP_VBO_UP": {
+    "status": "BOUND",
+    "authority": "vabs_engine.py::compute_vabs, key 'vbo_up' (L208/L227)",
+    "candidate_rejected": "wlnbb_engine — its returned frame carries BO_UP/BX_UP/BE_UP but NOT VBO_UP (AST-enumerated 39 keys at L187)",
+    "definition": "stateful breakout: on any_vol trigger latch cur_h/cur_l/cur_bar; while since<=_BREAK_BARS, fire when close[i-1]<=cur_h and close[i]>cur_h; else reset",
+    "STATE_CLASS": "BOUNDED_STATE",
+    "state_bound": "_BREAK_BARS = 10 bars (explicit reset)",
+    "why_this_matters": "bounded state, UNLIKE ffill_when's unbounded carrier — recovery after a gap is guaranteed within 10 observed bars",
+    "trigger": "any_vol = abs_sig | climb_sig | load_sig (vabs_engine L171)"
+  },
+  "GROUP_TZ_FLIP": {
+    "status": "BOUND",
+    "authority": "main.py:5486 -> tz_bull_flip (main.py:4961-4962)",
+    "definition": "tz_bull_flip = (tz_state_ser[i] == 3) and (tz_state_prev[i] != 3)",
+    "SEMANTICS": "TRANSITION, not a level — requires the PREVIOUS bar's state to be identifiable",
+    "upstream": "combo_engine.py:226 compute_tz_state -> calls signal_engine.compute_signals; rolling windows {3,7,10}, max 10",
+    "corroboration": "studio/ultra_db_scan.py:645 and :1392 both map sig_tz_flip -> tz_bull_flip",
+    "availability_consequence": "depth must cover max rolling window 10 PLUS the prior-bar requirement; a gap immediately before the bar makes the transition unidentifiable even when the current bar is observed"
+  },
+  "GROUP_BODY_WICK": {
+    "status": "BOUND",
+    "authority": "studio/enricher.py:121 _compute_body_wick"
+  },
+  "REMAINING_BEFORE_PRODUCTION": [
+    "freeze per-group availability depth floors",
+    "confirm tz_state depth floor against its rolling-10 + prior-bar transition requirement",
+    "confirm vabs any_vol component depths (_MA_PERIOD basis) for the vbo_up trigger"
+  ],
+  "PRODUCTION_NOT_STARTED": true
+}

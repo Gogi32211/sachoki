@@ -1,0 +1,109 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGEA_BUILDER_DISCOVERY_V1",
+  "status": "FROZEN_BEFORE_SEARCH",
+  "SEARCH_PERFORMED": 0,
+  "SEARCH_TARGET": "the historical producer/builder capable of creating stageA_input.duckdb, or a semantically equivalent stage-A bars surface",
+  "EXPECTED_OUTPUT_SEMANTICS": [
+    "security_key_v1 / k",
+    "session_date",
+    "bar_start",
+    "interval_index",
+    "coverage_state",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume"
+  ],
+  "SEARCH_UNIVERSE": [
+    "1. backend/ — all tracked and untracked readable source/config/script files",
+    "2. backend/massive_new_family_runtime/ — all preserved producer .py + manifests",
+    "3. all MASSIVE_1M_* / MASSIVE_15M_* sealed JSON artifacts, including superseded/dead-path metadata where readable",
+    "4. repository history if locally available — filenames, deleted/renamed paths, commit contents relevant to stageA / ingest / aggregate / coverage",
+    "5. /Users/sachoki/MASSIVE_DATA/manifests/",
+    "6. surviving scratchpad metadata — RECOVERY EVIDENCE ONLY, never authority"
+  ],
+  "SEARCH_TERMS": {
+    "literal_schema": [
+      "stageA_input",
+      "stageA",
+      "coverage_state",
+      "interval_index",
+      "bar_start",
+      "session_date"
+    ],
+    "producer_vocabulary": [
+      "CREATE TABLE",
+      "CREATE OR REPLACE TABLE",
+      "COPY",
+      "duckdb",
+      "OHLCV",
+      "Massive",
+      "1m",
+      "15m",
+      "aggregate",
+      "resample",
+      "coverage",
+      "complete",
+      "partial",
+      "missing"
+    ],
+    "magnitude_fingerprints": [
+      "15445454",
+      "15,445,454",
+      "596251",
+      "1254",
+      "476"
+    ]
+  },
+  "SCHEMA_SIGNATURE_SEARCH": {
+    "rule": "the builder may not be NAMED stageA. A CONJUNCTION of coverage_state + interval_index + bar_start co-occurring in one file is stronger evidence than any filename match.",
+    "required": true
+  },
+  "COMMAND_STATUS_DISCIPLINE": {
+    "rule": "every search command's exit status is verified",
+    "grep_semantics": "exit 0 = matches, exit 1 = NO MATCHES (valid negative), exit >=2 = ERROR",
+    "FORBIDDEN": "interpreting a FAILED command as '0 matches'",
+    "inherits_error_class": "TOOLING_FAILURE_READ_AS_EVIDENCE"
+  },
+  "REQUIRED_SEAL_CONTENT": [
+    "ENUMERATION: directories/files considered, readable, skipped, permission failures, parse/read failures",
+    "COMMAND STATUS: every command's exit status",
+    "RESULTS: candidates found / inspected / unresolved (must be 0)",
+    "SCHEMA INSPECTION: all plausible candidates OPENED and inspected, not merely grep-counted"
+  ],
+  "ADMISSIBLE_VERDICTS": [
+    "BUILDER_FOUND",
+    "BUILDER_NOT_FOUND_IN_ENUMERATED_UNIVERSE",
+    "SEARCH_INCOMPLETE — NEGATIVE CLAIM NOT AUTHORIZED"
+  ],
+  "INCOMPLETENESS_RULE": "if ANY enumerated directory is inaccessible or ANY candidate is left uninspected, the verdict is SEARCH_INCOMPLETE. A negative claim is NOT authorized.",
+  "IF_FOUND": {
+    "not_automatically_authority": true,
+    "required": "historical replay of a sample must reproduce the existing table EXACTLY: interval_index, session_date, bar_start, OHLCV, coverage_state",
+    "boundary_fixtures": [
+      "normal full session",
+      "early close",
+      "missing interior 1m bar",
+      "missing opening minute",
+      "missing final minute",
+      "partial 15m interval",
+      "ticker rename with the same security_key"
+    ],
+    "then": "A1 = forward INSTANTIATION of the historical producer, not reconstruction"
+  },
+  "IF_NOT_FOUND": {
+    "next_artifact": "MASSIVE_NEW_FAMILY_FORWARDA1_STAGEA_CONTRACT_V1",
+    "provenance": [
+      "HISTORICAL_PRODUCER_UNAVAILABLE",
+      "CONTRACT_RECOVERED_FROM_SEALED_HISTORICAL_OUTPUT",
+      "NOT SOURCE-CODE-IDENTICAL"
+    ],
+    "coverage_state": "a dictionary of observed values is NOT sufficient. The INPUT PATTERN that produces each state must be DEMONSTRATED from the existing table — e.g. 14 of 15 minutes present may NOT be assumed to be PARTIAL.",
+    "interval_index": "must be recovered with SESSION-RELATIVE semantics, not assumed clock arithmetic; early close and DST/session-calendar boundaries get their own fixtures",
+    "PERMITTED_CLAIM": "SEMANTICALLY RECONSTRUCTED AND QUALIFIED",
+    "FORBIDDEN_CLAIM": "SAME ORIGINAL PRODUCER"
+  },
+  "A1_STATUS": "BLOCKED until (BUILDER_FOUND_AND_QUALIFIED) OR (NEGATIVE_SEARCH_WITH_ENUMERATION complete + reconstructed StageA contract frozen + boundary/equivalence qualification PASS)",
+  "SCOPE": "engineering recovery only — touches no part of the frozen forward design"
+}

@@ -1,0 +1,226 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V2",
+  "status": "EXECUTION_ACCEPTED_RESULTS_SEALED_UNREAD",
+  "Y_EXPOSED": 1,
+  "SUPERSEDES": {
+    "artifact": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V1",
+    "digest": "78afe3898e08f72e",
+    "its_status": "EXECUTION_COMPLETE_BUT_PRIMARY_NULL_SCOPE_VIOLATION",
+    "results": "SEALED_UNREAD",
+    "inferential_use": "FORBIDDEN",
+    "retained": "as defect provenance — NOT deleted",
+    "reclassification_artifact": "91c133d6aec33a28"
+  },
+  "CORRECTIVE_AUTHORITIES": {
+    "permutation_scope": "a11752cb3f51262d (PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_3)",
+    "CI_date_cluster_universe": "bdbf70207dcfa877 (INFERENTIAL_PRESPEC_V1_AMENDMENT_3)"
+  },
+  "EXPOSURE_PROVENANCE": {
+    "FIRST_REAL_Y_ACCESS": "2026-08-30T12:09:13+0400",
+    "irreversible": true,
+    "PRE_Y_LINEAGE_AUDIT": "5e5f31feca09628b",
+    "DRAW_MANIFEST": "8749cd55f4ce4be1",
+    "CI_MANIFEST": "39a0a475003ac36d"
+  },
+  "BOUND_AUTHORITIES": {
+    "X_CLOSURE": "228c9ceae10bd0cc",
+    "REGISTRY": "6900f9d3cf6f13e5",
+    "k": 20751,
+    "MULTIPLICITY": "a9852e1e4a9495c3",
+    "INFERENTIAL_PRESPEC": "8f112d7e760953b5 + 5e6a3788f06c4dc4 + b082eae1574f0223 + bdbf70207dcfa877",
+    "NULL": "7b52b9df13764228 + 48bf72d9bbe00000 + a11752cb3f51262d",
+    "SYNTHETIC_REQUALIFICATION": "1568b798a0a8aed5 + b546c50b6bb0394b",
+    "EXECUTION_STACK": "6ef4ad29672a4a41"
+  },
+  "EXECUTION_COMPLETENESS": {
+    "SCALE": "200 / 200  failed 0   1,495.7 s   481.4 draws/h",
+    "NULL": "1800 / 1800  failed 0  14,946.5 s   433.5 draws/h",
+    "CI": "2000 / 2000  failed 0   4,942.3 s  1,456.8 draws/h",
+    "total_wall_h": 6.0,
+    "workers": 8,
+    "crash_restarts": 0,
+    "c_s_freeze": "machine-enforced assert 200/200 before NULL launched"
+  },
+  "SCOPE_CONFORMANCE": {
+    "PRIMARY_INFERENCE_SCOPE_GATE": "11 / 11 PASS",
+    "DEV_END": "2026-08-06",
+    "assertions": [
+      {
+        "n": "  target dates > DEV_END",
+        "pass": true
+      },
+      {
+        "n": "  source dates > DEV_END",
+        "pass": true
+      },
+      {
+        "n": "  target dates > DEV_END",
+        "pass": true
+      },
+      {
+        "n": "  payload source > DEV_END",
+        "pass": true
+      },
+      {
+        "n": "  target dates > DEV_END",
+        "pass": true
+      },
+      {
+        "n": "  payload source > DEV_END",
+        "pass": true
+      },
+      {
+        "n": "  base-row dates > DEV_END",
+        "pass": true
+      },
+      {
+        "n": "  resampling-universe dates > DEV_END",
+        "pass": true
+      },
+      {
+        "n": "  date-cluster universe count = 1,242",
+        "pass": true
+      },
+      {
+        "n": "  DEV -> HOLDOUT mappings",
+        "pass": true
+      },
+      {
+        "n": "  HOLDOUT -> DEV mappings",
+        "pass": true
+      }
+    ],
+    "note": "counted as 11 (2 observed + 2 SCALE + 2 NULL + 3 CI + 2 MAP); an earlier report said 9"
+  },
+  "FROZEN_STATUS_COUNTS": {
+    "registered_k": 20751,
+    "stable": 20751,
+    "PERMUTATION_SUPPORT_UNSTABLE": 0,
+    "DEGENERATE_NULL_SCALE": 0,
+    "defined_scale_200of200": 20751,
+    "CI_STABILITY_GATE_pass": 20751,
+    "BOOTSTRAP_SUPPORT_UNSTABLE": 0,
+    "B_NULL": 1800,
+    "min_possible_p_adj": "1/1801",
+    "B_CI": 2000,
+    "quantile_method": "linear / Hyndman-Fan Type 7 (explicit, not library default)"
+  },
+  "NEW_DIGESTS": {
+    "c_s": "b199d2989f6e93bb",
+    "T_obs": "8607eeeb95e2f45b",
+    "M_b": "51675067089f6659",
+    "p_adj": "226f0200b6e0f400",
+    "CI_lo": "b8d2eb1efa86d524",
+    "CI_hi": "6cff85b990c1c4ff",
+    "source_Y": "5cb91cfb037905bb",
+    "source_AV": "d50fd9e5c3c203f4"
+  },
+  "SUPERSEDED_DIGESTS_NOT_USED": {
+    "c_s": "0f51fb054f4565e0",
+    "M_b": "e6bb90e2993a1068",
+    "p_adj": "d2f697f3e50eca94",
+    "CI_lo": "d299bee0bb736028",
+    "CI_hi": "5cc8502ea5543078",
+    "evidence_the_correction_mattered": "every digest changed; the scope leak was not nominal"
+  },
+  "OUTCOME_BUILD": {
+    "per_position_pair": {
+      "M1->M2": {
+        "VALID": 194500,
+        "PATH_UNAVAILABLE": 49008,
+        "ATR_PRIOR_UNAVAILABLE": 352743,
+        "NO_ENTRY_BAR": 0
+      },
+      "M2->M3": {
+        "VALID": 194746,
+        "PATH_UNAVAILABLE": 48762,
+        "ATR_PRIOR_UNAVAILABLE": 352743,
+        "NO_ENTRY_BAR": 0
+      },
+      "M3->M4": {
+        "VALID": 195116,
+        "PATH_UNAVAILABLE": 48392,
+        "ATR_PRIOR_UNAVAILABLE": 352743,
+        "NO_ENTRY_BAR": 0
+      }
+    },
+    "reconciliation": {
+      "M1->M2": "194,500 + 49,008 + 352,743 + 0 = 596,251",
+      "M2->M3": "194,746 + 48,762 + 352,743 + 0 = 596,251",
+      "M3->M4": "195,116 + 48,392 + 352,743 + 0 = 596,251"
+    },
+    "ATR_PRIOR_FINDING": {
+      "OBSERVED": "ATR_PRIOR_UNAVAILABLE = 352,743 per position pair (59.2%)",
+      "MECHANICAL_DRIVER": "14 consecutive COMPLETE 15m bars ending at the previous session's own final regular bar",
+      "decomposition": {
+        "session_final_bar_COMPLETE": "97.1% (loss 2.9 pp)",
+        "AND_age_ge_14": "41.7% (loss 55.4 pp)"
+      },
+      "NOT_A_DEFECT": true,
+      "NOT_A_REASON_TO_RELAX_ATR_AGE": true,
+      "NOT_A_REASON_TO_REBUILD_Y": true
+    }
+  },
+  "DENOMINATOR_PROVENANCE": {
+    "rule": "PRE-Y X SUPPORT = registry eligibility provenance; REAL-Y AVAILABLE COUNTS = the ACTUAL inferential denominator. Both retained; neither replaces the other.",
+    "pre_y_positive": {
+      "pos_min": 100,
+      "pos_med": 816,
+      "pos_max": 192305
+    },
+    "real_y": {
+      "pos_min": 15,
+      "pos_med": 579,
+      "pos_max": 106470,
+      "ev_min": 20526,
+      "ev_med": 185453,
+      "ev_max": 192080
+    },
+    "median_ratio": 0.7813965607087024,
+    "claims_below_pre_Y_floor_of_100": {
+      "100": 1681,
+      "50": 197,
+      "30": 18,
+      "15": 0
+    },
+    "explicitly": "does NOT retro-apply the floor, does NOT change k, does NOT alter membership"
+  },
+  "HISTORICAL_HOLDOUT_STATUS": {
+    "status": "CONTAMINATED_BY_INFERENTIAL_PIPELINE / NON-PRISTINE",
+    "reason": "5,950 DEV->HOLDOUT payload mappings entered the primary null machinery in the superseded run",
+    "not_because": "outcomes were used to select a hypothesis — they were not, and no result was read",
+    "consequence": "a future HOLDOUT success may NEVER be presented as independent confirmation",
+    "permitted_role": "post-exposure / contaminated historical diagnostic",
+    "TRUE_FORWARD": "the only clean primary confirmation authority"
+  },
+  "GOVERNANCE_FINDINGS_THIS_PHASE": [
+    {
+      "class": "STALE RESULT FILE READ AS CURRENT",
+      "what": "PROD_INFER.json / PROD_CI.json from the violating run survived the archive step; a status check reported 'aggregated: YES' while the corrected NULL was only 598/1800",
+      "fix": "quarantined to VIOLATION_*; every result file must be verified by mtime or digest against the run start",
+      "class_of": "MEASUREMENT/ARTEFACT FAILURE READ AS RESULT"
+    },
+    {
+      "class": "GUARD UNIVERSE STALE AFTER A SCOPE CHANGE",
+      "what": "guard_cyclic_structure tested (month AND FULL); under a scope-restricted map the universe is (month AND FULL AND in_scope)",
+      "fix": "guard_cyclic_structure_scoped added; the parent guard is RETAINED and remains valid for an unscoped map"
+    },
+    {
+      "class": "EXPECTED vs REALIZED CONFLATED",
+      "what": "an out-of-scope bootstrap mass of 1.033% was reported without labelling it",
+      "corrected": {
+        "theoretical_expected": "0.9569%",
+        "empirical_20_draws": "1.0327%",
+        "empirical_2000_draws": "0.9705%"
+      }
+    }
+  ],
+  "RESULTS_NOT_READ": {
+    "statement": "theta, T_j, p_adj, M_b, CI bounds, rankings and winners have NOT been inspected",
+    "sealed_in": [
+      "PROD_INFER.npz",
+      "PROD_CI.npz"
+    ],
+    "gate": "scientific interpretation begins only on acceptance of this artifact"
+  }
+}

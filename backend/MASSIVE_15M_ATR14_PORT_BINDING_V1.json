@@ -1,0 +1,65 @@
+{
+  "artifact": "MASSIVE_15M_ATR14_PORT_BINDING_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": "e3f26a677f4a0543",
+  "CANONICAL_FORMULA": {
+    "TR": "TR_t = max(H_t - L_t, abs(H_t - C_{t-1}), abs(L_t - C_{t-1}))",
+    "ATR": "ATR14_t = EWM(TR, alpha=1/14, adjust=False)",
+    "naming_note": "written as EWM(alpha=1/14, adjust=False) and NOT as \"RMA(1/14)\" — Pine ta.rma() seed semantics are not asserted to be equivalent and were not proven so"
+  },
+  "HISTORICAL_NUMERIC_SEMANTICS": {
+    "input": "the enriched store OWN stored OHLC",
+    "full_store": {
+      "series": 3203,
+      "compared_rows": 91027821,
+      "mismatches": 27433
+    },
+    "decomposition": {
+      "2022 series-head convergence": 310,
+      "of those at bar index < 300": 300,
+      "2026 incremental regime": 27123
+    },
+    "tickers_affected": 131,
+    "note": "identical two-cause structure to rsi_14 (ff41fc4d06619667), and the same 131 tickers"
+  },
+  "CRITICAL_FINDING_PROPOSED_TRANSFORM_DOES_NOT_REPRODUCE_HISTORY": {
+    "proposed": "Massive full-precision 15m OHLC -> round to 2dp -> TR -> EWM(1/14)",
+    "test": "round(lean base, 2) -> ATR, compared to stored atr_14 on AAPL",
+    "result": "33,508 mismatches out of 33,508 rows — every single row",
+    "cause": "round(base,2) != enriched OHLC on 7.77% of cells. The differences are exactly half-cent ties (x.xx5) resolved in BOTH directions: base 139.585 -> pandas 139.58 but enriched 139.59; base 141.815 -> pandas 141.82 but enriched 141.81. Max |diff| is exactly 0.010000.",
+    "amplification": "ATR is recursive, so a 7.77% input tie difference propagates and makes 100% of downstream ATR values differ",
+    "CONSEQUENCE": "the Massive ATR port must be declared a NEW DETERMINISTIC DEFINITION, not a reproduction of the historical column. Stating \"round to 2dp reproduces history\" would be false.",
+    "unresolved": "the exact historical tie-rounding convention was not identified"
+  },
+  "MASSIVE_AVAILABILITY_SEMANTICS": {
+    "separated_from_numeric_semantics": true,
+    "emit_rule": "ATR emitted only on COMPLETE bars",
+    "contaminated_gap": "if chronological ATR state would cross an UNOBSERVED_CONTAMINATED interval, the state is INVALIDATED, restarted on the first subsequent COMPLETE bar, and marked initialization-sensitive until the registered warmup rule is met",
+    "rationale": "continuing previous-close/TR state across an unobserved path would encode information about that unobserved path",
+    "status": "DECLARED, NOT YET IMPLEMENTED"
+  },
+  "NEGATIVE_FIXTURES": {
+    "canonical enriched-2dp input reproduces stored (AAPL)": "PASS — 0 of 33,508",
+    "N: full-precision unrounded lean base": "REJECTED — 33,508",
+    "N: round(lean base,2) then ATR": "REJECTED — 33,508 (see critical finding)",
+    "N: SMA-seeded Wilder RMA variant": "REJECTED — 268",
+    "N: session-reset ATR": "REJECTED — 33,482",
+    "N: carry state across contaminated gap": "DECLARED forbidden (not testable here — Massive availability layer)",
+    "N: round before 15m aggregation": "DECLARED forbidden (not testable here — no 1m surface in this gate)"
+  },
+  "DETERMINISM_SMOKE": "two identical runs produce bitwise identical output — PASS",
+  "FAILURE_CLASS_CHECK": {
+    "test": "full-history vs head-truncated (last 2000 bars) on the same final 2000 bars",
+    "result": "275 of 2000 cells differ, max |diff| 0.686",
+    "reading": "ATR is genuinely initialization-sensitive. The production implementation MUST run full per-ticker history and must not repeat the incremental-slice failure class that damaged rsi_14, CISD, WLNBB and P/D."
+  },
+  "VERDICT": "BINDING_DECLARED_WITH_UNRESOLVED_TIE_CONVENTION",
+  "not_a_pass": "this is NOT a clean PASS: the historical tie-rounding convention is unidentified, so a Massive port cannot claim historical numeric equivalence",
+  "not_done": [
+    "historical tie-rounding convention not identified",
+    "availability semantics declared but not implemented",
+    "no Massive-side production run"
+  ]
+}

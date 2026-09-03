@@ -1,0 +1,193 @@
+{
+  "artifact": "MASSIVE_T1_15M_TOKEN_PORT_FEASIBILITY_V1",
+  "writes": 0,
+  "token_production": 0,
+  "Y_EXPOSED": 0,
+  "Z_outputs": 0,
+  "authorities": {
+    "E1": "64e7b35df4ee3d1c",
+    "E2a": "ec6c37f45c643ccd",
+    "E2c": "8ece0037935e2ab4"
+  },
+  "mechanical_assertions": {
+    "k": 35587,
+    "tokens": 143,
+    "columns": 84,
+    "tokens_eq_144": false,
+    "columns_eq_84": true,
+    "manual_pruning": false
+  },
+  "matrix": [
+    {
+      "status": "INPUT_AUTHORITY_UNRESOLVED",
+      "columns": 28,
+      "tokens": 28,
+      "final_claims_affected": 9552
+    },
+    {
+      "status": "NEW_X_DERIVATION_REQUIRED",
+      "columns": 19,
+      "tokens": 50,
+      "final_claims_affected": 24037
+    },
+    {
+      "status": "DEPENDS_ON_Z_LAYER",
+      "columns": 13,
+      "tokens": 13,
+      "final_claims_affected": 4534
+    },
+    {
+      "status": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+      "columns": 12,
+      "tokens": 12,
+      "final_claims_affected": 4072
+    },
+    {
+      "status": "PORTABLE_FROM_RAW_MASSIVE_15M_OHLCV",
+      "columns": 7,
+      "tokens": 29,
+      "final_claims_affected": 14493
+    },
+    {
+      "status": "DEPENDS_ON_L_LAYER",
+      "columns": 4,
+      "tokens": 10,
+      "final_claims_affected": 5360
+    },
+    {
+      "status": "DEFINITION_UNRESOLVED",
+      "columns": 1,
+      "tokens": 1,
+      "final_claims_affected": 528
+    }
+  ],
+  "column_status": {
+    "sig_t1": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t2": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t3": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t4": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t5": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t6": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t9": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t10": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t11": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t12": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t1g": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_t2g": "PORTABLE_FROM_EXISTING_QUALIFIED_X",
+    "sig_z1": "DEPENDS_ON_Z_LAYER",
+    "sig_z2": "DEPENDS_ON_Z_LAYER",
+    "sig_z3": "DEPENDS_ON_Z_LAYER",
+    "sig_z4": "DEPENDS_ON_Z_LAYER",
+    "sig_z5": "DEPENDS_ON_Z_LAYER",
+    "sig_z6": "DEPENDS_ON_Z_LAYER",
+    "sig_z7": "DEPENDS_ON_Z_LAYER",
+    "sig_z9": "DEPENDS_ON_Z_LAYER",
+    "sig_z10": "DEPENDS_ON_Z_LAYER",
+    "sig_z11": "DEPENDS_ON_Z_LAYER",
+    "sig_z12": "DEPENDS_ON_Z_LAYER",
+    "sig_z1g": "DEPENDS_ON_Z_LAYER",
+    "sig_z2g": "DEPENDS_ON_Z_LAYER",
+    "l_sig": "DEPENDS_ON_L_LAYER",
+    "l22": "DEPENDS_ON_L_LAYER",
+    "l34": "DEPENDS_ON_L_LAYER",
+    "l43": "DEPENDS_ON_L_LAYER",
+    "rsi_14": "PORTABLE_FROM_RAW_MASSIVE_15M_OHLCV",
+    "bar_body_wick": "PORTABLE_FROM_RAW_MASSIVE_15M_OHLCV",
+    "bar_gap_range": "PORTABLE_FROM_RAW_MASSIVE_15M_OHLCV",
+    "vol_bucket": "PORTABLE_FROM_RAW_MASSIVE_15M_OHLCV",
+    "sig_vol_5x": "PORTABLE_FROM_RAW_MASSIVE_15M_OHLCV",
+    "sig_vol_10x": "PORTABLE_FROM_RAW_MASSIVE_15M_OHLCV",
+    "sig_vol_20x": "PORTABLE_FROM_RAW_MASSIVE_15M_OHLCV",
+    "phys_ad": "NEW_X_DERIVATION_REQUIRED",
+    "phys_c": "NEW_X_DERIVATION_REQUIRED",
+    "phys_e": "NEW_X_DERIVATION_REQUIRED",
+    "phys_gap_true": "NEW_X_DERIVATION_REQUIRED",
+    "phys_h": "NEW_X_DERIVATION_REQUIRED",
+    "phys_k": "NEW_X_DERIVATION_REQUIRED",
+    "phys_m": "NEW_X_DERIVATION_REQUIRED",
+    "phys_r": "NEW_X_DERIVATION_REQUIRED",
+    "phys_regime": "NEW_X_DERIVATION_REQUIRED",
+    "phys_s": "NEW_X_DERIVATION_REQUIRED",
+    "phys_wyc": "NEW_X_DERIVATION_REQUIRED",
+    "bar_line5": "NEW_X_DERIVATION_REQUIRED",
+    "wyc_phase": "NEW_X_DERIVATION_REQUIRED",
+    "ad_cluster": "NEW_X_DERIVATION_REQUIRED",
+    "ad_fresh": "NEW_X_DERIVATION_REQUIRED",
+    "full_suffix": "NEW_X_DERIVATION_REQUIRED",
+    "close_suffix": "NEW_X_DERIVATION_REQUIRED",
+    "ne_suffix": "NEW_X_DERIVATION_REQUIRED",
+    "wick_suffix": "NEW_X_DERIVATION_REQUIRED",
+    "sig_tz_flip": "DEFINITION_UNRESOLVED",
+    "be_up": "INPUT_AUTHORITY_UNRESOLVED",
+    "bo_up": "INPUT_AUTHORITY_UNRESOLVED",
+    "bx_up": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_3g": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_buy": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_cisd_cplus": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_cisd_cplus_minus": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_cisd_minus_struct": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_cisd_mpm": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_d2": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_d3": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_d50": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_d55": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_d66": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_d89": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_g1": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_g11": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_g2": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_g4": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_p2": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_p3": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_p50": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_p55": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_p66": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_p89": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_svs": "INPUT_AUTHORITY_UNRESOLVED",
+    "sig_va": "INPUT_AUTHORITY_UNRESOLVED",
+    "vbo_up": "INPUT_AUTHORITY_UNRESOLVED"
+  },
+  "provenance_findings": [
+    "sig_z* = one-hot of z_sig (studio/importer.py:373-375); z_sig is INGESTED from the api_bar_signals export, NOT computed by signal_engine.py::compute_signals (zero z_sig references in that file)",
+    "l_sig = copy of l_chart (studio/importer.py:298-299) — ingested chart-format field, no backend OHLCV producer",
+    "studio/enricher.py READS l_sig/t_sig/z_sig from the DB (lines 1142,1200); it never computes them",
+    "bar_physics.py handles ta.pivothigh(3,3) causally: pivot centred at i-lr becomes visible at confirmation bar i (line ~100); ATR is READ from stored atr_14, which E1 ported exactly",
+    "bar_line5 = Williams VIX-Fix / PSAR / RSI2 (signal_extraction.compute_line5) — derived from the stock own OHLCV, NOT the external VIX index"
+  ],
+  "future_leakage": {
+    "verdict": "NO_FATAL_Y_LEAKAGE_FOUND",
+    "forward_columns_in_enricher": [
+      "fwd_swing_ret_*",
+      "fwd_swing_bars_*"
+    ],
+    "any_of_those_in_the_84": false,
+    "physics_pivot_causality": "EXPLICITLY_HANDLED_NOT_ASSUMED"
+  },
+  "verification_feasibility": {
+    "true_input_preserved": "studio_15m_base.duckdb (OHLCV) preserved",
+    "materialized_output_preserved": "data/studio_15m.duckdb 418 cols",
+    "z_and_l_same_input_exact_verification": "NO — producer is the ingested chart layer, not a portable function",
+    "note": "NOT_VERIFIABLE_FROM_PRESERVED_INPUTS is not automatically PASS"
+  },
+  "negative_controls": {
+    "N1": "RESPECTED",
+    "N2": "RESPECTED",
+    "N3": "RESPECTED",
+    "N4": "RESPECTED",
+    "N5": "RESPECTED",
+    "N6": "RESPECTED",
+    "N7": "RESPECTED",
+    "N8": "RESPECTED",
+    "N9": "RESPECTED",
+    "N10": "RESPECTED"
+  },
+  "blockers": [
+    "PORT_BLOCKED_BY_UNQUALIFIED_Z",
+    "DEPENDS_ON_L_LAYER",
+    "INPUT_AUTHORITY_UNRESOLVED",
+    "DEFINITION_UNRESOLVED"
+  ],
+  "umbrella_decision": "PORT_BLOCKED_BY_UNQUALIFIED_Z",
+  "claims_blocked_by_Z_or_L": 9510,
+  "claims_fully_ready": 2967
+}

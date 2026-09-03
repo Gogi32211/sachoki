@@ -1,0 +1,268 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_EXACT_FAST_KERNEL_SPEC_V1",
+  "status": "FROZEN",
+  "GOAL": "the SAME frozen experiment, the SAME draws, the SAME statistic, the SAME outputs — only less wall-clock",
+  "FORBIDDEN": [
+    "approximation",
+    "rebinning",
+    "tolerance-based shortcut",
+    "any change to inferential semantics"
+  ],
+  "REAL_Y_ACCESS": "FORBIDDEN DURING QUALIFICATION",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "AUTHORITIES": {
+    "SEMANTIC": "the reference synthetic-qualified implementation",
+    "NULL": "PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_1 7b52b9df13764228",
+    "WORDING": "AMENDMENT_2 48bf72d9bbe00000",
+    "SMOKE_REQUALIFICATION": "1568b798a0a8aed5",
+    "INFERENTIAL": "8f112d7e760953b5 + AMENDMENT_1 5e6a3788f06c4dc4",
+    "REGISTERED_k": 20751
+  },
+  "1_REFERENCE_IS_ORACLE": {
+    "REFERENCE_SEMANTICS": "IMMUTABLE",
+    "rule": "FAST != REFERENCE  ->  FAST FAIL",
+    "never": "change the reference merely to accommodate speed",
+    "float_order_differences": "do NOT invent a tolerance after seeing the result; a separate NUMERIC-CONTRACT AMENDMENT would be required first",
+    "initial_requirement": "BIT-IDENTICAL"
+  },
+  "2_RNG_FULLY_SEPARATED": {
+    "manifest_sealed_before_any_worker_starts": true,
+    "WORKER_RNG_CALLS": 0,
+    "permutation_phases": {
+      "SCALE": "draw_id 0001..0200",
+      "NULL": "draw_id 0001..1800"
+    },
+    "per_draw_record": [
+      "draw_id",
+      "phase",
+      "master_seed",
+      "substream",
+      "FULL_REGULAR: year_month -> cyclic_offset",
+      "EARLY_CLOSE: identity",
+      "canonical_map_digest"
+    ],
+    "CI": {
+      "draw_id": "0001..2000",
+      "records": [
+        "security bootstrap multiplicity vector",
+        "date bootstrap multiplicity vector",
+        "digest_security_weights",
+        "digest_date_weights"
+      ]
+    },
+    "invariant": "1 worker / 4 workers / 8 workers / different completion order / worker restart CANNOT change the experiment"
+  },
+  "3_PARALLELISM_ACROSS_DRAWS_ONLY": {
+    "no_intra_claim_parallelism_yet": true,
+    "SCALE": "200 independent draw jobs -> parallel -> collect ALL -> assemble by canonical draw_id -> compute c_j, s_j ONCE",
+    "NULL": "1800 independent jobs using the FROZEN c_j/s_j -> parallel",
+    "CI": "2000 independent bootstrap jobs -> parallel",
+    "HARD_ORDERING": "NULL cannot start before SCALE aggregation is sealed",
+    "rule": "worker completion order NEVER determines aggregation order"
+  },
+  "4_POOL_DEDUP": {
+    "POOL_ID": "(feature_A, feature_B, position_pair)",
+    "asserts": {
+      "eligible_claims": 20751,
+      "distinct_evaluable_pools": 5312
+    },
+    "rule": "a pool's mapped Y is prepared ONCE per draw and reused by every claim sharing that evaluable universe",
+    "GUARD": "POOL DEDUP MAY SHARE COMPUTATION — IT MAY NOT MERGE CLAIM IDENTITIES",
+    "k_unchanged": 20751
+  },
+  "5_EXACT_RANK_ARITHMETIC": {
+    "reference_statistic": "theta = median(Y_positive) - median(Y_evaluable_nonpositive)",
+    "fast_path": "arrange each pool's Y ONCE per draw in canonical sorted order (y, row_id); tie-break deterministically by row_id",
+    "note": "the internal order of equal Y values must not change the numerical median",
+    "method": "RANK-SELECT on the positive mask and on its complement",
+    "FORBIDDEN_PER_CLAIM": [
+      "Y_nonpositive = Y_pool[~mask]",
+      "np.partition(Y_nonpositive)"
+    ],
+    "MEDIAN_SEMANTICS": {
+      "odd_n": "central selected value",
+      "even_n": "the EXACT reference average of the two central selected values",
+      "forbidden": [
+        "rounding",
+        "any alternate midpoint formula"
+      ]
+    },
+    "REQUIRED_FIXTURES": [
+      "odd P",
+      "even P",
+      "odd non-P",
+      "even non-P",
+      "duplicate Y at the median",
+      "all median-adjacent Y equal",
+      "positive mask containing the first row",
+      "positive mask containing the last row",
+      "very sparse positive mask",
+      "dense positive mask"
+    ]
+  },
+  "6_REFERENCE_KERNEL_RETAINED": {
+    "REFERENCE_KERNEL": "slow, already qualified, SEMANTIC ORACLE",
+    "FAST_KERNEL": "pool dedup + rank-select + parallel draws, production candidate",
+    "after_qualification": "the reference code is RETAINED as a regression oracle, not deleted"
+  },
+  "7_FULL_50_DRAW_EQUIVALENCE": {
+    "setup": "identical synthetic payload and identical frozen map manifest, 20 SCALE + 30 NULL, 20,751 claims, BOTH kernels",
+    "EXACT": [
+      "defined mask",
+      "available count",
+      "positive count",
+      "non-positive count",
+      "degenerate status",
+      "final status"
+    ],
+    "BIT_IDENTICAL": [
+      "median_positive",
+      "median_nonpositive",
+      "theta",
+      "c_j",
+      "s_j",
+      "T_j^(b)",
+      "M_b",
+      "p_adj"
+    ],
+    "requirement": "mismatch count = 0",
+    "explicitly_not": "'close enough'"
+  },
+  "8_SHARED_UPSTREAM_LAYER": {
+    "architecture": [
+      "canonical draw-map engine",
+      "canonical participation / mapped-payload layer",
+      "REFERENCE statistic kernel OR FAST statistic kernel"
+    ],
+    "rule": "the fast kernel MUST NOT re-implement active_window, the time-local cyclic map, EARLY_CLOSE identity or availability atomicity in a second formula",
+    "both_kernels": "receive the SAME mapped pool arrays and masks wherever possible",
+    "rationale": "this dramatically reduces the defect surface"
+  },
+  "9_STABILITY_SEMANTICS_UNCHANGED": {
+    "production": "defined SCALE 200/200, defined NULL 1800/1800",
+    "qualification_smoke": "20/20 and 30/30",
+    "rule": "if FAST counts a claim defined and REFERENCE does not, or vice versa -> FAST FAIL",
+    "untouched": [
+      "PERMUTATION_SUPPORT_UNSTABLE",
+      "DEGENERATE_NULL_SCALE"
+    ]
+  },
+  "10_CI_FAST_KERNEL_SEPARATE": {
+    "not_automatically_qualified_by_the_permutation_kernel": true,
+    "reference": "w(s,d) = m_security(s) * m_date(d); theta* = weighted_median(Y|positive) - weighted_median(Y|evaluable non-positive)",
+    "fast_may": "reuse the sorted pool order, since bootstrap changes only the WEIGHTS, not Y",
+    "BOUNDARY_SEMANTICS_MUST_BE_PINNED_FIRST": [
+      "zero-weight rows",
+      "ties",
+      "exact 50% cumulative-weight boundary",
+      "empty effective group"
+    ],
+    "requirement": "pin the reference weighted-median primitive with a machine-readable fixture BEFORE optimising",
+    "qualification": {
+      "B_CI_SMOKE": 20,
+      "claims": 20751,
+      "REFERENCE == FAST": "required"
+    },
+    "negative_fixture_retained": "security-only weights -> guard failure"
+  },
+  "11_PROCESS_ARCHITECTURE": {
+    "platform_note": "macOS — use PROCESSES, not one large shared DuckDB write job",
+    "PARENT": [
+      "immutable arrays / mmap",
+      "sealed draw manifest"
+    ],
+    "WORKER": [
+      "receives draw ids",
+      "reads immutable data",
+      "writes ONE result shard per draw",
+      "NEVER writes a shared DB",
+      "NEVER calls RNG"
+    ],
+    "AGGREGATOR": [
+      "verifies draw digest",
+      "verifies every expected draw ID appears EXACTLY ONCE",
+      "assembles in canonical draw-id order"
+    ],
+    "acceptance": {
+      "missing_draw": 0,
+      "duplicate_draw": 0,
+      "unexpected_draw": 0,
+      "map_digest_mismatch": 0
+    },
+    "thread_pinning": "worker-level BLAS/OpenMP thread count = 1, to avoid 8 processes x hidden 8 threads oversubscription"
+  },
+  "12_CRASH_RESTART": {
+    "per_shard": [
+      "draw_id",
+      "input artifact digests",
+      "map digest",
+      "kernel version digest",
+      "row/claim count",
+      "terminal checksum",
+      "COMPLETED marker"
+    ],
+    "restart": {
+      "valid completed shard": "reuse",
+      "partial / missing / checksum-failed": "recompute the SAME immutable draw"
+    },
+    "NO_NEW_RNG": true,
+    "principle": "a crash is an EXECUTION event, never a STATISTICAL event"
+  },
+  "13_BENCHMARK_PRESPECIFIED": {
+    "protocol": "the same fixed 10 or 20 representative smoke draws",
+    "worker_counts": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "optionally_more_if_hardware_supports": true,
+    "measure": [
+      "wall sec/draw",
+      "aggregate draws/hour",
+      "peak RAM",
+      "swap usage",
+      "CPU utilisation",
+      "I/O wait"
+    ],
+    "production_choice": "highest tested throughput WITH zero swap thrash, zero correctness mismatch, stable memory",
+    "explicit": "if 8 workers are slower than 4, choose 4. This is a PERFORMANCE decision and does not touch the statistic.",
+    "forbidden": "choosing the worker count from one cherry-picked fastest run after seeing results"
+  },
+  "14_ARTIFACT_SPLIT": {
+    "this": "MASSIVE_NEW_FAMILY_EXACT_FAST_KERNEL_SPEC_V1 — frozen BEFORE implementation",
+    "then": "MASSIVE_NEW_FAMILY_EXACT_FAST_KERNEL_QUALIFICATION_V1 — 50/50 draw equivalence, 20,751/20,751 claims, 0 mismatches, CI smoke 20 draws 0 mismatches, negative fixtures fail-before-fix/pass-after-fix, deterministic replay PASS -> STATUS = EXACT_FAST_KERNEL_QUALIFIED",
+    "and": "MASSIVE_NEW_FAMILY_FAST_KERNEL_FEASIBILITY_V1 — throughput and chosen worker count, carrying NO evidentiary status"
+  },
+  "15_NO_REAL_Y_DURING_OPTIMISATION": {
+    "permitted_inputs": [
+      "fabricated Y",
+      "synthetic Y",
+      "frozen X"
+    ],
+    "forbidden": "any real OHLC outcome",
+    "why": "if the optimised kernel's correctness were first learned on real Y, the implementation choice would be made AFTER outcome exposure — already too late"
+  },
+  "CORRECTNESS_SIGNAL_GUARD": {
+    "rule": "the time-local smoke's p_adj_min 0.323 vs the superseded global 0.677 MUST NOT be used as a correctness signal for the fast kernel",
+    "authority_for_correctness": "exact per-draw / per-claim equality",
+    "not_authority": "resemblance of a final summary statistic"
+  },
+  "GATE": {
+    "SYNTHETIC_PIPELINE": "REQUALIFIED",
+    "REAL_Y": "CLOSED",
+    "sequence": [
+      "freeze this spec",
+      "implement candidate",
+      "50-draw reference equivalence",
+      "CI-smoke equivalence",
+      "negative fixtures",
+      "deterministic replay",
+      "multicore benchmark",
+      "seal EXACT_FAST_KERNEL_QUALIFIED",
+      "THEN first real Y"
+    ]
+  },
+  "ONLY_ADMISSIBLE_SUCCESS": "the same answer, faster"
+}

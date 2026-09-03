@@ -1,0 +1,79 @@
+{
+  "spec_id": "MASSIVE_1M_P1B_AMENDMENT_V1",
+  "status": "FROZEN BEFORE QUERY",
+  "written_after_exposure": {
+    "declaration": "THIS AMENDMENT WAS WRITTEN AFTER P1-P9 EXPOSURE",
+    "why_admissible": "P1's AAPL 2020 sessions return HTTP 403 and lie outside the plan's five-year entitlement window. The fixture is impossible, not inconvenient — a source-capability limit discovered by the probe, not an outcome being escaped.",
+    "what_is_not_changed": "P1 remains UNRESOLVED in MASSIVE_1M_PROBE_EXECUTION_STAGE_B_V1 and in the consolidated packet; no verdict is rewritten",
+    "nvda_excluded": "NVDA is deliberately not reused: its r = 1.0041 has already been seen, and a fixture whose answer is known tests nothing"
+  },
+  "frozen_rule": {
+    "statistic": "r = close(last RTH minute of pre_session) / open(first RTH minute of effective_session)",
+    "ADJUSTED": "0.90 <= r <= 1.10",
+    "UNADJUSTED": "0.90*S <= r <= 1.10*S, where S is the split factor",
+    "FAIL_AMBIGUOUS": "r outside both bands on either fixture, or the two fixtures disagree on regime",
+    "FAIL_PARAMETER_INERT": "adjusted=true and adjusted=false return identical response digests",
+    "UNRESOLVED": "any required session is missing",
+    "both_must_agree": "a regime is declared only if BOTH fixtures land in the same band",
+    "frozen_before": "any Massive query for these sessions"
+  },
+  "entitlement_check": {
+    "window_start": "2021-08-25",
+    "all_fixtures_inside_window": true
+  },
+  "fixtures": [
+    {
+      "fixture": "P1B-1",
+      "ticker": "TSLA",
+      "split_factor": 3,
+      "pre_session": "2022-08-24",
+      "effective_session": "2022-08-25",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1318605/000156459022028207/tsla-ex991_6.htm",
+      "source_authority": "Tesla, Inc. Form 8-K exhibit 99.1, filed with the SEC",
+      "expected_facts": {
+        "ratio": "three-for-one",
+        "record_date": "2022-08-17",
+        "distribution": "2022-08-24 after close of trading",
+        "split_adjusted_trading_begins": "2022-08-25"
+      },
+      "http_status": 200,
+      "raw_filename": "TSLA_8k_2dd920d0.htm",
+      "raw_sha256": "2dd920d010a9ddce6554a220c8ef4df12192e48febf664599fe1c99416f46681",
+      "raw_size_bytes": 4350,
+      "retrieved_at_utc": "2026-08-24T21:34:50Z",
+      "quote_checks": {
+        "three-for-one": true,
+        "August 25, 2022": true,
+        "split-adjusted basis": true
+      },
+      "snapshot_supports_claim": true
+    },
+    {
+      "fixture": "P1B-2",
+      "ticker": "AMZN",
+      "split_factor": 20,
+      "pre_session": "2022-06-03",
+      "effective_session": "2022-06-06",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872422000009/amzn-20220309.htm",
+      "source_authority": "Amazon.com, Inc. Form 8-K, filed with the SEC",
+      "expected_facts": {
+        "ratio": "20-for-1",
+        "record_date": "2022-05-27",
+        "split_adjusted_trading_begins": "2022-06-06"
+      },
+      "http_status": 200,
+      "raw_filename": "AMZN_8k_19d92582.htm",
+      "raw_sha256": "19d92582985ec84de5d3e7aa380a88e2990cf2f1b37134ee613bd757a97777f1",
+      "raw_size_bytes": 38597,
+      "retrieved_at_utc": "2026-08-24T21:34:50Z",
+      "quote_checks": {
+        "20-for-1": true
+      },
+      "snapshot_supports_claim": true
+    }
+  ],
+  "fixture_archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/massive_p1b_fixtures",
+  "massive_queried": "NO — not one aggregate request has been made for these sessions",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:34 +04"
+}

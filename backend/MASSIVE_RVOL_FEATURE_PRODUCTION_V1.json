@@ -1,0 +1,102 @@
+{
+  "report_id": "MASSIVE_RVOL_FEATURE_PRODUCTION_V1",
+  "status": "MASSIVE_RVOL_FEATURE_PRODUCTION_V1_PASS",
+  "binding": {
+    "dictionary": "6095852c4a2eeaa5",
+    "smoke_capability": "3113441b3bfb22bf",
+    "derived_base": "5591685cfa33b62a",
+    "eligibility": "7c0a5ad6b17d7ae0",
+    "implementation_hash": "4d634b0aac49fa015a72f78b7bffa9043be259a540c06f8bec485fc15dcbc84a",
+    "cohort": 476,
+    "sessions": 1254,
+    "families": [
+      "slot-RVOL",
+      "CUM-RVOL"
+    ]
+  },
+  "production_path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_rvol_v1",
+  "output_bytes": 6354723165,
+  "total_rows": 463871520,
+  "validity_counts": {
+    "slot-RVOL": {
+      "UNAVAILABLE_INSUFFICIENT_BASELINE": 16124217,
+      "UNAVAILABLE_CURRENT_INPUT": 17702599,
+      "INELIGIBLE": 253950,
+      "VALID": 197854994
+    },
+    "CUM-RVOL": {
+      "CUM_PATH_CONTAMINATED": 126988943,
+      "UNAVAILABLE_INSUFFICIENT_BASELINE": 26594436,
+      "INELIGIBLE": 253950,
+      "VALID": 78098431
+    }
+  },
+  "reconciliation": {
+    "method": "four paths — capability census, production engine, this verifier's independent ring-buffer recomputation, and the written parquet",
+    "per_family": {
+      "slot-RVOL": {
+        "production_VALID": 197854994,
+        "independent_VALID": 197854994,
+        "capability_VALID": 197854994,
+        "exact": true
+      },
+      "CUM-RVOL": {
+        "production_VALID": 78098431,
+        "independent_VALID": 78098431,
+        "capability_VALID": 78098431,
+        "exact": true
+      }
+    },
+    "all_exact": true,
+    "why_meaningful": "the census already caught two real defects by disagreeing with the derived base by exactly 253,950; agreement here is not ceremonial"
+  },
+  "finite_value_checks": {
+    "nonfinite_valid": 0,
+    "zero_baseline_with_finite_value": 0,
+    "epsilon_or_floor_present": false
+  },
+  "boundary_slots": {
+    "attribution": "UNRESOLVED on first and last regular slots",
+    "violations": 0,
+    "auction_claim_made": false
+  },
+  "sample_comparison": {
+    "sessions": 40,
+    "values": 6111493,
+    "mismatches": 0,
+    "tolerance": "1e-9"
+  },
+  "checks": {
+    "partitions_complete": true,
+    "all_digests_valid": true,
+    "no_nonfinite_valid": true,
+    "zero_baseline_never_finite": true,
+    "boundary_attribution_unresolved": true,
+    "four_way_reconciliation_exact": true,
+    "sample_values_exact": true,
+    "no_problems": true
+  },
+  "failed": [],
+  "problems": [],
+  "problem_count": 0,
+  "immutability": {
+    "artifacts": {
+      "MASSIVE_RVOL_DICTIONARY_SPEC_V1": true,
+      "MASSIVE_RVOL_FEATURE_SMOKE_CAPABILITY_V1": true,
+      "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1": true,
+      "MASSIVE_COARSE_EMA_FEATURE_PRODUCTION_V1": true,
+      "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1": true,
+      "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": true,
+      "MASSIVE_1M_STATE_TRANSITION_V1": true
+    },
+    "all_unchanged": true,
+    "y_exposure": 0
+  },
+  "provenance_level": "FILE_LEVEL",
+  "y_exposed": 0,
+  "authorises": "nothing beyond itself. T/Z and Y exposure remain HOLD.",
+  "closes": "the V1 X feature-construction layer, together with the 1m base, the coarse layer and EMA production",
+  "elapsed_sec": 113.5,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 06:37 +04"
+}

@@ -1,0 +1,212 @@
+{
+  "report_id": "MASSIVE_1M_DERIVED_BASE_SMOKE_V2",
+  "status": "HOLD",
+  "classification": "SMOKE_STAGING_ONLY",
+  "explicitly_not": [
+    "PRODUCTION_DERIVED",
+    "CANONICAL_DERIVED",
+    "RESEARCH_EVIDENCE"
+  ],
+  "spec": {
+    "artifact": "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V2.json",
+    "digest": "3af8cc42370fda86",
+    "verified": true
+  },
+  "eligibility": {
+    "artifact": "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1.json",
+    "digest": "7c0a5ad6b17d7ae0",
+    "cohort": 476,
+    "cohort_digest": "1f86d09a76d3c6e9",
+    "exclusion_digest": "3604f7c1dbf902a1"
+  },
+  "builder_implementation_hash": "b99c23dacc49104a64ae2e52d99e614b175fd56d96139e7c1e9eadfda6ca88bc",
+  "implementation_freeze": {
+    "recorded_before_execution": true,
+    "rule": "any code change invalidates the entire run; no fixture result is retained across an implementation hash change"
+  },
+  "staging_path": "/Volumes/QUANT_RESEARCH/staging/derived_base_smoke_v2/b99c23dacc49104a",
+  "staging_digests": {
+    "security_sessions": {
+      "rows": 5,
+      "sha256": "f62aacf3b6070dec03c04733091bbbee02775523d3068ecc05b171b2470fb0c7"
+    },
+    "minute_states": {
+      "rows": 990,
+      "sha256": "68266223e507472d835909ac487bba9582f11d1be66e854660089ff19e397e76"
+    },
+    "observed_regular_bars": {
+      "rows": 642,
+      "sha256": "118c4d279490d5d42d4fb2d2f8a1afd60c081d4ed4141e32a8bf0a61ba3519ec"
+    },
+    "session_close_boundary_bars": {
+      "rows": 3,
+      "sha256": "2e4ed12d8f47e13b22956bd74f2f4720521774633e101d356a164e1f138331df"
+    },
+    "extended_hours_bars": {
+      "rows": 497,
+      "sha256": "f3400787e12147f3736b6a4668dff70d178f774d1e4d9a91a20a39fb7ddc6a26"
+    }
+  },
+  "fixtures": {
+    "total": 12,
+    "positive": 7,
+    "negative": 5,
+    "positive_passed": 7,
+    "negative_passed": 4,
+    "results": [
+      {
+        "fixture": "A",
+        "name": "ordinary full XNYS session",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "expected 390 observed 390 close_boundary 1 ext 267 (verifier: exp 390 obs 390 cb 1)"
+      },
+      {
+        "fixture": "B",
+        "name": "early-close session (16:00 trap)",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "expected 210 close_boundary 13:00 · 16:00 in extended True · 16:00 in regular False (verifier exp 210)"
+      },
+      {
+        "fixture": "C",
+        "name": "session close boundary bar",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "2 boundary bars, none counted as a regular minute, none asserted to be an auction bar"
+      },
+      {
+        "fixture": "D",
+        "name": "extended-hours bars stored separately",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "267 extended bars on 2024-05-15 (verifier 267); none in observed_regular_bars"
+      },
+      {
+        "fixture": "E",
+        "name": "sparse minutes -> UNOBSERVED (ERIE)",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "expected 390 observed 42 unobserved 348 all reason SOURCE_COMPLETENESS_UNPROVEN · synthetic rows 0 · structural_no_trade 0"
+      },
+      {
+        "fixture": "F",
+        "name": "NOT_YET_REGULAR_WAY (GEV 2022-01-03)",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "state NOT_YET_REGULAR_WAY · minute_states 0 · bars 0 · distinct from UNOBSERVED"
+      },
+      {
+        "fixture": "G",
+        "name": "WHEN_ISSUED_EXCLUDED (GEV 2024-04-01)",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "state WHEN_ISSUED_EXCLUDED from lineage GEVw · ingest manifest says 'NOT_YET_REGULAR_WAY' (no WHEN_ISSUED state exists there) · regular bars 0"
+      },
+      {
+        "fixture": "H",
+        "name": "excluded V1 security must fail admission",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD cohort_admission: APO is not in the frozen V1 cohort (476 securities); excluded securities may not enter"
+      },
+      {
+        "fixture": "I",
+        "name": "supplemental / new-vintage path must fail",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD source_path: refusing a source outside the canonical archive (/Volumes/QUANT_RESEARCH/source_data/massiv"
+      },
+      {
+        "fixture": "J",
+        "name": "duplicate regular source key must fail",
+        "kind": "NEGATIVE",
+        "passed": false,
+        "detail": "duplicate source key was ACCEPTED"
+      },
+      {
+        "fixture": "K",
+        "name": "close-boundary duplication must fail",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD close_boundary_duplicate: AAPL 2024-05-15 has 2 close-boundary bars; at most one is contracted"
+      },
+      {
+        "fixture": "L",
+        "name": "zero-fill / carry-forward must fail",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD synthetic_ohlcv: minute_states carries market data ['c', 'h', 'l', 'o', 'v']; zero-fill, carry-forward a"
+      }
+    ]
+  },
+  "measured": {
+    "normal_session_expected_minutes": 390,
+    "early_close_expected_minutes": 210,
+    "close_boundary_normal": "16:00",
+    "close_boundary_early": "13:00",
+    "early_close_1600_bar": "EXTENDED_HOURS_BAR",
+    "sparse_fixture": {
+      "security": "ERIE",
+      "expected": 390,
+      "observed": 42,
+      "unobserved": 348,
+      "reason": "SOURCE_COMPLETENESS_UNPROVEN"
+    }
+  },
+  "critical_counts": {
+    "structural_no_trade_emitted": 0,
+    "synthetic_ohlcv_emitted": 0,
+    "supplemental_rows_consumed": 0,
+    "supplemental_payloads_consumed": 0,
+    "duplicate_regular_keys": 0,
+    "duplicate_close_boundary_errors": 0,
+    "cohort_admission_failures_caught": 1,
+    "derived_vwap_columns": 0,
+    "transaction_count_features": 0
+  },
+  "independent_verification": {
+    "shares_builder_code": false,
+    "method": "the expected minute grid is rebuilt from the exchange schedule by integer epoch arithmetic — a different route to the same number than the builder's lattice()",
+    "why": "on the lineage candidate this discipline caught an off-by-one the builder's own checks were blind to; that only worked because the arithmetic was not shared",
+    "checks": {
+      "ordinary_lattice_390": true,
+      "early_lattice_210": true,
+      "aapl_ordinary_matches": true,
+      "sparse_matches": true,
+      "structural_no_trade_zero": true,
+      "no_synthetic_in_minute_states": true,
+      "no_duplicate_output_keys": true,
+      "one_close_boundary_per_security_session": true,
+      "all_keys_in_cohort": true,
+      "no_vwap_feature": true,
+      "production_untouched": true
+    },
+    "passed": true,
+    "failed": []
+  },
+  "provenance_level": "FILE_LEVEL",
+  "row_level_raw_byte_provenance_claimed": false,
+  "mutations": {
+    "canonical_raw": 0,
+    "raw_manifests": 0,
+    "v6": 0,
+    "eligibility_artifact": 0,
+    "builder_spec": 0,
+    "quarantine": 0,
+    "v7_artifacts": 0,
+    "production_derived_writes": 0,
+    "y_exposure": 0
+  },
+  "production_writes": 0,
+  "y_exposed": 0,
+  "known_limitations": [
+    "fixture G is validated against the V6 lineage authority only; the ingest manifest has no WHEN_ISSUED state and records that session as NOT_YET_REGULAR_WAY",
+    "smoke covers the frozen fixtures, not the full 1,254-session archive",
+    "row-level raw-byte provenance is not implemented; provenance is file-level"
+  ],
+  "authorizes": "ONLY the next gate: PRODUCTION DERIVED BASE EXECUTION. Production is not started automatically.",
+  "elapsed_sec": 1.7,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 20:21 +04"
+}

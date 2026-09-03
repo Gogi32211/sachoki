@@ -1,0 +1,130 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FINAL_SEARCHABLE_CLAIM_REGISTRY_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "floor": {
+    "artifact": "MASSIVE_NEW_FAMILY_SUPPORT_FLOOR_PRESPEC_V1",
+    "digest": "aeab8354237def8c",
+    "sealed_before_application": true,
+    "EVALUABLE_MIN": 10000,
+    "POSITIVE_MIN": 100,
+    "POSITIVE_SECURITY_MIN": 30
+  },
+  "census": {
+    "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_V1",
+    "digest": "8215d99503f5ff2d"
+  },
+  "K": {
+    "value": 20751,
+    "of_pre_support_universe": 45387,
+    "pct": 45.72,
+    "status": "RESULT, not target — the floor was applied exactly once and was not revised",
+    "registry_file": "SEARCHABLE_REGISTRY_k.txt",
+    "registry_digest": "e60eb8061aa80ddf"
+  },
+  "REGISTRY_INTEGRITY": {
+    "rows": 45387,
+    "all_claims_retained": true,
+    "note": "excluded claims are RETAINED with reason codes; nothing was deleted"
+  },
+  "PER_TEST_FAILURES": {
+    "FAIL_EVALUABILITY": 0,
+    "FAIL_POSITIVE_COUNT": 24627,
+    "FAIL_SECURITY_BREADTH": 20012,
+    "independent": "no precedence — a claim failing two tests records both"
+  },
+  "EXCLUSION_COMBINATIONS": {
+    "eligible": 20751,
+    "FAIL_POSITIVE_COUNT + FAIL_SECURITY_BREADTH": 20003,
+    "FAIL_POSITIVE_COUNT only": 4624,
+    "FAIL_SECURITY_BREADTH only": 9
+  },
+  "FINDING_evaluability_floor_inert": {
+    "cut": 0,
+    "statement": "EVALUABLE_MIN=10,000 excluded ZERO claims, exactly as the census predicted (observed minimum 19,783)",
+    "status": "the floor is retained as a guard, but it did no work in this family"
+  },
+  "FINDING_breadth_floor_marginal_bite": {
+    "exclusive_contribution": 9,
+    "statement": "POSITIVE_SECURITY_MIN=30 excluded only 9 claims that POSITIVE_MIN had not already excluded",
+    "interpretation": "the two criteria are highly correlated in this family; breadth is nearly subsumed by positive count",
+    "why_retained": "those 9 are precisely the pathological topology the breadth guard exists for (>=100 occurrences on <30 securities). A small empirical bite is not an argument for removing a guard against a real failure mode.",
+    "honesty_note": "the breadth floor's independent discriminating power here is much smaller than its rationale might suggest"
+  },
+  "K_BY_POSITION_PAIR": {
+    "M1->M2": {
+      "claims": 15129,
+      "eligible": 6996,
+      "pct": 46.24
+    },
+    "M2->M3": {
+      "claims": 15129,
+      "eligible": 6838,
+      "pct": 45.2
+    },
+    "M3->M4": {
+      "claims": 15129,
+      "eligible": 6917,
+      "pct": 45.72
+    },
+    "observation": "near-identical eligibility across positions, consistent with the census finding of no structural starvation"
+  },
+  "K_BY_TYPE_PAIR": {
+    "boolean->boolean": {
+      "claims": 10800,
+      "eligible": 2719,
+      "pct": 25.18
+    },
+    "boolean->categorical": {
+      "claims": 11340,
+      "eligible": 5443,
+      "pct": 48.0
+    },
+    "categorical->boolean": {
+      "claims": 11340,
+      "eligible": 5193,
+      "pct": 45.79
+    },
+    "categorical->categorical": {
+      "claims": 11907,
+      "eligible": 7396,
+      "pct": 62.11
+    },
+    "expected": "the uniform floor falls hardest on boolean->boolean, as the census anticipated",
+    "accepted_by_design": "one claim grammar -> one support standard; this is not bias, their X-state combinations are simply sparser"
+  },
+  "CONCENTRATION_DIAGNOSTIC": {
+    "applied_as_exclusion": false,
+    "among_eligible": {
+      "DEGENERATE": {
+        "n": 46,
+        "median_share": 1.0,
+        "meaning": "30 <= securities_positive <= 48; share is 1.0 by construction"
+      },
+      "INFORMATIVE": {
+        "n": 20705,
+        "median_share": 0.3978
+      }
+    },
+    "status": "reported and flagged; never affects searchability in V1"
+  },
+  "HOLDOUT_DIAGNOSTIC": {
+    "eligible_claims_with_zero_holdout_positives": 1492,
+    "of": 20751,
+    "pct": 7.19,
+    "median_holdout_positives_among_eligible": 8,
+    "status": "NOT excluded — HOLDOUT is diagnostic only"
+  },
+  "NEXT": "freeze the multiplicity universe on k = 20,751",
+  "MULTIPLICITY_NOTE": {
+    "observation": "k = 20,751 is a large family and the claims are heavily clustered by shared source features",
+    "guard": "this is stated as a FACT about the coming statistical layer, NOT as a reason to revisit the floor",
+    "deferred_to": "post-Y statistical layer; clustered-CI treatment before DSR, per the established ordering"
+  },
+  "NOT_STARTED": [
+    "multiplicity universe freeze",
+    "synthetic-Y smoke",
+    "real Y"
+  ]
+}

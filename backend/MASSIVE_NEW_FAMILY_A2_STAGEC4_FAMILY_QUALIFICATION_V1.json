@@ -1,0 +1,160 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_A2_STAGEC4_FAMILY_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "VERDICT": "A2 FAMILY QUALIFIED",
+  "family": "stageC4",
+  "columns": 12,
+  "authority": {
+    "producer_script": "massive_new_family_runtime/stageC4.py",
+    "engines": [
+      "wlnbb_engine.compute_wlnbb",
+      "cisd_engine.compute_cisd"
+    ],
+    "engines_imported_not_reimplemented": true
+  },
+  "code_binding": {
+    "module": "backend/forward_a2_producers.py",
+    "sha256": "e01a1a34bf122dcf122e404a2f08ec0abb3e1d3567ae675efa7cbf07e7e03dd2",
+    "relationship": "orchestration TRANSCRIBED VERBATIM; the two engines are IMPORTED and called, never reimplemented"
+  },
+  "SEGMENTS": {
+    "total_segments": 1133943,
+    "head_run_len": {
+      "p0": 1.0,
+      "p25": 1.0,
+      "p50": 4.0,
+      "p75": 38.25,
+      "p90": 924.0,
+      "p100": 32484.0
+    },
+    "head_run_mean": 1135.2226890756303,
+    "head_runs_ge_2_bars": 318,
+    "securities": 476,
+    "open_segment_len": {
+      "p0": 1.0,
+      "p50": 8.0,
+      "p90": 3129.0000000000045,
+      "p100": 32484.0
+    },
+    "securities_with_open_segment": 453
+  },
+  "HISTORICAL_REPLAY": {
+    "expected_rows": 185345448,
+    "rebuilt_rows": 185345448,
+    "except_all_O_minus_R": 0,
+    "except_all_R_minus_O": 0,
+    "method": "PARTITIONED BY k",
+    "schema_match": true,
+    "build_s": 3812,
+    "VERDICT": "EXACT"
+  },
+  "STATEFUL_REPLAY": {
+    "inside_head_run": {
+      "cases": 15,
+      "total_rows": 5829084,
+      "mismatches": 0
+    },
+    "immediately_before_first_contamination": {
+      "cases": 19,
+      "total_rows": 7370412,
+      "mismatches": 0
+    },
+    "immediately_after_first_contamination": {
+      "cases": 19,
+      "total_rows": 7370184,
+      "mismatches": 0
+    },
+    "inside_a_later_segment": {
+      "cases": 19,
+      "total_rows": 3661872,
+      "mismatches": 0
+    },
+    "mid_open_segment": {
+      "cases": 17,
+      "total_rows": 153744,
+      "mismatches": 0
+    },
+    "TOTAL_MISMATCHES": 0,
+    "VERDICT": "PASS"
+  },
+  "HEAD_RUN_AUTHORITY": {
+    "later_segment_false_head_valid_cisd_rows": 0,
+    "rule": "is_head is SUPPLIED by the orchestrator from a carried checkpoint, never re-inferred inside a window; a resumed window whose head run already closed gets an all-False mask",
+    "VERDICT": "PASS"
+  },
+  "RESUME_CONTRACT": {
+    "window": "MUST begin at the START OF THE OPEN SEGMENT — compute_wlnbb uses rolling(20) and shift, so a truncated segment does not reproduce its own values",
+    "is_head": "SUPPLIED by the orchestrator from a carried checkpoint, NEVER re-inferred inside a window",
+    "carried_state": "frozen X state only: head_closed (bool) + open-segment start",
+    "no_new_state_representation": "no checkpoint serialisation format was invented; the resume replays the open segment, exactly as the frozen semantics imply",
+    "guards_in_the_core": [
+      "is_head length must equal the window length",
+      "is_head may not be asserted on an incomplete bar"
+    ]
+  },
+  "REACHABLE_STATE_FIXTURES": {
+    "same_prefix_same_state": "0 differences of 732 rows — deterministic",
+    "different_legitimate_prefix": "230 differing of 492 shared rows — the output DOES differ",
+    "why_this_matters": "a row-local approximation would have produced identical output for the shared tail. It did not. This is positive proof that the wrapper is genuinely stateful and has not silently degraded to a per-row form."
+  },
+  "FIXTURES": {
+    "total": 14,
+    "passed": 14,
+    "VERDICT": "PASS",
+    "cases": [
+      "same prefix + same state -> identical output (determinism)",
+      "different legitimate prefix -> output DIFFERS (not row-local)",
+      "sig_cisd_* VALID only on head-run bars",
+      "later segment never becomes a new head",
+      "is_head length mismatch -> HARD FAIL",
+      "is_head asserted on an incomplete bar -> HARD FAIL",
+      "cohort digest mismatch -> HARD FAIL",
+      "reordered then canonicalised -> identical",
+      "honest write is COMPLETE and CURRENT",
+      "readable partial rejected",
+      "stale-run partition not current",
+      "no duplicate (k,bar_start,col)",
+      "module import executes no production",
+      "Y trap armed"
+    ]
+  },
+  "INPUT_ORDER": {
+    "canonical": "ORDER BY bar_start on load; incidental parquet/fs order never relied upon",
+    "reordered_then_canonicalised": "0 differences"
+  },
+  "RESTART_IDEMPOTENCY": {
+    "authority": "A2_PARTITION_COMPLETION_V1 reused",
+    "readable_partial_rejected": "SIZE_MISMATCH",
+    "stale_run_rejected": "STALE_RUN",
+    "duplicates": 0
+  },
+  "Y_BLINDNESS": {
+    "forbidden_opens_attempted": 0,
+    "VERDICT": "PASS",
+    "armed_in": [
+      "the replay/stateful runner",
+      "the fixture runner"
+    ]
+  },
+  "STATUS_TABLE": {
+    "HISTORICAL_EXACTNESS": "PASS",
+    "SEGMENT_BOUNDARY_EQUIVALENCE": "PASS",
+    "HEAD_RUN_AUTHORITY": "PASS",
+    "REACHABLE_STATE": "PASS",
+    "SCHEMA_CONFORMANCE": "PASS",
+    "AVAILABILITY_CONFORMANCE": "PASS",
+    "ORDER_INVARIANCE": "PASS",
+    "RESTART_IDEMPOTENCY": "PASS",
+    "Y_BLINDNESS": "PASS",
+    "STATUS": "A2 FAMILY QUALIFIED"
+  },
+  "NOTABLE": {
+    "head_run_bimodality": "head-run length p50 4 bars but mean 1,135 and max 32,484; only 318 of 476 securities have a head run of >= 2 bars, so sig_cisd_* is structurally undefined for 158 securities. That is the frozen producer's behaviour, reproduced exactly — not a defect.",
+    "cost": "replay 3,812 s (~9 s/security): compute_wlnbb is invoked once per COMPLETE segment and there are 1,133,943 of them"
+  },
+  "runtime_s": 4575,
+  "NEXT": "PHASE1_R1, then STAGE_D_R2 last (the only cross-segment state: sig_buy cooldown over the full series)"
+}

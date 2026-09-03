@@ -1,0 +1,167 @@
+{
+  "spec_id": "GANN_CAPABILITY_RESUME_CONTINUITY_V1",
+  "status": "EXECUTION_CLOSURE",
+  "family": "GANN",
+  "result": "FAIL",
+  "interruption_record": "d20a2d6386883b40",
+  "process_identity": {
+    "parent": {
+      "pid": 89110,
+      "create_time": "1787412744.231972",
+      "status": "running",
+      "cmdline_matches": true
+    },
+    "workers": [
+      {
+        "pid": 89135,
+        "create_time": "1787412786.523688",
+        "status": "running",
+        "cpu_delta_45s": 0.0
+      },
+      {
+        "pid": 89136,
+        "create_time": "1787412786.530851",
+        "status": "running",
+        "cpu_delta_45s": 33.17
+      },
+      {
+        "pid": 89137,
+        "create_time": "1787412786.532951",
+        "status": "running",
+        "cpu_delta_45s": 33.37
+      },
+      {
+        "pid": 89138,
+        "create_time": "1787412786.534836",
+        "status": "running",
+        "cpu_delta_45s": 33.1
+      },
+      {
+        "pid": 89139,
+        "create_time": "1787412786.536685",
+        "status": "running",
+        "cpu_delta_45s": 33.09
+      },
+      {
+        "pid": 89140,
+        "create_time": "1787412786.538216",
+        "status": "running",
+        "cpu_delta_45s": 33.06
+      },
+      {
+        "pid": 89141,
+        "create_time": "1787412786.539667",
+        "status": "running",
+        "cpu_delta_45s": 33.3
+      },
+      {
+        "pid": 89142,
+        "create_time": "1787412786.541536",
+        "status": "running",
+        "cpu_delta_45s": 33.06
+      },
+      {
+        "pid": 89143,
+        "create_time": "1787412786.543822",
+        "status": "running",
+        "cpu_delta_45s": 33.21
+      },
+      {
+        "pid": 89144,
+        "create_time": "1787412786.546186",
+        "status": "running",
+        "cpu_delta_45s": 33.15
+      }
+    ],
+    "n_workers": 10,
+    "all_workers_created_before_the_stop": true,
+    "identity_basis": "kernel start stamps (psutil.create_time, microsecond). A SIGCONTed process is the same process; a replacement would carry a later stamp.",
+    "no_prelaunch_baseline": "none was captured for GANN — identity is DERIVED from immutable start stamps, never reconstructed retrospectively"
+  },
+  "frozen_inputs": {
+    "GANN_CAPABILITY_PROTOCOL_V1.json": {
+      "digest": "1f36fdb0c97c739d",
+      "mtime_before_process_start": true
+    },
+    "GANN_ESTIMAND_V1.json": {
+      "digest": "000aa1edce0ffc89",
+      "mtime_before_process_start": true
+    },
+    "GANN_ESTIMAND_STATE_V1.json": {
+      "digest": "435ad0db51c93ba5",
+      "mtime_before_process_start": true
+    },
+    "GANN_OUTCOME_SPEC_V1.json": {
+      "digest": "af4b205e152c9d43",
+      "mtime_before_process_start": true
+    },
+    "GANN_OUTCOME_VALUES_V1.json": {
+      "digest": "dae6a9f1efa13b55",
+      "mtime_before_process_start": false
+    },
+    "GANN_INFERENCE_AMENDMENT_V1.json": {
+      "digest": "92067b36eb5626fd",
+      "mtime_before_process_start": true
+    },
+    "GANN_CAPABILITY_PREY_CLOSURE_V1.json": {
+      "digest": "447f76d4a805f114",
+      "mtime_before_process_start": true
+    },
+    "gann_capability_run.py": {
+      "digest": "46aa7e458f7d99af",
+      "mtime_before_process_start": true
+    },
+    "gann_capability.py": {
+      "digest": "1b1824f062f85c8f",
+      "mtime_before_process_start": true
+    },
+    "gann_rank.py": {
+      "digest": "c9086f25703db35b",
+      "mtime_before_process_start": true
+    },
+    "gann_fast.py": {
+      "digest": "d40a8cbd0b91c74c",
+      "mtime_before_process_start": true
+    },
+    "t5_artifact.py": {
+      "digest": "18c16e20d5f9a7aa",
+      "mtime_before_process_start": true
+    }
+  },
+  "rng": {
+    "root": "827698b533703452",
+    "n_seeds": 1440,
+    "manifest_digest": "5f34f78ad47e9850"
+  },
+  "ledger": {
+    "on_disk_ledger": "NONE",
+    "why": "gann_capability_run collects world results in the parent's memory and writes a parquet only after all 360 finish",
+    "consequences": [
+      "'completed worlds before the stop' cannot be read from disk",
+      "'previous 80 unchanged' cannot be verified against disk",
+      "'no overwritten worlds' cannot be verified against disk"
+    ],
+    "commit_semantics": "ATOMIC, in memory — a world enters the result list only when its worker RETURNS a complete _task result",
+    "partial_world_handling": "a world interrupted mid-computation was never appended and is recomputed by its worker from the same frozen seed; a partial world produces no value that could be merged",
+    "partial_world_never_treated_as_evidence": true,
+    "printed_counter_at_stop": 80,
+    "true_inmemory_count_at_stop": "between 80 and 99 — progress prints only every 20 worlds, so the exact number is not readable and is not guessed",
+    "progress_now": 100,
+    "progress_advanced_during_check": true,
+    "standing_risk": "nothing is checkpointed, so the death of the parent would lose every completed world. The interruption did not create this risk, it made it visible."
+  },
+  "checks": {
+    "parent_alive_and_not_stopped": true,
+    "parent_cmdline_matches": true,
+    "nine_workers_present": false,
+    "no_worker_stopped": true,
+    "worker_cpu_strictly_increasing": false,
+    "frozen_inputs_predate_process_start": false,
+    "rng_manifest_size": true,
+    "partial_world_cannot_be_merged": true
+  },
+  "verdict": "continuity NOT established",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-23 10:30 +04",
+  "runtime_min": 0.75
+}

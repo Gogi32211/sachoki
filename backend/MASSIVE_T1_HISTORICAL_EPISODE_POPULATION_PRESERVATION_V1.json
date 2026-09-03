@@ -1,0 +1,130 @@
+{
+  "report_id": "MASSIVE_T1_HISTORICAL_EPISODE_POPULATION_PRESERVATION_V1",
+  "status": "HISTORICAL_EPISODE_POPULATION_PRESERVED",
+  "task_class": "POPULATION_PRESERVATION_VERIFICATION_ONLY",
+  "corrects": {
+    "artifact": "MASSIVE_T_15M_EPISODE_DEFINITION_RECOVERY_V1",
+    "digest": "73375ec0d8ab5344",
+    "what_was_incomplete": "it concluded the population was 'not reproducible', which is true of every mutable store and was read as though the population were lost",
+    "what_is_added": "the sealed population was never lost — it is PRESERVED as a materialized artifact, in two independent copies",
+    "original_not_edited": true
+  },
+  "three_authorities_now_separated": {
+    "EPISODE_RULE": {
+      "status": "RECOVERED_FROM_PINNED_GENERATOR",
+      "definition_hash": "a1c9b7eb94331751",
+      "answers": "how was an episode constructed?"
+    },
+    "SEALED_HISTORICAL_POPULATION": {
+      "status": "PRESERVED_AS_MATERIALIZED_ARTIFACT",
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/t1_episodes.parquet",
+      "rows": 220351,
+      "answers": "which episodes were actually in the frozen historical population?"
+    },
+    "CURRENT_STORE_RECONSTRUCTION": {
+      "status": "AUTHORITY_FOR_NEITHER",
+      "current_store": 221229,
+      "archive_store": 220751,
+      "sealed": 220351,
+      "rule": "the historical population must be CONSUMED from the preserved artifact, never regenerated from a mutable store"
+    }
+  },
+  "verification": {
+    "checks": [
+      {
+        "check": "row count equals the sealed population",
+        "met": true
+      },
+      {
+        "check": "episode_id is unique",
+        "met": true
+      },
+      {
+        "check": "no duplicate episode_id",
+        "met": true
+      },
+      {
+        "check": "ticker/date grain is unique",
+        "met": true
+      },
+      {
+        "check": "episode_id RECOMPUTES from (ticker, t1_date) through the generator",
+        "met": true
+      },
+      {
+        "check": "the generator's definition hash is the one the sealed estimand names",
+        "met": true
+      },
+      {
+        "check": "prev_session_date is populated for every episode",
+        "met": true
+      },
+      {
+        "check": "an independent archived copy exists",
+        "met": true
+      },
+      {
+        "check": "the archived copy has the same row count",
+        "met": true
+      },
+      {
+        "check": "the two copies are content-identical on the identity grain",
+        "met": true
+      },
+      {
+        "check": "the 15m estimand population is preserved at its sealed size",
+        "met": true
+      },
+      {
+        "check": "every estimand episode_id is a member of the episode population",
+        "met": true
+      }
+    ],
+    "all_met": true,
+    "episode_id_recomputed_matches": 220351,
+    "of_rows": 220351,
+    "why_recomputation_matters": "a file with the right row count can still be the wrong file; recomputing episode_id through the generator ties the population to the definition hash",
+    "primary": {
+      "path": "/Users/sachoki/Desktop/sachoki-desktop/data/t1_episodes.parquet",
+      "rows": 220351,
+      "columns": 48,
+      "sha256": "a800921dae0a460a8d7edeb711a72bcfed65fa9198af6dffca18f49db10cf413",
+      "identity_content_hash": "1d59ce69f804d52f"
+    },
+    "archive": {
+      "path": "/Volumes/QUANT_RESEARCH/archive/studio_pre_external_migration_2026-08-24/t1_episodes.parquet",
+      "rows": 220351,
+      "sha256": "a800921dae0a460a8d7edeb711a72bcfed65fa9198af6dffca18f49db10cf413",
+      "identity_content_hash": "1d59ce69f804d52f",
+      "byte_identical_to_primary": true
+    },
+    "estimand_population": {
+      "path": "/Volumes/QUANT_RESEARCH/source_data/studio/t1_15m_population.parquet",
+      "rows": 157038,
+      "sealed": 157038,
+      "columns": [
+        "episode_id",
+        "ticker",
+        "t5_date",
+        "block"
+      ],
+      "all_ids_in_episode_population": true
+    }
+  },
+  "consumption_rule": {
+    "bind": "data/t1_episodes.parquet by sha256 and identity content hash",
+    "do_not": "re-run the episode SQL against any mutable store and treat the result as the historical population",
+    "expected_count_forbidden": "220,351 must not be used as a target for any Massive build; it describes the historical population only"
+  },
+  "enumeration_backing": {
+    "inventory": "MASSIVE_T_LEGACY_DATA_SURFACE_INVENTORY_V1",
+    "digest": "5ebcad54f619f97d",
+    "enumeration_complete": true,
+    "note": "this artifact is written against a completed enumeration, so its statements about what exists rest on a measured search space"
+  },
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "read_only": true,
+  "writes": 0,
+  "sealed_at": "2026-08-26 22:26 +04"
+}

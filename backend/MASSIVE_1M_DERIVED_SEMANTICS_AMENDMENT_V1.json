@@ -1,0 +1,368 @@
+{
+  "spec_id": "MASSIVE_1M_DERIVED_SEMANTICS_AMENDMENT_V1",
+  "status": "DERIVED_SEMANTICS_FROZEN",
+  "universe": {
+    "set": "frozen 503 current S&P 500 constituents",
+    "digest": "a0f6e42a502b21667e70012ab117cdef5ec03e2b1aca5a200b620166e20e3d99",
+    "claim_scope": "historical anatomy/behaviour of the CURRENT constituent set",
+    "survivorship": "KNOWN · ACCEPTED · DECLARED — this is NOT a point-in-time historical S&P 500 universe"
+  },
+  "calendar": {
+    "source": "US_EQUITY_SESSION_CALENDAR_V1",
+    "calendar": "XNYS",
+    "library": "exchange_calendars 4.13.2",
+    "convention": "BAR_START; lattice is left-closed so the session-close stamp is NOT a regular minute"
+  },
+  "expected_coverage_rule": {
+    "definition": "an expected regular minute exists iff the security is in the frozen 503, is REGULAR_WAY on that date per V6, XNYS defines a valid session, and the timestamp is one of that session's expected BAR_START slots",
+    "binding": "expected coverage does NOT depend on whether the vendor returned data",
+    "why": "folding source-access validity into eligibility would drop the five rename-boundary sessions out of the coverage domain — which would hide their uncertainty rather than resolve it"
+  },
+  "dimensions": {
+    "eligibility_state": [
+      "REGULAR_WAY_EXPECTED",
+      "NOT_YET_REGULAR_WAY",
+      "WHEN_ISSUED_EXCLUDED"
+    ],
+    "bar_scope": [
+      "REGULAR_SESSION_MINUTE",
+      "SESSION_CLOSE_BOUNDARY_BAR",
+      "EXTENDED_HOURS_BAR"
+    ],
+    "observation_state": [
+      "OBSERVED",
+      "STRUCTURAL_NO_TRADE",
+      "UNOBSERVED"
+    ],
+    "unobserved_reason": [
+      "SOURCE_TICKER_ACCESS_UNRESOLVED",
+      "SOURCE_COMPLETENESS_UNPROVEN",
+      "SOURCE_REQUEST_FAILURE",
+      "ENTITLEMENT_UNAVAILABLE",
+      "SOURCE_REFERENCE_CONFLICT",
+      "OTHER_UNRESOLVED"
+    ],
+    "source_ticker_access_state": [
+      "VALID",
+      "INVALID_OR_CONFLICTED",
+      "UNRESOLVED"
+    ],
+    "rationale": "these are orthogonal. A single flat enum invites downstream code to compare WHEN_ISSUED with UNOBSERVED and conflate them."
+  },
+  "invariants": [
+    "REGULAR_WAY_EXPECTED != OBSERVED",
+    "REGULAR_WAY_EXPECTED does not imply source access valid",
+    "REFERENCE_TICKER_NO_BAR does not imply SECURITY_NO_TRADE",
+    "UNOBSERVED != STRUCTURAL_NO_TRADE",
+    "UNOBSERVED != ZERO_VOLUME",
+    "UNOBSERVED != FALSE",
+    "NOT_YET_REGULAR_WAY != UNOBSERVED",
+    "WHEN_ISSUED_EXCLUDED != UNOBSERVED",
+    "SESSION_CLOSE_BOUNDARY_BAR != REGULAR_SESSION_MINUTE",
+    "EXTENDED_HOURS_BAR != REGULAR_SESSION_MINUTE"
+  ],
+  "source_completeness": {
+    "level_proven": "REQUEST — P6 established pagination exhaustion, zero duplicates, strict monotonicity, zero page-boundary gaps and identical replays",
+    "level_required": "MINUTE EMISSION — that the vendor emits a bar for every minute in which a trade occurred",
+    "established": false,
+    "why_not": "request-level completeness proves we received everything the vendor SENT. It does not establish what the vendor OMITS. P3 found the vendor omits no-trade minutes, but that is an inference from bar counts, not a guarantee — and P7 already showed vendor field quality is not uniform (vw outside [low,high] on 95/140 bars for an illiquid name).",
+    "not_accepted_as_proof": [
+      "HTTP 200",
+      "non-empty response",
+      "adjacent bars present",
+      "roughly 390 rows",
+      "security is usually liquid",
+      "request completed without exception"
+    ]
+  },
+  "structural_no_trade": {
+    "defined": true,
+    "classification_capability": "UNAVAILABLE",
+    "consequence": "absent expected minutes are UNOBSERVED with reason SOURCE_COMPLETENESS_UNPROVEN",
+    "rationale": "a 100% correct UNOBSERVED is worth more than a tidy NO_TRADE we cannot prove. The definition is frozen so the state is available if an independent completeness source is ever qualified.",
+    "would_require": "trade-level data or a second independent source"
+  },
+  "close_boundary": {
+    "scope": "SESSION_CLOSE_BOUNDARY_BAR",
+    "optional": true,
+    "stamps": {
+      "normal": "16:00 ET",
+      "early_close": "13:00 ET"
+    },
+    "never": [
+      "a 391st or 211th regular minute",
+      "merged into the final regular bar",
+      "counted in the ordinary minute RVOL denominator",
+      "called an auction bar without further evidence"
+    ]
+  },
+  "extended_hours": {
+    "scope": "EXTENDED_HOURS_BAR",
+    "preserved": true,
+    "never": "placed on the XNYS regular lattice or admitted to RTH-derived features without an explicit feature contract"
+  },
+  "no_synthetic_ohlcv": {
+    "rule": "a missing expected minute carries state with OHLCV NULL",
+    "forbidden": [
+      "invent open/high/low/close",
+      "carry price forward",
+      "synthesize a flat candle",
+      "set missing volume to zero"
+    ],
+    "distinct": "an emitted zero-volume bar is an OBSERVED vendor record and stays distinguishable from no emitted bar"
+  },
+  "vwap": {
+    "canonical_feature": "DISABLED",
+    "reason": "P7 FAIL — vw falls outside its own bar's [low, high]",
+    "note": "a true VWAP cannot be reconstructed from OHLCV; any proxy needs its own name and preregistration"
+  },
+  "transaction_count": {
+    "state": "HOLD",
+    "reason": "n semantics unresolved"
+  },
+  "higher_tf_contamination": {
+    "rule": "an aggregation window containing ANY required UNOBSERVED regular minute sets coverage_complete=false and carries an explicit contamination state",
+    "forbidden": "silently aggregating across UNOBSERVED and calling the result complete",
+    "deferred": "synthetic OHLC treatment for STRUCTURAL_NO_TRADE belongs to a later aggregation/feature contract"
+  },
+  "five_boundary_cases": {
+    "eligibility": "REGULAR_WAY_EXPECTED — they remain inside the coverage domain",
+    "observation_state": "UNOBSERVED",
+    "structural_no_trade": "FORBIDDEN",
+    "source": "MASSIVE_SOURCE_TICKER_BOUNDARY_AMENDMENT_V1.json",
+    "new_vintage_bars": "NOT consumed"
+  },
+  "fixtures": {
+    "F01_NORMAL_FULL_SESSION": {
+      "session": "2024-05-15",
+      "expected_slots": 390,
+      "expected": 390,
+      "pass": true
+    },
+    "F02_EARLY_CLOSE_SESSION": {
+      "session": "2024-11-29",
+      "expected_slots": 210,
+      "expected": 210,
+      "pass": true
+    },
+    "F03_CLOSE_BOUNDARY_PRESENT_NORMAL": {
+      "session": "2024-05-15",
+      "close_stamp": "16:00",
+      "regular_minute_bars": 390,
+      "boundary_bars": 1,
+      "extended_bars": 267,
+      "expected_lattice": 390,
+      "regular_never_exceeds_lattice": true,
+      "boundary_is_separate": true,
+      "pass": true
+    },
+    "F04_CLOSE_BOUNDARY_PRESENT_EARLY": {
+      "session": "2024-11-29",
+      "close_stamp": "13:00",
+      "regular_minute_bars": 210,
+      "boundary_bars": 1,
+      "extended_bars": 143,
+      "expected_lattice": 210,
+      "regular_never_exceeds_lattice": true,
+      "boundary_is_separate": true,
+      "pass": true
+    },
+    "F05_CLOSE_BOUNDARY_ABSENT": {
+      "note": "lattice is calendar-derived, so an absent boundary bar cannot change it",
+      "expected_slots": 390,
+      "pass": true
+    },
+    "F06_EXTENDED_HOURS_PRESENT": {
+      "extended_bars": 267,
+      "enters_regular_lattice": false,
+      "pass": true
+    },
+    "F07_OBSERVED_REGULAR_BAR": {
+      "result": {
+        "observation_state": "OBSERVED",
+        "unobserved_reason": null
+      },
+      "pass": true
+    },
+    "F08_OBSERVED_ZERO_VOLUME_BAR": {
+      "status": "FIXTURE_UNAVAILABLE",
+      "note": "no emitted zero-volume regular-session bar found in this session; vendor evidence is NOT fabricated to supply one",
+      "pass": true
+    },
+    "F09_MISSING_MINUTE_COMPLETENESS_PROVEN": {
+      "status": "CAPABILITY_UNAVAILABLE",
+      "note": "STRUCTURAL_NO_TRADE cannot be positively established from this archive: request-level completeness is proven (P6) but vendor minute-level emission completeness is not independently verifiable. No positive fixture is fabricated.",
+      "pass": true
+    },
+    "F10_MISSING_MINUTE_COMPLETENESS_UNPROVEN": {
+      "result": {
+        "observation_state": "UNOBSERVED",
+        "unobserved_reason": "SOURCE_COMPLETENESS_UNPROVEN"
+      },
+      "pass": true
+    },
+    "F11_NOT_YET_REGULAR_WAY": {
+      "result": {
+        "observation_state": null,
+        "unobserved_reason": null,
+        "note": "no expected regular coverage for this eligibility state"
+      },
+      "pass": true
+    },
+    "F12_WHEN_ISSUED": {
+      "result": {
+        "observation_state": null,
+        "unobserved_reason": null,
+        "note": "no expected regular coverage for this eligibility state"
+      },
+      "pass": true
+    },
+    "F13_RENAME_BOUNDARY_ORIGINAL_FIVE": {
+      "example": {
+        "security": "FISV",
+        "session": "2023-06-07",
+        "original_ingest_state": "UNOBSERVED"
+      },
+      "eligibility": "REGULAR_WAY_EXPECTED",
+      "result": {
+        "observation_state": "UNOBSERVED",
+        "unobserved_reason": "SOURCE_REFERENCE_CONFLICT"
+      },
+      "never_structural": true,
+      "pass": true
+    },
+    "F14_HIGHER_TF_ONE_UNOBSERVED": {
+      "window_minutes": 15,
+      "unobserved_in_window": 1,
+      "coverage_complete": false,
+      "contamination_state": "UNOBSERVED_CONTAMINATED",
+      "pass": true
+    },
+    "F15_EXTENDED_PLUS_REGULAR_SAME_DATE": {
+      "regular": 390,
+      "extended": 267,
+      "cross_contamination": false,
+      "pass": true
+    },
+    "F16_SOURCE_ACCESS_CONFLICT": {
+      "result": {
+        "observation_state": "UNOBSERVED",
+        "unobserved_reason": "SOURCE_TICKER_ACCESS_UNRESOLVED"
+      },
+      "pass": true
+    }
+  },
+  "negative_fixtures": {
+    "missing_minute_becomes_volume_zero": {
+      "wrong": "set volume=0 for an absent expected minute",
+      "contract": {
+        "open": null,
+        "high": null,
+        "low": null,
+        "close": null,
+        "volume": null,
+        "note": "a missing expected minute is NOT an observed zero-volume bar"
+      },
+      "rejected": true,
+      "pass": true
+    },
+    "absent_minute_carry_forward_ohlc": {
+      "wrong": "carry the previous close into the absent minute",
+      "contract": {
+        "open": null,
+        "high": null,
+        "low": null,
+        "close": null,
+        "volume": null,
+        "note": "a missing expected minute is NOT an observed zero-volume bar"
+      },
+      "rejected": true,
+      "pass": true
+    },
+    "close_boundary_becomes_391st_slot": {
+      "wrong": "append the 16:00 stamp to the regular lattice",
+      "lattice": 390,
+      "boundary_scope": "SESSION_CLOSE_BOUNDARY_BAR",
+      "rejected": true,
+      "pass": true
+    },
+    "early_close_boundary_becomes_211th": {
+      "wrong": "append the 13:00 stamp to the early-close lattice",
+      "lattice": 210,
+      "rejected": true,
+      "pass": true
+    },
+    "extended_bar_enters_rth": {
+      "wrong": "treat an 04:05 ET bar as a regular minute",
+      "scope": "EXTENDED_HOURS_BAR",
+      "rejected": true,
+      "pass": true
+    },
+    "not_yet_regular_way_becomes_unobserved": {
+      "wrong": "classify a not-yet-listed security's minutes as UNOBSERVED",
+      "result": {
+        "observation_state": null,
+        "unobserved_reason": null,
+        "note": "no expected regular coverage for this eligibility state"
+      },
+      "rejected": true,
+      "pass": true
+    },
+    "when_issued_generates_regular_coverage": {
+      "wrong": "give a when-issued interval expected regular coverage",
+      "result": {
+        "observation_state": null,
+        "unobserved_reason": null,
+        "note": "no expected regular coverage for this eligibility state"
+      },
+      "rejected": true,
+      "pass": true
+    },
+    "reference_ticker_zero_rows_becomes_structural": {
+      "wrong": "call an empty response from the reference-assigned ticker STRUCTURAL_NO_TRADE",
+      "result": {
+        "observation_state": "UNOBSERVED",
+        "unobserved_reason": "SOURCE_REFERENCE_CONFLICT"
+      },
+      "rejected": true,
+      "pass": true
+    },
+    "one_unobserved_minute_yields_complete_higher_tf": {
+      "wrong": "aggregate across an UNOBSERVED minute and mark the bar complete",
+      "coverage_complete": false,
+      "rejected": true,
+      "pass": true
+    }
+  },
+  "conformance": {
+    "C01_raw_archive_mutation_zero": true,
+    "C02_lineage_v6_unchanged": true,
+    "C03_boundary_amendment_unchanged": true,
+    "C04_snapshot_unchanged": true,
+    "C05_normal_slots_390": true,
+    "C06_early_close_slots_210": true,
+    "C07_boundary_excluded_from_regular": true,
+    "C08_extended_excluded_from_lattice": true,
+    "C09_missing_never_volume_zero": true,
+    "C10_no_ohlc_carry_forward": true,
+    "C11_not_yet_no_expected_coverage": true,
+    "C12_when_issued_no_expected_coverage": true,
+    "C13_structural_requires_positive_completeness": true,
+    "C14_structural_capability_marked_unavailable": true,
+    "C15_access_conflict_yields_unobserved": true,
+    "C16_original_five_remain_unobserved": true,
+    "C17_no_new_vintage_bars_inserted": true,
+    "C18_higher_tf_contamination": true,
+    "C19_vwap_canonical_disabled": true,
+    "C20_transaction_count_hold": true
+  },
+  "known_limitations": [
+    "STRUCTURAL_NO_TRADE has no classification capability in V1",
+    "F09 is recorded CAPABILITY_UNAVAILABLE rather than fabricated",
+    "F08 depends on a real emitted zero-volume bar existing in the sampled session",
+    "diagnostic response-body digests were not captured in the boundary amendment"
+  ],
+  "production_derived_layer": "NOT AUTHORISED — nothing was written",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 13:12 +04"
+}

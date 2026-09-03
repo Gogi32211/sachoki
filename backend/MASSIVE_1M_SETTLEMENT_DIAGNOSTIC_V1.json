@@ -1,0 +1,138 @@
+{
+  "artifact": "MASSIVE_1M_SETTLEMENT_DIAGNOSTIC_V1",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "Y_EXPOSED": 0,
+  "FORWARD_EVIDENTIARY_BOUNDARY": "REMAINS CLOSED",
+  "WORDING_CORRECTION": {
+    "class": "OVERCLAIM",
+    "RETRACTED": "'T+30 puts forward into the DEV majority regime'",
+    "WHY_WRONG": "the historical corpus median lag is 914 days. A T+30 forward regime is NOT the DEV majority regime; it is merely much closer to it than T+1.",
+    "CORRECT": [
+      "T+1 is demonstrably too early relative to the mostly mature historical corpus",
+      "the minimum lag at which the vendor data become sufficiently stable HAS NOT YET BEEN ESTABLISHED"
+    ]
+  },
+  "DECISION_STATE": {
+    "T+1_PRIMARY": "REJECTED — would move forward replication into a known vintage-regime shift",
+    "DUAL_VINTAGE_PRIMARY": "REJECTED — if T+1 is primary the problem remains; a T+30 diagnostic does not repair it",
+    "FIXED_MATURITY_DELAY": "APPROVED IN PRINCIPLE",
+    "T+30": "CANDIDATE, NOT YET QUALIFIED",
+    "EXACT_SETTLEMENT_LAG": "NOT YET FROZEN"
+  },
+  "ELIGIBILITY": {
+    "target_maturity": "30 calendar days +/- 1 day",
+    "required_sessions": 3,
+    "each_must": [
+      "be a full regular session",
+      "have an authoritative archived early vintage at <= T+7",
+      "have that original vintage sealed and immutable"
+    ],
+    "FORBIDDEN": "a T+20 -> T+30 comparison as a substitute — it answers a different question and cannot stand in for T+1 -> T+30 stability"
+  },
+  "ELIGIBILITY_COMPUTED_TODAY": {
+    "as_of": "2026-08-31",
+    "candidates": 5,
+    "eligible_now": 0,
+    "table": [
+      {
+        "session": "2026-08-18",
+        "early_lag_days": 7,
+        "T30_date": "2026-09-17"
+      },
+      {
+        "session": "2026-08-19",
+        "early_lag_days": 6,
+        "T30_date": "2026-09-18"
+      },
+      {
+        "session": "2026-08-20",
+        "early_lag_days": 5,
+        "T30_date": "2026-09-19"
+      },
+      {
+        "session": "2026-08-21",
+        "early_lag_days": 4,
+        "T30_date": "2026-09-20"
+      },
+      {
+        "session": "2026-08-24",
+        "early_lag_days": 1,
+        "T30_date": "2026-09-23"
+      }
+    ],
+    "earliest_eligible_date": "2026-09-17",
+    "ACTION_TAKEN": "NO CALL MADE. The authorised refetch is registered and deferred until an eligible session exists, exactly as instructed.",
+    "bonus": "2026-08-24 now carries TWO archived vintages (T+1 original, T+7 diagnostic); a T+30 refetch there would give a THREE-POINT settlement curve for a single session"
+  },
+  "APPEND_ONLY_RULES": {
+    "ROLE": "DIAGNOSTIC_ONLY",
+    "PRIMARY_USE": "FORBIDDEN",
+    "FORWARD_EVIDENCE": false,
+    "original_vintage": "IMMUTABLE",
+    "new_vintage_identity": "MANDATORY",
+    "silent_overwrite": "FORBIDDEN"
+  },
+  "METRIC_SUITE": [
+    "bar-count changes",
+    "added / removed minutes",
+    "common-bar OHLCV changes",
+    "fraction of securities changed",
+    "fraction of common bars changed",
+    "|delta close| / close: median, p95, max",
+    "schema",
+    "adjusted",
+    "source family",
+    "minute timestamps",
+    "truncated flags"
+  ],
+  "FIRST_EMPIRICAL_POINT": {
+    "session": "2026-08-24",
+    "from": "T+1",
+    "to": "T+7",
+    "minutes_added": 215,
+    "minutes_removed": 0,
+    "common_bars": 205240,
+    "changed": 3036,
+    "pct": 1.479,
+    "securities_with_changed_ohlcv": 325,
+    "of": 503,
+    "rel_close": {
+      "median": 0.0,
+      "p95": 0.000109,
+      "max": 0.00934
+    },
+    "source": "MASSIVE_1M_A1A_LIVE_QUALIFICATION_RESULT_V1 · 953b98ea912f50cc",
+    "NOT_REPEATED": "the 2026-08-24 call is not re-run; it stands as the first point of the settlement study"
+  },
+  "STABILITY_CRITERION": {
+    "status": "NOT FROZEN — OPEN ITEM",
+    "HARD_REQUIREMENT": "the criterion MUST be frozen BEFORE the first of the three T+30 results is READ, or the threshold will be fitted to the results",
+    "why_no_number_today": "one paired point (T+1 -> T+7) cannot support a defensible tolerance",
+    "PROBLEM": "an absolute numeric cutoff invented later is exactly the laundering this programme forbids",
+    "OPTION_A_absolute": "freeze a numeric tolerance before reading — requires inventing a number from one point. NOT RECOMMENDED.",
+    "OPTION_B_relative_baseline": {
+      "idea": "make the criterion RELATIVE instead of absolute. Refetch one LONG-LAG archived session (e.g. a 2022 date, archived at lag ~900d) to measure the residual revision rate of data that is unambiguously settled. That becomes the SETTLED REFERENCE. The criterion is then: the smallest registered maturity M whose revision metric is not materially above the settled reference.",
+      "cost": "ONE additional paid diagnostic refetch, eligible IMMEDIATELY (no waiting)",
+      "advantage": "no number is invented; the corpus supplies its own baseline",
+      "status": "PROPOSED — needs authorisation; NOT executed"
+    },
+    "RECOMMENDATION": "Option B, and freeze the full comparison rule before any T+30 result is read"
+  },
+  "FORWARD_CLOCK_AMBIGUITY": {
+    "status": "MUST BE FROZEN SEPARATELY, NOT LEFT VAGUE",
+    "question": "if the delay is T+M, is M in CALENDAR days or BUSINESS/SESSION days?",
+    "consequence": "session D enters primary X evidence only at D + M under whichever convention is frozen"
+  },
+  "TRIGGER_CONSEQUENCE": {
+    "rule": "the month-end trigger must operate on the frozen vintage cutoff",
+    "example": "at a 2027-02 month-end evaluation the last ~M days of sessions are simply NOT YET ADMISSIBLE X evidence",
+    "FORBIDDEN": [
+      "waiting for them",
+      "backfilling them later to alter a past NO_LOOK record"
+    ]
+  },
+  "HOLDOUT_NOTE": {
+    "observation": "the 2026-08-07..24 HOLDOUT sits entirely in the newest, least-settled raw tail",
+    "USE": "NONE. The HOLDOUT was already reclassified NON-PRISTINE for a separate reason and is closed. This vintage finding is NOT to be used as an additional post hoc explanation of any historical result."
+  }
+}

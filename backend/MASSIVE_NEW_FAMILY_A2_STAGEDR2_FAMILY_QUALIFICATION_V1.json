@@ -1,0 +1,126 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_A2_STAGEDR2_FAMILY_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "VERDICT": "A2 FAMILY QUALIFIED",
+  "family": "STAGE_D_R2",
+  "columns": 6,
+  "authority": {
+    "producer_script": "massive_new_family_runtime/stageD_r2.py",
+    "sealed": "MASSIVE_NEW_FAMILY_STAGE_D_PRODUCTION_V1",
+    "cooldown_authority": "MASSIVE_NEW_FAMILY_SIG_BUY_COOLDOWN_AUTHORITY_V1 (+ amendment)",
+    "engines_imported": [
+      "sig_buy_raw.compute_combo_uncooled",
+      "studio.enricher._compute_body_wick",
+      "studio.enricher._compute_gap_range"
+    ]
+  },
+  "code_binding": {
+    "module": "backend/forward_a2_producers.py",
+    "sha256": "0a0648b66518f1364ec26b17a23ff70db363d14ed2ecb1a5c50be400cf2619a3"
+  },
+  "GATE_1_HISTORICAL_REPLAY": {
+    "expected_rows": 92672724,
+    "rebuilt_rows": 92672724,
+    "except_all_O_minus_R": 0,
+    "except_all_R_minus_O": 0,
+    "method": "PARTITIONED BY k",
+    "schema_match": true,
+    "build_s": 4312,
+    "VERDICT": "EXACT"
+  },
+  "GATE_2_COOLDOWN_CONTINUITY": {
+    "immediately_before_sig_buy_fire": {
+      "cases": 13,
+      "rows": 1228764,
+      "mismatches": 0
+    },
+    "immediately_after_fire": {
+      "cases": 13,
+      "rows": 1228686,
+      "mismatches": 0
+    },
+    "inside_cooldown": {
+      "cases": 13,
+      "rows": 1228452,
+      "mismatches": 0
+    },
+    "exactly_at_cooldown_release": {
+      "cases": 13,
+      "rows": 1228218,
+      "mismatches": 0
+    },
+    "across_contaminated_bars": {
+      "cases": 24,
+      "rows": 2100294,
+      "mismatches": 0
+    },
+    "inside_long_clean_run": {
+      "cases": 13,
+      "rows": 76854,
+      "mismatches": 0
+    },
+    "TOTAL_MISMATCHES": 0,
+    "VERDICT": "PASS"
+  },
+  "GATE_3_REACHABLE_STATE_AUTHORITY": {
+    "COOLDOWN_STATE_IS": "a frozen reachable X-state — a SET of admissible counter values in {0..5} u {OLD=6}",
+    "COOLDOWN_STATE_IS_NOT": [
+      "time since the last signal",
+      "a count of elapsed bars",
+      "a count of rows since a split"
+    ],
+    "carried_state_sets_actually_observed": {
+      "[1, 2, 3, 4, 5, 6]": 56,
+      "[6]": 32,
+      "[1, 6]": 1
+    },
+    "reading": "56 of 89 carried states were the FULL ambiguity set [1,2,3,4,5,6] — the state genuinely carries unresolved branching rather than collapsing to a number. 32 were the singleton [6] (cooldown provably released) and 1 was [1,6].",
+    "no_elapsed_time_inference": true,
+    "no_missing_to_false": true,
+    "no_reset_on_window_restart": "proved by fixture: carried {0} REFUSES a fire where a wrongly reseeded FRESH state ADMITS it"
+  },
+  "GATE_4_UNKNOWN_INIT_BEHAVIOUR": {
+    "N_observed_FALSE_bars_after_a_fire": "outputs [True,F,F,F,F,F,F], final state [6] — cooldown released IDENTIFIABLY",
+    "N_UNKNOWN_bars_after_a_fire": "outputs [True,F,F,F,F,F,None] — the last output is NOT IDENTIFIABLE, final state [1,6]",
+    "the_refutation": "elapsed time cannot substitute for proven-false observed bars. Unknown bars BRANCH the admissible set; they do not advance a proven-false counter. A fire is admitted after N proven-false bars and is NOT identifiable after N unknown bars.",
+    "INIT_and_UNAVAILABLE": "availability distribution identical to the frozen store across all five states, including UNAVAILABLE_REQUIRED_HISTORY 5,693,774 on sig_buy"
+  },
+  "GATE_5_NEGATIVE_FIXTURES": {
+    "total": 26,
+    "passed": 26,
+    "VERDICT": "PASS",
+    "highlights": [
+      "resumed window without carried eprev -> HARD FAIL (assuming False would silently gate sig_3g)",
+      "missing required EMA state column -> HARD FAIL",
+      "is_head length / incomplete-bar guards",
+      "cohort digest mismatch -> HARD FAIL"
+    ]
+  },
+  "GATE_6_RESTART_IDEMPOTENCY": {
+    "authority": "A2_PARTITION_COMPLETION_V1, identical to pd12/stageC4/PHASE1",
+    "readable_partial": "SIZE_MISMATCH",
+    "stale_run": "STALE_RUN",
+    "duplicates": 0
+  },
+  "GATE_7_Y_BLINDNESS": {
+    "forbidden_opens_attempted": 0,
+    "VERDICT": "PASS"
+  },
+  "POSITIVE_STATE_PROOF": {
+    "two_prefixes_same_current_bar": "after-fire prefix (state [3]) REFUSES the fire; no-fire prefix (state [6]) ADMITS it. Identical current bar, different legitimate cooldown history, different output — the wrapper genuinely carries cooldown and is not a row-local approximation."
+  },
+  "STATUS_TABLE": {
+    "HISTORICAL_EXACTNESS": "PASS",
+    "COOLDOWN_CONTINUITY": "PASS",
+    "REACHABLE_STATE_AUTHORITY": "PASS",
+    "UNKNOWN_INIT_BEHAVIOUR": "PASS",
+    "NEGATIVE_FIXTURES": "PASS",
+    "RESTART_IDEMPOTENCY": "PASS",
+    "Y_BLINDNESS": "PASS",
+    "STATUS": "A2 FAMILY QUALIFIED"
+  },
+  "runtime_s": 5246
+}

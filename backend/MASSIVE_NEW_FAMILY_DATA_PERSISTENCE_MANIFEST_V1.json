@@ -1,0 +1,276 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_DATA_PERSISTENCE_MANIFEST_V1",
+  "status": "FROZEN",
+  "role": "closes the FORWARD_A1_BLOCKED prerequisite. Adds no design freedom.",
+  "DATA_ROOT": "/Users/sachoki/MASSIVE_DATA",
+  "outside_repository": true,
+  "layout": {
+    "historical/": "frozen historical authority",
+    "forward/{raw,stageA,producer_outputs,canon69}/": "empty, awaiting A1",
+    "manifests/": "sealed manifests"
+  },
+  "AUTHORITY_RULE": "the authority is (artifact ID + digest), NOT the path. A file at a path with a mismatched digest is NOT the artifact.",
+  "COPIED": {
+    "n_files": 36,
+    "total_bytes": 20268294448,
+    "total_GB": 20.27,
+    "absent_at_source": 0,
+    "digest_mismatches": 0,
+    "verification": "hashlib sha256 on source and destination inside the copier, PLUS an independent re-verification of the two largest files with the system shasum(1) — a different implementation"
+  },
+  "TIERS": {
+    "ROOT_INPUT": [
+      "stageA_input.duckdb",
+      "pd_input.duckdb"
+    ],
+    "PRODUCER_OUTPUT": [
+      "STAGE_D_R2.duckdb",
+      "pd12.duckdb",
+      "stageC4.duckdb",
+      "PHASE1_R1.duckdb"
+    ],
+    "CANONICAL_X": [
+      "CANON69.duckdb"
+    ],
+    "KERNEL_INPUT": [
+      "mm_TT.npy",
+      "mm_FV.npy",
+      "mm_Y.npy",
+      "mm_AV.npy",
+      "mm_EPI.npy",
+      "mm_POS_flat.npy",
+      "mm_POS_off.npy",
+      "mm_sec_of.npy",
+      "mm_date_of.npy",
+      "mm_aw_lo.npy",
+      "mm_aw_hi.npy",
+      "mm_dev.npy",
+      "mm_fa.npy",
+      "mm_fb.npy",
+      "mm_cp.npy",
+      "mm_date_class.npy",
+      "mm_month_id.npy",
+      "mm_meta.json",
+      "real_Y_status.npy"
+    ],
+    "SEALED_RESULT": [
+      "PROD_INFER.npz",
+      "PROD_CI.npz",
+      "PROD_CS.npz",
+      "PROD_DENOM.npz",
+      "DRAW_MANIFEST.npz",
+      "CI_MANIFEST.npz",
+      "VIOLATION_PROD_INFER.npz",
+      "VIOLATION_PROD_CI.npz",
+      "VIOLATION_PROD_CS.npz",
+      "VIOLATION_DRAW_MANIFEST.npz"
+    ]
+  },
+  "FILE_DIGESTS": {
+    "stageA_input.duckdb": {
+      "sha256": "39abadbd14901c0b657a360dff31c1fa52d018eea97e6bc3f0b9e4561a2b6e74",
+      "bytes": 502804480,
+      "tier": "ROOT_INPUT"
+    },
+    "pd_input.duckdb": {
+      "sha256": "a058d189de33103fe45ce2a6f9d8130761b9c9a2b25d17bbe96c689f49fa909c",
+      "bytes": 2197565440,
+      "tier": "ROOT_INPUT"
+    },
+    "STAGE_D_R2.duckdb": {
+      "sha256": "56eba94c6e858feaec2f962a6271d3c51b55338bc63502b1f4d559340dde624e",
+      "bytes": 742928384,
+      "tier": "PRODUCER_OUTPUT"
+    },
+    "pd12.duckdb": {
+      "sha256": "5ceb51930859d956b5eaf2bf6112499e4c5aa3c784d35c64db0aa59163efa522",
+      "bytes": 1376268288,
+      "tier": "PRODUCER_OUTPUT"
+    },
+    "stageC4.duckdb": {
+      "sha256": "10731a4cbb88f5ce30155337e10c0d2c4512abfdff02db76b708c588e1bb6163",
+      "bytes": 1455960064,
+      "tier": "PRODUCER_OUTPUT"
+    },
+    "PHASE1_R1.duckdb": {
+      "sha256": "91a4502c6613f03a76b9139630696426d7e5e69d99cade4f07b9a9122cd37920",
+      "bytes": 4738527232,
+      "tier": "PRODUCER_OUTPUT"
+    },
+    "CANON69.duckdb": {
+      "sha256": "b6781bd87c4f97e8d5e472379d840101bfd09fd0802e2eaa7a013a06ac214aab",
+      "bytes": 8464379904,
+      "tier": "CANONICAL_X"
+    },
+    "mm_TT.npy": {
+      "sha256": "a9e2c721719899696a2a6aa23709096bba1c02157c622449b530eb3d41325d69",
+      "bytes": 293355620,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_FV.npy": {
+      "sha256": "ac934472b5b27ec61d191c2cc9eee8edeee02d96e96db3677b5d024ca9f61459",
+      "bytes": 164565404,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_Y.npy": {
+      "sha256": "8171b47971ff6e61c18dac0c029dd7469fbe93c8b63fbf4343ed3e574c7a7322",
+      "bytes": 14310152,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_AV.npy": {
+      "sha256": "bff2fefb2168237e47b4d8c9995fbf4cbfa496e181b6a6f0535f0ad643eaf499",
+      "bytes": 1788881,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_EPI.npy": {
+      "sha256": "3592c6adcdd98bcc18ba9e2b4e6563000b8747738e24333ca81707ebcc4e67ee",
+      "bytes": 2387744,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_POS_flat.npy": {
+      "sha256": "a60f9ddc433dd8a5db8584ef089f711580b2f3a1209bd4324ae972e108b56770",
+      "bytes": 293295240,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_POS_off.npy": {
+      "sha256": "124179249af224014179382d37677a475b63f9f641a379736dbeb72bda8f791f",
+      "bytes": 166144,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_sec_of.npy": {
+      "sha256": "91114c3eb1dd598eebff19d1ecadf9e96fc9f6274ca979029e0dfa309c5320b4",
+      "bytes": 2385132,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_date_of.npy": {
+      "sha256": "524cf35999aaeb3261d4e5408b768cb2d87bb248c90a7b62ce587138afdaad37",
+      "bytes": 2385132,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_aw_lo.npy": {
+      "sha256": "c12536dfbc4594516cf72efa8ce0531c39b527702cba5dde3c38bb7348c9ac89",
+      "bytes": 2032,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_aw_hi.npy": {
+      "sha256": "0265e7c5600102991db401dbe60e438d2defdf21dcfd7acda57e9313e49c7846",
+      "bytes": 2032,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_dev.npy": {
+      "sha256": "888944aad8185937049a89545e70f0117296da6eb10dbbbd27725b345e965bc7",
+      "bytes": 596379,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_fa.npy": {
+      "sha256": "f0380391d1c796514e22fc6c3d1df2131fa6407ba6b01fa1f778b92026100edc",
+      "bytes": 83132,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_fb.npy": {
+      "sha256": "7c91b243beae07d261028134a34b45f1e6ac9fe9ee9de9dfc0f0bacde43ef9d3",
+      "bytes": 83132,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_cp.npy": {
+      "sha256": "d811777e40f99036a0c886dd7fc6a9118a15788a345dab13620708e5b814d8c8",
+      "bytes": 83132,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_date_class.npy": {
+      "sha256": "86dd5400cc41531b635bc17045dfaa3cf4109ce18a7ba4b7b6659bd6410ce084",
+      "bytes": 1382,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_month_id.npy": {
+      "sha256": "5df1a950fc83faf8023b3bac9ef6c41b03ed5b15b23c35f97c9db7ed6e111fa2",
+      "bytes": 5144,
+      "tier": "KERNEL_INPUT"
+    },
+    "mm_meta.json": {
+      "sha256": "1cb0e28a3c5c3a4ad84a3d06484c01a69d1d357f74029db133ad3eba9ca84034",
+      "bytes": 85,
+      "tier": "KERNEL_INPUT"
+    },
+    "real_Y_status.npy": {
+      "sha256": "9bb13e55f8ef8a91d0f78a62b958bed3f3d2a36514591f708431bf3eef460afc",
+      "bytes": 1788881,
+      "tier": "KERNEL_INPUT"
+    },
+    "PROD_INFER.npz": {
+      "sha256": "44c9a48e8cbc75ac4c755fad1911ade3d849e602fa41e13b3e4775fd993370e0",
+      "bytes": 338706,
+      "tier": "SEALED_RESULT"
+    },
+    "PROD_CI.npz": {
+      "sha256": "05cb944609d614aeb9bc417a458e45452308a9d0d487fd3997c4424289329ee6",
+      "bytes": 315823,
+      "tier": "SEALED_RESULT"
+    },
+    "PROD_CS.npz": {
+      "sha256": "03c6abf4da4baa472caeabe3b315e6484816ae267ef3e8ade538629f88b107c9",
+      "bytes": 310403,
+      "tier": "SEALED_RESULT"
+    },
+    "PROD_DENOM.npz": {
+      "sha256": "d1afcf6c1d66fa493dd5228bdbaed2a2b8d627876103be0b05a93e46449c8b80",
+      "bytes": 106949,
+      "tier": "SEALED_RESULT"
+    },
+    "DRAW_MANIFEST.npz": {
+      "sha256": "2bbdafb0d6bd97e6460d7c9988ed60e9ee827688477ca181adf8df7a792faf19",
+      "bytes": 3987273,
+      "tier": "SEALED_RESULT"
+    },
+    "CI_MANIFEST.npz": {
+      "sha256": "9019e84e8de5d8d4f254bb2da56decdea6955377951b8f4c4e48dd3f08ca0b48",
+      "bytes": 2564483,
+      "tier": "SEALED_RESULT"
+    },
+    "VIOLATION_PROD_INFER.npz": {
+      "sha256": "2ca7e92fe3aaf1c8fc885cde3904d663154815756037e43c701bf304ef61876d",
+      "bytes": 338775,
+      "tier": "SEALED_RESULT"
+    },
+    "VIOLATION_PROD_CI.npz": {
+      "sha256": "9e1a717852fb239e1d1b419b61af536ee8b4508eea73ce45ee893c81792f561e",
+      "bytes": 315795,
+      "tier": "SEALED_RESULT"
+    },
+    "VIOLATION_PROD_CS.npz": {
+      "sha256": "8e3f71d9dd3f1bc1eb4325212a30b577691e95a6108b683002db247db0e996c4",
+      "bytes": 310396,
+      "tier": "SEALED_RESULT"
+    },
+    "VIOLATION_DRAW_MANIFEST.npz": {
+      "sha256": "e43b0543ca4c778c50a70f4e5ecd99a2f523f5df172a53506e0e38b0bdf8119f",
+      "bytes": 3987273,
+      "tier": "SEALED_RESULT"
+    }
+  },
+  "CLASSIFIED_REPRODUCIBLE_NOT_COPIED": {
+    "ci_sorted_rows.npy": "CI rank scaffold — rebuildable from CANON69 + ci_build_order/ci_build_ranks",
+    "ci_claim_ranks.npy": "same",
+    "ci_claim_pool.npy": "same",
+    "ci_claim_rank_off.npy": "same",
+    "prod_shards/": "per-draw shards — superseded by the aggregated PROD_* npz",
+    "prod_ci/": "same",
+    "VIOLATION_prod_shards/": "quarantined SCOPE_VIOLATION shards; metadata retained in VIOLATION_PROD_*.npz",
+    "VIOLATION_prod_ci/": "same",
+    "synthetic_backup/": "synthetic-Y smoke; qualification already sealed",
+    "POS4.duckdb": "intermediate position store",
+    "ema3489.duckdb": "intermediate feature store",
+    "shards_ref/ shards_p4/ shards_crash/": "equivalence-test shards; verdicts already sealed"
+  },
+  "REPRODUCIBILITY_STATEMENT": "every non-copied item is reconstructible from the copied ROOT_INPUT plus the producer code persisted at backend/massive_new_family_runtime/. Nothing that is a RECONSTRUCTION ROOT was left behind.",
+  "SMOKE": {
+    "stageA_input": "15,445,454 rows · 476 keys · 1,254 dates · 2021-08-25..2026-08-24",
+    "CANON69": "69 features",
+    "PROD_INFER": "k=20,751 · min p_adj = 1/1801",
+    "mm_FV": "(4, 69, 596251)",
+    "cohort_allowlist_vs_persistent_bars": "IDENTICAL 476",
+    "result": "PASS"
+  },
+  "SCRATCHPAD_STATUS": "NO LONGER AUTHORITATIVE. persistent copy exists AND digests match AND read/open smoke PASS AND this manifest is sealed.",
+  "cohort_binding": "MASSIVE_NEW_FAMILY_FORWARD_COHORT_BINDING_V1 · 2cbb4b900d8a4a2e"
+}

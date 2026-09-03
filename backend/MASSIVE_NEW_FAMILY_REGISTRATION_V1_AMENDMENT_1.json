@@ -1,0 +1,29 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_REGISTRATION_V1_AMENDMENT_1",
+  "amends": "6c7d44317fea0583",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "STATUS": "DRAFT",
+  "reason": "the shell declared HISTORICAL_RESERVED_OOS as \">= 2026-08-07\" open-ended. Massive coverage ends 2026-08-24.",
+  "superseded": "HISTORICAL_RESERVED_OOS >= 2026-08-07",
+  "replacement": "HISTORICAL_HOLDOUT = 2026-08-07 .. 2026-08-24",
+  "windows": {
+    "DEV": "2021-08-25 .. 2026-08-06",
+    "HISTORICAL_HOLDOUT": "2026-08-07 .. 2026-08-24",
+    "TRUE_FORWARD": "begins only after MASSIVE_NEW_FAMILY_PRESPEC_V1 is FROZEN"
+  },
+  "dev_head_correction": "DEV now begins 2021-08-25 (Massive head), not 2021-07-02 (legacy store head) — roughly two months shorter",
+  "excluded_days": {
+    "days": [
+      "2026-08-25",
+      "2026-08-26"
+    ],
+    "status": "UNAVAILABLE_FROM_MASSIVE_V1",
+    "note": "these are NOT a holdout failure and NOT a divergence — Massive simply does not cover them"
+  },
+  "status_of_69": {
+    "SEMANTICALLY_ELIGIBLE_CANDIDATE_COLUMNS": 69,
+    "FINAL_PRESPEC_ELIGIBLE_COLUMNS": "NOT_YET_DETERMINED",
+    "reason": "Massive availability/support census pending; 69 is a producer-level ceiling, not a search surface"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "spec_id": "MASSIVE_1M_P10_TICKER_LINEAGE_AMENDMENT_V1",
+  "status": "FROZEN BEFORE QUERY",
+  "written_after_exposure": {
+    "declaration": "WRITTEN AFTER P1-P9 EXPOSURE",
+    "why": "the frozen universe is a list of CURRENT tickers; whether a current ticker retrieves its own pre-rename history is a source-capability question that P1-P9 never asked, and getting it wrong would silently blank part of a security's history",
+    "no_new_ground_truth": "fixture F5 (FB -> META, CUSIP unchanged) was confirmed from Meta investor relations and sealed in SP500_PIT_FIXTURES_V1 long before this",
+    "outcome": "no Y value is involved"
+  },
+  "fixture": {
+    "security": "Meta Platforms, Inc.",
+    "ticker_before": "FB",
+    "ticker_after": "META",
+    "effective": "2022-06-09",
+    "entity_continuity": "PRESERVED",
+    "cusip": "unchanged",
+    "last_old_ticker_session": "2022-06-08",
+    "first_new_ticker_session": "2022-06-09"
+  },
+  "queries": [
+    "2022-06-08 using FB",
+    "2022-06-08 using META",
+    "2022-06-09 using FB",
+    "2022-06-09 using META"
+  ],
+  "classification_buckets": {
+    "CURRENT_TICKER_BACKFILLED": "META retrieves the pre-change session; the current ticker reaches its own past",
+    "TICKER_AT_TIME": "FB is required before 2022-06-09 and META after; requests are keyed by the ticker as it stood",
+    "AMBIGUOUS": "both tickers return data for a session and the payloads conflict",
+    "UNRESOLVED": "entitlement or error prevents classification"
+  },
+  "consequences": {
+    "CURRENT_TICKER_BACKFILLED": "the current 503-ticker map may be used as-is for the whole window — as CONFIRMED vendor behaviour, not as an assumption",
+    "TICKER_AT_TIME": "canonical identity becomes (security_id, massive_ticker_at_time, effective_from, effective_to) and the full ticker history of all 503 securities must be frozen from Massive reference data BEFORE ingestion. CIK corroborates issuer identity but is NOT sufficient alone, because a dual-class issuer maps one CIK to several securities."
+  },
+  "frozen_before": "any of the four queries",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:51 +04"
+}

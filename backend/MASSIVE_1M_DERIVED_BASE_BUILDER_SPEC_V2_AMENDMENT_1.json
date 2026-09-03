@@ -1,0 +1,124 @@
+{
+  "spec_id": "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V2_AMENDMENT_1",
+  "status": "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V2_AMENDMENT_1_FROZEN",
+  "task_class": "SPECIFICATION_AMENDMENT_ONLY",
+  "scope": "NARROW — adds exactly one fail-closed condition and one negative fixture",
+  "amends": {
+    "base_spec": "MASSIVE_1M_DERIVED_BASE_BUILDER_SPEC_V2",
+    "base_digest": "3af8cc42370fda86",
+    "base_overwritten": false,
+    "everything_else_unchanged": true
+  },
+  "provenance_of_the_finding": {
+    "found_by": "a negative fixture failing, not by review",
+    "what_happened": "fixture J's first run duplicated results[100], which for AAPL is a pre-market bar (134 precede the open). It landed in extended hours, no guard fired, and the fixture reported FAIL.",
+    "two_separate_facts": [
+      "the fixture's injection was wrong — it is specified to duplicate a REGULAR source key — and has been corrected",
+      "extended_hours_bars genuinely has no uniqueness contract, which the failing run exposed"
+    ],
+    "rejected_argument": {
+      "argument": "canonical raw integrity already PASSed, so a duplicated source bar cannot occur in practice",
+      "why_rejected": "that quietly relocates part of the builder's correctness into an upstream artifact. It makes the derived layer correct only while the ingest gate's guarantee holds, without recording that dependency anywhere. A uniqueness contract that exists only as a property of the input is not a contract."
+    }
+  },
+  "added_fail_closed_condition": {
+    "dataset": "EXTENDED_HOURS_BAR source rows",
+    "rule": "duplicate raw source keys are FATAL",
+    "duplicate_key": [
+      "security_key_v1",
+      "source_ticker_at_time",
+      "timestamp"
+    ],
+    "on_violation": "HOLD",
+    "forbidden_resolutions": [
+      "deduplicate by keeping first",
+      "deduplicate by keeping last",
+      "aggregate duplicates",
+      "average OHLCV",
+      "silently drop one row"
+    ],
+    "why_no_deduplication": "a duplicated raw bar means the source is not what the archive claims; silently resolving it destroys the evidence while producing output that looks fine"
+  },
+  "why_the_key_has_three_parts": {
+    "rejected_key": [
+      "security_key_v1",
+      "timestamp"
+    ],
+    "reason": "one research security can have two legitimate simultaneous trading lines. GEHC, SOLV and VLTO each traded a when-issued line and a regular-way line on the same session under different tickers — established by MASSIVE_SECURITY_LINEAGE_ANOMALY_QUALIFICATION_V1.",
+    "consequence_of_two_part_key": "correct data would fail closed, because coexistence would read as duplication",
+    "target": "one source line repeating one timestamp",
+    "not_forbidden": "distinct source lines sharing a minute"
+  },
+  "uniqueness_invariants_consolidated": {
+    "REGULAR_SESSION": "duplicate source key => HOLD",
+    "SESSION_CLOSE_BOUNDARY": ">1 eligible boundary bar per security-session => HOLD",
+    "EXTENDED_HOURS": "duplicate source key within the same source line => HOLD",
+    "note": "the first two already existed; the third is added here. They are stated together so no output class is left without a uniqueness contract."
+  },
+  "added_negative_fixture": {
+    "id": "M",
+    "name": "DUPLICATE_EXTENDED_SOURCE_KEY",
+    "kind": "NEGATIVE",
+    "construction": "take one CONFIRMED pre- or post-market source bar and duplicate that exact source row",
+    "precondition": "the fixture MUST first prove the chosen bar is genuinely an EXTENDED_HOURS_BAR before duplicating it",
+    "why_the_precondition": "fixture J failed precisely because it assumed the class of the bar it picked instead of verifying it; repeating that mistake in the fixture written to catch it would be absurd",
+    "dangerous_implementation": "accepts both rows => fixture FAILS",
+    "correct_implementation": "raises the duplicate-extended-source-key guard => fixture PASSES"
+  },
+  "smoke_consequence": {
+    "rule": "the amendment changes the implementation, so the frozen rule applies in full",
+    "old_implementation_hash": "0a5dd258897cf344",
+    "requires": "a FULL smoke rerun from scratch under a new implementation hash",
+    "partial_rerun_forbidden": "running only the new fixture is not sufficient",
+    "fixture_count_after": 13,
+    "composition": "7 positive + 5 existing negative + 1 new negative"
+  },
+  "supersedes_for_production_authorization": {
+    "artifact": "MASSIVE_1M_DERIVED_BASE_SMOKE_V2",
+    "digest": "9901acea7485ee7e",
+    "disposition": "PASS_UNDER_PRE_AMENDMENT_SPEC",
+    "status_for_production": "SUPERSEDED_FOR_PRODUCTION_AUTHORIZATION",
+    "historically_valid": true,
+    "turned_into_a_failure": false,
+    "deleted": false,
+    "artifact_bytes_mutated": false,
+    "recording_method": "recorded here and in the successor smoke rather than by editing the sealed artifact, so its digest stays verifiable"
+  },
+  "unchanged_from_base": [
+    "cohort binding (476, 1f86d09a76d3c6e9)",
+    "scoped V6 authority",
+    "source restriction to original canonical raw",
+    "STRUCTURAL_NO_TRADE remains UNAVAILABLE",
+    "no synthetic OHLCV",
+    "calendar-determined close boundary",
+    "extended hours stored separately",
+    "VWAP disabled",
+    "transaction-count features HOLD",
+    "file-level provenance",
+    "partitioning and restart semantics",
+    "claim scope"
+  ],
+  "base_fail_closed_count_before": 12,
+  "base_fail_closed_count_after": 13,
+  "acceptance": {
+    "narrow_scope_one_guard": true,
+    "three_part_key": true,
+    "no_deduplication_permitted": true,
+    "fixture_M_defined": true,
+    "fixture_M_requires_class_precondition": true,
+    "full_smoke_rerun_required": true,
+    "prior_smoke_preserved_not_failed": true,
+    "base_spec_not_overwritten": true,
+    "production_writes_zero": true
+  },
+  "mutations": {
+    "base_spec": 0,
+    "prior_smoke_artifact": 0,
+    "canonical_raw": 0,
+    "derived_writes": 0,
+    "cohort": 0
+  },
+  "next_step": "freeze the new implementation hash, rerun the FULL smoke (13 fixtures) from scratch, then independent verification. Production remains HOLD until that rerun PASSes.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 20:27 +04"
+}

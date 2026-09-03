@@ -1,0 +1,52 @@
+{
+  "artifact": "MASSIVE_T1_15M_REMAINING_16_PORT_QUALIFICATION_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "STATUS": "SAMPLE_LEVEL_ONLY",
+  "sample": {
+    "series": 5,
+    "rows": 165909,
+    "note": "this gate is SAMPLE-level. Every prior family gate ran FULL-STORE (91,027,821 rows). Full-store confirmation is REQUIRED before the eligibility matrix."
+  },
+  "EXPORT_PATH_EXACT_FROM_LEAN_BASE": {
+    "sig_vol_5x": "int(volume/volume.shift(1) >= 5) — main.py:5477",
+    "sig_vol_10x": ">= 10 — main.py:5478",
+    "sig_vol_20x": ">= 20 — main.py:5479",
+    "sig_g1": "signal_engine.compute_g_signals",
+    "sig_g2": "same",
+    "sig_g4": "same",
+    "sig_g11": "same",
+    "vbo_up": "vabs_engine.compute_vabs sequential state machine",
+    "sig_tz_flip": "combo_engine.compute_tz_state; (tz_state==3) & (prev!=3) — a TRANSITION, main.py:4962"
+  },
+  "ENRICHER_PATH_EXACT": {
+    "rsi_14": "enricher.py:328-334 Wilder ewm(alpha=1/14, min_periods=1), rd.replace(0,1e-10), rounded to 1dp",
+    "bar_body_wick": "enricher.py::_compute_body_wick",
+    "bar_gap_range": "enricher.py::_compute_gap_range (requires atr_14)",
+    "sig_cisd_cplus_minus": "cisd_engine.compute_cisd -> CISD_PPM",
+    "sig_cisd_minus_struct": "-> MINUS_STRUCT",
+    "sig_cisd_mpm": "-> CISD_MPM"
+  },
+  "NOT_EXACT": {
+    "sig_cisd_cplus": "6 mismatches on enriched surface (33 on lean) — PLUS_CISD; not resolved"
+  },
+  "TALLY": {
+    "exact_on_sample": 15,
+    "not_exact": 1,
+    "of": 16
+  },
+  "INPUT_SURFACE_CONFIRMATION": "the two-surface rule held again: export-path columns exact from lean base, enricher-path columns exact from the enriched frame. No column was exact on both.",
+  "CORRECTIONS_MADE_DURING_GATE": [
+    "sig_tz_flip: first tested as a LEVEL (tz_state==3) giving 5,811 mismatches; the source is a TRANSITION (==3 and prev!=3), which is exact",
+    "rsi_14: first tested with rd.replace(0,nan) giving 1 mismatch; the enricher uses replace(0,1e-10), which is exact",
+    "bar_body_wick / bar_gap_range: a first run reported 0/0 EXACT, but both functions had raised KeyError atr_14 and the loop broke before any comparison — the zeros were initial values, not results. Re-run with atr_14 supplied and a compared-series counter; only then genuinely exact."
+  ],
+  "FALSE_EXACT_GUARD": "every table in this gate now reports the number of series actually compared alongside the mismatch count, because a zero numerator with a zero denominator is indistinguishable from a pass",
+  "not_done": [
+    "FULL-STORE conformance for all 16",
+    "claim-relevance census",
+    "sig_cisd_cplus residual not investigated"
+  ],
+  "next": "full-store confirmation, then MASSIVE_NEW_FAMILY_FEATURE_ELIGIBILITY_MATRIX_V1"
+}

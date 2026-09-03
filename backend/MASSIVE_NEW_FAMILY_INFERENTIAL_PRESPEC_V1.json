@@ -1,0 +1,204 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "outcome_exposure": "NOT_EXPOSED — this artifact DEFINES the outcome; it does not read it",
+  "binds": {
+    "multiplicity_universe": "a9852e1e4a9495c3",
+    "registry": "6900f9d3cf6f13e5",
+    "registry_digest": "e60eb8061aa80ddf",
+    "k": 20751,
+    "claim_grammar": "4f07512770af4615",
+    "token_dictionary": "4944126121f8fe16",
+    "x_surface_closure": "228c9ceae10bd0cc",
+    "precedent_review": "bd0acec96d26d5b6"
+  },
+  "CLOCK": {
+    "authority": "VERIFIED FROM DATA, not from column naming",
+    "evidence": [
+      "26 distinct intraday labels running 09:30 .. 15:45 (NOT 09:45 .. 16:00)",
+      "interval_index 0..25 monotone with the labels",
+      "consecutive bar_start delta = 15 min, single value"
+    ],
+    "conclusion": "LABEL = BAR START",
+    "M1": "idx 0, 09:30-09:45",
+    "M2": "idx 1, 09:45-10:00",
+    "M3": "idx 2, 10:00-10:15",
+    "M4": "idx 3, 10:15-10:30",
+    "CORRECTION_APPLIED": {
+      "defect": "an earlier proposal placed claim-known at 09:45 / 10:00 / 10:15",
+      "nature": "those are LEFT-hand bar closes; the pair's second token does not yet exist",
+      "severity": "a 15-minute LOOKAHEAD — first-class defect, caught before any prespec was sealed"
+    }
+  },
+  "CLAIM_KNOWN_TIME": {
+    "rule": "close timestamp of the RIGHT-HAND bar",
+    "no_intra_bar_availability": true,
+    "M1->M2": "10:00 ET",
+    "M2->M3": "10:15 ET",
+    "M3->M4": "10:30 ET"
+  },
+  "ENTRY": {
+    "rule": "next 15m bar OPEN",
+    "same_session": "PERMITTED",
+    "price_authority": "next-bar OPEN, NOT the right-hand bar's closing print",
+    "M1->M2": "open of idx 2 (10:00)",
+    "M2->M3": "open of idx 3 (10:15)",
+    "M3->M4": "open of idx 4 (10:30)",
+    "why_not_NEXT_SESSION_OPEN": "the daily-signal precedents use next-session open because their signal completes at/after a close. Importing it here would carry a daily-signal assumption into an intraday family without a timing argument.",
+    "overlap_check": "M1->M2 enters at idx 2, which is M3's bar. NOT lookahead: the claim reads only idx 0 and idx 1 and consumes only the OPEN of idx 2, known exactly at 10:00 ET."
+  },
+  "HORIZON": {
+    "rule": "licensed entry -> that session's OWN final regular-session bar close",
+    "FULL_REGULAR": {
+      "final_idx": 25,
+      "M1->M2": "24 bars",
+      "M2->M3": "23 bars",
+      "M3->M4": "22 bars"
+    },
+    "EARLY_CLOSE": {
+      "final_idx": 13,
+      "M1->M2": "12 bars",
+      "M2->M3": "11 bars",
+      "M3->M4": "10 bars"
+    },
+    "rejected_formulation": "'entry -> 16:00 ET' — literally wrong on early-close sessions"
+  },
+  "SESSION_LENGTH": {
+    "field": "SESSION_LENGTH_CLASS",
+    "values": [
+      "FULL_REGULAR",
+      "EARLY_CLOSE"
+    ],
+    "mechanical_field": "remaining_regular_bars in {24,23,22,12,11,10}",
+    "EARLY_CLOSE_IS_NOT_MISSINGNESS": {
+      "EARLY_CLOSE != UNAVAILABLE": true,
+      "EARLY_CLOSE != CENSORED": true,
+      "reason": "if every bar to that session's real close is present, the FULL regular session was observed. Treating it as censored would convert a structural CALENDAR FACT into missingness.",
+      "outcome_status": "VALID whenever the complete path from entry to that session's own close exists"
+    },
+    "early_close_dates": 10,
+    "affected_security_sessions": 4756,
+    "in_DEV": 10,
+    "in_HOLDOUT": 0,
+    "primary_analysis": "RETAINED — not excluded; shorter exposure is controlled by stratification in the null"
+  },
+  "PRIMARY_Y": {
+    "name": "MAX_ABS_EXCURSION, prior-ATR normalised",
+    "components": {
+      "up_excursion": "(future_high - entry) / entry",
+      "down_excursion": "(entry - future_low) / entry",
+      "MAX_ABS_EXCURSION": "max(up_excursion, down_excursion)"
+    },
+    "normaliser": "prior-state ATR — the scale must come from state BEFORE the claim's right-hand bar (lookahead guard, not a performance choice)",
+    "naming_note": "deliberately NOT called MAE — in trading jargon MAE means ADVERSE excursion",
+    "direction_neutrality": "the tokens are STATES and carry no direction; assigning LONG/SHORT post hoc is forbidden",
+    "question_it_answers": "is this ordered state pair followed by unusually large subsequent movement, with no direction assigned in advance?"
+  },
+  "SECONDARY_DESCRIPTIVE": {
+    "registered": [
+      "raw-percent MAX_ABS_EXCURSION",
+      "terminal return to session close",
+      "up_excursion",
+      "down_excursion"
+    ],
+    "role": "DESCRIPTIVE ONLY — none is a promotion path",
+    "explicit": "the direction of the realised maximum must NOT become a second selection channel"
+  },
+  "PRIMARY_STATISTIC": {
+    "theta": "median(Y | claim positive) - median(Y | evaluable non-positive)",
+    "why_median": "excursion outcomes are heavy-tailed; a mean would be dominated by a few extreme movers",
+    "identical_for_all": "the same statistic applies to all 20,751 claims"
+  },
+  "ALTERNATIVE": {
+    "form": "ONE-SIDED",
+    "H1": "pair-positive episodes have GREATER direction-neutral excursion than evaluable non-fire episodes",
+    "gate": "theta > 0"
+  },
+  "NULL": {
+    "design": "blocked permutation, family-wide",
+    "X_treatment": "claim indicators stay FIXED",
+    "Y_treatment": "Y is permuted within security x position_pair x session_length_class",
+    "SHARED_MAP": {
+      "rule": "the SAME permutation map is used for ALL 20,751 claims within a draw",
+      "REJECTED_ALTERNATIVE": "independently permuting each claim's positive/non-positive labels",
+      "why_rejected": "that would destroy the real cross-claim dependence and make the family-wide max-stat null TOO NARROW — an anti-conservative correction",
+      "structure_preserved": [
+        "claim overlap",
+        "shared-feature dependence",
+        "same-token dependence",
+        "position structure",
+        "security structure",
+        "full-vs-early-close horizon class"
+      ]
+    },
+    "per_draw": "compute the statistic for all 20,751 claims, record the MAXIMUM"
+  },
+  "MULTIPLICITY": {
+    "registered_k": 20751,
+    "family": "ONE",
+    "correction": "family-wide max-stat permutation",
+    "k_unchanged_by_clustering": true,
+    "effective_k_substitution": "FORBIDDEN",
+    "DSR_and_clustered_CI": "permitted as ADDITIONAL robustness layers; NOT promotion authority",
+    "no_cherry_picking": "promotion must not select among several mutually independent corrections"
+  },
+  "PROMOTION": {
+    "gate": "FWER-adjusted p <= 0.05 AND theta > 0",
+    "numerical_theta_min_in_V1": "NONE",
+    "why_no_theta_min": {
+      "surface_reason": "any specific number (e.g. 0.25 ATR) would be arbitrary today",
+      "deeper_reason": "the primary Y is DIRECTION-NEUTRAL excursion. A rationale such as 'theta_min > transaction costs' would be a CATEGORY ERROR: transaction costs presuppose a directional trading rule, and this family has neither a direction nor an execution strategy.",
+      "effect_size_still_reported": [
+        "theta",
+        "confidence interval",
+        "raw-percent equivalent",
+        "ATR-normalised magnitude"
+      ],
+      "meaning": "effect size is fully reported; what is refused is inventing a practical-significance boundary for an outcome that has no trading interpretation yet"
+    }
+  },
+  "CLAIM_SCOPE": {
+    "this_family_tests": "MOVEMENT ENRICHMENT ONLY",
+    "explicitly_NOT": [
+      "directional edge",
+      "profitability",
+      "tradable signal"
+    ],
+    "if_a_directional_hypothesis_later_arises": "it is a NEW registered hypothesis, and an economically meaningful threshold may be frozen BEFORE its Y is seen"
+  },
+  "AUTHORITY_LAYERS": {
+    "DEV": "model / search / statistic construction authority",
+    "HISTORICAL_HOLDOUT_2026_08_07_to_08_24": {
+      "role": "limited temporal confirmation",
+      "NOT": "independent replication",
+      "note": "a successful holdout does NOT equal a promotion-confirmed discovery"
+    },
+    "TRUE_FORWARD": "PRIMARY confirmation authority",
+    "source_HOLD_or_unavailable_interval": "permanently NON-EVIDENTIARY; never backfilled into confirmation"
+  },
+  "INHERITED_FROM_PRECEDENT": {
+    "basis": "same measurement problem / timing logic / inferential objective / availability requirements — NEVER historical success",
+    "items": [
+      "exit_policy = NONE",
+      "ATR normaliser from pre-signal state",
+      "MAE and terminal return descriptive only",
+      "phase-independent availability status set",
+      "pooled history+forward estimator FORBIDDEN",
+      "historical backfill FORBIDDEN",
+      "first look on an OUTCOME-INDEPENDENT trigger",
+      "repeated looks FORBIDDEN in V1",
+      "outcome defined without being read",
+      "horizon/entry/normaliser immutable after any outcome is seen"
+    ]
+  },
+  "NEXT": [
+    "SYNTHETIC-Y SMOKE (validates plumbing against this frozen contract)",
+    "FIRST REAL Y"
+  ],
+  "NOT_STARTED": [
+    "synthetic-Y smoke",
+    "real Y"
+  ]
+}

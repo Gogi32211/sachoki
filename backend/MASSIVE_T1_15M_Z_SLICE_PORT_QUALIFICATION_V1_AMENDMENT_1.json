@@ -1,0 +1,14 @@
+{
+  "artifact": "MASSIVE_T1_15M_Z_SLICE_PORT_QUALIFICATION_V1_AMENDMENT_1",
+  "amends": "a6e13d9e20d42d34",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "the bare verdict PASS could be read as full-store exact materializer replication. It is not.",
+  "THREE_LINE_INTERPRETATION": {
+    "FULL_STORE_Z_MATERIALIZER_CONFORMANCE": "NOT_EXACT (33 / 91,027,821)",
+    "FROZEN_T1_FAMILY_RELEVANT_CONFORMANCE": "EXACT (0 divergent M1-M4 claim-relevant cells)",
+    "AUTHORIZED_ROLE": "T1_HISTORICAL_FAMILY_X_DEPENDENCY_ONLY"
+  },
+  "what_was_proven": "divergence = 0 on the frozen T1 family registered X support",
+  "what_was_NOT_proven": "full-store exact Z materializer replication"
+}

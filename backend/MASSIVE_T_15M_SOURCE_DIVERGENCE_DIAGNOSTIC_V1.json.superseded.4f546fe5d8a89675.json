@@ -1,0 +1,100 @@
+{
+  "report_id": "MASSIVE_T_15M_SOURCE_DIVERGENCE_DIAGNOSTIC_V1",
+  "status": "X_ONLY_DIAGNOSTIC_COMPLETE",
+  "task_class": "SOURCE_DIVERGENCE_DIAGNOSTIC_ONLY",
+  "question": "canonical compute_signals on legacy 15m OHLC vs canonical compute_signals on Massive 15m OHLC, matched by secure identity and EXACT timestamp",
+  "classification": "DIAGNOSTIC_ONLY_NOT_HYPOTHESIS_REGISTRATION",
+  "supersedes_premise": {
+    "old_claim": "15M_LEGACY_VS_MASSIVE_FEED_DIVERGENCE = NOT_ESTIMABLE_FROM_AVAILABLE_MATCHED_DATA",
+    "why_it_was_wrong": "it was frozen after proving `bars` is daily; that proof was right, but this comparison never needed a legacy T column — it runs the canonical engine on both sides, and a legacy 15m OHLC store existed all along",
+    "what_remains_true": "a legacy 15m MATERIALIZED T population DOES NOT EXIST",
+    "what_is_now_measured": "15m same-engine cross-source divergence",
+    "old_artifacts_not_edited": [
+      "c6358576c5c9411b",
+      "4c9b15eb8cfed786"
+    ]
+  },
+  "sources": {
+    "legacy": {
+      "store": "/Volumes/QUANT_RESEARCH/source_data/studio/studio_15m_base.duckdb",
+      "table": "bars",
+      "rows": 90952507,
+      "range": "2021-07-02 .. 2026-08-25",
+      "has_t_column": false,
+      "universe_pinned": true
+    },
+    "massive": {
+      "store": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_coarse_v1/15m",
+      "coverage_filter": "COMPLETE only"
+    }
+  },
+  "matching": {
+    "key": "security_key_v1 + exact bar_start (UTC, bar-START both sides)",
+    "tolerance": null,
+    "nearest_timestamp": false,
+    "offset_search": false
+  },
+  "support": {
+    "securities_compared": 0,
+    "bars_compared": 0,
+    "loss_by_reason": {
+      "no_legacy_ticker": 3,
+      "ts_only_in_legacy": 15651140,
+      "ts_only_in_massive": 15348002,
+      "massive_not_complete": 0
+    }
+  },
+  "agreement": {
+    "t_label_agreement": null,
+    "agreed": 0,
+    "predecessor_also_matched": {
+      "bars": 0,
+      "agreement": null,
+      "why": "each side keeps its OWN predecessors, so predecessor disagreement is part of source divergence and is decomposed rather than hidden"
+    }
+  },
+  "state_divergence_matrix": {},
+  "price_basis": {
+    "open": {
+      "compared": 0,
+      "exact_after_round": 0,
+      "rate": null,
+      "within_1_cent": null,
+      "max_abs_diff": 0.0
+    },
+    "high": {
+      "compared": 0,
+      "exact_after_round": 0,
+      "rate": null,
+      "within_1_cent": null,
+      "max_abs_diff": 0.0
+    },
+    "low": {
+      "compared": 0,
+      "exact_after_round": 0,
+      "rate": null,
+      "within_1_cent": null,
+      "max_abs_diff": 0.0
+    },
+    "close": {
+      "compared": 0,
+      "exact_after_round": 0,
+      "rate": null,
+      "within_1_cent": null,
+      "max_abs_diff": 0.0
+    }
+  },
+  "by_session_position": {},
+  "by_body_size": {},
+  "producer_semantics_digest": "2901107d9baa6320",
+  "does_not": [
+    "register any hypothesis",
+    "restore legacy 15m materialization equivalence",
+    "authorize correcting Massive T labels toward legacy",
+    "authorize weighting observations by agreement"
+  ],
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 13.9,
+  "sealed_at": "2026-08-26 18:03 +04"
+}

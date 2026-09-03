@@ -1,0 +1,59 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_3",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1_AMENDMENT_1",
+    "parent_digest": "7b52b9df13764228",
+    "also": "AMENDMENT_2 48bf72d9bbe00000",
+    "parents_not_rewritten": true,
+    "nature": "CLARIFIES THE COMPOSITION of two already-frozen rules; the hypothesis and null philosophy are UNCHANGED"
+  },
+  "Y_EXPOSED": 1,
+  "why_this_is_not_outcome_informed": "no scientific result has been read; theta, T, p_adj, M_b and rankings remain sealed and unread. The frozen inferential scope was DEV <= 2026-08-06 from the outset; the defect was in EXECUTION of that rule, not in its choice.",
+  "INFERENTIAL_DATE_SCOPE": "DEV dates only (session_date <= 2026-08-06)",
+  "ORDER_OF_OPERATIONS": [
+    "1. restrict dates to the frozen inferential scope",
+    "2. partition by session_length_class",
+    "3. partition FULL_REGULAR by calendar year-month",
+    "4. generate the cyclic shift ONLY within that restricted set"
+  ],
+  "THEREFORE": {
+    "source_date": "in DEV",
+    "target_date": "in DEV",
+    "for": "every SCALE and NULL mapping",
+    "HOLDOUT": "may NEVER appear as a permutation payload source for primary inference"
+  },
+  "DEFECT_THAT_MADE_THIS_NECESSARY": {
+    "where": "ref_kernel.theta_for_map",
+    "code": "ok = (src>=0) & win & dev",
+    "what_it_did": "masked the TARGET episode (date_of) but NOT the payload SOURCE pi[date_of]",
+    "consequence": "a DEV target could pull its payload from a HOLDOUT source in the mixed month",
+    "mixed_month": "2026-08 contains 4 DEV dates and 12 HOLDOUT dates",
+    "measured": {
+      "SCALE_draws_leaking": "191 / 200",
+      "NULL_draws_leaking": "1,672 / 1,800",
+      "total_DEV_to_HOLDOUT_mappings": 5950,
+      "DEV_dates_affected_per_leaking_draw": "up to 4 of 1,242 (0.32%)"
+    },
+    "classification": "SCOPE VIOLATION — the 0.32% magnitude does NOT change the validity classification"
+  },
+  "CI_RESAMPLING_UNIVERSE": {
+    "finding": "CI base rows from HOLDOUT = 0 (PASS) and CI bootstrap source rows from HOLDOUT = 0 (PASS)",
+    "additional_defect_found": "the date-cluster resampling universe was all 1,254 calendar dates rather than the 1,242 DEV dates; ~1.033% of each draw's date mass lands on dates contributing zero rows",
+    "classification": "SAME DEFECT FAMILY (resampling universe not restricted to the frozen scope) but NOT a HOLDOUT contamination",
+    "required_rule": "the CI date-cluster resampling universe MUST be the DEV date universe"
+  },
+  "TERMINAL_GATE_ASSERTS": [
+    "observed theta dates > DEV_END = 0",
+    "SCALE payload source > DEV_END = 0",
+    "NULL payload source > DEV_END = 0",
+    "CI source > DEV_END = 0",
+    "DEV -> HOLDOUT mappings = 0",
+    "HOLDOUT -> DEV mappings = 0"
+  ],
+  "REQUIRED_NEGATIVE_FIXTURE": {
+    "setup": "a mixed calendar month with 4 DEV dates and 12 HOLDOUT dates",
+    "old_implementation": "MUST FAIL INFERENTIAL_SCOPE_GUARD",
+    "corrected_implementation": "cyclic map over the 4 DEV dates only -> PASS"
+  }
+}

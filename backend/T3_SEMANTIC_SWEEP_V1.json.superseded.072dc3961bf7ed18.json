@@ -1,0 +1,392 @@
+{
+  "spec_id": "T3_SEMANTIC_SWEEP_V1",
+  "result": "FAIL",
+  "scope": "literal-swap implementation closure — executable + data surface of the T3 chain swept for semantically active T9 residue",
+  "sources_scanned": [
+    "t3_dna.py",
+    "t3_family_freeze.py",
+    "t3_outcomes.py",
+    "t3_sequence_grammar.py",
+    "t3_sequence_estimand.py",
+    "t3_claim_order.py",
+    "t3_stop_closure.py",
+    "t3_stop_closure_2.py"
+  ],
+  "artifacts_scanned": [
+    "T3_DNA_X_V1.json",
+    "T3_DNA_AUDIT.json",
+    "T3_OUTCOME_SPEC_V1.json",
+    "T3_SEQUENCE_GRAMMAR_V1.json",
+    "T3_SEQUENCE_UNIVERSE_V1.json",
+    "T3_SEQUENCE_ESTIMAND_V1.json",
+    "T3_FAMILY_GOVERNANCE_V1.json",
+    "T3_15M_PRESPEC_V1.json",
+    "T3_HOLD_CLOSURE_V1.json",
+    "T3_STOP_CLOSURE_2_V1.json",
+    "T3_1H_CLAIM_ORDER_V1.json"
+  ],
+  "forbidden": {
+    "identifiers": "T9_*/t9_*",
+    "k": 890,
+    "needle_indices": [
+      88,
+      444,
+      800
+    ],
+    "needle_j": [
+      469,
+      149,
+      645
+    ],
+    "hashes": {
+      "claim_order": "0c2721fba089bb47",
+      "population": "b8a264697867c9a3",
+      "blocks": "d04667806c44c62d"
+    }
+  },
+  "executable_residues": [
+    {
+      "file": "t3_dna.py",
+      "line": 68,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"with T4,T6,T1G,T2G,T1,T2,T9,T10 resolved first. Machine-verified: raw 207,296 is an \""
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 148,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "has_t9"
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 150,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "has_t9"
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 150,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "has_t9"
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 151,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "has_t9"
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 151,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "has_t9"
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 155,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "has_t9"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 30,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"FINAL_PRIORITY_RESOLVED_T9\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 44,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"ANY T9 winner discovered in the parallel T9 research\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 45,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"T9 Z_rank\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 45,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"T9 theta\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 45,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"T9 survivor identity\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 45,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"T9 overlap clusters\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 46,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"T9 historical band\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 57,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"the T3 max-null band MUST come from T9's own permutation \""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 58,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"distribution; neither T5's nor T9's band is ever reused\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 84,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"20-session median dollar volume ending T9-2, full pre-window required\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 85,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"ATR14/close at T9-2\""
+    },
+    {
+      "file": "t3_stop_closure.py",
+      "line": 108,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"materialized t_sig='T9'\""
+    },
+    {
+      "file": "t3_stop_closure_2.py",
+      "line": 132,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"T3_HOLD_CLOSURE_V1.item2.syntactic.support_qualified_grammar (a T9 \""
+    },
+    {
+      "file": "t3_stop_closure_2.py",
+      "line": 273,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"canonical_population contained a T9 literal — the canonical \""
+    }
+  ],
+  "artifact_residues": [
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".setup",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "FINAL_PRIORITY_RESOLVED_T9"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".forbidden_design_inputs[11]",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "ANY T9 winner discovered in the parallel T9 research"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".forbidden_design_inputs[12]",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "T9 Z_rank"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".forbidden_design_inputs[13]",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "T9 theta"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".forbidden_design_inputs[14]",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "T9 survivor identity"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".forbidden_design_inputs[15]",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "T9 overlap clusters"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".forbidden_design_inputs[16]",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "T9 historical band"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".estimand.liquidity",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "20-session median dollar volume ending T9-2, full pre-window required"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".estimand.volatility",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "ATR14/close at T9-2"
+    },
+    {
+      "file": "T3_HOLD_CLOSURE_V1.json",
+      "path": ".item1.cross_vintage.canonical_population",
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "value": "materialized t_sig='T9'"
+    }
+  ],
+  "n_allowed_references": 9,
+  "allowed_reference_sample": [
+    {
+      "file": "t3_dna.py",
+      "line": 1,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"\"\"T3_MICROSTRUCTURE_DNA_V1 — X-only foundation. A THIRD independent research family.\n\n    family_id"
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 76,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "# SAME canonical registry — no T9-specific tokens"
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 105,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"\"\"Shared T5 builders speak t5_date/T5_DAY internally; the written tables speak T9.\"\"\""
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 1,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"\"\"T3 family governance + 15m pre-spec. Frozen BEFORE any T3 outcome value exists.\n\nTwo artifacts:\n\n"
+    },
+    {
+      "file": "t3_outcomes.py",
+      "line": 1,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"\"\"T3 outcome sidecar — computed, sealed, NOT exposed.\n\nMirror of the T5 sidecar (same economic ques"
+    },
+    {
+      "file": "t3_sequence_grammar.py",
+      "line": 1,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"\"\"T3 1H sequence grammar — X-only enumeration, frozen before any T3 Y access.\n\nReuses the T5 gramma"
+    },
+    {
+      "file": "t3_sequence_grammar.py",
+      "line": 196,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "# row shuffle — and gate C/E correctly refused: (T9 precedent)"
+    },
+    {
+      "file": "t3_stop_closure.py",
+      "line": 1,
+      "kinds": [
+        "T9_IDENTIFIER",
+        "T9_K_890"
+      ],
+      "text": "\"\"\"T3 HOLD closure — the four items from the STOP review, closed by machine, not by wording.\n\n    1 "
+    },
+    {
+      "file": "t3_stop_closure_2.py",
+      "line": 1,
+      "kinds": [
+        "T9_IDENTIFIER"
+      ],
+      "text": "\"\"\"T3 STOP closure #2 — the three narrow HOLD items from the CAPABILITY review.\n\n    1  K ACCOUNTING"
+    }
+  ],
+  "required_positives": {
+    "family_id == T3_MICROSTRUCTURE_DNA_V1": true,
+    "k_final == 853": true,
+    "unique_j == 853": true,
+    "unique_membership_hash == 853": true,
+    "needle indices == 85/426/767": true,
+    "needle j values differ from T9's": true,
+    "population_hash != T9's": true,
+    "block_assignment_hash != T9's": true,
+    "claim_order_hash != T9's": true,
+    "all parquet paths are t3_*": true,
+    "parquet files exist": true,
+    "no source file missing": true
+  },
+  "missing_files": [],
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 0.1
+}

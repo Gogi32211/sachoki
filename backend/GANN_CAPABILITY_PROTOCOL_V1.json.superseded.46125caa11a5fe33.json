@@ -1,0 +1,71 @@
+{
+  "spec_id": "GANN_CAPABILITY_PROTOCOL_V1",
+  "status": "FROZEN",
+  "family_id": "GANN_VIBRATION_GRID_V1",
+  "frozen_before": "any GANN capability code runs and before any observed statistic",
+  "estimand": "000aa1edce0ffc89",
+  "phase_null": "13333186c4217e55",
+  "outcome_spec": "af4b205e152c9d43",
+  "the_invariant": "a capability world may not begin from the observed association. The real future paths supply the NOISE; the association is destroyed first.",
+  "nullization": {
+    "unit": "the PAIR (MFE_LONG_10D, MFE_SHORT_10D) moves together",
+    "why_paired": "direction depends on phi, so permuting a directionalised outcome would destroy the very thing each phase world must re-derive",
+    "blocks": [
+      "decision_date",
+      "pre_liquidity",
+      "pre_volatility"
+    ],
+    "direction_excluded": "direction is NOT a nullization block — it is phase-dependent; it remains a block of the INFERENCE comparison",
+    "distinction": "capability Y-nullization blocks != inference comparison blocks",
+    "engine": "999 joint block permutations of (MFE_LONG_10D, MFE_SHORT_10D)"
+  },
+  "injection": {
+    "rule": "add delta only to the component matching the frozen phi=0 treated direction of the row, for the claim under test",
+    "deltas_pp": [
+      0.5,
+      1.0,
+      2.0,
+      3.0,
+      4.0,
+      5.0
+    ]
+  },
+  "matrix": {
+    "claims": [
+      "GANN_ASC_TOUCH_V1",
+      "GANN_DESC_TOUCH_V1",
+      "GANN_CONFLUENCE_TOUCH_V1"
+    ],
+    "deltas": 6,
+    "worlds_per_cell": 20,
+    "total_worlds": 360,
+    "phase_worlds_per_capability_world": 0,
+    "note": "no q10/q50/q90 needles — with k = 3 every claim is tested",
+    "outcome_permutations_per_capability_world": 999
+  },
+  "detection": "Z_injected_claim > p95(maxZ_perm) from the registered 999-permutation max-Z engine — the same machinery the historical gate A will use",
+  "acceptance": {
+    "at_1pp": "each of the 3 claims >= 16 / 20 detections",
+    "at_2pp": "each of the 3 claims >= 19 / 20 detections",
+    "at_0_5pp": "sensitivity characterization only — NOT a blocking requirement",
+    "integrity": [
+      "360 / 360 capability worlds completed",
+      "999 phase worlds per capability world",
+      "0 structurally invalid phase worlds",
+      "deterministic RNG and replay PASS"
+    ],
+    "sealed_before": "the first GANN outcome read"
+  },
+  "rng": "derived from sealed hashes per T_FAMILY_CAPABILITY_RNG_RULE_V1; no hand-picked seed and no builtin hash() on the stochastic path",
+  "wording_allowed": "Under the registered homogeneous additive MFE-shift alternative, claim C detected +X pp in Y/20 finite capability worlds.",
+  "wording_forbidden": [
+    "true power",
+    "guaranteed detection",
+    "universal sensitivity"
+  ],
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 17:12 +04",
+  "amended_by": "3d731903e4f0aa9e",
+  "qualifies": "GATE A — the outcome-permutation inferential null",
+  "phase_placebo": "not a blocking capability criterion; the shifted-lattice reference is evaluated on the historical result, not required to detect an injected effect"
+}

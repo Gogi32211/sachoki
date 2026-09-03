@@ -1,0 +1,49 @@
+{
+  "artifact": "MASSIVE_15M_STORE_MATERIALIZATION_REGIME_AUTHORITY_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "purpose": "shared provenance authority so later gates need not re-derive that the store materialization regime changed. It does NOT license any exclusion.",
+  "ESTABLISHES": {
+    "incremental_regime": {
+      "boundary": "2026-07-06 13:30:00 UTC",
+      "evidence": "first divergent cell in P/D (652), combo-four (92), Z (33) and L/WLNBB (1,104) censuses; ZERO divergence in the preceding ~5 years in every one of those families",
+      "code": "derive_intraday.py:67-71 _INCR_WARMUP_DAYS = 45; line 86 \"AND date >= TIMESTAMP {since} - INTERVAL 45 DAY\""
+    },
+    "truncation_point": {
+      "boundary": "2026-07-09 17:30:00 UTC",
+      "evidence": "independently identified during the T programme (frame truncated at 17:30) BEFORE any of these censuses existed; later the earliest divergent cell for combo-four, Z and L/WLNBB, and the single largest P/D mismatch day (123 cells)"
+    },
+    "physics_backfill": {
+      "boundary": "2026-08-14 13:30:00 UTC",
+      "evidence": "bar_physics.py created at c2436c1 (2026-08-14); 826/826 physics divergent cells fall on or after it, ZERO before",
+      "note": "a DISTINCT third boundary — not the incremental regime and not the truncation point"
+    },
+    "two_input_surfaces": {
+      "export_path": "lean base OHLCV (studio_15m_base) — T, Z, L/WLNBB, P/D, combo-four",
+      "enricher_path": "the enriched store own 2dp OHLC — atr_14, bar_physics",
+      "evidence": "atr_14 reproduces at 0.000e+00 from enriched OHLC and 2.900e-03 from lean base; conversely WLNBB l_sig is exact from lean base and degrades to 368 mismatches from enriched OHLC"
+    }
+  },
+  "CONFIRMED_MICRO_MECHANISMS": {
+    "PD": "EMA convergence deficit under the 45-day warmup — sealed in 4fc579ab064bbded",
+    "WLNBB": "unbounded ffill level state + cooldown sequential state truncated by the 45-day frame — sealed in e843ff42b9a17e79",
+    "combo_four": "NOT ESTABLISHED — only temporal confinement",
+    "Z": "NOT ESTABLISHED — only temporal confinement",
+    "physics": "NOT INVESTIGATED — not required for its role"
+  },
+  "DOES_NOT_ESTABLISH": [
+    "that every feature family shares the same micro-mechanism — P/D and WLNBB were proven to differ",
+    "that every post-boundary row is invalid",
+    "any universal exclusion denominator",
+    "that a boundary may be used to exclude rows in a family that has not independently demonstrated its own mechanism"
+  ],
+  "USAGE_RULE": "a later gate may cite this artifact for TEMPORAL provenance only. It must still demonstrate how its own feature family responds to the regime, and must justify any exclusion by its own sealed mechanism.",
+  "family_responses": {
+    "P/D": "3 claim-relevant cells -> 225 members (exact)",
+    "L/WLNBB": "13 claim-relevant cells -> <=1,388 members (upper bound)",
+    "Z": "0 claim-relevant cells — membership invariant",
+    "combo-four": "0 claim-relevant cells — membership invariant",
+    "physics": "0 claim-relevant cells — windows do not overlap (population ends 2026-08-06, divergence starts 2026-08-14)"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "report_id": "MASSIVE_T_LEGACY_15M_TRANSITION_BOUNDARY_INVESTIGATION_V1",
+  "status": "LOCALIZED_MATERIALIZATION_BOUNDARY_ANOMALY_CONFIRMED",
+  "task_class": "BOUNDED_FORENSIC_PASS",
+  "scope": "the 3 rows that breached the A==B identity in V2, plus their neighbourhood",
+  "investigates": {
+    "artifact": "MASSIVE_T_LEGACY_15M_THREE_WAY_CONFORMANCE_V2",
+    "digest": "15fcd9db286944e2",
+    "breach": "3 of 15647361"
+  },
+  "the_three_rows": {
+    "timestamp": "2026-07-09 17:30:00 UTC (13:30 ET)",
+    "tickers": [
+      "COIN",
+      "HBAN",
+      "PODD"
+    ],
+    "detail": [
+      {
+        "ticker": "COIN",
+        "stored": "T9",
+        "pred_base_1715": "T10",
+        "pred_truncated_frame": "T9"
+      },
+      {
+        "ticker": "HBAN",
+        "stored": "T2G",
+        "pred_base_1715": "T4",
+        "pred_truncated_frame": "T2G"
+      },
+      {
+        "ticker": "PODD",
+        "stored": "T5",
+        "pred_base_1715": "T2G",
+        "pred_truncated_frame": "T5"
+      }
+    ]
+  },
+  "store_coverage_on_that_date": {
+    "enriched_bars": 10,
+    "enriched_range": "17:30 .. 19:45",
+    "lean_base_bars": 26,
+    "lean_base_range": "13:30 .. 19:45",
+    "hole": "the same-day bars before 17:30 were never enriched",
+    "hole_opens_at": "the transition date named in update_all.sh",
+    "enriched_store_global_min": "2021-07-02 — so this is a HOLE, not a first-ever bar"
+  },
+  "mechanism": {
+    "statement": "the automated top-up's frame began at 17:30, so shift(1) at 17:30 reached the last row the frame held — the PREVIOUS SESSION's final bar",
+    "test": "feed the canonical engine that predecessor and compare to the stored label",
+    "result": "3 of 3 reproduced EXACTLY, in three different directions",
+    "directions_differ": true,
+    "why_that_matters": "a single systematic offset could be coincidence; three different label outcomes all landing exactly is a mechanism",
+    "engine_behaviour": "CORRECT — SESSION_CONTINUOUS applied faithfully over the frame it was given",
+    "defect_location": "the INPUT FRAME, not the materializer"
+  },
+  "date_coincidence_was_not_the_evidence": {
+    "update_all_sh_comment": "15m ENRICHED top-up (2026-07-09)",
+    "role": "it pointed at where to look",
+    "explicitly_not": "the basis of the verdict"
+  },
+  "neighbourhood": {
+    "rows_at_1745_and_later": "exact",
+    "basis": "V2 found only 3 mismatches across the entire 15,647,361-row legacy support, all at 17:30 — every other row that session and every other session is exact",
+    "returns_to_identity": true
+  },
+  "verdict": {
+    "status": "LOCALIZED_MATERIALIZATION_BOUNDARY_ANOMALY_CONFIRMED",
+    "rejected": [
+      "TRUE_CANONICAL_MATERIALIZER_MISMATCH",
+      "UNRESOLVED",
+      "PROBABLY_BOUNDARY"
+    ],
+    "why_not_true_mismatch": "the canonical engine reproduces the stored labels exactly once given the predecessor the truncated frame supplied"
+  },
+  "exclusion_rule": {
+    "excluded_rows": 3,
+    "reason": "CONFIRMED_MATERIALIZATION_BOUNDARY_ANOMALY",
+    "structural_basis": "these rows were materialized from an input frame missing that session's earlier bars, so they do not represent the security's continuous series",
+    "explicitly_not": "excluded because they disagreed",
+    "permanent_record": true,
+    "timestamp": "2026-07-09 17:30:00 UTC",
+    "tickers": [
+      "COIN",
+      "HBAN",
+      "PODD"
+    ]
+  },
+  "two_denominators": {
+    "RAW_LEGACY_SUPPORT": {
+      "rows": 15647361,
+      "A_vs_B_mismatches": 3
+    },
+    "QUALIFIED_MATERIALIZATION_SUPPORT": {
+      "rows": 15647358,
+      "A_vs_B_mismatches": 0
+    },
+    "rule": "the qualified support excludes only rows with a confirmed structural provenance defect; both denominators are reported and neither replaces the other"
+  },
+  "authorises": "sealing MASSIVE_T_LEGACY_15M_THREE_WAY_CONFORMANCE_V2 on the QUALIFIED support, with the raw support and the exclusion permanently recorded",
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-27 05:18 +04"
+}

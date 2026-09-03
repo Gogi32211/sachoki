@@ -1,0 +1,138 @@
+{
+  "spec_id": "MASSIVE_1M_DERIVED_BASE_IDENTITY_HOLD_V1",
+  "status": "HOLD",
+  "reason": "V6 declares no security-identity key, and the spec forbids inventing one",
+  "spec_clause": "Reuse the exact frozen security-identity tuple/key used by V6 … If no explicit stable V6 key exists: STOP before inventing one. Return HOLD with the identity fields available. Do not silently construct a ticker-based primary key.",
+  "lineage": {
+    "artifact": "MASSIVE_TICKER_LINEAGE_V6.json",
+    "digest": "8c961aa3a0c67934",
+    "securities": 503
+  },
+  "identity_fields_available": {
+    "security_id": {
+      "present": 0,
+      "total": 503,
+      "distinct": 0,
+      "identifies_all": false
+    },
+    "composite_figi": {
+      "present": 474,
+      "total": 503,
+      "distinct": 474,
+      "identifies_all": false
+    },
+    "share_class_figi": {
+      "present": 474,
+      "total": 503,
+      "distinct": 474,
+      "identifies_all": false
+    },
+    "cik": {
+      "present": 503,
+      "total": 503,
+      "distinct": 500,
+      "identifies_all": false
+    },
+    "current_ticker": {
+      "present": 503,
+      "total": 503,
+      "distinct": 503,
+      "identifies_all": true
+    }
+  },
+  "findings": {
+    "security_id": "the field exists in V6 and is NULL for all 503",
+    "composite_figi_gap": {
+      "missing": 29,
+      "securities": [
+        "ACGL",
+        "ACN",
+        "ALLE",
+        "AMCR",
+        "AON",
+        "APTV",
+        "BG",
+        "CB",
+        "CCL",
+        "CRH",
+        "EG",
+        "ETN",
+        "FLEX",
+        "GRMN",
+        "IVZ",
+        "JCI",
+        "LIN",
+        "LYB",
+        "MDT",
+        "NCLH",
+        "NXPI",
+        "PNR",
+        "RCL",
+        "STE",
+        "STX",
+        "SW",
+        "TEL",
+        "TT",
+        "WTW"
+      ]
+    },
+    "cik_collapses_dual_class": [
+      {
+        "cik": "0001564708",
+        "securities": [
+          "NWS",
+          "NWSA"
+        ]
+      },
+      {
+        "cik": "0001652044",
+        "securities": [
+          "GOOG",
+          "GOOGL"
+        ]
+      },
+      {
+        "cik": "0001754301",
+        "securities": [
+          "FOX",
+          "FOXA"
+        ]
+      }
+    ],
+    "ticker": "503 distinct but excluded by the spec as a permanent key — this programme exists partly because FB became META",
+    "no_single_field_identifies_all_503": true
+  },
+  "missing_figi_class": {
+    "observation": "the 29 are a coherent class of non-US-incorporated issuers (Irish, Bermudan, Swiss, UK domiciles), where the vendor's FIGI fields are absent",
+    "implication": "a property of the source, not a data error; re-fetching will not resolve it"
+  },
+  "candidate_key": {
+    "tuple": "(cik, share_class_figi)",
+    "distinct": 503,
+    "total": 503,
+    "collisions": 0,
+    "works_because": "the three dual-class pairs differ in share_class_figi, and each of the 29 null-figi securities holds a unique CIK",
+    "status": "OFFERED, NOT ADOPTED",
+    "why_not_adopted": "it is a tuple assembled here from two V6 fields, not a key V6 declares; adopting it unilaterally is the move the spec forbids"
+  },
+  "hazard_if_adopted": {
+    "issue": "the key carries a NULL component for 29 of 503 securities",
+    "consequence": "SQL treats NULL as not equal to itself, so a naive join or GROUP BY on this tuple silently drops or fragments those 29 depending on the engine",
+    "required_if_approved": "normalise the null to an explicit sentinel at key construction and freeze that normalisation with the key, otherwise the key is correct in the artifact and broken in the warehouse"
+  },
+  "options_for_the_decision": [
+    "approve (cik, share_class_figi) with a frozen null-sentinel normalisation",
+    "obtain a vendor identifier that covers all 503 and re-seal identity first",
+    "declare an explicit V6 key amendment before any build"
+  ],
+  "not_started": {
+    "builder_spec_sealed": false,
+    "smoke_build": false,
+    "production_build": false,
+    "output_namespace_created": false,
+    "raw_archive_touched": false,
+    "frozen_artifacts_touched": false
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 13:19 +04"
+}

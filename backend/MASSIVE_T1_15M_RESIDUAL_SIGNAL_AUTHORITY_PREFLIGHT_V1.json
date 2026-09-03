@@ -1,0 +1,107 @@
+{
+  "artifact": "MASSIVE_T1_15M_RESIDUAL_SIGNAL_AUTHORITY_PREFLIGHT_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "Z_inferential_use": 0,
+  "B2_L_UPSTREAM": {
+    "verdict": "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+    "chain": "norm_ohlcv -> wlnbb_engine.compute_wlnbb -> flags -> l_signal_label:293 -> l_chart -> importer.py:298 -> l_sig -> l22/l34/l43 tokens",
+    "input_surface": "pure OHLCV (norm_ohlcv)",
+    "parameters": {
+      "BB_PERIOD": 20,
+      "BB_STD": 1,
+      "RSI_PERIOD": 14,
+      "CCI_PERIOD": 20,
+      "CCI_SMA": 14,
+      "BLUE_Z": 1.1,
+      "BLUE_FLAT": 5.0,
+      "PP_WINDOW": 20,
+      "PP_MIN": 2,
+      "PP_COOL": 6
+    },
+    "definitions": [
+      "L1=vol_down_adapted&up_close ... L6=vol_up_adapted&down_close (lines 61-66)",
+      "BO_UP=(c>l34_hi)&~prev_above_l34&~L34&(l34_hi>0) (137)",
+      "BX_UP via l43_hi (139)",
+      "BE_UP=BE_UP_BO|BE_UP_BX (176)"
+    ],
+    "also_supplies": [
+      "be_up",
+      "bo_up",
+      "bx_up",
+      "vbo_up"
+    ],
+    "conclusion": "L upstream terminates in pure OHLCV — no unresolved external chart state"
+  },
+  "B3_RESIDUAL_16": {
+    "matrix": [
+      {
+        "status": "RESOLVED_PURE_X",
+        "columns": 4,
+        "column_list": [
+          "sig_p2",
+          "sig_p3",
+          "sig_p50",
+          "sig_p89"
+        ],
+        "final_claims_affected": 1915
+      },
+      {
+        "status": "PRODUCER_AMBIGUOUS_TWO_PATHS",
+        "columns": 3,
+        "column_list": [
+          "sig_3g",
+          "sig_buy",
+          "sig_svs"
+        ],
+        "final_claims_affected": 676
+      },
+      {
+        "status": "RESOLVED_EXTERNAL_CHART_AUTHORITY",
+        "columns": 1,
+        "column_list": [
+          "sig_va"
+        ],
+        "final_claims_affected": 482
+      },
+      {
+        "status": "DEFINITION_UNRESOLVED",
+        "columns": 8,
+        "column_list": [
+          "sig_d2",
+          "sig_d3",
+          "sig_d50",
+          "sig_d55",
+          "sig_d66",
+          "sig_d89",
+          "sig_p55",
+          "sig_p66"
+        ],
+        "final_claims_affected": 3380
+      }
+    ],
+    "RESOLVED_PURE_X": "combo_engine.compute_combo EMA crosses: preup3=cx9&cx20&cx50, preup2=cx9&cx20&~preup3, preup50=cx50&~cx9&~cx20, preup89=cx89 (lines 133-136)",
+    "PRODUCER_AMBIGUOUS": "combo_engine defines buy_2809(75)/svs_2809(78)/sig3g(143) in Python, BUT ultra_signal_parser.py:219-220,255 also derives them by parsing Combo/VABS chart tokens. Which path produced the historical store is NOT proven — same ambiguity class that the T investigation had to resolve by call path.",
+    "EXTERNAL": "sig_va has NO python computation; only ultra_signal_parser.py:219 va=(\"VA\" in tok_Combo) or (\"VA\" in tok_VABS)",
+    "DEFINITION_UNRESOLVED_detail": "predn2/3/50/55/66/89, preup55, preup66 have ZERO real assignments across 964 enumerated .py files; turbo_engine reads them via _sig/_sa/_sn from `combo`, and combo=compute_combo(df) never defines them (0 occurrences each). Historical store nonetheless carries real support (e.g. P55 20,603; D50 7,701) -> the producing definition is a VINTAGE no longer present in the tree."
+  },
+  "negative_search_discipline": {
+    "roots_enumerated": 964,
+    "command_exit_status": "verified 0",
+    "glob_quoting": "python re, not shell glob",
+    "aliases_searched": [
+      "sig_d*->predn*",
+      "sig_p*->preup*",
+      "sig_svs->svs_2809",
+      "sig_buy->buy_2809",
+      "sig_3g->sig3g",
+      "sig_va->va"
+    ],
+    "importer_schema_inspected": true,
+    "prior_tooling_failure": "a zsh \"bad math expression\" made an earlier assignment count print 0; that count was discarded, not used as evidence"
+  },
+  "exact_family_blocking_claims": 4499,
+  "umbrella_decision": "HOLD — EXACT_FAMILY_PORT_BLOCKED_BY_UNRESOLVED_DEFINITIONS",
+  "consequence": "Z-slice port would NOT free the family: 8 columns have no recoverable definition, 1 is external-chart-only, 3 are provenance-ambiguous."
+}

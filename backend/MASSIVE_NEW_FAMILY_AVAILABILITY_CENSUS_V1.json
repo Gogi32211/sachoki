@@ -1,0 +1,106 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_AVAILABILITY_CENSUS_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": [
+    "391a8fcccf93e539",
+    "0b775bb2d97c5d12"
+  ],
+  "WINDOWS": {
+    "DEV": "2021-08-25 .. 2026-08-06",
+    "HISTORICAL_HOLDOUT": "2026-08-07 .. 2026-08-24",
+    "TRUE_FORWARD": "begins only after PRESPEC freeze"
+  },
+  "LEVEL_1_RAW_AVAILABILITY": {
+    "source": "massive_t_v1/15m (the only non-T-free surface carrying availability states)",
+    "DEV": {
+      "bars": 15296942,
+      "evaluable": 9392992,
+      "pct": 61.4,
+      "securities": 476,
+      "sessions": 1242
+    },
+    "HOLDOUT": {
+      "bars": 148512,
+      "evaluable": 91251,
+      "pct": 61.44,
+      "securities": 476,
+      "sessions": 12
+    },
+    "unavailable_reasons": {
+      "CURRENT_BAR_NOT_COMPLETE": 4781762,
+      "PRIOR_INPUT_NOT_COMPLETE": 1121712,
+      "NO_PRIOR_BAR": 476
+    },
+    "consistency": "DEV 61.40% and HOLDOUT 61.44% — the two windows have effectively identical availability"
+  },
+  "UNIVERSE_CONSTRAINT": {
+    "massive_securities": 476,
+    "legacy_series": 3203,
+    "ratio": "6.7x smaller",
+    "IMPACT": "this is a hard constraint on support floors. The new family cannot inherit anything calibrated on 3,203 legacy series."
+  },
+  "LEVEL_3_OPENING_HOUR": {
+    "per_slot_evaluable_pct": {
+      "DEV": {
+        "M1": 60.34,
+        "M2": 64.77,
+        "M3": 65.45,
+        "M4": 64.02
+      },
+      "HOLDOUT": {
+        "M1": 63.11,
+        "M2": 67.4,
+        "M3": 67.56,
+        "M4": 64.6
+      }
+    },
+    "JOINT": {
+      "DEV": {
+        "security_sessions": 590539,
+        "all_four": 317226,
+        "all_four_pct": 53.72,
+        "adjacent_pairs": {
+          "M1M2": 342292,
+          "M2M3": 359014,
+          "M3M4": 360884
+        }
+      },
+      "HOLDOUT": {
+        "security_sessions": 5712,
+        "all_four": 3158,
+        "all_four_pct": 55.29,
+        "adjacent_pairs": {
+          "M1M2": 3454,
+          "M2M3": 3593,
+          "M3M4": 3536
+        }
+      }
+    },
+    "grammar_caveat": "these opening-hour figures are MEASURED SUPPORT for a plausible candidate grammar. MEASURED_SUPPORT != REGISTERED_GRAMMAR. The old T1 opening-hour grammar is NOT inherited; the new family has not chosen its episode definition."
+  },
+  "HOLDOUT_POWER_WARNING": {
+    "all_four_episodes": 3158,
+    "sessions": 12,
+    "securities": 476,
+    "note": "the sealed historical holdout contains only ~3,158 all-four episodes. Its evidentiary power is limited and must be accounted for when the prespec sets its confirmation rule."
+  },
+  "WHAT_THIS_CENSUS_ESTABLISHES": "a CEILING on episode support using T availability",
+  "WHAT_IT_DOES_NOT_ESTABLISH": [
+    "per-feature availability for the other 57 eligible columns — none is produced on Massive yet",
+    "T availability is a LOWER BOUND on restrictiveness: T needs only current + prior bar completeness. Features with long state (EMA200, unbounded ffill, CISD per-ticker structure, ATR/RSI recursion) will be MORE restrictive, not less.",
+    "the AVAILABLE_VALID / AVAILABLE_INIT_SENSITIVE / UNAVAILABLE three-state classification for initialization-sensitive features — declared in the ATR binding, not yet computed anywhere",
+    "joint availability across feature groups (intersection support)"
+  ],
+  "STATUS_OF_69": {
+    "SEMANTICALLY_ELIGIBLE_CANDIDATE_COLUMNS": 69,
+    "FINAL_PRESPEC_ELIGIBLE_COLUMNS": "NOT_YET_DETERMINED",
+    "reason": "per-feature Massive availability is unmeasured; only the T-based ceiling is known"
+  },
+  "not_done": [
+    "no per-feature availability census",
+    "no init-sensitivity classification",
+    "no intersection support"
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "spec_id": "T3_SEMANTIC_SWEEP_V1",
+  "result": "PASS",
+  "scope": "literal-swap implementation closure — every T9 token in the T3 chain classified by what it DOES (AST role), not by text match",
+  "acceptance": "ACTIVE residues == 0; label-only residues proved inert; mislabels listed for amendment",
+  "sources_scanned": [
+    "t3_dna.py",
+    "t3_family_freeze.py",
+    "t3_outcomes.py",
+    "t3_sequence_grammar.py",
+    "t3_sequence_estimand.py",
+    "t3_claim_order.py",
+    "t3_stop_closure.py",
+    "t3_stop_closure_2.py"
+  ],
+  "artifacts_scanned": [
+    "T3_DNA_X_V1.json",
+    "T3_DNA_AUDIT.json",
+    "T3_OUTCOME_SPEC_V1.json",
+    "T3_SEQUENCE_GRAMMAR_V1.json",
+    "T3_SEQUENCE_UNIVERSE_V1.json",
+    "T3_SEQUENCE_ESTIMAND_V1.json",
+    "T3_FAMILY_GOVERNANCE_V1.json",
+    "T3_15M_PRESPEC_V1.json",
+    "T3_HOLD_CLOSURE_V1.json",
+    "T3_STOP_CLOSURE_2_V1.json",
+    "T3_1H_CLAIM_ORDER_V1.json"
+  ],
+  "forbidden": {
+    "identifiers": "t9_* module import/attribute",
+    "paths": "T9 string as path/SQL/spec_id",
+    "numbers": [
+      88,
+      149,
+      444,
+      469,
+      645,
+      800,
+      890
+    ],
+    "hashes": {
+      "claim_order": "0c2721fba089bb47",
+      "population": "b8a264697867c9a3",
+      "blocks": "d04667806c44c62d"
+    }
+  },
+  "active_residues_source": [],
+  "active_residues_artifact": [],
+  "inert_local_names": [
+    {
+      "file": "t3_dna.py",
+      "line": 65,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "t_sig=='T3' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==9). Raw: prev1IsBear (cl"
+    },
+    {
+      "file": "t3_dna.py",
+      "line": 148,
+      "kind": "LOCAL_NAME",
+      "reason": "locally bound variable name — alpha-renameable, cannot affect selection, paths or values",
+      "text": "has_t9"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 30,
+      "kind": "IDENTIFIER_LITERAL",
+      "reason": "upper-case T9 identifier literal — inert only if stored as an artifact value; verified against readers below",
+      "text": "FINAL_PRIORITY_RESOLVED_T9"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 44,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "ANY T9 winner discovered in the parallel T9 research"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 45,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "T9 Z_rank"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 45,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "T9 theta"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 45,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "T9 survivor identity"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 45,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "T9 overlap clusters"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 46,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "T9 historical band"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 57,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "the T3 max-null band MUST come from T9's own permutation distribution; neither T5's nor T9's band is ever reused"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 84,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "20-session median dollar volume ending T9-2, full pre-window required"
+    },
+    {
+      "file": "t3_family_freeze.py",
+      "line": 85,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "ATR14/close at T9-2"
+    },
+    {
+      "file": "t3_stop_closure.py",
+      "line": 108,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "materialized t_sig='T9'"
+    },
+    {
+      "file": "t3_stop_closure_2.py",
+      "line": 132,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "T3_HOLD_CLOSURE_V1.item2.syntactic.support_qualified_grammar (a T9 literal 980; the correct T3 value is 945) and the rep"
+    },
+    {
+      "file": "t3_stop_closure_2.py",
+      "line": 271,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "the T3_DNA audit phrase 'canonical prev-doji = 284' is to be read ONLY under the split above; T3_HOLD_CLOSURE_V1.item1.c"
+    }
+  ],
+  "artifact_mislabels": [
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".setup",
+      "role": "VALUE",
+      "classification": "MISLABEL",
+      "corrected_to": "FINAL_PRIORITY_RESOLVED_T3",
+      "value": "FINAL_PRIORITY_RESOLVED_T9"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".historical_cutoff_rule",
+      "role": "VALUE",
+      "classification": "MISLABEL",
+      "corrected_to": "the T3 max-null band MUST come from T3's own permutation distribution; neither T5's nor T9's band is ever reused",
+      "value": "the T3 max-null band MUST come from T9's own permutation distribution; neither T5's nor T9's band is ever reused"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".estimand.liquidity",
+      "role": "VALUE",
+      "classification": "MISLABEL",
+      "corrected_to": "20-session median dollar volume ending T3-2, full pre-window required",
+      "value": "20-session median dollar volume ending T9-2, full pre-window required"
+    },
+    {
+      "file": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": ".estimand.volatility",
+      "role": "VALUE",
+      "classification": "MISLABEL",
+      "corrected_to": "ATR14/close at T3-2",
+      "value": "ATR14/close at T9-2"
+    },
+    {
+      "file": "T3_HOLD_CLOSURE_V1.json",
+      "path": ".item1.cross_vintage.canonical_population",
+      "role": "VALUE",
+      "classification": "MISLABEL",
+      "corrected_to": "materialized t_sig='T3'",
+      "value": "materialized t_sig='T9'"
+    }
+  ],
+  "deliberate_references": {
+    "n_source_comments": 2,
+    "n_artifact_reference_values": 8,
+    "other_t9_text_values": [
+      {
+        "file": "T3_DNA_X_V1.json",
+        "path": ".t3_definition",
+        "role": "VALUE",
+        "classification": "VALUE_T9_TEXT",
+        "corrected_to": null,
+        "value": "t_sig=='T3' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==9). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND close>ope"
+      },
+      {
+        "file": "T3_DNA_AUDIT.json",
+        "path": ".definition",
+        "role": "VALUE",
+        "classification": "VALUE_T9_TEXT",
+        "corrected_to": null,
+        "value": "t_sig=='T3' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==9). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND close>ope"
+      }
+    ]
+  },
+  "inertness_proofs": {
+    "episode identity uses SETUP == 'T3'": true,
+    "no executable reads T3_FAMILY_GOVERNANCE_V1": true,
+    "setup_1d column is written, never read": true,
+    "X freeze carries the correct setup label": true,
+    "episode SQL selects t_sig='T3'": true
+  },
+  "required_positives": {
+    "family_id == T3_MICROSTRUCTURE_DNA_V1": true,
+    "k_final == 853": true,
+    "unique_j == 853": true,
+    "unique_membership_hash == 853": true,
+    "needle indices == 85/426/767": true,
+    "needle j values disjoint from T9's": true,
+    "population_hash != T9's": true,
+    "block_assignment_hash != T9's": true,
+    "claim_order_hash != T9's": true,
+    "all parquet paths are t3_*": true,
+    "no source file missing": true
+  },
+  "missing_files": [],
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 0.4
+}

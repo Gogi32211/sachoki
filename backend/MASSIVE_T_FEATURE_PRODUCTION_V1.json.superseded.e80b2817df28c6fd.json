@@ -1,0 +1,189 @@
+{
+  "report_id": "MASSIVE_T_FEATURE_PRODUCTION_V1",
+  "status": "MASSIVE_T_FEATURE_PRODUCTION_V1_BUILT",
+  "task_class": "FEATURE_PRODUCTION_ONLY",
+  "bindings": {
+    "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1.json": "4c9b15eb8cfed786",
+    "MASSIVE_T_SUPERCHART_EXPORT_PROVENANCE_V1.json": "a8e1f3725ddfe7a1",
+    "MASSIVE_T_FEATURE_PORT_SPEC_V1.json": "545d293b4f1e4653",
+    "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_2.json": "bd9292853ee10f2c",
+    "MASSIVE_T_PORT_CONFORMANCE_DIAGNOSTIC_SCOPE_AMENDMENT_V1.json": "c6358576c5c9411b",
+    "MASSIVE_T_PORT_SMOKE_FEED_CONFORMANCE_V1.json": "21166d63a73181bd",
+    "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1.json": "6ec73d5f462761f0",
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1.json": "7c0a5ad6b17d7ae0"
+  },
+  "port_implementation_hash": "5ab5390171e0d5d2",
+  "producer_semantics_digest": "2901107d9baa6320",
+  "production_path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_t_v1",
+  "timeframe": "15m",
+  "cohort": 476,
+  "partitions": {
+    "sealed": 1254,
+    "bytes": 48025992,
+    "digest_of_manifest": "ec16adbe2f2374b5"
+  },
+  "total_rows": 15445454,
+  "availability_decomposition": {
+    "EVALUABLE_T_STATE": 4705795,
+    "EVALUABLE_NO_T_STATE": 4778448,
+    "UNAVAILABLE_CURRENT_INPUT": 4827268,
+    "UNAVAILABLE_REQUIRED_HISTORY": 1133943
+  },
+  "none_first_class": {
+    "evaluable_no_t_state": 4778448,
+    "evaluable_t_state": 4705795,
+    "sums_to_evaluable": true,
+    "note": "NONE is a real negative observation, not missing data"
+  },
+  "per_state_counts": {
+    "NONE": 4778448,
+    "T1": 416995,
+    "T10": 59656,
+    "T11": 7745,
+    "T12": 19243,
+    "T1G": 101366,
+    "T2": 1244017,
+    "T2G": 929362,
+    "T3": 427317,
+    "T4": 696337,
+    "T5": 88715,
+    "T6": 71583,
+    "T9": 643459
+  },
+  "capability_reconciliation": {
+    "production_rows": 15445454,
+    "ineligible_absent_slots": 16930,
+    "rows_plus_absent": 15462384,
+    "qualified_slots": 15462384,
+    "slots_reconcile": true,
+    "evaluable": 9484243,
+    "qualified_evaluable": 9484243,
+    "evaluable_exact": true,
+    "fired": 4705795,
+    "qualified_fired": 4705795,
+    "fired_exact": true,
+    "unavailable_required_history": 1133943,
+    "qualified_unavailable_required_history": 1133943,
+    "required_history_exact": true,
+    "unavailable_current": 4827268,
+    "qualified_unavailable_current": 4844198,
+    "unavailable_current_plus_absent": 4844198,
+    "unavailable_current_reconciles": true,
+    "note": "the qualified census built a full 476 x slots matrix; production writes one row per REAL coarse bar, so absent (INELIGIBLE) slots have no row and are reconciled explicitly rather than silently dropped"
+  },
+  "forbidden_source_accounting": {
+    "unknown_securities": 0,
+    "excluded_securities": 0,
+    "wrong_timeframe": 0,
+    "duplicate_logical_keys": 0,
+    "z_outputs": 0,
+    "supplemental_rows": 0,
+    "new_vintage_rows": 0,
+    "t_on_unavailable_current": 0,
+    "t_on_unavailable_history": 0,
+    "unavailable_mapped_to_none": 0,
+    "invalid_labels": 0,
+    "premature_availability": 0,
+    "session_reset": 0
+  },
+  "excluded_securities": 27,
+  "per_security_availability": {
+    "zero_evaluable_securities": 0,
+    "min_evaluable": 23,
+    "max_evaluable": 32483
+  },
+  "per_session_sample": [
+    {
+      "day": "2021-08-25",
+      "rows": 12350,
+      "evaluable": 6139
+    },
+    {
+      "day": "2021-08-26",
+      "rows": 12350,
+      "evaluable": 6474
+    },
+    {
+      "day": "2021-08-27",
+      "rows": 12350,
+      "evaluable": 6536
+    },
+    {
+      "day": "2026-08-20",
+      "rows": 12376,
+      "evaluable": 7951
+    },
+    {
+      "day": "2026-08-21",
+      "rows": 12376,
+      "evaluable": 7467
+    },
+    {
+      "day": "2026-08-24",
+      "rows": 12376,
+      "evaluable": 7759
+    }
+  ],
+  "config_guard": {
+    "before": "4d6344bed8fc025d",
+    "after": "4d6344bed8fc025d",
+    "unchanged": true
+  },
+  "timeframe_guard": {
+    "production_registry": [
+      "15m"
+    ],
+    "forbidden": [
+      "1m",
+      "5m",
+      "1H",
+      "1D"
+    ],
+    "diagnostic_1d": "DIAGNOSTIC_ONLY_NOT_HYPOTHESIS_REGISTRATION — never enters T production"
+  },
+  "source_firewall": {
+    "allowed": [
+      "production-qualified Massive 15m coarse layer",
+      "frozen 476 cohort"
+    ],
+    "forbidden_consumed": {
+      "supplemental": 0,
+      "new_vintage": 0,
+      "excluded_securities": 0,
+      "legacy_bars": 0,
+      "diagnostic_1d": 0,
+      "extended_hours": 0,
+      "session_close_boundary_bar": 0,
+      "synthetic_ohlc": 0
+    }
+  },
+  "no_source_normalization": {
+    "rounded_to_2dp": false,
+    "closes_replaced_from_legacy": false,
+    "labels_corrected_from_1d": false,
+    "object_produced": "T_MASSIVE_PORT",
+    "object_not_produced": "RECONSTRUCTED_LEGACY_15M_T",
+    "carried_forward": "15M_LEGACY_VS_MASSIVE_FEED_DIVERGENCE = NOT_ESTIMABLE_FROM_AVAILABLE_MATCHED_DATA"
+  },
+  "raw_predicate_mask_deviation": {
+    "requested": "preferably store raw_t_predicate_mask",
+    "stored": false,
+    "why": "the qualified port computes the masks internally and does not return them; storing them in bulk would require either editing the port (forfeiting the smoke qualification) or writing a second unqualified copy of the predicate algebra into the production path",
+    "instead": [
+      "priority_winner_code and final_t_state are persisted, from which priority semantics are fully checkable",
+      "the independent verifier recomputes raw predicates itself on a controlled sample"
+    ],
+    "classification": "AUDIT_PROVENANCE_ONLY"
+  },
+  "provenance": [
+    "PREVIOUSLY_EXPOSED_HYPOTHESIS",
+    "CURRENT_PRE_REGISTERED_SOURCE_PORT",
+    "REPLICATION_LIKE"
+  ],
+  "analysis_performed": "NONE — no transitions, persistence, T x EMA/RVOL, theta, returns",
+  "z_outputs": 0,
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 25.3,
+  "sealed_at": "2026-08-26 15:20 +04"
+}

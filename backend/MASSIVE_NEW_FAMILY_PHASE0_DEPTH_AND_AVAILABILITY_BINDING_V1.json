@@ -1,0 +1,99 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PHASE0_DEPTH_AND_AVAILABILITY_BINDING_V1",
+  "status": "COMPLETE",
+  "supersedes": {
+    "artifact": "MASSIVE_NEW_FAMILY_PHASE0_DEPTH_AND_AVAILABILITY_BINDING_V1_PARTIAL",
+    "digest": "d141d2d3d3261330"
+  },
+  "rows_written": 0,
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "VERDICT": {
+    "suffix_x4": "BOUND",
+    "vol_x3": "BOUND",
+    "vbo_up": "BOUND",
+    "sig_tz_flip": "BOUND",
+    "all_39_missing_columns": {
+      "producer_authority": "COMPLETE",
+      "depth_contract": "COMPLETE",
+      "post_gap_semantics": "COMPLETE"
+    }
+  },
+  "DEPTH_FLOOR_GROUP": {
+    "vol_x3": 2,
+    "suffix_x4": 2,
+    "bar_body_wick": 2,
+    "T12": 2,
+    "Z13": 2,
+    "segment_head_rule": "the first bar of ANY observed segment has no prior; hard-missing, never coerced to FALSE",
+    "SUFFIX_WRAP_DEFECT": {
+      "finding": "np.roll(...,1) WRAPS: at index 0 the 'previous' bar is the LAST bar",
+      "source_comment": "'First bar has no prev - mask it later' (enricher.py:61) — no mask is ever applied",
+      "CONTRACT": "segment head -> previous bar unavailable -> suffix output NON-VALID / NULL",
+      "explicit": "we do NOT reproduce the source's wrap-around garbage merely because the historical function behaves that way. The source comment itself states the first bar must be masked; the availability layer enforces exactly that."
+    }
+  },
+  "STATE_MACHINE_GROUP": {
+    "g_signals_x4": {
+      "status": "FROZEN EARLIER",
+      "contract": "OUTPUT uses INCOMING state; any_g also determines state"
+    },
+    "sig_tz_flip": {
+      "authority": "MASSIVE_NEW_FAMILY_SIG_TZ_FLIP_STATE_AUTHORITY_V1",
+      "digest": "996570d102551aa5",
+      "STATE_CLASS": "FINITE_PERSISTENT_STATE",
+      "STATE_DOMAIN": 6,
+      "FIXED_FIRST_VALID_AGE": "NOT_APPLICABLE",
+      "identity": "sig_tz_flip == bull_dom AND prev_state in {0,1,2,4,5}",
+      "per_setter_depths": {
+        "bull_dom": 50,
+        "bear_dom": 50,
+        "bull_att": 20,
+        "bear_att": 20,
+        "bear_weak": 7,
+        "bull_weak": 7
+      },
+      "head": {
+        "st0": 0,
+        "flip0": false,
+        "note": "explicit canonical seed, NOT a 'bear_dom event occurred' claim"
+      },
+      "SETTER_PRIORITY": "SEMANTIC — exclusivity empirically refuted on 143,132 bars (20,561 co-firing); changing the order would change the feature definition",
+      "separate_availability": "tz_state availability and sig_tz_flip availability MUST be computed separately; neither attaches to the other"
+    },
+    "vbo_up": {
+      "authority": "MASSIVE_NEW_FAMILY_VBO_UP_STATE_AUTHORITY_V1",
+      "digest": "7bf34a5275f152e3",
+      "STATE_CLASS": "FINITE_PERSISTENT_STATE",
+      "BASE_TRIGGER_FULLY_VALID_AGE": 22,
+      "base_derivation": "rolling(_MA_PERIOD=20) fully valid at age 20; bkt.shift(2) makes the current bar's dependency fully valid at 20 + 2 = 22",
+      "ATR14_VALIDITY_RULE": {
+        "rule": "DECLARED_NEW_MASSIVE_CONVENTION",
+        "threshold": "age >= 14",
+        "explicitly_NOT": "bit-exact historical convergence",
+        "consistency": "same convention already frozen for rsi_14 and Massive ATR14: age 1..13 initialization-sensitive, age >= 14 numerically licensed"
+      },
+      "POST_GAP_RECOVERY": "FINITE_RESET_ANCHORED",
+      "RESET_OFFSET": "latch_index + 11 observed bars, PROVIDED the trigger is PROVEN FALSE as required",
+      "FIXED_FIRST_VALID_AGE_FOR_VBO_UP": "NOT_APPLICABLE",
+      "BASE_VS_OUTPUT": {
+        "rule": "BASE DEPENDENCIES VALID != OUTPUT NECESSARILY VALID",
+        "authority_for_output": "the reachable-state engine, not the depth floor",
+        "post_gap": [
+          "trigger UNKNOWN -> both TRUE/FALSE propagate",
+          "11 proven-FALSE observed trigger bars after a latch -> reset deterministically clears it",
+          "unobserved bars do NOT count as proven FALSE"
+        ]
+      },
+      "BIT_EXACT_STABILITY_DIAGNOSTIC": {
+        "value": 60,
+        "sample": "one security, 58 probe points",
+        "ROLE": "DIAGNOSTIC ONLY",
+        "NOT": "an availability threshold",
+        "why_rejected_as_authority": "EWM/IIR never exactly forgets the past on a finite window, so 60 is an artefact of this sample's float convergence. Another sample could yield 57 or 73. Freezing it would be arbitrary and would amount to inventing a tolerance.",
+        "warning": "this number must NEVER be carried into a contract"
+      }
+    }
+  },
+  "PHASE_1_RELEASED": true
+}

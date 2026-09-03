@@ -1,0 +1,162 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_SPEC_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "purpose": "freeze the census METRICS before any distribution is observed, so metrics are not chosen after seeing results",
+  "INPUTS": {
+    "claim_universe": {
+      "count": 45387,
+      "digest": "684b6dce407c9f0e",
+      "file": "CLAIM_UNIVERSE_45387.txt"
+    },
+    "token_dictionary": {
+      "count": 123,
+      "digest": "299c963427568b49"
+    },
+    "grammar": {
+      "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_CLAIM_GRAMMAR_V1",
+      "digest": "4f07512770af4615"
+    },
+    "x_surface": {
+      "artifact": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1",
+      "digest": "e8016cb7c39a969d"
+    }
+  },
+  "FLOOR_RATIONALE_GUARD": {
+    "the_floor_is_NOT_for": "reducing 45,387 to a comfortable k",
+    "the_floor_IS_for": "whether a claim has sufficient X-side evaluability, positive support and breadth to be a statistically meaningful candidate at all",
+    "explicitly": "sizing a floor to obtain a desired k would be POST-HOC MULTIPLICITY ENGINEERING",
+    "acceptable_outcomes": "the floor may cut a great deal, or almost nothing — both are legitimate",
+    "retracted_framing": "an earlier statement that 'the floor will be doing real work in reducing it'"
+  },
+  "CLAIM_EVALUATION_RULES": {
+    "EVALUABLE": "source(A) @ M_i == AVAILABLE_VALID AND source(B) @ M_{i+1} == AVAILABLE_VALID",
+    "POSITIVE": "EVALUABLE AND A == TRUE AND B == TRUE",
+    "PAIR_UNAVAILABLE": "either side non-valid — NEVER counted as FALSE",
+    "denominator": "evaluable pair opportunities ONLY"
+  },
+  "PER_CLAIM_METRICS": {
+    "DEV": [
+      "evaluable_pairs",
+      "positive_pairs",
+      "positive_rate = positive/evaluable",
+      "securities_with_evaluable_pair",
+      "securities_with_positive_pair",
+      "security_sessions_with_evaluable_pair",
+      "security_sessions_with_positive_pair",
+      "top10pct_security_share_evaluable",
+      "top10pct_security_share_positive"
+    ],
+    "positive_rate_status": "SUPPORT DESCRIPTOR ONLY — no outcome or edge interpretation"
+  },
+  "SCOPES": {
+    "DEV": {
+      "range": "session_date <= 2026-08-06",
+      "role": "ELIGIBILITY AUTHORITY"
+    },
+    "HOLDOUT": {
+      "range": "2026-08-07 .. 2026-08-24",
+      "role": "DIAGNOSTIC ONLY",
+      "hard_floor_authority": "NO",
+      "warning": "12 sessions — episode/opportunity counts, NOT independent temporal replications"
+    }
+  },
+  "POSITION_PAIR_IS_CLAIM_IDENTITY": {
+    "rule": "A@M1->B@M2, A@M2->B@M3, A@M3->B@M4 are THREE DISTINCT CLAIMS",
+    "forbidden": "aggregating their support under a single A->B for eligibility purposes",
+    "permitted": "an aggregate summary as a DIAGNOSTIC only; the floor acts at CLAIM level"
+  },
+  "ZERO_SUPPORT_RETENTION": {
+    "rule": "claims with evaluable_pairs = 0 and positive_pairs = 0 MUST NOT disappear",
+    "threat": "an SQL inner join or GROUP BY silently dropping zero-support claims",
+    "acceptance_invariant": {
+      "input_claims": 45387,
+      "census_claims": 45387,
+      "missing": 0,
+      "duplicates": 0
+    }
+  },
+  "PRESPECIFIED_DISTRIBUTION_SUMMARY": {
+    "quantiles": [
+      "min",
+      "p1",
+      "p5",
+      "p10",
+      "p25",
+      "median",
+      "p75",
+      "p90",
+      "p95",
+      "p99",
+      "max",
+      "zero_count"
+    ],
+    "computed_over": [
+      "evaluable_pairs",
+      "positive_pairs",
+      "securities_with_positive_pair",
+      "top10pct_security_share_positive"
+    ]
+  },
+  "PERMITTED_BREAKDOWNS": {
+    "basis": "ALREADY-FROZEN structural dimensions only",
+    "position_pair": [
+      "M1->M2",
+      "M2->M3",
+      "M3->M4"
+    ],
+    "token_type_pair": [
+      "boolean->boolean",
+      "boolean->categorical",
+      "categorical->boolean",
+      "categorical->categorical"
+    ],
+    "forbidden": "any new clustering or grouping invented after seeing support"
+  },
+  "THREE_DISTINCT_FAILURE_MODES": {
+    "rule": "a single minimum-positive-count floor is NOT sufficient",
+    "LOW_EVALUABILITY": "the claim is rarely measurable at all",
+    "LOW_POSITIVE_SUPPORT": "measurable, but the TRUE pair is very rare",
+    "LOW_BREADTH": "positive occurrences exist but on very few securities",
+    "worked_contrast": {
+      "case_A": {
+        "evaluable": 100000,
+        "positive": 500,
+        "positive_securities": 3
+      },
+      "case_B": {
+        "evaluable": 2000,
+        "positive": 500,
+        "positive_securities": 150
+      },
+      "point": "identical positive counts, entirely different evidence topology"
+    }
+  },
+  "CONCENTRATION_POLICY": {
+    "metric": "top10pct_security_share_positive",
+    "status": "MANDATORY DIAGNOSTIC",
+    "hard_cap": "NOT introduced at census time",
+    "decided_separately": "at floor-spec time",
+    "must_not": "be applied automatically as an exclusion during the census"
+  },
+  "RATE_REPORTING": {
+    "every_rate": "denominator stated explicitly",
+    "zero_denominator": "report N.A. / UNAVAILABLE — NEVER 0%"
+  },
+  "CENSUS_MUST_NOT": [
+    "drop any claim",
+    "apply any floor",
+    "read any Y column",
+    "join any outcome data",
+    "compute any outcome statistic",
+    "invent groupings"
+  ],
+  "TARGET_STATUS": "SUPPORT_DISTRIBUTION_CHARACTERIZED",
+  "STOP_AFTER": "census — the floor is specified in a SEPARATE later artifact",
+  "DEFLATION_NOTE": {
+    "observation": "the 45,387 claims are heavily clustered by shared source features",
+    "status": "clustered-CI / DSR belong to the POST-Y statistical layer",
+    "guard": "the support floor must NOT be tuned to make later multiplicity more comfortable"
+  }
+}

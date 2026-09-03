@@ -1,0 +1,158 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_ENGINEERING_QUALIFICATION_V1",
+  "status": "FROZEN",
+  "role": "OPERATIONALIZATION ONLY. This artifact adds NO design freedom. Governing authority remains FORWARD_HUB_PRESPEC_V1 · 627c767ef9708549.",
+  "HISTORICAL_Y_EXPOSED": 1,
+  "FORWARD_Y_EXPOSED": 0,
+  "FORWARD_RESULTS_READ": 0,
+  "IMMUTABLE_UPSTREAM": [
+    "trigger",
+    "k_hub=4",
+    "B_SCALE=500",
+    "B_NULL=9999",
+    "definedness semantics",
+    "fixed-hub stability semantics",
+    "hub memberships",
+    "master_seed"
+  ],
+  "A_FORWARD_X_PRODUCER": {
+    "requirements": [
+      "identical frozen 69-X semantics",
+      "identical feature identities and availability vocabularies",
+      "identical session-date / timezone authority",
+      "NO research-time semantic fallback",
+      "module import must be SIDE-EFFECT FREE"
+    ],
+    "inherits_error_class": "MODULE_IMPORT_SIDE_EFFECT_RISK — a probe once executed a producer's module-level code and attempted DROP TABLE on the live DB",
+    "conformance": "row-level checksum conformance against the frozen contract, same as the historical surface"
+  },
+  "B_MONTHLY_X_SUPPORT_CENSUS": {
+    "reads": [
+      "canonical forward X surface",
+      "the 4 immutable hub membership lists"
+    ],
+    "FORBIDDEN_READS": [
+      "any Y array",
+      "PROD_INFER*",
+      "PROD_CI*",
+      "PROD_DENOM*",
+      "any outcome-derived forward artifact"
+    ],
+    "enforcement": "Y-blindness is enforced in code, not by convention, and is covered by a negative fixture",
+    "output_fields": [
+      "month_end",
+      "forward_window_start",
+      "complete_months_n",
+      "per hub: member_count, members_X_positive_episode_n_ge_100, threshold_required",
+      "source_X_digest",
+      "membership_digests",
+      "code_digest"
+    ]
+  },
+  "C_TRIGGER_RECORD": {
+    "cadence": "exactly ONE immutable record at every eligible month-end",
+    "decision": [
+      "NO_LOOK",
+      "LOOK"
+    ],
+    "fields": [
+      "condition_a",
+      "condition_b_H1",
+      "condition_b_H2",
+      "condition_b_H3",
+      "condition_b_H4",
+      "backstop_active",
+      "input_digests",
+      "previous_record_digest"
+    ],
+    "append_only": true,
+    "old_records_never_rewritten": true,
+    "WHY": "a NO_LOOK record is EVIDENCE, not a log line. Its unbroken chain is what proves the first look was caused by the frozen trigger and not by us. previous_record_digest makes the chain tamper-evident: an April LOOK can never be re-presented as though the trigger had already fired in March."
+  },
+  "SEED_AUTHORITY": {
+    "master_seed": 9968714824903163673,
+    "source_of_truth": "FORWARD_HUB_PRESPEC_V1 · 627c767ef9708549",
+    "on_unavailable_or_unparsable_or_digest_mismatch": "HARD FAIL",
+    "FORBIDDEN": [
+      "fallback seed",
+      "a new os.urandom call",
+      "timestamp seed",
+      "process-id seed",
+      "worker-local seed"
+    ],
+    "worker_rule": "workers generate NO independent randomness. At trigger time deterministic NAMED substreams are instantiated from the sealed master seed, and the DRAW MANIFEST then becomes the execution authority."
+  },
+  "INSTANTIATION_RUNNER": {
+    "fail_closed": true,
+    "order": [
+      "LOOK record exists",
+      "freeze exact forward window",
+      "freeze X-support census",
+      "build admissible map universe",
+      "assert N_admissible_maps >= 10,499",
+      "derive SCALE/NULL maps from the sealed seed",
+      "seal draw manifest + digests",
+      "assert Y_ACCESS_COUNT == 0",
+      "ENABLE FIRST FORWARD Y ACCESS"
+    ],
+    "CRITICAL_GUARD": "the last two steps' ORDER is the qualification. If the Y reader can be opened before the draw manifest is sealed, the workflow is NOT yet qualified — regardless of whether it happens to be opened late in practice."
+  },
+  "ARTIFACT_IDENTITY_RULE": {
+    "statement": "forward execution MUST NOT identify a current artifact by FILENAME (e.g. PROD_INFER.npz). Current artifacts are identified by manifest ID + expected digest + run ID.",
+    "inherits_error_class": "STALE RESULT FILE READ AS CURRENT — in the historical run a superseded PROD_INFER.json survived archiving and a status check reported 'aggregated: YES' while the corrected NULL was only 598/1800",
+    "rule": "the mere presence of a result file in a directory may NEVER imply aggregated=YES"
+  },
+  "CLOCK_AUTHORITY": {
+    "rule": "the month-end runner MUST NOT trust the machine local clock",
+    "source": "'calendar month' and session completion come from the SAME frozen market/session-date authority the X surface uses",
+    "consequence": "2026-09, 2026-10, ... are defined on the research calendar, never on the host timezone"
+  },
+  "NEGATIVE_FIXTURES_REQUIRED": [
+    {
+      "setup": "a Y file deliberately present",
+      "expect": "census still cannot open it"
+    },
+    {
+      "setup": "missing prespec seed",
+      "expect": "HARD FAIL, no regeneration"
+    },
+    {
+      "setup": "membership digest mismatch",
+      "expect": "HARD FAIL"
+    },
+    {
+      "setup": "month 5, all support thresholds passed",
+      "expect": "NO_LOOK"
+    },
+    {
+      "setup": "month 6, one hub below threshold",
+      "expect": "NO_LOOK"
+    },
+    {
+      "setup": "month 6, all four thresholds passed",
+      "expect": "LOOK"
+    },
+    {
+      "setup": "month 12, condition (b) failing",
+      "expect": "LOOK via BACKSTOP"
+    },
+    {
+      "setup": "a second attempted LOOK under the same registration",
+      "expect": "HARD FAIL"
+    },
+    {
+      "setup": "late rerun of an old month",
+      "expect": "cannot overwrite the historical NO_LOOK/LOOK record"
+    }
+  ],
+  "EXPOSURE_STATEMENT": "accumulating forward X is NOT research exposure. As long as the trigger runner reads only frozen X fields and Y access is technically blocked, the forward confirmation set stays pristine.",
+  "STATE": {
+    "HISTORICAL_INFERENCE": "CLOSED",
+    "PROMOTED_SET_732": "FROZEN",
+    "FORWARD_PRIMARY_FAMILY_k4": "FROZEN",
+    "FORWARD_PRESPEC": "FROZEN",
+    "FORWARD_Y_EXPOSED": 0,
+    "FORWARD_RESULTS_READ": 0,
+    "NEXT_GATE": "ENGINEERING QUALIFICATION -> passive monthly X-only NO_LOOK/LOOK ledger -> mechanical forward instantiation -> first forward Y access"
+  }
+}

@@ -1,0 +1,187 @@
+{
+  "artifact": "MASSIVE_T1_15M_L_WLNBB_PORT_QUALIFICATION_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "future_values_read": 0,
+  "ROLE": "T1_HISTORICAL_FAMILY_X_DEPENDENCY_ONLY",
+  "SCOPE_CORRECTION": {
+    "prior_claim": "B2 (b3544d1ba943bccc) named wlnbb_engine.l_signal_label as the L producer",
+    "correction": "WRONG. Stored l_sig values are ascending-digit COMBOS (L46, L12, L25) which l_signal_label cannot emit — its vocabulary yields L64, and has no L12/L25.",
+    "true_producer": "main.py:5217-5240, inside api_bar_signals: _digits = \"\".join(str(d) for d in range(1,7) if wlnbb_row[f\"L{d}\"]); _l_chart = \"L\"+_digits, else a priority-named fallback over (FRI34,FRI43,FRI64,BLUE,CCI_READY,CCI_0_RETEST_OK,CCI_BLUE_TURN,BE_UP,BE_DN,BO_UP,BO_DN,BX_UP,BX_DN,FUCHSIA_RL,FUCHSIA_RH,PRE_PUMP)",
+    "chain": "norm_ohlcv -> wlnbb_engine.compute_wlnbb -> L1..L6 + named flags -> main.py ascending-digit concat -> l_chart -> importer.py:298 -> l_sig",
+    "vbo_up_moved_out": "vbo_up is a VABS output (vabs_engine.py:185 -> main.py:4928), NOT WLNBB — excluded from this gate",
+    "vol_bucket_reclassified": "vol_bucket IS a compute_wlnbb output (main.py:5028), not an independent raw-OHLCV derivation as earlier classified"
+  },
+  "SIGNATURE_ENUMERATION": {
+    "revisions": 10,
+    "distinct_compute_wlnbb_signatures": 7,
+    "distinct_l_signal_label_bodies": 4,
+    "variation_axes": [
+      "vol_down_adapted: (v<pv) vs two bucket-adapted forms",
+      "BO_UP/BX_UP: l34_hi vs l34_body_hi",
+      "BE_UP: 4 distinct definitions incl. absent",
+      "label priority: 4 orders"
+    ],
+    "DISCRIMINATION": {
+      "1f0ae4ab": 0,
+      "fc216d8c": 113,
+      "dbc80216": 330,
+      "56f70a73": 331,
+      "26049cb9": 331,
+      "c24d798e": 332,
+      "aa66d5dc": 165895
+    },
+    "winner": "1f0ae4ab (2026-06-01, \"fix(wlnbb): correct L-signal logic vs original Pine\") — UNIQUELY exact; 6 of 7 rejected"
+  },
+  "FULL_STORE": {
+    "series": 3203,
+    "matched_rows": 91027821,
+    "per_column": {
+      "bx_up": 468,
+      "be_up": 285,
+      "vol_bucket": 174,
+      "l_sig": 131,
+      "bo_up": 36,
+      "l34": 6,
+      "l22": 2,
+      "l43": 2
+    },
+    "total_cells": 1104,
+    "census_complete": true,
+    "census_uncapped": true,
+    "temporal": "1104 / 1104 on or after 2026-07-06 13:30:00; ZERO before, across 5 years",
+    "mechanism": "NOT ESTABLISHED for this family. WLNBB lookbacks are short (BB20, RSI14, CCI20/14); a ~580-bar incremental warmup fully covers them, so the P/D EMA-warmup mechanism does NOT explain this. Only temporal confinement is shown.",
+    "exclusion_applied": "NONE — raw matched support is the denominator; P/D and T exclusions were NOT transferred"
+  },
+  "CLAIM_RELEVANCE": {
+    "cells_in_M1_M4_window": 243,
+    "cells_on_frozen_population": 13,
+    "detail": [
+      [
+        "ADMA",
+        "2026-07-27",
+        "M1",
+        "bx_up"
+      ],
+      [
+        "CMG",
+        "2026-07-29",
+        "M1",
+        "bx_up"
+      ],
+      [
+        "DNOW",
+        "2026-07-10",
+        "M1",
+        "be_up"
+      ],
+      [
+        "DNOW",
+        "2026-07-10",
+        "M3",
+        "be_up"
+      ],
+      [
+        "DNOW",
+        "2026-07-10",
+        "M3",
+        "bx_up"
+      ],
+      [
+        "KEY",
+        "2026-07-30",
+        "M1",
+        "bx_up"
+      ],
+      [
+        "NBBK",
+        "2026-07-15",
+        "M4",
+        "l_sig (calc \"\" vs stored PRE_PUMP)"
+      ],
+      [
+        "NOV",
+        "2026-07-24",
+        "M1",
+        "bx_up"
+      ],
+      [
+        "ORLY",
+        "2026-07-24",
+        "M1",
+        "be_up"
+      ],
+      [
+        "ORLY",
+        "2026-07-24",
+        "M1",
+        "bx_up"
+      ],
+      [
+        "SG",
+        "2026-07-17",
+        "M1",
+        "be_up"
+      ],
+      [
+        "SG",
+        "2026-07-17",
+        "M1",
+        "bx_up"
+      ],
+      [
+        "VG",
+        "2026-08-06",
+        "M1",
+        "bx_up"
+      ]
+    ],
+    "affected_tokens": {
+      "be_up": [
+        "BE_UP"
+      ],
+      "bx_up": [
+        "BX_UP"
+      ],
+      "l_sig": [
+        "L1",
+        "L2",
+        "L3",
+        "L4",
+        "L5",
+        "L34x",
+        "L46x"
+      ]
+    },
+    "final_members_upper_bound": 1388,
+    "total": 35587,
+    "share": "3.90%",
+    "max_change_per_member": "1 episode",
+    "worst_case_relative": "0.3257%",
+    "note": "1,388 is an UPPER BOUND — members whose representative uses an affected token at an affected slot; a member shifts only if that specific episode crosses its membership"
+  },
+  "VERDICT": "HOLD",
+  "verdict_reason": "claim-relevant divergence > 0. Per the gate PASS logic this is HOLD pending a caller ruling, not an automatic pass.",
+  "THREE_LINE_INTERPRETATION": {
+    "FULL_STORE_L_MATERIALIZER_CONFORMANCE": "NOT_EXACT (1,104 / 91,027,821)",
+    "FROZEN_T1_FAMILY_RELEVANT_CONFORMANCE": "NOT_EXACT (13 cells -> up to 1,388 members, 3.90%)",
+    "AUTHORIZED_ROLE": "none yet — awaiting ruling"
+  },
+  "comparison_to_PD": "P/D had 3 claim-relevant cells -> 225 members (0.63%). L/WLNBB has 13 cells -> up to 1,388 members (3.90%), roughly 6x larger.",
+  "negative_controls": {
+    "true lean-base input -> l_sig EXACT": "PASS",
+    "rounded enriched OHLC as input is WORSE (0 -> 368)": "PASS",
+    "multi-flag rows use ASCENDING concat (no L64/L21)": "PASS",
+    "multi-flag rows are digit-combos not single names": "PASS",
+    "no L digit and no named flag -> \"\" (NONE) not unavailable": "PASS",
+    "NaN current input fabricates no L label": "PASS",
+    "6 of 7 historical signatures rejected by conformance": "PASS",
+    "role-bound / Y access": "declarative — no outcome column read"
+  },
+  "not_done": [
+    "micro-mechanism of the 1,104 post-boundary cells not established",
+    "exact per-member membership recomputation not performed (upper bound only)",
+    "no Massive L feature produced"
+  ]
+}

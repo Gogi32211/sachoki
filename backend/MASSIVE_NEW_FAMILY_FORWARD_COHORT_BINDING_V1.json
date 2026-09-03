@@ -1,0 +1,74 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_COHORT_BINDING_V1",
+  "status": "FROZEN",
+  "PARENT_REGISTRATION": {
+    "artifact": "MASSIVE_NEW_FAMILY_FORWARD_HUB_REGISTRATION_V1",
+    "digest": "751058971beae07c"
+  },
+  "PARENT_PRESPEC": {
+    "artifact": "MASSIVE_NEW_FAMILY_FORWARD_HUB_PRESPEC_V1",
+    "digest": "627c767ef9708549",
+    "prespec_not_modified": true,
+    "why_this_is_an_addition_not_a_change": "the security cohort was NEVER specified in any prespec. trigger, k_hub=4, B_SCALE=500, B_NULL=9999 and the definedness/stability semantics are untouched."
+  },
+  "FORWARD_Y_EXPOSED": 0,
+  "FORWARD_RESULTS_READ": 0,
+  "COHORT_ROLE": "PRIMARY_FORWARD_REPLICATION",
+  "SECURITY_COHORT": "the exact frozen 476-security V1 cohort on which the four hubs and the 732-member promoted family arose",
+  "COHORT_MEMBERSHIP": {
+    "n": 476,
+    "field": "security_key_v1",
+    "form": "64-hex SHA-256",
+    "file": "massive_new_family_runtime/FORWARD_COHORT_476_security_key_v1.txt",
+    "membership_digest": "2d1ec872dcf74df4",
+    "extracted_from": "stageA_input.duckdb bars — the exact input surface of the historical inference",
+    "explicit_list": true,
+    "prose_rule_alone_is_insufficient": true
+  },
+  "IDENTITY_AUTHORITY": {
+    "artifact": "MASSIVE_SECURITY_IDENTITY_KEY_AMENDMENT_V1",
+    "digest": "04e28f9570a39282",
+    "key": "security_key_v1 = SHA-256(UTF-8('CIK=' + <10-digit CIK> + '|SCFIGI=' + <share_class_figi | __NO_SHARE_CLASS_FIGI__>))",
+    "ticker_role": "METADATA ONLY — never part of key equality",
+    "consequence": "a ticker or name change does NOT create a new cohort member and is NOT a cohort addition, provided the lineage authority establishes the same security",
+    "IDENTITY_UNRESOLVED": {
+      "rule": "if continuity cannot be established by the lineage authority, the observation is UNAVAILABLE",
+      "FORBIDDEN": "silently mapping it onto a new security, or onto an existing member"
+    },
+    "INHERITED_LIMITATION": {
+      "from_identity_artifact": "474 of the 503 rest on an actual share-class identifier (CIK_PLUS_SHARE_CLASS_FIGI); 29 rest on the CIK being a SINGLETON inside this frozen universe — a weaker fact wearing the same shape",
+      "within_the_476": "NOT RESOLVED FROM THE ARTIFACTS AVAILABLE AT SEAL TIME — the key->basis mapping table was not located. The split must be reported before the first look, not assumed.",
+      "status": "UNRESOLVED_AT_SEAL — recorded, not silently flattened"
+    }
+  },
+  "PROHIBITIONS": {
+    "RECONSTITUTION": "FORBIDDEN",
+    "NEW_SECURITIES": "FORBIDDEN in primary inference",
+    "HISTORICALLY_EXCLUDED_27": "FORBIDDEN in primary inference; no report-only extension is registered in V1",
+    "REPLACEMENT": "FORBIDDEN — no substitute security is ever inserted for a lost member"
+  },
+  "ATTRITION": {
+    "rule": "a delisted, acquired or halted security REMAINS a member of the frozen 476 cohort and contributes only where observations are valid and available",
+    "semantics": [
+      "UNAVAILABLE != FALSE",
+      "NO_DATA != STRUCTURAL_NO_EVENT"
+    ],
+    "consequence": "the cohort may naturally shrink in OBSERVABLE support during the forward window. That does NOT change cohort membership. The X-support census simply reflects real availability, and the 12-month backstop covers exactly this case."
+  },
+  "DENOMINATOR_DISCIPLINE": {
+    "REGISTERED_SECURITY_COHORT_N": 476,
+    "immutable": true,
+    "OBSERVED_or_CONTRIBUTING_SECURITY_N": "a REALIZED quantity for a given window / claim / hub",
+    "RULE": "the two must never be conflated in any report. If in 2027 only 462 member securities have usable observations, the primary cohort is still 476 and 462 is realized availability/breadth — NOT a new universe."
+  },
+  "A1_BOUNDARY_TEST": {
+    "requirement": "the forward ingest MUST NOT admit a new security merely because it appeared in the Massive universe",
+    "mechanism": "every security key in the primary forward pipeline passes a frozen-476 ALLOWLIST gate",
+    "raw_data": "may exist for other securities; it is simply not admitted to primary forward inference"
+  },
+  "ESTIMAND": "replication in the same frozen security cohort",
+  "NOT_REGISTERED": [
+    "LIVE-503 extension",
+    "generalisation to the excluded 27 (would be a separate registered extension branch)"
+  ]
+}

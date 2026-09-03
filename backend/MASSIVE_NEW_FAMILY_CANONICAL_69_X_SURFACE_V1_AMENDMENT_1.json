@@ -1,0 +1,48 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1_AMENDMENT_1",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1",
+    "parent_digest": "e8016cb7c39a969d",
+    "parent_not_rewritten": true
+  },
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "AMENDMENT_1_residual_170_wording": {
+    "PROVEN": {
+      "bars": 170,
+      "EMA_9_20_50_all_VALID": 170,
+      "cause": "cooldown-state ambiguity",
+      "counterexamples": 0
+    },
+    "OVERSTATED_WORDING_RETRACTED": "'age range 50..64 matches exactly: the base gate opens at 50, and the cooldown needs up to 6 further PROVEN-FALSE bars to resolve' — the 'exactly' framing implied a bounded elapsed-bar window",
+    "CORRECT_STATEMENT": "recovery requires 6 PROVEN-FALSE OBSERVED raw bars, NOT 6 elapsed bars",
+    "why": "UNKNOWN and gap bars do NOT satisfy the requirement, so accumulating six proven FALSE observations can take MORE than six elapsed bars",
+    "status_of_50_64": "CONSISTENT with the mechanism, but NOT an 'exactly six bars later' claim",
+    "general_rule": "elapsed time is not evidence that an event did not occur — the same rule already frozen for this programme"
+  },
+  "AMENDMENT_2_availability_comparability": {
+    "PERMITTED_IN_PRESPEC": "a binary distinction AVAILABLE_VALID vs NON_VALID is safe across all 69 features",
+    "FORBIDDEN": "treating NON-VALID REASON CODES as comparable across features",
+    "specific_prohibition": "PD's coarse INITIALIZATION_SENSITIVE must NEVER be decomposed back into HEAD / POST_GAP",
+    "reason": "that distinction was never made by the PD producer; reconstructing it would fabricate provenance",
+    "surface_state": "all six codes coexist verbatim in the canonical surface; granularity differs BY SOURCE and that difference is information, not noise"
+  },
+  "AMENDMENT_3_manifest_lineage_hygiene": {
+    "defect": "the sealed manifest carried a single 'source_digest' field conflating two different things",
+    "distinction": {
+      "source_artifact_digest": "identity of the sealed PRODUCER ARTIFACT (e.g. Stage D 21032d2cfc56e8c5)",
+      "source_physical_db_digest": "digest of the certified PHYSICAL STORE the rows were copied from"
+    },
+    "resolution": "CANONICAL_69_MANIFEST_V2.json carries BOTH fields for all 69 features; V1 is NOT rewritten",
+    "manifest_v1_digest": "a44fd5cda3f22ef9",
+    "manifest_v2_digest": "58f21313250836bf",
+    "physical_db_digests": {
+      "PHASE1_R1.duckdb": "91a4502c6613f03a",
+      "STAGE_D_R2.duckdb": "56eba94c6e858fea",
+      "pd12.duckdb": "5ceb51930859d956",
+      "stageC4.duckdb": "10731a4cbb88f5ce"
+    },
+    "cross_check": "PHASE1_R1 91a4502c6613f03a and STAGE_D_R2 56eba94c6e858fea match their completion-gate certification sentinels exactly"
+  }
+}

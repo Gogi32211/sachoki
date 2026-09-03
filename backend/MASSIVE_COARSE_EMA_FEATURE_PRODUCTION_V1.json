@@ -1,0 +1,206 @@
+{
+  "report_id": "MASSIVE_COARSE_EMA_FEATURE_PRODUCTION_V1",
+  "status": "MASSIVE_COARSE_EMA_FEATURE_PRODUCTION_V1_PASS",
+  "binding": {
+    "ema_spec": "ef01b67c22f6770f",
+    "smoke_capability": "bd57b0e1cb959d7d",
+    "coarse_production": "6ec73d5f462761f0",
+    "eligibility": "7c0a5ad6b17d7ae0",
+    "implementation_hash": "943643e2e970698188654fd9a1f6e304c307909676615e381e60a95036c8785e",
+    "cohort": 476,
+    "sessions": 1254,
+    "periods": [
+      9,
+      20,
+      50,
+      200
+    ],
+    "timeframes": [
+      "15m",
+      "1H",
+      "1D"
+    ],
+    "streams": 12
+  },
+  "production_path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_coarse_ema_v1",
+  "output_bytes": 622205836,
+  "dataset_rows": {
+    "15m": 61781816,
+    "1H": 16637956,
+    "1D": 2385004
+  },
+  "total_rows": 80804776,
+  "stream_reconciliation": {
+    "method": "three independent code paths — the production engine, this verifier's own recursion, and the earlier capability census — computed the same quantities from the same coarse source",
+    "all_exact": true,
+    "per_stream": {
+      "EMA9@15m": {
+        "production_VALID": 7058741,
+        "independent_VALID": 7058741,
+        "capability_VALID": 7058741,
+        "production_securities": 474,
+        "independent_securities": 474,
+        "capability_securities": 474,
+        "all_three_exact": true
+      },
+      "EMA20@15m": {
+        "production_VALID": 5846542,
+        "independent_VALID": 5846542,
+        "capability_VALID": 5846542,
+        "production_securities": 458,
+        "independent_securities": 458,
+        "capability_securities": 458,
+        "all_three_exact": true
+      },
+      "EMA50@15m": {
+        "production_VALID": 4679170,
+        "independent_VALID": 4679170,
+        "capability_VALID": 4679170,
+        "production_securities": 422,
+        "independent_securities": 422,
+        "capability_securities": 422,
+        "all_three_exact": true
+      },
+      "EMA200@15m": {
+        "production_VALID": 3214742,
+        "independent_VALID": 3214742,
+        "capability_VALID": 3214742,
+        "production_securities": 302,
+        "independent_securities": 302,
+        "capability_securities": 302,
+        "all_three_exact": true
+      },
+      "EMA9@1H": {
+        "production_VALID": 1398030,
+        "independent_VALID": 1398030,
+        "capability_VALID": 1398030,
+        "production_securities": 446,
+        "independent_securities": 446,
+        "capability_securities": 446,
+        "all_three_exact": true
+      },
+      "EMA20@1H": {
+        "production_VALID": 1138482,
+        "independent_VALID": 1138482,
+        "capability_VALID": 1138482,
+        "production_securities": 392,
+        "independent_securities": 392,
+        "capability_securities": 392,
+        "all_three_exact": true
+      },
+      "EMA50@1H": {
+        "production_VALID": 884864,
+        "independent_VALID": 884864,
+        "capability_VALID": 884864,
+        "production_securities": 308,
+        "independent_securities": 308,
+        "capability_securities": 308,
+        "all_three_exact": true
+      },
+      "EMA200@1H": {
+        "production_VALID": 562851,
+        "independent_VALID": 562851,
+        "capability_VALID": 562851,
+        "production_securities": 193,
+        "independent_securities": 193,
+        "capability_securities": 193,
+        "all_three_exact": true
+      },
+      "EMA9@1D": {
+        "production_VALID": 118686,
+        "independent_VALID": 118686,
+        "capability_VALID": 118686,
+        "production_securities": 284,
+        "independent_securities": 284,
+        "capability_securities": 284,
+        "all_three_exact": true
+      },
+      "EMA20@1D": {
+        "production_VALID": 91853,
+        "independent_VALID": 91853,
+        "capability_VALID": 91853,
+        "production_securities": 215,
+        "independent_securities": 215,
+        "capability_securities": 215,
+        "all_three_exact": true
+      },
+      "EMA50@1D": {
+        "production_VALID": 64595,
+        "independent_VALID": 64595,
+        "capability_VALID": 64595,
+        "production_securities": 163,
+        "independent_securities": 163,
+        "capability_securities": 163,
+        "all_three_exact": true
+      },
+      "EMA200@1D": {
+        "production_VALID": 31359,
+        "independent_VALID": 31359,
+        "capability_VALID": 31359,
+        "production_securities": 72,
+        "independent_securities": 72,
+        "capability_securities": 72,
+        "all_three_exact": true
+      }
+    },
+    "why_it_is_strong": "a mis-seeded segment or state carried across a gap would drift the VALID totals; exact agreement across all twelve streams is not a formality"
+  },
+  "verification_layers": {
+    "structural": "every written file: digests, key uniqueness, availability = bar_end, VALID iff age >= period, contaminated rows carry no value",
+    "independent_recomputation": "this file's own recursion over the whole dataset, compared on counts",
+    "row_level_sample": {
+      "securities": 20,
+      "values_compared": 1957220,
+      "mismatches": 0,
+      "tolerance": "1e-12",
+      "why_sampled": "comparing 80.8M float pairs would cost more than it proves; an exact sample catches an arithmetic error just as reliably"
+    }
+  },
+  "checks": {
+    "partitions_1254": true,
+    "twelve_streams_only": true,
+    "cohort_476_preserved": true,
+    "all_file_digests_valid": true,
+    "no_duplicate_keys": true,
+    "causal_availability": true,
+    "valid_iff_age_ge_period": true,
+    "contaminated_carry_no_value": true,
+    "fresh_post_gap_seeding": true,
+    "no_rvol_fields": true,
+    "independent_recomputation_exact": true,
+    "sample_values_exact": true,
+    "no_problems": true
+  },
+  "failed": [],
+  "problems": [],
+  "problem_count": 0,
+  "segmentation": {
+    "fresh_post_gap_seeding_violations": 0,
+    "contaminated_rows_with_value": 0,
+    "rule": "an age==1 row must equal its own coarse close; state is deleted at a break rather than flagged"
+  },
+  "rvol": {
+    "fields_in_output": 0,
+    "computed": false,
+    "dictionary_frozen_separately": "6095852c4a2eeaa5",
+    "production_status": "HOLD"
+  },
+  "immutability": {
+    "artifacts": {
+      "MASSIVE_COARSE_EMA_FEATURE_SPEC_V1": true,
+      "MASSIVE_COARSE_EMA_FEATURE_SMOKE_CAPABILITY_V1": true,
+      "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1": true,
+      "MASSIVE_RVOL_DICTIONARY_SPEC_V1": true,
+      "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": true,
+      "MASSIVE_1M_STATE_TRANSITION_V1": true
+    },
+    "all_unchanged": true,
+    "y_exposure": 0
+  },
+  "provenance_level": "FILE_LEVEL",
+  "authorises": "nothing beyond itself. T/Z and Y exposure remain HOLD.",
+  "y_exposed": 0,
+  "elapsed_sec": 3500.2,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 01:20 +04"
+}

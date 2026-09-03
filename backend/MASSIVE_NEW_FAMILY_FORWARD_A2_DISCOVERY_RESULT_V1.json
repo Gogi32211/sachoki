@@ -1,0 +1,189 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_A2_DISCOVERY_RESULT_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "task": "A2 forward producer-layer discovery, per the frozen governance in MASSIVE_NEW_FAMILY_FORWARD_ENGINEERING_QUALIFICATION_V1 · 7a9b778f45e37da3",
+  "VERDICT": "A2 IMPLEMENTATION NOT STARTED — HARD STOP ON AN UPSTREAM AUTHORITY CONFLICT",
+  "stop_rule_invoked": "'If any producer authority is ambiguous: STOP that branch and report ambiguity. Do not choose one heuristically.'",
+  "PRODUCER_DISCOVERY": {
+    "method": "enumerated name + content search over backend/ and backend/massive_new_family_runtime/; every candidate opened and read",
+    "families": {
+      "STAGE_D_R2": {
+        "module": "massive_new_family_runtime/stageD_r2.py",
+        "lines": 89,
+        "sha256": "738b9fe6f907bba54fbabb94e99cfdfabbf959212170d6ba9477ba1da6d35ac6",
+        "authority": "MASSIVE_NEW_FAMILY_STAGE_D_PRODUCTION_V1",
+        "outputs": "table d6 · cols rsi_14, sig_3g, sig_buy, sig_svs, sig_va, bar_gap_range",
+        "inputs": [
+          "stageA_input.duckdb",
+          "pd_input.duckdb (ema p=9,20,50)"
+        ],
+        "imports": [
+          "sig_buy_raw.compute_combo_uncooled",
+          "sig_buy_raw.cooldown_states",
+          "studio.enricher._compute_body_wick",
+          "studio.enricher._compute_gap_range"
+        ],
+        "incremental": false,
+        "unit": "WHOLE HISTORY PER SECURITY"
+      },
+      "pd12": {
+        "module": "massive_new_family_runtime/pd12.py",
+        "lines": 60,
+        "sha256": "ec1ab1d8c2e32a02215c71152a67767c81ff5b03e43d88db4f462525c1a763cc",
+        "outputs": "table pd · 12 cols sig_p66/p55/p89/p3/p2/p50 + sig_d66/d55/d89/d3/d2/d50",
+        "inputs": [
+          "stageA_input.duckdb",
+          "pd_input.duckdb (ema p=9,20,34,50,89,200)",
+          "/tmp/pd_dep.json"
+        ],
+        "incremental": false,
+        "unit": "WHOLE HISTORY PER SECURITY",
+        "STATUS": "BLOCKED — see AUTHORITY_CONFLICT"
+      },
+      "stageC4": {
+        "module": "massive_new_family_runtime/stageC4.py",
+        "lines": 99,
+        "sha256": "fb8eaa0f211646b1b53e6c038a92ab878a9617d59b63b0f32e18f7b1e5f64b7e",
+        "outputs": "table c4 · vol_bucket, l34, l22, l43, bo_up, bx_up, be_up, l_sig + 4 sig_cisd_*",
+        "inputs": [
+          "stageA_input.duckdb"
+        ],
+        "imports": [
+          "wlnbb_engine.compute_wlnbb",
+          "cisd_engine.compute_cisd"
+        ],
+        "incremental": false,
+        "unit": "WHOLE HISTORY PER SECURITY"
+      },
+      "PHASE1_R1": {
+        "module": "massive_new_family_runtime/phase1.py",
+        "lines": 155,
+        "sha256": "6696fdc3b4c0b7d29ceabe9cbe6a5247112dab719c8ebaa9f5b678061b23b64a",
+        "authority": "MASSIVE_NEW_FAMILY_PHASE1_PRODUCTION_V1",
+        "outputs": "table p39 · 39 cols (T/Z/G signals, suffixes, vol_5x/10x/20x, bar_body_wick, vbo_up, sig_tz_flip)",
+        "inputs": [
+          "stageA_input.duckdb"
+        ],
+        "incremental": false,
+        "unit": "WHOLE HISTORY PER SECURITY"
+      }
+    }
+  },
+  "RECOVERED_MISSING_AUTHORITY": {
+    "file": "/tmp/pd_dep.json",
+    "what": "the machine-extracted transitive EMA-period dependency graph for all 12 pd features; pd12 does COLS = list(DEP), so it also fixes the column order",
+    "risk_found": "it lived ONLY in /tmp — not in the repo, not in the scratchpad, not in any manifest",
+    "action": "copied to backend/massive_new_family_runtime/pd_dep.json and MASSIVE_DATA/historical_producer_code/, digest-verified",
+    "sha256": "8d1beeeb976a9885ba6151c06c9f301a559987876fe7f2a59b8f4b7a53b14f13"
+  },
+  "AUTHORITY_CONFLICT": {
+    "severity": "HARD STOP — and it reaches BACKWARD into the sealed historical result",
+    "chain_established_by_measurement": {
+      "pd_input.duckdb ema table": "92,672,724 rows · 476 keys · periods {9,20,34,50,89,200}",
+      "periods 9/20/50/200": "EXACT match to the frozen massive_coarse_ema_v1 15m store — 15,445,454 rows joined, same_v and same_st both 15,445,454 for p=9",
+      "periods 34/89": "EXACT match to ema3489.duckdb — 15,445,454 rows each, same_v and same_st 100% for BOTH periods",
+      "conclusion": "pd_input = frozen coarse EMA (9/20/50/200) UNION ema3489 (34/89)"
+    },
+    "PROBLEM_1_NO_PRODUCER": {
+      "finding": "ema3489.duckdb has NO producer anywhere in the enumerated universe and NO sealed artifact",
+      "search": "the only references to 'ema3489' in the whole tree are my own persistence manifest and persist_data.py",
+      "consequence": "periods 34 and 89 are UNREPRODUCIBLE — the 69-X surface cannot be rebuilt from first principles",
+      "error_class": "my own DATA_PERSISTENCE_MANIFEST classified ema3489.duckdb as 'intermediate feature store' under CLASSIFIED_REPRODUCIBLE. THAT CLASSIFICATION WAS WRONG.",
+      "remediation_taken": "ema3489.duckdb (493,891,584 bytes) copied to MASSIVE_DATA/historical/, digest 3eaed288685b9b832f8eef4da6dbb6872aff51ce014185f5fc0b40fabb7be080, read/open smoke PASS"
+    },
+    "PROBLEM_2_FROZEN_SIBLING_FORBIDS_THEM": {
+      "authority": "MASSIVE_COARSE_EMA_FEATURE_SPEC_V1",
+      "quoted_fields": [
+        "REGISTERED_PERIODS = (9, 20, 50, 200)",
+        "excluded_periods: [34, 89]",
+        "legacy_ribbon periods classification: LEGACY_REFERENCE_ONLY",
+        "guard: 'a legacy ribbon period outside the registry cannot enter production'",
+        "no_additional_periods: true",
+        "periods_frozen_before_Y: true",
+        "post_Y_expansion: 'forbidden without a new registered search family, its own multiplicity treatment, and fresh/forward confirmation'"
+      ],
+      "the_conflict": "pd_input carries 34 and 89 into the canonical 69-X surface, and 6 of the 12 pd features depend on them"
+    },
+    "PROBLEM_3_NEVER_BOUND": {
+      "searched": [
+        "MASSIVE_NEW_FAMILY_X_SURFACE_CLOSURE_V1",
+        "MASSIVE_NEW_FAMILY_PHASE0_PRODUCER_BINDING_V1",
+        "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1"
+      ],
+      "result": "those artifacts reference ONLY EMA 9/20/50. The 34/89 dependency of the pd bucket is NOWHERE registered, bound, or acknowledged in the MASSIVE_NEW_FAMILY chain."
+    }
+  },
+  "QUANTIFIED_EXPOSURE": {
+    "pd_features_depending_on_34_or_89": [
+      "sig_p55",
+      "sig_p66",
+      "sig_p89",
+      "sig_d55",
+      "sig_d66",
+      "sig_d89"
+    ],
+    "registered_claims_k": 20751,
+    "k_involving_any_pd_feature": 3971,
+    "k_involving_a_34_or_89_dependent_feature": 1889,
+    "promoted_claims": 732,
+    "promoted_involving_any_pd_feature": 31,
+    "promoted_involving_a_34_or_89_dependent_feature": 17,
+    "promoted_token_occurrences": {
+      "sig_p89": 4,
+      "sig_d89": 3,
+      "sig_d55": 3,
+      "sig_d66": 3,
+      "sig_p55": 2,
+      "sig_p66": 2
+    },
+    "affected_promoted_claim_ids": [
+      4338,
+      12241,
+      12278,
+      12390,
+      12424,
+      12427,
+      12523,
+      12565,
+      13507,
+      13543,
+      13650,
+      13682,
+      13777,
+      13785,
+      13822,
+      13825,
+      19711
+    ],
+    "note": "17 of 732 promoted claims (2.3%) and 1,889 of 20,751 registered claims (9.1%) rest on an EMA period family that a sibling frozen authority states may not enter production"
+  },
+  "WHAT_I_DID_NOT_DO": [
+    "did NOT decide which authority prevails",
+    "did NOT reinterpret, weaken or invalidate any sealed result",
+    "did NOT remove any claim from the promoted set",
+    "did NOT implement A2 for pd12",
+    "did NOT change k, the promoted set, or any frozen digest"
+  ],
+  "STATUS_OF_THE_OTHER_THREE_FAMILIES": "STAGE_D_R2, stageC4 and PHASE1_R1 have unambiguous producers and inputs. Their A2 implementation is technically unblocked, but was NOT started pending the user's decision on the pd12 conflict, because a canonical-69 surface missing one bucket is not a usable A2 deliverable.",
+  "INCREMENTALITY_FINDING_RECORDED": {
+    "all_four_producers": "SECURITY-MAJOR, WHOLE-HISTORY: they load a security's entire series, compute a running `age` counter, segment on cumsum(~COMPLETE), and run engines per contiguous COMPLETE segment",
+    "cross_segment_state": {
+      "age": "WITHIN-segment only — resets to 0 on any non-COMPLETE bar",
+      "aL34/aL43/aSet (stageC4)": "WITHIN-segment (np.maximum.accumulate applied per segment)",
+      "is_head": "needs ONE boolean per security — whether the segment is the first COMPLETE run of all history",
+      "sig_buy cooldown (stageD_r2)": "CROSS-SEGMENT — cooldown_states runs over the FULL n-length series, not per segment",
+      "sig_cisd_* (stageC4)": "computed ONLY on the head run of all history"
+    },
+    "exactness_constraint": "the engines use ewm(adjust=False) and rolling windows, so a truncated input window would NOT reproduce values. Exact incrementality therefore requires recomputing the AFFECTED SEGMENT FROM ITS START, plus a carried is_head flag and cooldown state.",
+    "not_yet_measured": "the segment-length distribution, which determines the real cost of segment-recompute. 31.25% of bars are UNOBSERVED_CONTAMINATED, so segments are expected to be short, but this was NOT measured before the stop."
+  },
+  "REMAINING_BLOCKERS": [
+    "the pd_input EMA 34/89 authority conflict (decision required)",
+    "ema3489.duckdb producer does not exist — periods 34/89 are unreproducible even if authorised",
+    "segment-length distribution not yet measured",
+    "A2 wrapper, incremental-vs-full equivalence, restart/idempotency, input-order and the 10 negative fixtures: NOT STARTED"
+  ]
+}

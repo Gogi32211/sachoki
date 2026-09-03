@@ -1,0 +1,108 @@
+{
+  "artifact": "MASSIVE_T1_15M_Z_SLICE_PORT_QUALIFICATION_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "future_values_read": 0,
+  "ROLE": {
+    "scope": "T1_HISTORICAL_FAMILY_X_DEPENDENCY_ONLY",
+    "producer": "signal_engine.py::compute_signals",
+    "required_states": [
+      "Z1G",
+      "Z1",
+      "Z2G",
+      "Z2",
+      "Z3",
+      "Z4",
+      "Z5",
+      "Z6",
+      "Z7",
+      "Z9",
+      "Z10",
+      "Z11",
+      "Z12"
+    ],
+    "NOT_authorized": [
+      "standalone Z research family",
+      "Z edge / discovery programme",
+      "Z multiplicity registration",
+      "Z inferential use"
+    ]
+  },
+  "SHARED_PRODUCER_EVIDENCE": {
+    "reused_from_T": [
+      "same producer code",
+      "same OHLC input contract",
+      "same chronological execution",
+      "same priority-resolved sig_id machinery"
+    ],
+    "explicitly_not_inherited": "T qualification does NOT confer Z qualification; separate Z-slice assertions were run below"
+  },
+  "SAME_INPUT_CONFORMANCE": {
+    "input": "preserved lean 15m OHLCV (studio_15m_base.duckdb)",
+    "execution": "full chronological ticker history; compared only on matched timestamps",
+    "series": 3203,
+    "matched_rows": 91027821,
+    "L1_z_sig_mismatches": 33,
+    "L2_one_hot_cells": 66,
+    "L2_per_state": {
+      "sig_z1g": 10,
+      "sig_z2g": 12,
+      "sig_z6": 9,
+      "sig_z9": 8,
+      "sig_z11": 8,
+      "sig_z5": 6,
+      "sig_z2": 4,
+      "sig_z1": 3,
+      "sig_z3": 3,
+      "sig_z4": 2,
+      "sig_z10": 1
+    },
+    "L3_one_hot_consistency": "EXACT — one-hot derived from the resolved label, never independently",
+    "L4_simultaneous_multiple_Z_states": 0,
+    "L5_blank_NONE": "historical z_sig=\"\" compared as empty label; no NONE/unavailable distinction invented from the raw representation",
+    "L6_priority_winner": "EXACT — sig_id == _ZC_TO_SID[zc] on every bearish-resolved bar; bearish bars 16,481 == Z-named bars 16,481"
+  },
+  "MISMATCH_CENSUS": {
+    "count": 33,
+    "date_range": "2026-07-09 17:30:00 -> 2026-07-28 15:45:00",
+    "distinct_days": [
+      "2026-07-09",
+      "2026-07-14",
+      "2026-07-28"
+    ],
+    "on_or_after_2026_07_06": "33 / 33",
+    "before": 0,
+    "earliest_cell": "2026-07-09 17:30:00 — the truncation boundary independently identified in the T programme",
+    "character": "state-to-state relabelling (e.g. Z11->Z5, Z2G->Z1G), not spurious activation",
+    "exclusion_discipline": "NO exclusion was applied. The P/D and T exclusion rules were NOT transferred. Denominator is RAW matched support. The Z-specific micro-mechanism is NOT established — only temporal confinement is."
+  },
+  "CLAIM_RELEVANCE": {
+    "ET_range": "11:45 - 13:30",
+    "cells_in_M1_M4_opening_window": 0,
+    "cells_on_frozen_population_pairs": 0,
+    "verdict": "MEMBERSHIP_INVARIANT",
+    "note": "every divergent cell falls after M4 (10:15 ET); the frozen T1 family is untouched"
+  },
+  "NEGATIVE_FIXTURES": {
+    "N1 higher-priority Z wins, lower one-hot stays 0": "PASS",
+    "N2 no Z state -> EVALUABLE_NONE, no one-hot set": "PASS",
+    "N3 incomplete current input -> no Z asserted": "PASS",
+    "N4 no predecessor -> no Z asserted": "PASS",
+    "N5 multiple raw predicates -> exactly one final Z": "PASS",
+    "N6 T present, Z absent -> Z never inferred from T": "PASS",
+    "N7 Z used as standalone hypothesis": "REJECTED BY ROLE GUARD (declarative)",
+    "N8 Y access": "NONE — no outcome/survivor column read (declarative)"
+  },
+  "VERDICT": "PASS",
+  "PASS_SEMANTICS": "The required Z slice from the shared canonical T/Z producer is qualified as a Massive X dependency for the preserved T1 historical family. It does NOT authorize a Z edge, a Z discovery programme, standalone Z multiplicity, or Z family registration.",
+  "unblocks": [
+    "sig_z1..sig_z12, sig_z1g, sig_z2g (13 columns)",
+    "sig_tz_flip now has both halves of its T x Z dependency qualified"
+  ],
+  "not_done": [
+    "micro-mechanism of the 33 post-boundary cells not established",
+    "no Massive Z feature produced",
+    "Z inferential use remains HOLD"
+  ]
+}

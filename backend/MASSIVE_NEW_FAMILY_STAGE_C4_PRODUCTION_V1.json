@@ -1,0 +1,109 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_C4_PRODUCTION_V1",
+  "Y_EXPOSED": 0,
+  "binds": [
+    "d759fe7c7695eb03",
+    "4f25695b530de3b2",
+    "4c28079c3c89839e",
+    "736c1c754b430728"
+  ],
+  "nature": "local durable table — NOT written to a Massive derived surface",
+  "RUN": {
+    "securities": "476 / 476",
+    "rows_written": 185345448,
+    "rows_expected": 185345448,
+    "columns": 12,
+    "elapsed_s": 5376,
+    "db_bytes": 1455960064
+  },
+  "ACCEPTANCE": {
+    "row reconciliation": "PASS — written == expected",
+    "AVAILABLE_VALID and value IS NULL": 0,
+    "non-VALID and value IS NOT NULL": 0,
+    "duplicate (k,bar_start,col)": 0,
+    "distinct columns": 12,
+    "securities": 476
+  },
+  "CISD_FULL_STORE_CHECKSUM": {
+    "test": "VALID CISD rows occurring after the first UNAVAILABLE_CURRENT that follows the first VALID bar",
+    "result": 0,
+    "scope": "all 476 securities, full Massive window",
+    "meaning": "the POST_GAP_RECOVERY = NONE_PROVEN contract holds on the real universe, not only on the synthetic fixture"
+  },
+  "CISD_NEGATIVE_FIXTURE": {
+    "design": "COMPLETE prefix, one gap, then a second segment of length 20 / 200 / 1,000 / 10,000",
+    "result": "VALID in segment 2 = 0 at every length",
+    "secondary": "later contaminated bars classify UNAVAILABLE_CURRENT, not INIT — \"forever INIT\" applies only to subsequent OBSERVED bars"
+  },
+  "L_SIG_FALLBACK_RECONCILIATION": {
+    "known_fallback_rows": 47,
+    "with_all_anchors": 21,
+    "demoted_without_anchors": 26,
+    "demoted_to": {
+      "INITIALIZATION_SENSITIVE_POST_GAP": 25,
+      "INITIALIZATION_SENSITIVE_HEAD": 1
+    },
+    "reconciles": true,
+    "significance": "the per-row rule is doing real work: 21 fallback rows had every anchor and stayed VALID, 26 did not and were demoted. A per-column depth would have mis-classified all 47."
+  },
+  "ANCHOR_COST_FULL_STORE": {
+    "bo_up": {
+      "anchor": "L34",
+      "valid": 5798432,
+      "lost_vs_bounded": 48110,
+      "pct": "0.8%"
+    },
+    "bx_up": {
+      "anchor": "L43",
+      "valid": 3311609,
+      "lost_vs_bounded": 2534933,
+      "pct": "43.4%"
+    },
+    "be_up": {
+      "anchor": "setup + L43",
+      "valid": 3305817,
+      "lost_vs_bounded": 2540725,
+      "pct": "43.5%"
+    },
+    "reading": "the C1 pilot predicted this ordering; the full store confirms it. L43 is the expensive anchor and be_up inherits its cost through BE_UP_BX."
+  },
+  "AVAILABILITY_DISTRIBUTION": {
+    "bounded (vol_bucket,l34,l22,l43)": {
+      "VALID": 5846542,
+      "INIT_HEAD": 3867,
+      "INIT_POST_GAP": 4767777,
+      "UNAVAIL_CURRENT": 4827268
+    },
+    "l_sig": {
+      "VALID": 5846516,
+      "INIT_HEAD": 3868,
+      "INIT_POST_GAP": 4767802
+    },
+    "bo_up": {
+      "VALID": 5798432
+    },
+    "bx_up": {
+      "VALID": 3311609
+    },
+    "be_up": {
+      "VALID": 3305817
+    },
+    "CISD x4": {
+      "VALID": 540366,
+      "INIT_HEAD": 0,
+      "INIT_POST_GAP": 10077820,
+      "UNAVAIL_CURRENT": 4827268
+    }
+  },
+  "HEADLINE_FINDING": {
+    "CISD_valid_share": "3.50% of all bars (540,366 of 15,445,454)",
+    "comparison": "bounded WLNBB columns reach 37.85%; CISD reaches 3.50%",
+    "cause": "the non-recoverable state contract restricts CISD to each security first contiguous COMPLETE run",
+    "INIT_HEAD_is_zero": "CISD shows 0 INIT_HEAD because the head seed policy makes the first run VALID outright — the amendment that removed the zero-support contradiction is visibly in force"
+  },
+  "monitoring_defect_recorded": "a polling loop reported a stale progress value for ~10 minutes because json.load failures inside a try/except silently retained the previous reading. The run was never stalled (99.2% CPU, growing output). Future stage runs emit a heartbeat with done/rows/current-ticker/elapsed/rows-per-sec, and the monitor must distinguish read-failure from unchanged-value.",
+  "not_done": [
+    "C5 support census",
+    "no Massive derived surface write"
+  ]
+}

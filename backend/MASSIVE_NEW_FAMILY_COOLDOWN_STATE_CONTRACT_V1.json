@@ -1,0 +1,79 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_COOLDOWN_STATE_CONTRACT_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": "09f572550c43097c",
+  "FINITE_STATE_MODEL": {
+    "insight": "the full history of admissible `last` values is unnecessary. Only the DISTANCE matters, and it saturates.",
+    "state": "set of admissible ages-since-last-accepted-fire, domain {0,1,2,3,4,5,OLD} where OLD means last <= i-6",
+    "transitions": {
+      "raw FALSE": "output FALSE for every admissible state; ages advance; uncertainty persists",
+      "raw TRUE": "per state: age<6 -> reject (FALSE, age carries); age OLD -> accept (TRUE, age:=0). Output VALID only if all admissible states agree.",
+      "raw UNKNOWN": "BOTH TRUE and FALSE branches propagated — never coerced to FALSE"
+    }
+  },
+  "BRUTE_FORCE_EQUIVALENCE": {
+    "method": "enumerate every admissible prior history (2^8) and every completion of unknown raws, run the canonical indicators.apply_cooldown, collect the output set per position, compare to the finite-state model",
+    "sequences_tested": 40,
+    "mismatches": 0,
+    "includes_unknown_raws": true,
+    "VERDICT": "EXACT — the finite state reproduces the admissible-set semantics"
+  },
+  "CORRECTION_COLLAPSE_THRESHOLD": {
+    "my_claim": "n-1 = 5 proven-FALSE bars are sufficient for the next TRUE to be deterministically accepted",
+    "status": "WRONG — off by one in the PERMISSIVE direction",
+    "trace": "unknown start {0..5,OLD}; after 5 FALSE the youngest admissible age is 5, still < 6, so a TRUE disagrees (reject vs accept)",
+    "correct": "n = 6 proven-FALSE bars required",
+    "consequence_if_uncaught": "rows whose cooldown state was genuinely ambiguous would have been emitted as AVAILABLE_VALID",
+    "measured": {
+      "4 FALSE": "ambiguous (3 states)",
+      "5 FALSE": "ambiguous (2 states)",
+      "6 FALSE": "COLLAPSED (1 state)"
+    }
+  },
+  "GAP_LENGTH_COLLAPSE": {
+    "finding": "the canonical apply_cooldown advances its index over EVERY bar including contaminated ones (raw is False there), so an observed gap of length g contributes g to the distance",
+    "rule": "gap length >= 6 collapses the incoming state to {OLD} by itself; gap length < 6 leaves ambiguity",
+    "measured": {
+      "contaminated runs sampled": 98081,
+      "shorter than 6 bars": 82261,
+      "share": "83.9%"
+    },
+    "significance": "for 83.9% of interior gaps a pre-gap fire can still be cooling when the segment resumes"
+  },
+  "RETROACTIVE_FINDING": {
+    "affected": "Stage A (bcf90cbdd8e4b7dd) computed PRE_PUMP via compute_wlnbb PER SEGMENT, which restarts cooldown with last = -(n+1) = OLD",
+    "problem": "that is the OPTIMISTIC assumption and is not licensed for the 83.9% of gaps shorter than 6 bars",
+    "blast_radius": "PRE_PUMP enters only the l_sig named-fallback path. The full-store census found 47 such rows, of which 21 were VALID. So the practical exposure is at most 21 rows out of 5,846,516.",
+    "status": "RECORDED, NOT SILENTLY IGNORED — bounded and negligible for support, but it is a correctness deviation and must not be discovered later as a surprise",
+    "same_issue_applies_to": "any per-segment restart of a cooldown-bearing feature"
+  },
+  "FIXTURES": {
+    "F1 known state == canonical apply_cooldown": "PASS",
+    "F2 unknown + FALSE -> FALSE, state stays uncertain": "PASS",
+    "F3 unknown + early TRUE -> ambiguous": "PASS",
+    "F4 FALSE x6 then TRUE -> deterministic accept, state collapses": "PASS after threshold correction",
+    "F5 ambiguous TRUE, <6 FALSE, TRUE -> still ambiguous": "PASS",
+    "F6 unknown raw -> not coerced to FALSE": "PASS",
+    "extra: FALSE x5 alone does NOT collapse state": "PASS"
+  },
+  "SIG_BUY_AVAILABILITY_CONTRACT": {
+    "base_predicate": {
+      "age 1..40": "UNAVAILABLE_HISTORY (roc_40 dominates)",
+      "age 41..49": "INITIALIZATION_SENSITIVE (EMA50)",
+      "age >= 50": "raw itself VALID"
+    },
+    "cooldown_layer": {
+      "raw FALSE with raw VALID": "output VALID FALSE even if cooldown state unknown",
+      "raw TRUE with raw VALID": "AVAILABLE_VALID only if every admissible cooldown state agrees; else INITIALIZATION_SENSITIVE",
+      "after a deterministic accepted TRUE": "cooldown state becomes known (singleton)"
+    },
+    "principle": "unknown state does NOT make every row unknown — on non-fire bars the output is trivially identifiable. Same structure as the corrected g* rule."
+  },
+  "STATUS": "sig_buy HOLD -> RELEASED_FOR_PRODUCTION",
+  "not_done": [
+    "Stage D six-feature production",
+    "69-feature durable consolidation"
+  ]
+}

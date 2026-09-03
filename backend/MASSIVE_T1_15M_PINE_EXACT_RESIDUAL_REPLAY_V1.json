@@ -1,0 +1,65 @@
+{
+  "artifact": "MASSIVE_T1_15M_PINE_EXACT_RESIDUAL_REPLAY_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "family_membership": "unchanged",
+  "binds": {
+    "source_recovery": "bdb22d2510813187",
+    "line5_residual": "19299423c8d89d56",
+    "wyc_ad": "9025fb20cb90760e"
+  },
+  "P1_BAR_LINE5": {
+    "pine_source": "260523 Pine lines 233-251; parameters identical to the Python defaults (wvf 22/20/2.0/50/0.85, PSAR 0.02/0.02/0.2, RSI2 2/20/80)",
+    "pine_vs_python_differences": [
+      "rsi2Reclaim: Pine \"rsi2 > rsi2Low\" vs Python \"r2 >= rsi2_low\"",
+      "rsi2Drop: Pine \"rsi2 < rsi2High\" vs Python \"r2 <= rsi2_high\"",
+      "wvf windows: Pine na until full window vs Python min_periods=1",
+      "PSAR: Pine ta.sar() vs Python _compute_psar()"
+    ],
+    "tests": {
+      "pine_faithful_psar": "did NOT reproduce stored PS on any of the 3 PSAR cells",
+      "pine_full_window_VX": "did NOT reproduce stored VX on the ARCC cell",
+      "truncation_scan": "windows 1,2,3,5,7,10,15,20,25,30,45,60 days and full history — no single window reproduces all 4; 1d closes ARCC, 3d closes CPB, MLTX never"
+    },
+    "VERDICT": "BAR_LINE5_MATERIALIZATION_AUTHORITY_UNRESOLVED"
+  },
+  "P2_WYC_AD": {
+    "hypothesis": "historical materialization followed Pine RAW pre-priority predicates rather than the resolved-label Python port",
+    "implementation": "Pine raw predicates built verbatim from 260523 lines 265-304 (isBull/isBear/isDoji, prev1IsBull, prev1IsBear = close[1]<open[1] or isDoji[1], fullyEngulfs via currTop/prevBot/bodyRatioOk with mintick 1e-10), then Pine AD lines 330-347 including the barsSinceADF[1] cluster rule",
+    "result": {
+      "pine_raw_ad_fresh": 732,
+      "pine_raw_ad_cluster": 4677,
+      "signal_extraction_resolved": {
+        "ad_fresh": 42,
+        "ad_cluster": 31
+      }
+    },
+    "VERDICT": "HYPOTHESIS_REFUTED",
+    "reading": "the Pine raw-predicate form is markedly WORSE, so the store did NOT follow raw pre-priority semantics. The resolved-label Python remains the closest candidate and is still not exact.",
+    "canonical_engine_untouched": "no change was made to T/Z priority resolution, final T output, final Z output, or any port hash; the raw predicates were built as a throwaway audit layer and are NOT registered as a feature family"
+  },
+  "CUMULATIVE_STATUS": {
+    "bar_line5": "UNRESOLVED — 4 claim-relevant cells unexplained by Python, Pine, or any truncation window",
+    "wyc_phase": "UNRESOLVED — 415 (sample); both Python signatures and the Pine definition rejected",
+    "ad_fresh": "UNRESOLVED — 42 (sample); resolved-label best, raw-predicate refuted",
+    "ad_cluster": "UNRESOLVED — 31 (sample)"
+  },
+  "UMBRELLA_VERDICT": "EXACT_35587_FAMILY_PORT_NOT_FEASIBLE_FROM_CURRENT_PRESERVED_AUTHORITIES",
+  "what_this_means": "four required token columns cannot be reproduced exactly from any recovered authority — Python (all historical signatures), Pine 260523, or any tested materialization regime. Since the frozen family requires all 144 tokens and no token may be dropped, the exact historical family cannot be ported at this time.",
+  "what_this_does_NOT_mean": [
+    "that the frozen historical family is invalid — it is not; its own materialization stands",
+    "that no producer exists anywhere — only that none is recoverable from the enumerated source surface",
+    "that the other 64 qualified columns are affected"
+  ],
+  "not_done": [
+    "no parameter fitting to the store — deliberately excluded as non-provenance",
+    "no search outside the repository working tree and git refs",
+    "remaining 16 columns not qualified"
+  ],
+  "strategic_options": [
+    "finish the remaining 16 ports for infrastructure value, accepting the exact family stays blocked",
+    "open a new smaller-family pre-Y registration built only on qualified columns — a NEW registration, not a pruning of the frozen family",
+    "seek the writer outside the repository (backup archives, prior machines) if such a surface exists"
+  ]
+}

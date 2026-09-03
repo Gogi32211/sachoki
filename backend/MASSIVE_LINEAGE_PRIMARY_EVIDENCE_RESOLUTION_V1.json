@@ -1,0 +1,211 @@
+{
+  "report_id": "MASSIVE_LINEAGE_PRIMARY_EVIDENCE_RESOLUTION_V1",
+  "status": "HOLD",
+  "scope": [
+    "APO",
+    "BLK",
+    "XOM",
+    "CRH"
+  ],
+  "prior": {
+    "artifact": "MASSIVE_LINEAGE_TRUNCATION_RESOLUTION_V1.json",
+    "digest": "4a990301ab1505f0"
+  },
+  "evidence_standard": {
+    "primary": "retrieved filing BYTES, archived with SHA-256, with quoted language from the document itself",
+    "discovery_aids_only": [
+      "filing metadata",
+      "form type",
+      "EDGAR formerNames",
+      "search snippets"
+    ],
+    "why": "the previous gate showed how easily a form type slides into standing in for evidence it cannot provide",
+    "archive": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+  },
+  "cases": {
+    "XOM": {
+      "security_key_v1": "c6fd905a512fe41410a41637b0dcdd661540868a182e8ca62e3fc79a14f909f8",
+      "v6_regular_way_start": "2026-08-24",
+      "predecessor_entity": "Exxon Mobil Corporation, a New Jersey corporation",
+      "successor_entity": "ExxonMobil Holdings Corporation",
+      "predecessor_cik": "0000034088",
+      "successor_cik": "0002115436",
+      "instrument_type_before": "CS",
+      "instrument_type_after": "CS",
+      "filings": [
+        {
+          "form": "S-8 POS",
+          "filed": "2026-07-01",
+          "accession": "0001193125-26-292536",
+          "document": "d159056ds8pos.htm",
+          "http": 200,
+          "sha256": "a10664dec585d21f",
+          "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+        }
+      ],
+      "quoted_language": [
+        "...is being filed pursuant to Rule 414(d) under the Securities Act of 1933...",
+        "...of the Company becoming shareholders of the Registrant. The Registrant is deemed to be the successor registrant of the Company's common stock pursuant to Rule 12g-3(a) under the Securities Exchange Act of 1934..."
+      ],
+      "share_treatment": "shareholders of the predecessor became shareholders of the successor registrant",
+      "classification": "SECURITY_CONTINUITY_CONFIRMED",
+      "temporal_precision": {
+        "legal_effective": "2026 reorganisation approved at the Company's 2026 annual meeting; S-8 POS filed 2026-07-01",
+        "last_predecessor_xnys_session": "NOT ESTABLISHED from the filing",
+        "first_successor_xnys_session": "NOT ESTABLISHED from the filing",
+        "bounded": "the filing establishes succession, not an exchange-session boundary; V6's 2026-08-24 is an anchor artefact, not evidence"
+      }
+    },
+    "BLK": {
+      "security_key_v1": "ec4b4f0f2cac042411785183b5508cfe7b996e7d8f619c6b24cd7ecba9bc55be",
+      "v6_regular_way_start": "2025-01-02",
+      "predecessor_entity": "BlackRock Finance, Inc. (formerly named BlackRock, Inc.)",
+      "successor_entity": "BlackRock, Inc. (formerly named BlackRock Funding, Inc.)",
+      "predecessor_cik": "0001364742",
+      "successor_cik": "0002012383",
+      "instrument_type_before": "CS",
+      "instrument_type_after": "CS",
+      "filings": [
+        {
+          "form": "S-8 POS",
+          "filed": "2024-10-01",
+          "accession": "0001193125-24-230229",
+          "document": "d871701ds8pos.htm",
+          "http": 200,
+          "sha256": "9202a8344b8dc0f7",
+          "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+        },
+        {
+          "form": "8-K",
+          "filed": "2024-10-01",
+          "accession": "0001193125-24-229654",
+          "document": "d856279d8k.htm",
+          "http": 200,
+          "sha256": "ec81adf30f81a1f0",
+          "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+        }
+      ],
+      "quoted_language": [
+        "This Post-Effective Amendment ... is being filed pursuant to Rule 414 ... by BlackRock, Inc. (formerly named BlackRock Funding, Inc.) ... as the successor registrant to BlackRock Finance, Inc. (formerly named BlackRock, Inc.) ... to reflect a holding company reorganization",
+        "each share of common stock of the Predecessor Registrant outstanding immediately prior to the effective time of the Merger ... was converted automatically into one validly is[sued] ..."
+      ],
+      "share_treatment": "each predecessor share converted automatically into one successor share (one-for-one)",
+      "classification": "SECURITY_CONTINUITY_CONFIRMED",
+      "temporal_precision": {
+        "legal_effective": "Merger Effective Time, 2024-10-01 filings",
+        "last_predecessor_xnys_session": "NOT ESTABLISHED from the filing",
+        "first_successor_xnys_session": "NOT ESTABLISHED from the filing",
+        "bounded": "V6's 2025-01-02 is a quarterly anchor, roughly three months after the filed reorganisation — anchor artefact, not the event"
+      }
+    },
+    "CRH": {
+      "security_key_v1": "a45d3c9e35ec52dba2e6885f9653e8b83e9fba31d2a489aada720147a6e92c80",
+      "v6_regular_way_start": "2023-10-02",
+      "predecessor_entity": "CRH public limited company (ADS on NYSE)",
+      "successor_entity": "CRH public limited company (ordinary shares on NYSE)",
+      "predecessor_cik": "0000849395",
+      "successor_cik": "0000849395",
+      "cik_unchanged": true,
+      "instrument_type_before": "ADRC",
+      "instrument_type_after": "CS",
+      "v6_exclusion_predicate": "type == \"CS\"",
+      "filings": [
+        {
+          "form": "424B7",
+          "filed": "2023-09-20",
+          "accession": "0001193125-23-238082",
+          "document": "d549047d424b7.htm",
+          "http": 200,
+          "sha256": "68206e0ac8755f0d",
+          "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence"
+        }
+      ],
+      "quoted_language": [
+        "Our American Depositary Shares, each representing one Ordinary Share (the \"ADS\") are listed on the New York Stock Exchange (\"NYSE\") under the symbol \"CRH\".",
+        "On September 25, 2023, the ADSs will be cancelled and delisted from the NYSE and our Ordinary Shares will become listed on the NYSE under the symbol \"CRH\"."
+      ],
+      "adr_ratio": "1 ADS : 1 Ordinary Share",
+      "share_treatment": "ADSs cancelled and delisted; ordinary shares listed on NYSE under the same ticker, at a 1:1 ratio",
+      "classification": "CONTINUITY_CONFIRMED_WITH_INSTRUMENT_TRANSITION",
+      "instrument_transition_preserved": "ADRC -> CS is recorded, not erased; the instrument type genuinely changed even though the economic bridge is deterministic",
+      "temporal_precision": {
+        "filed_transition_date": "2023-09-25",
+        "v6_regular_way_start": "2023-10-02",
+        "discrepancy": "V6 is 5 sessions late — it snapped to its quarterly anchor rather than the filed event date"
+      }
+    },
+    "APO": {
+      "security_key_v1": "d9c8cefaa04dbb32cdcc729f63d0f98a53df59e82aadc1beb654d8d0393d5e29",
+      "v6_regular_way_start": "2022-01-03",
+      "predecessor_entity": "NOT ESTABLISHED",
+      "successor_entity": "Apollo Global Management, Inc. (formerly Tango Holdings, Inc.)",
+      "successor_cik": "0001858681",
+      "filings": [
+        {
+          "form": "8-K",
+          "filed": "2022-01-07",
+          "accession": "0000950142-22-000221",
+          "document": "eh220215516_8k-apo.htm",
+          "http": 200,
+          "sha256": "bf24455fdc5cb4c3",
+          "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence",
+          "result": "no share-treatment or succession language found"
+        },
+        {
+          "form": "S-8 POS",
+          "filed": "2022-03-16",
+          "accession": "0000950142-22-001046",
+          "document": "eh220235203_s8pos1.htm",
+          "http": 200,
+          "sha256": "1064d3a21f4a87e8",
+          "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/lineage_primary_evidence",
+          "result": "no share-treatment or succession language found"
+        }
+      ],
+      "leads_not_evidence": {
+        "former_name": "Tango Holdings, Inc.",
+        "s4": "filed 2021-05-07, accession 0001193125-21-153747",
+        "note": "an S-4 registers securities in a business combination and the former name is a classic merger-vehicle pattern — but neither is a filed statement of what happened to existing APO shares"
+      },
+      "classification": "UNRESOLVED",
+      "why": "the two documents retrieved contain no predecessor/successor or share-conversion language; the S-4 body was not read",
+      "next_step": "read the S-4 (0001193125-21-153747) merger-consideration section, or locate the closing 8-K describing share treatment"
+    }
+  },
+  "summary": {
+    "SECURITY_CONTINUITY_CONFIRMED": 2,
+    "CONTINUITY_CONFIRMED_WITH_INSTRUMENT_TRANSITION": 1,
+    "UNRESOLVED": 1
+  },
+  "unresolved": [
+    "APO"
+  ],
+  "second_v6_defect_found": {
+    "finding": "V6 transition dates are QUARTERLY ANCHORS, not event dates",
+    "evidence": "CRH's filed cancellation is 2023-09-25; V6 says 2023-10-02. BLK's filed reorganisation is 2024-10-01; V6 says 2025-01-02.",
+    "mechanism": "V6 detected changes at quarterly anchors and binary-searched only between anchors, so a boundary lands on the first anchor that observed the change",
+    "implication": "any V7 reusing V6's dates would inherit boundaries that are days to months late — this is separate from the truncation defect and affects the four already-confirmed cases too",
+    "not_investigated": "whether J / BG / LH / FERG boundaries are similarly late"
+  },
+  "v7_precondition": {
+    "rule": "all eight truncation candidates need explicit treatment",
+    "resolved": 7,
+    "unresolved": 1,
+    "unresolved_list": [
+      "APO"
+    ],
+    "met": false
+  },
+  "no_changes": {
+    "v6_modified": false,
+    "security_key_v1_modified": false,
+    "universe_modified": false,
+    "raw_archive_modified": false,
+    "derived_output": 0,
+    "v7_created": false,
+    "builder_spec_v2_sealed": false,
+    "smoke_executed": false
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 14:34 +04"
+}

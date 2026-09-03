@@ -1,0 +1,61 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_A1A_QUALIFICATION_SPEC_V1",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "Y_EXPOSED": 0,
+  "gate_parent": "MASSIVE_NEW_FAMILY_A1A_FORWARD_QUALIFICATION_GATE_V1 · c12067c4e62cac83",
+  "PART_1_INGEST_EXECUTION": [
+    "massive_ingest.py performs the FROZEN request semantics",
+    "no alternate source · no yfinance · no fallback",
+    "historical baseline now machine-checkable: source == 'massive /v2/aggs 1m', adjusted == True, 1254/1254"
+  ],
+  "PART_2_IDENTITY": [
+    "vendor ticker/request metadata resolves to the frozen security_key_v1",
+    "frozen-476 allowlist PASS",
+    "unresolved identity -> UNAVAILABLE / HARD HOLD, NEVER guessed"
+  ],
+  "PART_3_SESSION_TIME": [
+    "exchange_calendars authority",
+    "session_date exact",
+    "regular-session minute membership exact",
+    "timezone / DST exact"
+  ],
+  "PART_4_SOURCE_REGIME": [
+    "expected endpoint/schema/query behaviour observed",
+    "adjustment policy still compatible with the frozen contract",
+    "unexpected schema or regime -> SOURCE_REGIME_HOLD"
+  ],
+  "NEGATIVE_FIXTURE_TRANSPORT_VS_CONTRACT": {
+    "setup": "vendor returns HTTP success AND a syntactically valid payload, BUT a required semantic field / schema / regime differs",
+    "assert": "MUST NOT be accepted merely because the request succeeded",
+    "principle": "TRANSPORT SUCCESS != SOURCE-CONTRACT CONFORMANCE",
+    "concrete_checks": [
+      "top-level key set != {adjusted,securities,session,source} -> HOLD",
+      "adjusted != True -> HOLD",
+      "source family changed -> HOLD",
+      "per-security keys != {massive_ticker,results,truncated} -> HOLD",
+      "truncated == True on an admitted member -> HOLD, not silently accepted"
+    ]
+  },
+  "UNAVAILABILITY": {
+    "required forward observation unavailable at evidentiary time": "SOURCE_HOLD / UNAVAILABLE",
+    "status": "PERMANENTLY NON-EVIDENTIARY for that scheduled observation",
+    "later_vendor_backfill": "diagnostic vintage ONLY; cannot retroactively repair forward evidence"
+  },
+  "COVERAGE_VOCABULARY_INVARIANT": {
+    "established_by": "A1b fixture 6 + the source",
+    "statement": "in the frozen producer the 15m coverage surface takes EXACTLY TWO states over the historical and qualified domain: COMPLETE and UNOBSERVED_CONTAMINATED. STRUCTURAL_NO_TRADE is NOT a member of the producer's output vocabulary — it is a fail-closed impossibility guard.",
+    "must_be_preserved_verbatim_in": [
+      "A2",
+      "A3",
+      "every downstream consumer"
+    ],
+    "why": "so that nobody later converts a GUARD LABEL into an AVAILABILITY STATE"
+  },
+  "SEQUENCE": {
+    "A1b": "PASS / CLOSED (f812e7e6859b65a5)",
+    "canonical_raw_persistence": "DONE (this run)",
+    "next": "A1a forward execution qualification — parts 1-4 plus the negative fixtures",
+    "then": "END_TO_END_A1_QUALIFIED = A1a PASS AND A1b PASS",
+    "only_then": "first authoritative forward X accumulation"
+  }
+}

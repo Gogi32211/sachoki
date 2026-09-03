@@ -1,0 +1,113 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PD_DEPENDENCY_GRAPH_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "binds": "2ff742f7eca5ff31",
+  "method": "mechanically extracted from the conformance-verified ESTABLISHED_DEFINITION with transitive expansion of self-references; NOT hand-written",
+  "RAW_VS_RESOLVED": {
+    "caller_premise": "resolved P/D labels inherit deep-EMA dependencies through priority exclusions (preup3 requires ~raw_p55 & ~raw_p66 & ~cx89)",
+    "assessment": "TRUE OF THE HISTORICAL LADDER (1e774ce8), FALSE OF THE ESTABLISHED DEFINITION",
+    "evidence": "same-input conformance refuted the ladder — 76,610 mismatches over 645,043 rows — while the raw/simplified form reproduced the store; sealed in 2ff742f7eca5ff31",
+    "consequence": "the established sig_p3 = cx9 & cx20 & cx50 carries NO exclusion terms, so no deep dependency propagates into it"
+  },
+  "DEPENDENCIES": {
+    "sig_p66": [
+      9,
+      20,
+      34,
+      50,
+      89,
+      200
+    ],
+    "sig_p55": [
+      9,
+      20,
+      34,
+      50,
+      89,
+      200
+    ],
+    "sig_p89": [
+      89
+    ],
+    "sig_p3": [
+      9,
+      20,
+      50
+    ],
+    "sig_p2": [
+      9,
+      20,
+      50
+    ],
+    "sig_p50": [
+      9,
+      20,
+      50
+    ],
+    "sig_d66": [
+      9,
+      20,
+      34,
+      50,
+      89,
+      200
+    ],
+    "sig_d55": [
+      9,
+      20,
+      34,
+      50,
+      89,
+      200
+    ],
+    "sig_d89": [
+      89
+    ],
+    "sig_d3": [
+      9,
+      20,
+      50
+    ],
+    "sig_d2": [
+      9,
+      20
+    ],
+    "sig_d50": [
+      50
+    ]
+  },
+  "GROUPED_BY_DEEPEST": {
+    "EMA20": [
+      "sig_d2"
+    ],
+    "EMA50": [
+      "sig_d3",
+      "sig_d50",
+      "sig_p2",
+      "sig_p3",
+      "sig_p50"
+    ],
+    "EMA89": [
+      "sig_d89",
+      "sig_p89"
+    ],
+    "EMA200": [
+      "sig_d55",
+      "sig_d66",
+      "sig_p55",
+      "sig_p66"
+    ]
+  },
+  "EMA200_EXPOSURE": {
+    "columns_requiring_200": 4,
+    "columns_not_requiring_200": 8,
+    "note": "sig_p2 transitively requires EMA50 through sig_p3 — caught by transitive expansion, missed by a naive reading of its own formula"
+  },
+  "CEILING_IMPLICATION": "the 20.81% EMA200 ceiling binds 4 columns. The remaining 8 sit against EMA50 (30.30%), EMA20 (37.86%) or EMA89 ceilings, so a family-wide EMA200 gate would have been wrong — as the caller originally insisted.",
+  "STAGE_B1_REQUIREMENT": "EMA34 and EMA89 must still be produced: sig_p66/p55/d66/d55 reference cx34/cx89 and neither period exists on massive_coarse_ema_v1",
+  "not_done": [
+    "EMA34/89 not produced",
+    "no P/D availability computed against this graph"
+  ]
+}

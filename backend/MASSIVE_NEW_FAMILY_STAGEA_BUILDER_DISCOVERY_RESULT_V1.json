@@ -1,0 +1,153 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGEA_BUILDER_DISCOVERY_RESULT_V1",
+  "status": "FROZEN",
+  "protocol": {
+    "artifact": "MASSIVE_NEW_FAMILY_STAGEA_BUILDER_DISCOVERY_V1",
+    "digest": "588dd6a94c3f471b",
+    "sealed_before_search": true
+  },
+  "SEARCH_PERFORMED": 1,
+  "Y_EXPOSED": 0,
+  "VERDICT": "BUILDER_FOUND",
+  "ENUMERATION": {
+    "U1_U2_backend": {
+      "files_considered": 46108,
+      "readable": 46108,
+      "unreadable": 0,
+      "find_stderr_bytes": 0,
+      "skipped": 0,
+      "permission_failures": 0
+    },
+    "U3_massive_artifacts": {
+      "MASSIVE_1M_*/MASSIVE_15M_* json": 38,
+      "parsed_ok": 38,
+      "parse_failures": 0
+    },
+    "U4_git": {
+      "commits_reachable": 1719,
+      "name_search_stagea": "exit 1 = NO MATCHES (valid negative, not an error)",
+      "pickaxe_stageA_input": "exit 0",
+      "pickaxe_massive_coarse_v1_py": "exit 0"
+    },
+    "U5_persistent_manifests": {
+      "files": 1,
+      "readable": 1
+    },
+    "U6_scratchpad_recovery_evidence": {
+      "py_files": 49,
+      "persisted": 49,
+      "reconciliation": "an initial count showed 49 vs 48; the missing file was persist_data.py, created AFTER the copy. Corrected. NOT treated as evidence of anything else."
+    }
+  },
+  "COMMAND_STATUS": {
+    "all_commands_exit_verified": true,
+    "grep_stderr_bytes": {
+      "coverage_state": 0,
+      "interval_index": 0,
+      "bar_start": 0,
+      "stageA_input": 0,
+      "create_table_bars": 0
+    },
+    "no_failed_command_read_as_zero_matches": true
+  },
+  "SCHEMA_SIGNATURE_SEARCH": {
+    "conjunction": "coverage_state AND interval_index AND bar_start",
+    "singleton_counts": {
+      "coverage_state": 48,
+      "interval_index": 18,
+      "bar_start": 53
+    },
+    "candidates_found": 14,
+    "candidates_inspected": 14,
+    "unresolved_candidates": 0,
+    "inspection_method": "each file OPENED and read, not grep-counted"
+  },
+  "TRAP_AVOIDED": {
+    "file": "backend/massive_new_family_runtime/stageA.py",
+    "naive_reading": "the name matches the target exactly",
+    "actual": "it opens stageA_input.duckdb with read_only=True and writes stageA_result.json — it is a CONSUMER (an availability census), NOT the producer",
+    "note": "an earlier `ls *.py | head -40` had truncated this filename out of view. The truncation was a TOOLING LIMIT, and the enumerated protocol is what surfaced the file."
+  },
+  "BUILDER_FOUND": {
+    "semantic_producer": {
+      "code": [
+        "backend/coarse_aggregator_v1.py (182 lines, class CoarseAggregatorV1)",
+        "backend/coarse_production_v1.py (250 lines)",
+        "backend/coarse_production_verify.py (291 lines)"
+      ],
+      "sealed_authority": "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1",
+      "input_root": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_1m_base_v2 (minute_states + observed_regular_bars)",
+      "output_store": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_coarse_v1  — MOUNTED, 452 MB, 15m/1H/1D",
+      "15m_partitions": 1254,
+      "produces_the_contested_columns": [
+        "interval_index",
+        "bar_start",
+        "coverage_state"
+      ]
+    },
+    "link_evidence": "MASSIVE_NEW_FAMILY_STAGE_A_PRODUCTION_V1 states verbatim: input = 'massive_coarse_v1/15m consolidated to a local indexed table (15,445,454 rows — matches the T production count exactly)'",
+    "consolidation_step": {
+      "script": "NOT LOCATED",
+      "why_it_does_not_matter": "the consolidation is PROVEN to be a pure 10-of-18-column projection with zero transformation, so it does not need to be recovered — it needs only to be re-expressed."
+    }
+  },
+  "EQUIVALENCE_PROOF": {
+    "method": "full two-way EXCEPT ALL over ALL 15,445,454 rows and ALL 10 shared columns, parquet store vs the PERSISTENT stageA_input.duckdb — not a sample",
+    "parquet_rows": 15445454,
+    "stageA_rows": 15445454,
+    "parquet_minus_stageA": 0,
+    "stageA_minus_parquet": 0,
+    "keys": 476,
+    "dates": 1254,
+    "window": "2021-08-25 .. 2026-08-24",
+    "elapsed_s": 9,
+    "RESULT": "EXACT",
+    "meaning": "stageA_input.duckdb is a byte-exact projection of massive_coarse_v1/15m. Its semantics are not inferred — they are the coarse producer's semantics."
+  },
+  "COVERAGE_STATE_OBSERVED": {
+    "COMPLETE": {
+      "n": 10618186,
+      "pct": 68.746
+    },
+    "UNOBSERVED_CONTAMINATED": {
+      "n": 4827268,
+      "pct": 31.254
+    },
+    "interval_index_range": "0..25 in BOTH states, 26 distinct values",
+    "NOTE": "this is the OBSERVED dictionary in the historical window. The producer additionally defines STRUCTURAL_NO_TRADE (validate_partition counts it) which does NOT occur here. Forward code must handle it — absence in DEV is NOT evidence it cannot occur forward."
+  },
+  "CONSEQUENCE_FOR_A1": {
+    "reconstruction_NOT_required": true,
+    "A1_becomes": "FORWARD INSTANTIATION of the existing, sealed coarse producer, followed by the proven projection",
+    "permitted_claim": "SAME ORIGINAL PRODUCER — the code and its sealed authority both exist and the historical output is reproduced exactly",
+    "NOT_NEEDED": "MASSIVE_NEW_FAMILY_FORWARDA1_STAGEA_CONTRACT_V1 (the reverse-engineering branch) is NOT opened"
+  },
+  "RESIDUAL_RISKS_RECORDED": [
+    {
+      "risk": "backend/coarse_aggregator_v1.py and backend/coarse_production_v1.py are UNTRACKED in git ('??')",
+      "impact": "the semantic producer of the forward stage-A surface is not under version control",
+      "status": "REPORTED — committing is the user's decision, not taken"
+    },
+    {
+      "risk": "the whole chain roots on the external volume /Volumes/QUANT_RESEARCH",
+      "impact": "if it is unmounted or lost, forward production stops and the 1m base is unrecoverable locally",
+      "status": "REPORTED — not covered by the 20.27 GB persistence, which copied only the derived stage-A surface and downstream"
+    },
+    {
+      "risk": "STRUCTURAL_NO_TRADE never occurs in the historical window",
+      "impact": "that branch of the forward pipeline is UNEXERCISED by any historical data",
+      "status": "must get an explicit boundary fixture before the first look"
+    }
+  ],
+  "BOUNDARY_FIXTURES_STILL_OWED": [
+    "normal full session",
+    "early close",
+    "missing interior 1m bar",
+    "missing opening minute",
+    "missing final minute",
+    "partial 15m interval",
+    "ticker rename with the same security_key",
+    "STRUCTURAL_NO_TRADE"
+  ],
+  "A1_STATUS": "UNBLOCKED for implementation; boundary/equivalence qualification still owed before the first look"
+}

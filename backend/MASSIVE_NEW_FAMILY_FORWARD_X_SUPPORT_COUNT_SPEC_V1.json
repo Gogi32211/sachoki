@@ -1,0 +1,58 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_X_SUPPORT_COUNT_SPEC_V1",
+  "status": "FROZEN_BEFORE_B_EXECUTION",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "nature": "OPERATIONAL DEFINITION of a previously underspecified term. It modifies NO frozen rule — not hub membership, not k_hub, not B_SCALE/B_NULL, not the trigger thresholds, not definedness, not any inferential rule.",
+  "parents": {
+    "trigger": "MASSIVE_NEW_FAMILY_FORWARD_HUB_PRESPEC_V1 · 627c767ef9708549",
+    "registration": "MASSIVE_NEW_FAMILY_FORWARD_HUB_REGISTRATION_V1 · 751058971beae07c",
+    "canonical_X": "MASSIVE_NEW_FAMILY_FORWARD_A3_CANON69_QUALIFICATION_V1 · 3840a5df1a626aa1"
+  },
+  "TERM": "X_positive_episode_n",
+  "NAMING_RULE": {
+    "forbidden": "calling it positive_n",
+    "why": "positive_n is RESERVED for the inferential Y-available denominator. They are different quantities with different gates."
+  },
+  "DEFINITION": {
+    "claim": "token_A @ left position AND token_B @ right position",
+    "an_episode_is_X_POSITIVE_iff_all_four": [
+      "1. the token_A source feature at its FROZEN position has availability == AVAILABLE_VALID",
+      "2. token_A predicate evaluates TRUE",
+      "3. the token_B source feature at its FROZEN position has availability == AVAILABLE_VALID",
+      "4. token_B predicate evaluates TRUE"
+    ],
+    "NO_Y": [
+      "no Y value is read",
+      "no Y availability is read",
+      "no Y-based path or window filter is used"
+    ]
+  },
+  "OPTION_CHOSEN": {
+    "chosen": "A — only the two positions the registered claim names",
+    "REJECTED": "B — additionally requiring all four of M1/M2/M3/M4 to be available",
+    "why_rejected": "that would introduce an X-side filter that was never part of the claim definition"
+  },
+  "EXPLICIT_NON_REQUIREMENT": "there is NO requirement that all four M1/M2/M3/M4 positions are simultaneously available or valid. Only the two positions the registered claim names matter.",
+  "PREDICATE_FORMS": {
+    "boolean_TRUE_token": "AVAILABLE_VALID AND the frozen boolean value == TRUE",
+    "categorical_equality_token": "AVAILABLE_VALID AND the frozen categorical value == the registered category"
+  },
+  "NON_VALID_HANDLING": {
+    "rule": "if either required token position is NON_VALID the episode is NOT X-positive",
+    "and_critically": "it is NOT converted to FALSE evidence",
+    "invariants": [
+      "UNAVAILABLE != FALSE",
+      "a missing row != a negative state"
+    ]
+  },
+  "COUNT_IDENTITY": "one claim contributes AT MOST ONE positive count per (security_key_v1, session_date) episode",
+  "SAME_TOKEN_ON_BOTH_SIDES": "evaluated INDEPENDENTLY at the two registered positions",
+  "ACCUMULATION": "cumulative over the admissible forward evidence window",
+  "REPORT_ONLY": {
+    "X_evaluable_episode_n": "both required token positions AVAILABLE_VALID",
+    "status": "REPORT-ONLY engineering provenance",
+    "PROHIBITION": "it MUST NOT become an additional trigger threshold"
+  },
+  "PRE_REGISTRATION_OBLIGATION": "this definition is frozen BEFORE any historical B census is computed. If it fails to reproduce the frozen pre-Y X-support oracle exactly, that is a HARD STOP — the definition may NOT be adjusted to fit."
+}

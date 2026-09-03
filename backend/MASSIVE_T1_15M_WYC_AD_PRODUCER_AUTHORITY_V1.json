@@ -1,0 +1,42 @@
+{
+  "artifact": "MASSIVE_T1_15M_WYC_AD_PRODUCER_AUTHORITY_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": "98157389576d845f",
+  "method": "writer-path search over 995 enumerated .py files by stored-column assignment site, not by function name",
+  "WYC_PHASE": {
+    "assignment_sites": [
+      "analyzers/tz_wlnbb/signal_extraction.py:544 df[\"wyc_phase\"] = wyc.values",
+      "analyzers/tz_wlnbb/signal_extraction.py:550 df[\"wyc_phase\"] = \"NEUTRAL\"",
+      "main.py:3529 / main.py:7956 — keyword pass-through, not a definition",
+      "studio/seq_lab.py:285 — reader"
+    ],
+    "candidates_tested": {
+      "43cba77b": 415,
+      "05d4c198": 599
+    },
+    "result": "no third writer path found; both known candidates rejected",
+    "VERDICT": "PRODUCER_NOT_RECOVERED_FROM_AVAILABLE_AUTHORITY"
+  },
+  "AD": {
+    "assignment_sites": [
+      "analyzers/tz_wlnbb/signal_extraction.py:206,536-540",
+      "studio/bar_physics.py:279 — a SECOND, independent ad_fresh computation"
+    ],
+    "bar_physics_variant_tested": {
+      "ad_fresh": 350,
+      "ad_cluster": 19124,
+      "comparison": "signal_extraction candidate gives 42 / 31 on the same sample — bar_physics is WORSE",
+      "note": "bar_physics writes phys_ad (a star-string), NOT ad_cluster; its ad computation is internal to physics and is not the store producer"
+    },
+    "ad_fresh_signature_invariance": "42 mismatches under BOTH signal_extraction signatures — not a signature-version issue",
+    "VERDICT": "PRODUCER_NOT_RECOVERED_FROM_AVAILABLE_AUTHORITY"
+  },
+  "UMBRELLA": "PRODUCER_NOT_RECOVERED_FROM_AVAILABLE_AUTHORITY",
+  "consequence": "wyc_phase and ad_fresh/ad_cluster remain HOLD; the exact 35,587-family port cannot complete while any required token column has no recovered producer",
+  "not_done": [
+    "no search of non-Python sources (Pine study text, notebooks, ad-hoc scripts outside the repo)",
+    "no attempt to fit parameters to the store — deliberately not done, since fitting is not provenance"
+  ]
+}

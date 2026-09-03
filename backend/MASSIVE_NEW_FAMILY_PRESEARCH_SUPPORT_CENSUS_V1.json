@@ -1,0 +1,214 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_V1",
+  "status": "SUPPORT_DISTRIBUTION_CHARACTERIZED",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "spec": {
+    "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_SUPPORT_CENSUS_SPEC_V1",
+    "digest": "faaa0a70aa050c93"
+  },
+  "inputs": {
+    "claim_universe": 45387,
+    "claim_universe_digest": "684b6dce407c9f0e",
+    "token_dictionary_digest": "299c963427568b49",
+    "grammar_digest": "4f07512770af4615",
+    "x_surface_digest": "e8016cb7c39a969d"
+  },
+  "run": {
+    "exit_code": 0,
+    "elapsed_s": 108,
+    "securities": 476,
+    "sessions_total": 596251,
+    "positions": [
+      "09:30 M1",
+      "09:45 M2",
+      "10:00 M3",
+      "10:15 M4"
+    ],
+    "output_rows": 45387
+  },
+  "ACCEPTANCE": {
+    "input_claims": 45387,
+    "census_claims": 45387,
+    "missing": 0,
+    "extra": 0,
+    "duplicates": 0,
+    "set_equality_vs_frozen_universe": "PASS",
+    "zero_support_claims_retained": {
+      "zero_evaluable": 0,
+      "zero_positive": 9454
+    },
+    "zero_denominator_policy": "rate reported as NULL / N.A. — 0 violations, never 0%",
+    "no_claim_dropped": true,
+    "no_floor_applied": true,
+    "no_Y_read": true,
+    "verdict": "PASS"
+  },
+  "DEV_DISTRIBUTIONS": {
+    "evaluable_pairs": {
+      "min": 19783,
+      "p1": 20612.0,
+      "p5": 20861.0,
+      "p10": 122186.0,
+      "p25": 178112.0,
+      "median": 218149.0,
+      "p75": 342292.0,
+      "p90": 359014.0,
+      "p95": 359014.0,
+      "p99": 359014.0,
+      "max": 359014,
+      "zero_count": 0,
+      "null_count": 0
+    },
+    "positive_pairs": {
+      "min": 0,
+      "p1": 0.0,
+      "p5": 0.0,
+      "p10": 0.0,
+      "p25": 2.0,
+      "median": 65.0,
+      "p75": 667.5,
+      "p90": 3480.600000000006,
+      "p95": 7966.399999999994,
+      "p99": 28199.41999999997,
+      "max": 192305,
+      "zero_count": 9454,
+      "null_count": 0
+    },
+    "securities_with_positive": {
+      "min": 0,
+      "p1": 0.0,
+      "p5": 0.0,
+      "p10": 0.0,
+      "p25": 2.0,
+      "median": 53.0,
+      "p75": 242.0,
+      "p90": 382.0,
+      "p95": 424.0,
+      "p99": 461.0,
+      "max": 474,
+      "zero_count": 9454,
+      "null_count": 0
+    },
+    "top10_share_positive": {
+      "min": 0.17195010839171823,
+      "p1": 0.19205470942019853,
+      "p5": 0.22434676388086025,
+      "p10": 0.2657523757912931,
+      "p25": 0.36879932356257045,
+      "median": 0.5952380952380952,
+      "p75": 1.0,
+      "p90": 1.0,
+      "p95": 1.0,
+      "p99": 1.0,
+      "max": 1.0,
+      "zero_count": 0,
+      "null_count": 9454
+    }
+  },
+  "FINDING_evaluability_is_not_discriminating": {
+    "zero_evaluable_claims": 0,
+    "min_evaluable": 19783,
+    "statement": "EVERY claim is measurable on a substantial number of opportunities; the minimum is ~19.8k evaluable pairs",
+    "consequence": "LOW EVALUABILITY, one of the three prespecified failure modes, does NOT discriminate within this family",
+    "structure": "evaluability is banded by source-feature DEPTH: the ~2,904 claims below 50k evaluable involve the deepest features (sig_buy age>=50, sig_tz_flip state-identifiability); the ~14,700 at ~359k involve depth-2 features only"
+  },
+  "DEGENERATE_CONCENTRATION_GUARD": {
+    "top10_bucket_securities": 48,
+    "claims_with_0_lt_sec_positive_le_48": 12817,
+    "status_of_those": "top10_share_positive = 1.0 BY CONSTRUCTION — carries NO concentration information",
+    "claims_with_sec_positive_gt_48": 23116,
+    "claims_with_sec_positive_eq_0": 9454,
+    "concentration_among_informative_only": {
+      "p5": 0.2105,
+      "p25": 0.3121,
+      "median": 0.4239,
+      "p75": 0.5728,
+      "p95": 0.8396
+    },
+    "WARNING": "the unconditional top10_share_positive quantiles (p75 = 1.0000) are dominated by the degenerate subset and MUST NOT be read as evidence of concentration"
+  },
+  "BREAKDOWN_position_pair": {
+    "note": "frozen dimension",
+    "M1->M2": {
+      "claims": 15129,
+      "zero_positive": 3077,
+      "median_evaluable": 217315,
+      "median_positive": 71,
+      "median_sec_positive": 54
+    },
+    "M2->M3": {
+      "claims": 15129,
+      "zero_positive": 3243,
+      "median_evaluable": 218149,
+      "median_positive": 60,
+      "median_sec_positive": 50
+    },
+    "M3->M4": {
+      "claims": 15129,
+      "zero_positive": 3134,
+      "median_evaluable": 219044,
+      "median_positive": 63,
+      "median_sec_positive": 55
+    },
+    "observation": "the three position pairs are near-identical in support; no position is structurally starved"
+  },
+  "BREAKDOWN_token_type_pair": {
+    "note": "frozen dimension",
+    "boolean->boolean": {
+      "claims": 10800,
+      "zero_positive": 4055,
+      "median_evaluable": 178166,
+      "median_positive": 5,
+      "median_sec_positive": 5
+    },
+    "boolean->categorical": {
+      "claims": 11340,
+      "zero_positive": 1718,
+      "median_evaluable": 217316,
+      "median_positive": 83,
+      "median_sec_positive": 63
+    },
+    "categorical->boolean": {
+      "claims": 11340,
+      "zero_positive": 1885,
+      "median_evaluable": 216767,
+      "median_positive": 68,
+      "median_sec_positive": 55
+    },
+    "categorical->categorical": {
+      "claims": 11907,
+      "zero_positive": 1796,
+      "median_evaluable": 240263,
+      "median_positive": 372,
+      "median_sec_positive": 195
+    },
+    "observation": "token TYPE is by far the strongest structural driver of support: median positive 5 (bool->bool) vs 372 (cat->cat), a ~74x difference, and 37.5% vs 15.1% zero-positive",
+    "interpretation_guard": "this is a SUPPORT/STRUCTURAL observation only. It says nothing about which claims are informative about anything."
+  },
+  "HOLDOUT_DIAGNOSTIC": {
+    "role": "DIAGNOSTIC ONLY — NOT a hard eligibility authority",
+    "sessions": 12,
+    "zero_evaluable": 0,
+    "zero_positive": 23508,
+    "median_evaluable": 2083,
+    "median_positive": 0,
+    "finding": "more than half the claims (51.8%) never fire in the 12 HOLDOUT sessions, and the median claim has ZERO positive occurrences",
+    "consequence": "this directly vindicates excluding HOLDOUT from hard eligibility — a HOLDOUT floor would eliminate the majority of claims on 12 sessions of timing luck",
+    "warning": "episode/opportunity counts, NOT independent temporal replications"
+  },
+  "THREE_FAILURE_MODES_STATUS": {
+    "LOW_EVALUABILITY": "does NOT discriminate here (0 zero-evaluable, min 19,783)",
+    "LOW_POSITIVE_SUPPORT": "discriminates strongly — 9,454 claims never fire; median 65",
+    "LOW_BREADTH": "discriminates strongly — median 53 securities, but 12,817 claims sit at or below the 48-security degenerate threshold"
+  },
+  "NO_FLOOR_SELECTED": true,
+  "NEXT": "MASSIVE_NEW_FAMILY_SUPPORT_FLOOR_PRESPEC_V1 — floor numbers frozen on this X-only distribution, NOT tuned to obtain a desired k",
+  "NOT_STARTED": [
+    "support floor",
+    "floor application",
+    "searchable registry",
+    "k",
+    "multiplicity universe freeze"
+  ]
+}

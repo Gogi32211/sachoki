@@ -1,0 +1,461 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_A_PRODUCTION_V1",
+  "writes": "local scratch only — no Massive surface written",
+  "Y_EXPOSED": 0,
+  "binds": [
+    "b2f6dcfbe4125886",
+    "52a44da54125767b"
+  ],
+  "RUN": {
+    "securities": "476 / 476",
+    "rows": 15445454,
+    "invalid_series": 0,
+    "elapsed_s": 5708,
+    "input": "massive_coarse_v1/15m consolidated to a local indexed table (15,445,454 rows — matches the T production count exactly)",
+    "window": "2021-08-25 .. 2026-08-24"
+  },
+  "COLUMNS_PRODUCED": 26,
+  "AUDIT_1_G_STAR_INCOMING_STATE": {
+    "recurrence": "g1_raw = g_armed AND s==T1 ; any_g = OR(g*_raw) ; g_armed := (g_armed OR trigger_z) AND NOT any_g",
+    "OUTPUT_vs_NEXT_STATE_ARE_DISTINCT": "the output at bar i uses the INCOMING state; the next-state resolves after the bar. They must not be conflated or an off-by-one validity bug appears.",
+    "sealed_rule": {
+      "s NOT in firing set {T1,T1G,T4,T6}": "output trivially False -> AVAILABLE_VALID (no state needed)",
+      "s in firing set, incoming state KNOWN": "AVAILABLE_VALID",
+      "s in firing set, incoming state UNKNOWN": "INITIALIZATION_SENSITIVE",
+      "after s in {Z10,Z11,Z12}": "next-state TRUE (determined)",
+      "after s in firing set": "next-state FALSE (determined, since g_armed AND NOT g_armed = False)",
+      "otherwise": "next-state carries prior"
+    },
+    "implementation": "known[first_determining_index + 1:] — the determining bar itself is excluded from known, which is the off-by-one guard",
+    "CORRECTION_OF_MY_EARLIER_RULE": {
+      "wrong": "\"VALID only from the first arming trigger (Z10/Z11/Z12)\"",
+      "why_wrong": "a firing-set bar also determines the state (to False), and separately every non-firing bar has a trivially-False output needing no state at all",
+      "measured_impact": "pilot on 5 heterogeneous securities: valid bars 436->9,013 · 1,017->15,974 · 326->4,460 · 6->457 · 6,122->13,690. The old rule suppressed roughly 95% of genuine support.",
+      "corroboration": "g* now shows a HIGHER valid share (63.85%) than the hard-dependency features (61.40%), which is the expected signature: g* needs no prior bar, the Z family does"
+    }
+  },
+  "AUDIT_2_PARTIAL_WINDOW": {
+    "source_check": {
+      "compute_tz_state": "rolling(3, min_periods=1), rolling(7, min_periods=1)",
+      "compute_vabs": "rolling(20, min_periods=1), rolling(20, min_periods=2), rolling(5, min_periods=1)"
+    },
+    "conclusion": "min_periods IS reduced, so partial windows DO produce values. These bars are \"value exists but may differ from full-history replay\" = INITIALIZATION_SENSITIVE, NOT UNAVAILABLE_HISTORY.",
+    "note": "the caller hypothesised UNAVAILABLE_HISTORY here; the source does not support it. Recorded because the distinction changes what the census means.",
+    "vbo_up_first_bar": "min_periods=2 makes the segment-first bar genuinely unavailable",
+    "depths": {
+      "sig_tz_flip": 9,
+      "vbo_up": 20
+    }
+  },
+  "AUDIT_3_VALUE_STATE_CONSISTENCY": {
+    "guard_1": "AVAILABLE_VALID => value MUST be non-null",
+    "guard_2": "availability != AVAILABLE_VALID => evaluation layer MUST ignore the value entirely",
+    "guard_3": "a missing value on an INIT_SENSITIVE bar must NEVER be coerced to False/0 — NULL and FALSE are different facts for boolean features",
+    "verification": {
+      "valid_bars_checked": 118813,
+      "violations": 0,
+      "result": "CONFIRMED"
+    },
+    "proof_by_construction": "AVAILABLE_VALID requires age>=depth; age>=depth implies the containing COMPLETE run is at least depth long; the engine is invoked on exactly those runs. Hence the segment-length gate can never skip a VALID bar.",
+    "DECLARED_LIMITATION": "on segments shorter than a feature depth the VALUE is not materialised at all. Those bars are correctly classed INIT_SENSITIVE, but their values are absent rather than computed-and-discarded. This is acceptable ONLY because availability is the sole authoritative gate."
+  },
+  "AUDIT_4_COVERAGE_HETEROGENEITY": {
+    "per_column_states": {
+      "sig_z1g": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z1": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z2g": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z2": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z3": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z4": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z5": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z6": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z7": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z9": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z10": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z11": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_z12": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_vol_5x": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_vol_10x": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_vol_20x": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "ne_suffix": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "wick_suffix": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "close_suffix": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "full_suffix": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "bar_body_wick": {
+        "AVAILABLE_VALID": 9484243,
+        "INIT_SENSITIVE": 0,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 1133943
+      },
+      "sig_g1": {
+        "AVAILABLE_VALID": 9862092,
+        "INIT_SENSITIVE": 756094,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 0
+      },
+      "sig_g2": {
+        "AVAILABLE_VALID": 9862092,
+        "INIT_SENSITIVE": 756094,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 0
+      },
+      "sig_g4": {
+        "AVAILABLE_VALID": 9862092,
+        "INIT_SENSITIVE": 756094,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 0
+      },
+      "sig_g11": {
+        "AVAILABLE_VALID": 9862092,
+        "INIT_SENSITIVE": 756094,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 0
+      },
+      "sig_tz_flip": {
+        "AVAILABLE_VALID": 7058741,
+        "INIT_SENSITIVE": 3559445,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 0
+      },
+      "vbo_up": {
+        "AVAILABLE_VALID": 5846542,
+        "INIT_SENSITIVE": 4771644,
+        "UNAVAILABLE_CURRENT": 4827268,
+        "UNAVAILABLE_HISTORY": 0
+      }
+    },
+    "fires_on_valid_bars": {
+      "sig_z1g": 71611,
+      "sig_z1": 390945,
+      "sig_z2g": 927290,
+      "sig_z2": 1196234,
+      "sig_z3": 429430,
+      "sig_z4": 646603,
+      "sig_z5": 91950,
+      "sig_z6": 116796,
+      "sig_z7": 148016,
+      "sig_z9": 644608,
+      "sig_z10": 59872,
+      "sig_z11": 31025,
+      "sig_z12": 24068,
+      "sig_vol_5x": 56007,
+      "sig_vol_10x": 3623,
+      "sig_vol_20x": 645,
+      "ne_suffix": 0,
+      "wick_suffix": 0,
+      "close_suffix": 0,
+      "full_suffix": 0,
+      "bar_body_wick": 0,
+      "sig_g1": 26909,
+      "sig_g2": 8909,
+      "sig_g4": 48976,
+      "sig_g11": 31632,
+      "sig_tz_flip": 253357,
+      "vbo_up": 308784
+    },
+    "per_security_valid_share": {
+      "sig_z1g": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z1": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z2g": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z2": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z3": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z4": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z5": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z6": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z7": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z9": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z10": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z11": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_z12": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_vol_5x": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_vol_10x": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_vol_20x": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "ne_suffix": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "wick_suffix": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "close_suffix": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "full_suffix": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "bar_body_wick": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.679288264991996,
+        "p10": 0.10240426055904445,
+        "p90": 0.9973371505972171
+      },
+      "sig_g1": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.7152290358330256,
+        "p10": 0.12907893116611255,
+        "p90": 0.9974756803349341
+      },
+      "sig_g2": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.7152290358330256,
+        "p10": 0.12907893116611255,
+        "p90": 0.9974756803349341
+      },
+      "sig_g4": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.7152290358330256,
+        "p10": 0.12907893116611255,
+        "p90": 0.9974756803349341
+      },
+      "sig_g11": {
+        "zero_valid": 0,
+        "any_valid": 476,
+        "median": 0.7152290358330256,
+        "p10": 0.12907893116611255,
+        "p90": 0.9974756803349341
+      },
+      "sig_tz_flip": {
+        "zero_valid": 2,
+        "any_valid": 474,
+        "median": 0.3849741411156261,
+        "p10": 0.012452284201453022,
+        "p90": 0.9886559537002833
+      },
+      "vbo_up": {
+        "zero_valid": 18,
+        "any_valid": 458,
+        "median": 0.22925132372860485,
+        "p10": 0.0026782415958625785,
+        "p90": 0.9751108237901736
+      }
+    },
+    "headline": {
+      "Z/vol/suffix/body_wick": "VALID 61.40% · zero-valid securities 0 · median 67.9% · p10 10.2% · p90 99.7%",
+      "g* x4": "VALID 63.85% · INIT_SENSITIVE 756,094 · zero-valid 0 · median 71.5%",
+      "sig_tz_flip": "VALID 45.70% · INIT_SENSITIVE 3,559,445 · zero-valid 2 · median 38.5% · p10 1.2%",
+      "vbo_up": "VALID 37.85% · INIT_SENSITIVE 4,771,644 · zero-valid 18 · median 22.9% · p10 0.3%"
+    },
+    "heterogeneity_confirmed": "p10 10.2% against p90 99.7% on even the shallowest features — the aggregate is a mixture, never a typical security"
+  },
+  "KNOWN_GAP": "fire counts are 0 for the five STRING columns (4 suffixes + bar_body_wick) because the fire counter only covers boolean arrays. Those are categorical, not boolean, so a fire count is not meaningful — recorded rather than left looking like zero support.",
+  "not_done": [
+    "no Massive surface written — this run produced a census, not a materialised feature store",
+    "opening-hour M1..M4 and adjacent-pair support not yet cut for Stage A columns",
+    "Stage B (EMA34/89 + P/D x12) not started"
+  ]
+}

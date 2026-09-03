@@ -1,0 +1,38 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_COVERAGE_STRUCTURE_FINDING_V1_AMENDMENT_1",
+  "amends": "52a44da54125767b",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "CORRECTION_1": {
+    "superseded": "EFFECTIVE_UNIVERSE_BY_DEPTH — \"a P66/D66 token operates on roughly 146 securities\"",
+    "why_wrong": "\">20% per-security valid share\" is a COVERAGE DIAGNOSTIC, not an eligibility floor. Securities below 20% still contribute valid episodes; discarding them would throw away real observations on the basis of a threshold nobody registered.",
+    "correct_framing": {
+      "NOMINAL_SECURITY_UNIVERSE": 476,
+      "EMA200_securities_with_any_VALID_bars": 302,
+      "EMA200_securities_with_ZERO_VALID_bars": 174,
+      "EMA200_securities_with_gt20pct_VALID_share": 146,
+      "FEATURE_EFFECTIVE_EPISODE_UNIVERSE": "all episodes where that feature is AVAILABLE_VALID — an episode-level count, not a security count"
+    },
+    "rule": "the support denominator is VALID EPISODE OPPORTUNITIES. A per-security share may become an eligibility floor only if the prespec registers it as one, before Y."
+  },
+  "CORRECTION_2": {
+    "superseded": "\"support floors and multiplicity must be computed against the depth-specific universe\"",
+    "why_wrong": "conflates two different denominators. Coverage-poor features would receive an unearned multiplicity discount.",
+    "SUPPORT_DENOMINATOR": "feature/token-specific valid opportunities",
+    "MULTIPLICITY_UNIVERSE": "every prespecified searchable claim/token in the frozen registry",
+    "worked_example": "D50 may have 200k valid opportunities and P66 only 40k. That changes their SUPPORT, not the multiplicity count. Both remain in the multiplicity family if both are searchable. P66 leaves the search count ONLY if a pre-Y frozen support floor excludes it from the registry outright."
+  },
+  "STATEFUL_FEATURE_RULE": {
+    "principle": "STATEFUL != automatically EMA-like warmup",
+    "required_contract_per_feature": [
+      "INPUT_DEPENDENCIES",
+      "HISTORY_DEPTH",
+      "RESET_ON_CONTAMINATION",
+      "VALIDITY_AGE_RULE",
+      "VALUE_STATE_RELATION"
+    ],
+    "source_of_truth": "recovered producer semantics — NOT analogy to the EMA availability model",
+    "unknown_handling": "if any contract field is UNKNOWN the feature stays HOLD; it is never inferred-valid"
+  },
+  "CENSUS_REQUIREMENT_FOR_LATER": "report distributions, not aggregate means: zero-valid securities, any-valid securities, median and p10/p25/p75/p90 valid share, valid episode counts, plus M1..M4 and adjacent-pair support — so a small clean cohort cannot silently generate most of the apparent support"
+}

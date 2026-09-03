@@ -1,0 +1,63 @@
+{
+  "artifact": "MASSIVE_1M_COARSE_PRODUCER_CODE_AUTHORITY_V1",
+  "status": "FROZEN",
+  "role": "the semantic authority for the historical stage-A bars surface, and therefore for any forward replication of the frozen 69-column X surface",
+  "Y_EXPOSED": 0,
+  "FILES": {
+    "coarse_aggregator_v1.py": {
+      "sha256": "15042ae58bf83479c7fef1ae02cdc952f490cb740868eba2fb3ae2ee745964ef",
+      "bytes": 9747,
+      "lines": 182
+    },
+    "coarse_production_v1.py": {
+      "sha256": "bca9463fe39e5ad3ae3e02fdfd25f77f15a612d021060ce172f149f2f4b4329b",
+      "bytes": 12105,
+      "lines": 250
+    },
+    "coarse_production_verify.py": {
+      "sha256": "199a80c17bdca36c4d53db0ca2ca8b2fd0840b7f10f9457fa709d85a42731311",
+      "bytes": 15786,
+      "lines": 291
+    }
+  },
+  "combined_digest": "0025273b727a678ea8373d9a0114ed99eb5b7f8dbcda8d7158bc921be56c732f",
+  "AUTHORITY_RULE": "the authority is the EXACT BYTES and their digest. The git commit is an additional persistence/provenance layer, NOT the authority.",
+  "GIT": {
+    "tracked": true,
+    "commit": "886284b6572b6e875b611417eae40d3e1db5f646",
+    "branch": "feat/ultra-parquet-inmem",
+    "verification": "worktree sha256 == `git show HEAD:<path>` sha256 for all three files",
+    "prior_state": "UNTRACKED ('??') — the semantic producer of the forward stage-A surface was outside version control"
+  },
+  "IMMUTABLE_BYTE_COPY": "/Users/sachoki/MASSIVE_DATA/historical_producer_code/ — copied and digest-reverified with shasum(1)",
+  "HISTORICAL_EQUIVALENCE": {
+    "store": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_coarse_v1/15m",
+    "parquet_rows": 15445454,
+    "stageA_rows": 15445454,
+    "two_way_EXCEPT_ALL": "0 / 0",
+    "columns": 10,
+    "method": "FULL, not sampled",
+    "result": "EXACT"
+  },
+  "FORWARD_MODIFICATION_RULE": {
+    "historical_producer_bytes": "IMMUTABLE REFERENCE — never edited in place",
+    "forward_wrapper": "a NEW file with its OWN digest",
+    "wrapper_MAY": [
+      "add the frozen-476 allowlist gate",
+      "supply new input paths",
+      "add orchestration and scheduling"
+    ],
+    "wrapper_MAY_NOT": [
+      "rewrite or reimplement coarse semantics",
+      "alter coverage_state derivation",
+      "alter interval_index derivation",
+      "alter bar_start derivation"
+    ],
+    "rationale": "an in-place edit would silently retire the only artifact that makes the historical surface reproducible"
+  },
+  "residual_risk_closed": "#1 from MASSIVE_NEW_FAMILY_STAGEA_BUILDER_DISCOVERY_RESULT_V1 · acea1bec4100b297",
+  "still_open": [
+    "#2 massive_1m_base_v2 upstream persistence — BLOCKING for authoritative A1 production",
+    "#3 STRUCTURAL_NO_TRADE synthetic qualification — BLOCKING for qualification, not implementation"
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "report_id": "MASSIVE_T1_EPISODE_TEMPORAL_SEMANTICS_V1",
+  "status": "ANCHOR_DATE_SEMANTICS_RESOLVED",
+  "task_class": "TEMPORAL_SEMANTICS_RECOVERY_ONLY",
+  "why_sealable_now": "every claim here is POSITIVE evidence read from the generator's own SQL; it asserts no absence, so the negative-search defect holding the rest of the chain does not apply",
+  "anchor_date_semantics": "SAME_SESSION_DAILY_T1",
+  "mapping": {
+    "daily_anchor_date": "D",
+    "fifteen_m_session_selected": "the SAME calendar/session date D",
+    "M1": "D 09:30 ET",
+    "M2": "D 09:45 ET",
+    "M3": "D 10:00 ET",
+    "M4": "D 10:15 ET",
+    "join_predicate": "CAST(x.date AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York' AS DATE) = CAST(e.d AS DATE)",
+    "clock_filter": "strftime(...) IN ('09:30','09:45','10:00','10:15')",
+    "source": "t15m_x.py :: load_opening_hour"
+  },
+  "information_order": {
+    "daily_t1_requires": "date D's own daily OHLC, so it cannot be settled until D's close",
+    "selected_bars": "the first four 15-minute bars of D, all before 10:30 ET",
+    "consequence": "the selector uses END-OF-DAY information to choose bars from the BEGINNING of that same day",
+    "final_state_known_during_M1_M4": false
+  },
+  "classification": "POST_EXPOSURE_SESSION_LOCALIZATION",
+  "explicitly_not": [
+    "REAL_TIME_PREDICTOR",
+    "OPENING_HOUR_AVAILABLE_SIGNAL",
+    "SAME_TIME_EXECUTION_SIGNAL"
+  ],
+  "does_not_invalidate_the_historical_estimand": {
+    "reasoning": "if the registered question is 'on days that turned out to be T1 days, what did that day's opening hour look like?', the ordering is intentional and the estimand is well defined",
+    "what_is_forbidden": "describing the same construct as though the T1 day were known at 09:30 — that is a lookahead claim",
+    "forbidden_phrasings": [
+      "we knew at 09:30 that this would be a T1 day",
+      "the opening hour predicted the daily T1",
+      "tradable at M1"
+    ]
+  },
+  "binding_on_downstream": {
+    "any_Y_interpretation": "must respect POST_EXPOSURE_SESSION_LOCALIZATION",
+    "execution_semantics": "NOT established by this construct",
+    "tradeability": "a separate estimand that this study does not address"
+  },
+  "evidence": [
+    {
+      "evidence": "the opening-hour join is on the SAME date as the episode",
+      "verified": true
+    },
+    {
+      "evidence": "the episode date column is the family's daily date",
+      "verified": true
+    },
+    {
+      "evidence": "the selected clock times are exactly the four opening-hour slots",
+      "verified": true
+    },
+    {
+      "evidence": "times are evaluated in America/New_York",
+      "verified": true
+    },
+    {
+      "evidence": "the daily anchor is the daily t_sig state",
+      "verified": true
+    },
+    {
+      "evidence": "the daily state is a per-session daily row (t_sig from bars by ticker+date)",
+      "verified": true
+    }
+  ],
+  "all_evidence_positive": true,
+  "bindings": {
+    "MASSIVE_T_15M_EPISODE_DEFINITION_RECOVERY_V1.json": "73375ec0d8ab5344",
+    "MASSIVE_T1_EPISODE_RULE_AUTHORITY_DECISION_V1.json": "6d733e1fa3bf3c3d",
+    "T1_15M_PRESPEC_V1.json": "71d49dcde8921eb3"
+  },
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 21:32 +04"
+}

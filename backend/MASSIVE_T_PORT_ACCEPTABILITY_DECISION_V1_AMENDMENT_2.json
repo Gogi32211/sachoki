@@ -1,0 +1,164 @@
+{
+  "amendment_id": "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1_AMENDMENT_2",
+  "status": "ACCEPT_FOR_REPLICATION_LIKE_SOURCE_PORT",
+  "task_class": "ACCEPTABILITY_REBIND_ONLY",
+  "verdict_computed_not_asserted": true,
+  "amends": {
+    "decision": "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1",
+    "digest": "4c9b15eb8cfed786",
+    "amendment_1": "cdd94787f424b5cb",
+    "disposition": "FROZEN — neither edited"
+  },
+  "why_recomputed": "one of the accepted decision's premises was false — it recorded 15m source divergence as NOT ESTIMABLE, and it has since been measured",
+  "decision_question": {
+    "asked": "does directly measured 15m source divergence invalidate the accepted object T_MASSIVE_PORT under its source-port claim?",
+    "answer": "NO",
+    "reasoning": "the accepted claim was always 'the same canonical legacy T materializer semantics executed on Massive 15m source data', never 'Massive reproduces legacy 15m labels'. A source-port claim is falsified by a wrong engine, drifted config, or outcome leakage — not by two feeds producing different populations under the same engine, which is the thing being MEASURED rather than a defect in the thing being ACCEPTED"
+  },
+  "invariants": [
+    {
+      "invariant": "port hash unchanged",
+      "holds": true
+    },
+    {
+      "invariant": "canonical config unchanged during qualification",
+      "holds": true
+    },
+    {
+      "invariant": "canonical config unchanged during production",
+      "holds": true
+    },
+    {
+      "invariant": "same-input Layer 1 EXACT",
+      "holds": true
+    },
+    {
+      "invariant": "T production artifact is the accepted one",
+      "holds": true
+    },
+    {
+      "invariant": "T production independently verified",
+      "holds": true
+    },
+    {
+      "invariant": "parameter changes = 0",
+      "holds": true
+    },
+    {
+      "invariant": "no source correction — Massive not normalised toward legacy",
+      "holds": true
+    },
+    {
+      "invariant": "no label was corrected using the new 15m diagnostic",
+      "holds": true
+    },
+    {
+      "invariant": "Y_EXPOSED = 0",
+      "holds": true
+    }
+  ],
+  "invariants_hold": true,
+  "reject_conditions": [
+    {
+      "condition": "same-input implementation mismatch > 0",
+      "triggered": false
+    },
+    {
+      "condition": "the source-port claim requires unmeasured legacy 15m equivalence",
+      "triggered": false
+    },
+    {
+      "condition": "outcomes influenced construction",
+      "triggered": false
+    },
+    {
+      "condition": "parameters were fitted from conformance results",
+      "triggered": false
+    },
+    {
+      "condition": "Massive labels were corrected toward legacy",
+      "triggered": false
+    }
+  ],
+  "any_reject_triggered": false,
+  "measured_divergence": {
+    "authority": "MASSIVE_T_15M_SOURCE_DIVERGENCE_DIAGNOSTIC_V1",
+    "digest": "53c92f9df3b40d26",
+    "matched_bars": 10458803,
+    "matched_securities": 473,
+    "t_agreement": 0.945539,
+    "t_divergence": 0.054461,
+    "by_session_position": {
+      "M1": 0.994089,
+      "M2": 0.927812,
+      "M3": 0.942634,
+      "M4": 0.959324,
+      "SESSION_FINAL": 0.950822,
+      "OTHER": 0.943254
+    }
+  },
+  "new_limitation": "The same canonical semantic engine produces materially different 15m T populations across the two available 15m OHLC sources. Overall matched-state divergence is 5.4461%, and the divergence is position-dependent within the opening hour. Therefore Massive results test the historically exposed semantic hypotheses on a different X-source realization; they do not reconstruct the historical candidate population.",
+  "limitation_effect": {
+    "replication_like_framing": "STRENGTHENED",
+    "population_equivalence_framing": "FORBIDDEN MORE FIRMLY THAN BEFORE",
+    "why": "the size of the source effect is no longer unknown, and it falls in exactly the opening-hour positions the historical family is anchored on"
+  },
+  "carried_forward_unchanged": {
+    "allowed_claim": {
+      "text": "The same canonical legacy T materializer semantics are executed on Massive 15m source data under a pre-registered source-port contract.",
+      "provenance": [
+        "PREVIOUSLY_EXPOSED_HYPOTHESIS",
+        "CURRENT_PRE_REGISTERED_SOURCE_PORT",
+        "REPLICATION_LIKE"
+      ]
+    },
+    "forbidden_claims": [
+      "NEW_DISCOVERY",
+      "INDEPENDENT_REPLICATION",
+      "SAME_MATERIALIZED_POPULATION",
+      "LEGACY_15M_POPULATION_REPRODUCED",
+      "FEED_EQUIVALENCE_PROVEN"
+    ],
+    "accepted_object": {
+      "is_": "T_MASSIVE_PORT",
+      "is_not": "RECONSTRUCTED_LEGACY_15M_T",
+      "because": "the same canonical semantic program can produce different T labels when its X-side source representation differs; that is not automatically a defect"
+    },
+    "multiplicity_ledger": {
+      "reset_here": false,
+      "final_family_frozen_here": false,
+      "ledger": "historically exposed T-family provenance remains on the ledger",
+      "rule": "downstream T-state / transition / conditioning tests must enter the final pre-Y analysis dictionary and multiplicity registry",
+      "port_acceptance_does_not_authorize": "testing every T state against every EMA/RVOL condition"
+    },
+    "historical_provenance": {
+      "t_family": "PREVIOUSLY_EXPOSED",
+      "classification": [
+        "HYPOTHESIS_GENERATING",
+        "NOT_PRISTINE_DISCOVERY"
+      ],
+      "rule": "a cleaner source, a larger dataset and an exact new implementation do NOT reset hypothesis provenance",
+      "forbidden": "describing later positive findings as discovery"
+    },
+    "no_evaluability_threshold_invented": true,
+    "canonical_config_frozen": true
+  },
+  "production_disposition": {
+    "artifact": "MASSIVE_T_FEATURE_PRODUCTION_V1",
+    "digest": "ccdb0e35490794da",
+    "rebuild_required": false,
+    "status": "BYTE_VALID — remains the accepted materialization",
+    "provenance_rebind": "downstream authorization now references THIS amendment",
+    "why_no_rebuild": "the diagnostic changed no engine, no port hash, no config and no Massive input semantics, and no label was corrected toward legacy — each checked above, not assumed"
+  },
+  "authorizes": "downstream use of MASSIVE_T_FEATURE_PRODUCTION_V1 under the corrected limitation",
+  "does_not_authorize": [
+    "Z",
+    "the final T/Z analysis dictionary",
+    "Y exposure",
+    "reconstructing the historical candidate population"
+  ],
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 20:28 +04"
+}

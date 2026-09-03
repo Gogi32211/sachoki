@@ -1,0 +1,52 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_POOL_SORT_FAST_KERNEL_FEASIBILITY_V1",
+  "status": "CORRECT_BUT_REJECTED_FOR_PRODUCTION",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "candidate": "pool-level full sort + exact rank arithmetic (complement_select) for the per-draw median contrast",
+  "CORRECTNESS": {
+    "claims": "20,751 / 20,751",
+    "defined_mask_mismatch": 0,
+    "counts_mismatch": 0,
+    "median_positive_mismatch": 0,
+    "median_nonpositive_mismatch": 0,
+    "theta_mismatch": 0,
+    "verdict": "BIT-IDENTICAL to the qualified reference",
+    "supporting_fixtures": {
+      "complement_select_exhaustive": "n<=9, all subsets, 4,097 selects, 0 mismatches",
+      "even_n_float_op": "200,000 pairs, (a+b)/2 == np.median([a,b]), 0 mismatches",
+      "required_boundary_fixtures": "11 / 11 bit-identical",
+      "randomized_complement_median": "120,000 cases, 0 mismatches",
+      "randomized_subset_median": "80,000 cases, 0 mismatches"
+    }
+  },
+  "PERFORMANCE": {
+    "reference_seconds": 53.9,
+    "candidate_seconds": 119.4,
+    "speed_ratio": 0.45,
+    "verdict": "2.2x SLOWER than the qualified reference"
+  },
+  "WHY_IT_CANNOT_PAY_OFF": {
+    "claims_per_pool": "20,751 / 5,312 = 3.91",
+    "log2_pool_size": "log2(~227,000) = 17.8",
+    "reference_work": "3.91 x O(n) partition-select ~ 3.9n",
+    "candidate_work": "1 x O(n log n) full argsort ~ 17.8n",
+    "condition_for_amortisation": "claims_per_pool >> log(n)",
+    "actual": "3.91 vs 17.8 — the condition FAILS by ~4.6x",
+    "conclusion": "pool-level sorting CANNOT amortise on this registry's topology"
+  },
+  "MY_EARLIER_REASONING_CORRECTED": {
+    "claim": "'pool dedup gives a 4.4x reduction' (5,338,458,129 -> 1,207,787,266 element touches)",
+    "why_it_misled": "the element-touch count was correct, but it compared against an O(n log n) baseline. np.median is O(n) introselect, NOT O(n log n), so the true comparison base was different.",
+    "lesson": "an element-touch count is not a runtime model; the ALGORITHMIC CLASS of the baseline must be stated before claiming a speedup"
+  },
+  "GUARD_FOR_THE_FUTURE": {
+    "purpose": "prevent this optimisation being reintroduced by the argument '5,312 pools is 4.4x fewer than 20,751 claims'",
+    "answer": "it IS 4.4x fewer element touches, and it is still 2.2x SLOWER, for the reason above"
+  },
+  "DISPOSITION": {
+    "code": "RETAINED as a qualified-correct alternative implementation and regression oracle",
+    "production": "NOT USED",
+    "statistic": "UNCHANGED — the rejection is on execution plan alone, exactly as the spec requires"
+  }
+}

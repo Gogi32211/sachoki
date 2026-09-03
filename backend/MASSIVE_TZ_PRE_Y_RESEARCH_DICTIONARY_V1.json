@@ -1,0 +1,411 @@
+{
+  "spec_id": "MASSIVE_TZ_PRE_Y_RESEARCH_DICTIONARY_V1",
+  "status": "HOLD",
+  "verdict_reason": "the inventory required by this gate found that the T-family is defined as a Pine-imported column on the legacy bars pipeline, not on the Massive X layer, and that no Z definition is frozen anywhere. The gate's own rule then requires HOLD rather than a default.",
+  "task_class": "SPECIFICATION_ONLY",
+  "x_layer": {
+    "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1": {
+      "cited": "5591685cfa33b62a",
+      "actual": "5591685cfa33b62a",
+      "match": true
+    },
+    "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1": {
+      "cited": "6ec73d5f462761f0",
+      "actual": "6ec73d5f462761f0",
+      "match": true
+    },
+    "MASSIVE_COARSE_EMA_FEATURE_PRODUCTION_V1": {
+      "cited": "36168e975efa742f",
+      "actual": "36168e975efa742f",
+      "match": true
+    },
+    "MASSIVE_COARSE_EMA_FEATURE_SPEC_V1": {
+      "cited": "ef01b67c22f6770f",
+      "actual": "ef01b67c22f6770f",
+      "match": true
+    },
+    "MASSIVE_RVOL_DICTIONARY_SPEC_V1": {
+      "cited": "6095852c4a2eeaa5",
+      "actual": "6095852c4a2eeaa5",
+      "match": true
+    },
+    "MASSIVE_RVOL_FEATURE_PRODUCTION_V1": {
+      "cited": "26bd469cc68d3248",
+      "actual": "26bd469cc68d3248",
+      "match": true
+    },
+    "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": {
+      "cited": "7c0a5ad6b17d7ae0",
+      "actual": "7c0a5ad6b17d7ae0",
+      "match": true
+    },
+    "MASSIVE_1M_STATE_TRANSITION_V1": {
+      "cited": "d73a88d836f36eea",
+      "actual": "d73a88d836f36eea",
+      "match": true
+    }
+  },
+  "tz_inventory": {
+    "artifacts_scanned": 439,
+    "t_family_artifacts": 185,
+    "dna_definitions": {
+      "T9": {
+        "artifact": "T9_DNA_X_V1.json",
+        "digest": "bf9f8a4a0f949886",
+        "definition_hash": "afe380362cde2ee5",
+        "definition": "t_sig=='T9' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==7). Raw semantics: prev1IsBear = close[1]<open[1] OR doji[1]; isBull = close>open strict; isInside = BODY-inside non-strict (max(o,c)<=max(o1,c1) AND min(o,c)>=min(o1,c1)); wicks excluded. Canonical = raw with T4,T6,T1G,T2G,T1,T2 resolved first. Reconstruction agreement 240,579/243,562 = 98.78%; 2,983 c",
+        "future_outcomes": "FORBIDDEN"
+      },
+      "T3": {
+        "artifact": "T3_DNA_X_V1.json",
+        "digest": "3435b7da47ece548",
+        "definition_hash": "fb27e73eef390533",
+        "definition": "t_sig=='T3' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==9). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND close>open AND open<open[1] AND open<close[1] AND close<open[1] AND close>close[1]. Canonical = raw with T4,T6,T1G,T2G,T1,T2,T9,T10 resolved first. Machine-verified: raw 207,296 is an EXACT subset of canonical 213,742 (priority exclusions 0); canoni",
+        "future_outcomes": "FORBIDDEN"
+      },
+      "T4": {
+        "artifact": "T4_DNA_X_V1.json",
+        "digest": "1231a543f3b2d94a",
+        "definition_hash": "10a19cd627d940cd",
+        "definition": "t_sig=='T4' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==1, FIRST in bullish priority). Raw: prevBear(close[1]<open[1] OR doji[1]) AND close>open AND max(o,c)>=max(o1,c1) AND min(o1,c1)>=min(o,c) AND |c-o|/max(|c1-o1|,1e-10)>=1.0 with use_wick=False, min_body_ratio=1.0 (T4_ENGULF_CONFIG_V1, from production config.py/signal_engine.py). Engine-vs-SQL on identic",
+        "future_outcomes": "FORBIDDEN"
+      },
+      "T5": {
+        "artifact": "T5_DNA_X_V1.json",
+        "digest": "d4fd7f922ea26dc3",
+        "definition_hash": "2775322838e81bd7",
+        "definition": "t_sig=='T5' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==11). Reproducible from daily OHLC as: prev_close<=prev_open AND close>=open AND open<prev_open AND open<prev_close AND close<prev_open AND prev_close>=close (NON-STRICT bull/bear, 99.25% agreement, 1,460 residual). Universe rows deduplicated to one per (ticker,date) with priority sp500<nasdaq<russell2k.",
+        "future_outcomes": "FORBIDDEN"
+      },
+      "T1": {
+        "artifact": "T1_DNA_X_V1.json",
+        "digest": "9ea6473715fba84e",
+        "definition_hash": "a1c9b7eb94331751",
+        "definition": "t_sig=='T1' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==5). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND open>=close[1] AND open[1]>=open AND close>open[1] AND close>open. Canonical = raw with T4,T6,T1G,T2G resolved first. Machine-verified: overlap 219,016/220,351 = 99.39%; residual 1,335 (0.61%) feed/tick class; priority exclusions T4 46,160 / T1G 2,0",
+        "future_outcomes": "FORBIDDEN"
+      }
+    },
+    "shared_definition_hash": {
+      "T1_DNA_X_V1": "a1c9b7eb94331751",
+      "T1_15M_X_ONLY_V1": "a1c9b7eb94331751",
+      "identical": true,
+      "meaning": "the 15m variant carries the SAME definition hash, so the state formula is shared and only the bar timeframe differs"
+    },
+    "z_family": {
+      "frozen_definition_found": false,
+      "only_occurrence": "z_sig inside MARKET_PHYSICS_STAGE25.json",
+      "that_artifact_is": "a stage record of alphabet / axes / dummies, not a dictionary",
+      "charter_status": "NAMED ONLY — the dictionary that defines them, with each one's coarse-TF parent and determinable-at rule, is a later step and is not frozen here"
+    },
+    "charter_feature_families": [
+      "T/Z state clocks",
+      "EMA topology",
+      "VWAP state and clocks",
+      "volume",
+      "slot-RVOL",
+      "CUM-RVOL",
+      "price/volume response",
+      "retest / new-low-after-attempt",
+      "cross-timeframe propagation"
+    ]
+  },
+  "blocking_findings": {
+    "severity": "BLOCKING — this is why the verdict is HOLD",
+    "finding_1": {
+      "name": "the T-family is not defined on the Massive X layer",
+      "frozen_definition": "t_sig=='T1' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==5). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND open>=close[1] AND open[1]>=open AND close>open[1] AND close>open. Canonical = raw with T4,T6,T1G,T2G resolved first. Machine-verified: overlap 219,0",
+      "definition_hash": "a1c9b7eb94331751",
+      "what_it_means": "a T-state is an imported Pine column materialised into the legacy `bars` table and priority-resolved against T4/T6/T1G/T2G. It is not a formula over the Massive derived base, and the Massive V1 layer contains no t_sig.",
+      "consequence": "the study cannot be executed on the qualified X layer without a computable definition that does not currently exist"
+    },
+    "finding_2": {
+      "name": "the frozen definition records that the formula does not reproduce the column",
+      "measured": "overlap 219,016 / 220,351 = 99.39%; residual 1,335 rows (0.61%) of feed/tick class",
+      "why_it_matters": "recomputing T1 from Massive OHLC would produce a population that is nearly, but provably not, the frozen one. A study that swapped one for the other would report on a different object than its provenance ledger describes.",
+      "priority_exclusions": "T4 46,160 / T1G 2,008 / T6 632 / T2G 313 — the resolution order is part of the definition and its authority is the Pine source, not an artifact"
+    },
+    "finding_3": {
+      "name": "no frozen Z definition exists",
+      "searched": "every artifact for a z-state definition",
+      "found": "one occurrence of z_sig, in a stage artifact",
+      "charter": "feature_families lists 'T/Z state clocks' as NAMED ONLY"
+    },
+    "gate_rule_applied": "If a parameter required to execute the current T/Z study is not explicitly frozen or explicitly decided in this pre-Y gate: HOLD. Do not insert a conventional/default value.",
+    "options": [
+      {
+        "id": "A",
+        "name": "freeze the Pine T-column semantics as a computable spec, then implement on Massive",
+        "requires": "the TZ_WLNBB Pine source as the authority, including the full priority-resolution order",
+        "effect": "T-states become recomputable on the coarse layer with a stated, measured divergence from the legacy materialisation",
+        "recommended": true,
+        "note": "the divergence must be MEASURED and recorded, not assumed to be the same 0.61%, because the source data differs"
+      },
+      {
+        "id": "B",
+        "name": "port T as a NEW pre-registered definition on Massive",
+        "effect": "a distinct family with its own provenance class; the legacy T results are not evidence for it and vice versa",
+        "recommended": false,
+        "risk": "two families with the same name and different populations is exactly the confusion this programme's naming discipline exists to prevent"
+      },
+      {
+        "id": "C",
+        "name": "scope the Massive V1 study to states definable from the frozen EMA/RVOL layer alone",
+        "effect": "T/Z deferred entirely; the study proceeds on the X layer that is actually qualified",
+        "recommended": false,
+        "note": "clean, but it is a different study from the one the charter names"
+      }
+    ]
+  },
+  "hypothesis_provenance": {
+    "binding": "PREVIOUSLY EXPOSED · HYPOTHESIS-GENERATING · NOT PRISTINE DISCOVERY",
+    "exposed_hypotheses": [
+      "M1->M2",
+      "M1:L3"
+    ],
+    "origin": {
+      "T9_15m": "POST-EXPOSURE",
+      "T3_15m": "POST-EXPOSURE",
+      "T1_15m": "POST-EXPOSURE"
+    },
+    "rule": "T1/T3/T9 were exposed to outcomes in the earlier 15m work. A larger, cleaner Massive dataset does not make those hypotheses new.",
+    "classification_required_per_family": [
+      "PREVIOUSLY_EXPOSED_HYPOTHESIS",
+      "CURRENT_PRE_REGISTERED_REPLICATION_ATTEMPT"
+    ],
+    "forbidden": "describing a repeated appearance of a previously examined T-state as an independent hypothesis because the pipeline is new",
+    "no_survivor_search": "the current family may not be built by testing only the components that survived the exposed 15m work"
+  },
+  "frozen_in_this_gate": {
+    "note": "everything specifiable WITHOUT inventing T/Z semantics is frozen here, so the eventual dictionary only has to add the piece that is genuinely missing",
+    "false_vs_unavailable": {
+      "FALSE": "all required X inputs are valid and the condition is not satisfied",
+      "UNAVAILABLE": "one or more required inputs are unavailable, invalid or contaminated",
+      "mapping_forbidden": "UNAVAILABLE -> FALSE",
+      "applies_to": [
+        "EMA",
+        "RVOL",
+        "coarse bars",
+        "state components",
+        "transition components"
+      ]
+    },
+    "feature_validity": {
+      "ema": "an EMA-dependent state is evaluable only where the exact required stream is VALID; INITIALIZATION_SENSITIVE and UNAVAILABLE do not satisfy it",
+      "rvol": "INSUFFICIENT_BASELINE / ZERO_BASELINE / CURRENT_INPUT_UNAVAILABLE / PATH_CONTAMINATED all mean not evaluable, never below-threshold",
+      "observation_level": [
+        "STATE_EVALUABLE",
+        "STATE_UNAVAILABLE_FEATURE"
+      ],
+      "cohort_never_shrinks": 476,
+      "availability_must_be_reported_for_every_family": true
+    },
+    "clock_contract": {
+      "distinct_timestamps": [
+        "measurement timestamp",
+        "information_available_at",
+        "transition timestamp",
+        "future outcome start timestamp"
+      ],
+      "rule": "a coarse state completing at t cannot be treated as known before t",
+      "one_minute_role": "a 1m clock may only timestamp the first causal minute at or after that availability boundary",
+      "no_intra_coarse_bar_hindsight": true
+    },
+    "registries_closed": {
+      "ema": {
+        "periods": [
+          9,
+          20,
+          50,
+          200
+        ],
+        "timeframes": [
+          "15m",
+          "1H",
+          "1D"
+        ],
+        "streams": 12,
+        "derived_families_forbidden": [
+          "slope",
+          "acceleration",
+          "distance buckets",
+          "cross thresholds",
+          "ordering families",
+          "touch/reclaim"
+        ]
+      },
+      "rvol": {
+        "families": [
+          "slot-RVOL",
+          "CUM-RVOL"
+        ],
+        "legacy_forbidden": [
+          "rolling-20-bar ratio",
+          "1.4x",
+          "1.8x",
+          "2.0x",
+          "percentile threshold",
+          "high-volume bucket"
+        ],
+        "threshold_source": "must already be part of a frozen named hypothesis; may never be chosen from the X distribution or from Y"
+      }
+    },
+    "early_close": {
+      "rvol": "unavailable by construction under the frozen same-session-type / min-15 policy",
+      "consequence": "any RVOL-conditioned hypothesis is unavailable on those 10 sessions",
+      "forbidden": [
+        "pooling normal sessions",
+        "lowering the minimum sample count",
+        "special-casing early closes"
+      ]
+    },
+    "execution_timing": {
+      "separate": [
+        "state observed",
+        "transition observed",
+        "earliest actionable time",
+        "hypothetical execution price"
+      ],
+      "forbidden": "executing at a price that helped construct the state",
+      "note": "a historical state-transition association is not automatically a tradeability result"
+    },
+    "primary_vs_descriptive": {
+      "classes": [
+        "PRIMARY_INFERENTIAL",
+        "REGISTERED_SECONDARY",
+        "DESCRIPTIVE_ONLY",
+        "CAPABILITY_ONLY"
+      ],
+      "must_stay_descriptive_unless_registered": [
+        "availability rates",
+        "state frequencies",
+        "component sizes",
+        "post-exposure survivor ratios",
+        "transition counts"
+      ],
+      "statement": "frequency alone is not predictive edge"
+    },
+    "reporting_firewall": {
+      "forbidden": [
+        "inventing a test",
+        "combining groups post hoc",
+        "adding a ratio",
+        "renaming descriptive recurrence as replication",
+        "promoting a sensitivity result"
+      ]
+    }
+  },
+  "not_frozen_and_why": [
+    {
+      "item": "computable T-state definition on the Massive X layer",
+      "blocked_by": "finding_1 / finding_2"
+    },
+    {
+      "item": "any Z-state definition",
+      "blocked_by": "finding_3"
+    },
+    {
+      "item": "transition dictionary",
+      "depends_on": "the state dictionary"
+    },
+    {
+      "item": "episode definition and overlap/dependence rules",
+      "depends_on": "the transition dictionary",
+      "note": "the principles are recorded above; the concrete rules cannot be written against states that do not yet exist"
+    },
+    {
+      "item": "complete search-space enumeration",
+      "depends_on": "states x transitions x conditioning",
+      "note": "the gate requires the count to be computable BEFORE Y; it is not computable before the states exist"
+    },
+    {
+      "item": "Y horizon set and multiplicity family boundaries",
+      "depends_on": "the enumerated family"
+    }
+  ],
+  "negative_fixtures": {
+    "count": 18,
+    "required": [
+      "an UNAVAILABLE condition cannot become FALSE",
+      "an INITIALIZATION_SENSITIVE EMA cannot satisfy a VALID-only condition",
+      "a contaminated coarse state cannot enter a COMPLETE-only state",
+      "a PATH_CONTAMINATED CUM-RVOL cannot satisfy a valid RVOL condition",
+      "an early-close unavailable RVOL cannot become below-threshold false",
+      "a future coarse bar cannot affect a current transition",
+      "a future outcome cannot influence state construction",
+      "same-bar execution cannot use a price already consumed by the state",
+      "an undeclared EMA period is rejected",
+      "an undeclared timeframe is rejected",
+      "an undeclared RVOL threshold is rejected",
+      "an undeclared state combination is rejected",
+      "an undeclared outcome horizon is rejected",
+      "post-Y search-family expansion is rejected",
+      "an overlapping repeated state cannot silently multiply independent episodes",
+      "an excluded security cannot enter the analysis",
+      "supplemental / new-vintage data cannot enter V1",
+      "the report layer cannot create an unregistered inferential statistic"
+    ]
+  },
+  "y_definition": {
+    "status": "NOT SPECIFIED",
+    "reason": "the gate permits defining Y mechanically, but a Y horizon is anchored to a transition timestamp and no transition dictionary can exist yet",
+    "computed": false,
+    "values_accessed": 0
+  },
+  "y_firewall": {
+    "y_exposed": 0,
+    "guard": {
+      "datasets_checked": 5,
+      "outcome_columns_found": [],
+      "passed": true,
+      "method": "schema of every bound X dataset scanned for forward/outcome column tokens; the X layer physically cannot serve a Y value"
+    },
+    "forbidden": [
+      "future outcomes",
+      "returns after candidate states",
+      "enrichment",
+      "win rates",
+      "theta",
+      "ranking hypotheses by result"
+    ]
+  },
+  "acceptance": {
+    "x_feature_layer_bound": true,
+    "cohort_476_unchanged": true,
+    "supplemental_use_zero": true,
+    "one_minute_role_unchanged": true,
+    "t_z_inventory_performed": true,
+    "states_machine_readable": false,
+    "transitions_machine_readable": false,
+    "all_required_semantics_defined": false,
+    "false_vs_unavailable_preserved": true,
+    "search_family_enumerated": false,
+    "exposed_hypotheses_identified": true,
+    "y_specified_not_calculated": false,
+    "multiplicity_frozen": false,
+    "episode_overlap_frozen": false,
+    "execution_timing_unambiguous": true,
+    "negative_fixtures_defined": true,
+    "y_access_guard_pass": true,
+    "y_exposed_zero": true,
+    "analysis_writes_zero": true
+  },
+  "failed_acceptance": [
+    "states_machine_readable",
+    "transitions_machine_readable",
+    "all_required_semantics_defined",
+    "search_family_enumerated",
+    "y_specified_not_calculated",
+    "multiplicity_frozen",
+    "episode_overlap_frozen"
+  ],
+  "mutations": {
+    "x_layer": 0,
+    "cohort": 0,
+    "charter": 0,
+    "analysis_writes": 0,
+    "y_exposure": 0
+  },
+  "decision_required": "choose option A, B or C in blocking_findings.options. A needs the TZ_WLNBB Pine source as the authority for the T-column and its priority-resolution order.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 06:51 +04"
+}

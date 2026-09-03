@@ -1,0 +1,141 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1_AMENDMENT_1",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1",
+    "parent_digest": "8f112d7e760953b5",
+    "parent_not_rewritten": true,
+    "nature": "MECHANICAL COMPLETENESS ONLY — no substantive hypothesis is changed"
+  },
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "permutation_authority": {
+    "artifact": "MASSIVE_NEW_FAMILY_PERMUTATION_MAP_AUTHORITY_V1",
+    "digest": "ccdaa6a6f08e8588"
+  },
+  "1_EXACT_Y_FORMULA": {
+    "Y_ATR": "max( max_t(HIGH_t - ENTRY_PRICE), max_t(ENTRY_PRICE - LOW_t) ) / ATR_PRIOR",
+    "t_range": "entry bar THROUGH that session's own final regular bar, INCLUSIVE",
+    "ENTRY_PRICE": "OPEN of bar index (r+1), where r is the claim's right-hand bar",
+    "PATH_INVARIANT": {
+      "rule": "ANY required entry / high / low bar unavailable -> PATH_UNAVAILABLE",
+      "explicit": "no silently shortened path",
+      "EARLY_CLOSE_is_not_this": "EARLY_CLOSE is a VALID structural horizon and is NOT PATH_UNAVAILABLE"
+    }
+  },
+  "2_ATR_PRIOR_AUTHORITY": {
+    "definition": "Wilder ATR(14) on 15m bars",
+    "bar_identity": "the PREVIOUS session's OWN final regular bar",
+    "authority_is_semantic_not_indexed": {
+      "rule": "'previous session's own final regular bar'",
+      "why": "idx 25 / idx 13 are OBSERVED EXAMPLES only; a hard-coded index would become a semantic defect on a future holiday or calendar change"
+    },
+    "security_key": "same k",
+    "session_key": "the session immediately preceding the claim's session for that k",
+    "availability_requirement": "age >= 14 under the declared new-Massive convention",
+    "validity": "ATR_PRIOR must be FINITE and > 0, else status ATR_PRIOR_UNAVAILABLE",
+    "why_previous_session_not_l_minus_1": [
+      "uniform across all three position families",
+      "excludes every opening-hour bar including the claim's own",
+      "avoids M1->M2 crossing a session boundary while the other two do not",
+      "conditioning guard: some tokens are volatility/volume states, so including the claim's own bar in the normaliser would partly absorb the signal"
+    ]
+  },
+  "3_STANDARDIZED_TEST_STATISTIC": {
+    "effect_size": "theta_j = median(Y|positive) - median(Y|evaluable non-positive) — UNCHANGED",
+    "SCALE_DRAWS": "b = 1..200",
+    "c_j": "median_b(theta_j^(b))",
+    "s_j": "1.4826 * MAD_b(theta_j^(b))",
+    "frozen_once": "c_j and s_j are computed ONCE from the SCALE draws and are NOT recomputed in the NULL phase",
+    "NULL_DRAWS": "b = 1..1800",
+    "T_j_obs": "(theta_j_obs - c_j) / s_j",
+    "T_j_b": "(theta_j^(b) - c_j) / s_j",
+    "M_b": "max over the STABLE test set of T_j^(b)",
+    "why_MAD_not_SD": "excursion outcomes are heavy-tailed; SD would be dominated by a few extreme draws",
+    "why_draw_split": "the draws forming the max-stat reference distribution are NOT used in the scale estimator, removing the circularity entirely",
+    "why_not_minP": "minP would replace the frozen max-stat and would need far larger B for 1/B resolution"
+  },
+  "4_PERMUTATION_COUNT": {
+    "B_SCALE": 200,
+    "B_NULL": 1800,
+    "B_TOTAL": 2000,
+    "min_achievable_p_adj": "1/1801 = 5.55e-4",
+    "gate_is_at": 0.05,
+    "feasibility_measured": {
+      "distinct_evaluable_pools": 5312,
+      "naive_per_draw_elements": 5338458129,
+      "pooled_per_draw_elements": 1281111044,
+      "reduction": "4.4x",
+      "note": "O(n) selection (partition) is required; O(n log n) sorting would make B=2000 infeasible"
+    }
+  },
+  "5_RNG": {
+    "BIT_GENERATOR": "PCG64",
+    "MASTER_SEED": 20260829,
+    "construction": "SeedSequence(MASTER_SEED).spawn(...)",
+    "NAMED_SUBSTREAMS": [
+      "SCALE",
+      "NULL",
+      "CI",
+      "SMOKE"
+    ],
+    "why_named": "changing the CI or SMOKE draw count must NEVER shift the SCALE or NULL draws"
+  },
+  "6_SHARED_MAP": "see PERMUTATION_MAP_AUTHORITY_V1 — whole session-date payload block, one pi per session_length_class per draw, shared across all securities, ALL THREE position pairs and all 20,751 claims",
+  "7_TIE_RULE": {
+    "comparison": ">= (inclusive)"
+  },
+  "8_ADJUSTED_P": {
+    "formula": "p_adj,j = (1 + #{b : M_b >= T_j_obs}) / (B_NULL + 1)",
+    "never_zero": true
+  },
+  "9_OUTCOME_UNAVAILABLE_HANDLING": {
+    "during_permutation": "payload moves WITH its availability; participation requires the mapped payload to be AVAILABLE",
+    "undefined_draw": "see PERMUTATION_STABILITY_GATE — 200/200 and 1800/1800 required, else PERMUTATION_SUPPORT_UNSTABLE with p_adj = 1 and T_j = -inf on ALL draws",
+    "no_variable_dimension_max": "every M_b is a maximum over the SAME stable test set"
+  },
+  "10_CONFIDENCE_INTERVAL": {
+    "method": "TWO-WAY CLUSTERED BOOTSTRAP",
+    "cluster_axes": [
+      "security",
+      "session_date"
+    ],
+    "weights": "w(s,d) = m_security(s) * m_date(d), independent multiplicities",
+    "statistic": "weighted_median(Y|positive) - weighted_median(Y|evaluable non-positive)",
+    "B_CI": 2000,
+    "interval": "95% percentile",
+    "rng": "named CI substream",
+    "role": "REPORTED UNCERTAINTY — not a promotion gate, not a multiplicity correction",
+    "NO_SILENT_FALLBACK": {
+      "forbidden": "falling back to security-only CI because two-way is expensive",
+      "if_infeasible": "CI_STATUS = NOT_COMPUTED_FEASIBILITY_HOLD, and a SEPARATE amendment is required for any alternative CI methodology"
+    }
+  },
+  "B_SMOKE": {
+    "B_SCALE_SMOKE": 20,
+    "B_NULL_SMOKE": 30,
+    "authority": "ZERO inferential authority",
+    "does_not_calibrate": [
+      "B_SCALE",
+      "B_NULL"
+    ],
+    "purpose": "plumbing and invariant checking only"
+  },
+  "UNCHANGED_FROM_PARENT": [
+    "claim-known time",
+    "entry rule",
+    "horizon",
+    "primary Y concept",
+    "one-sided alternative",
+    "promotion gate (FWER-adjusted p <= 0.05 AND theta > 0)",
+    "no numerical theta_min in V1",
+    "claim scope = movement enrichment only",
+    "registered k = 20,751",
+    "authority layers DEV / HOLDOUT / TRUE FORWARD"
+  ],
+  "NEXT": "SYNTHETIC_Y_SMOKE_SPEC_V1",
+  "NOT_STARTED": [
+    "synthetic-Y smoke",
+    "real Y"
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "spec_id": "GANN_HISTORICAL_EXPOSED_V1",
+  "status": "HISTORICAL_EXPOSED",
+  "family": "GANN",
+  "spec": "d12ac62f7e399a58",
+  "capability_result": "c7b0c4277d7e04bf",
+  "theta_status": "5ee199b6916b82af",
+  "k_actual": 3,
+  "phi": 0,
+  "n_perm": 999,
+  "n_phase_worlds": 999,
+  "rng_root": "827698b533703452",
+  "common_frame": {
+    "rows": 2869721,
+    "nullization_blocks": 3204,
+    "per_claim": {
+      "ASC": {
+        "treated": 141505,
+        "eligible_blocks": 6330
+      },
+      "DESC": {
+        "treated": 138569,
+        "eligible_blocks": 6294
+      },
+      "CONF": {
+        "treated": 80711,
+        "eligible_blocks": 6278
+      }
+    }
+  },
+  "observed": {
+    "GANN_ASC_TOUCH_V1": 18.0392,
+    "GANN_DESC_TOUCH_V1": 21.2192,
+    "GANN_CONFLUENCE_TOUCH_V1": 21.4619
+  },
+  "gate_A": {
+    "name": "PRIMARY INFERENTIAL NULL — paired outcome permutation",
+    "p95": 2.0932,
+    "median": 0.7201,
+    "min": -2.056,
+    "max": 3.2936,
+    "promotion": "Z_obs > p95, STRICTLY",
+    "result": {
+      "GANN_ASC_TOUCH_V1": "PASS",
+      "GANN_DESC_TOUCH_V1": "PASS",
+      "GANN_CONFLUENCE_TOUCH_V1": "PASS"
+    },
+    "null_digest": "f6b16467dcab422b"
+  },
+  "gate_B": {
+    "name": "REGISTERED SHIFTED-LATTICE FAMILY-WISE PLACEBO REFERENCE",
+    "p95": 22.7281,
+    "median": 21.5213,
+    "min": 19.4915,
+    "max": 24.55,
+    "result": {
+      "GANN_ASC_TOUCH_V1": "FAIL",
+      "GANN_DESC_TOUCH_V1": "FAIL",
+      "GANN_CONFLUENCE_TOUCH_V1": "FAIL"
+    },
+    "wording": "registered shifted-lattice placebo reference — NOT an exact null, NOT a second p-value",
+    "null_digest": "f9dcaac7c1883442"
+  },
+  "theta": "NO FROZEN ESTIMAND EXISTS — OFFICIALLY UNDEFINED — INTENTIONALLY NOT COMPUTED",
+  "verdict": {
+    "GANN_ASC_TOUCH_V1": "A PASS, B FAIL — a price-reaction association exists, but it is NOT specific to the Gann integer phase",
+    "GANN_DESC_TOUCH_V1": "A PASS, B FAIL — a price-reaction association exists, but it is NOT specific to the Gann integer phase",
+    "GANN_CONFLUENCE_TOUCH_V1": "A PASS, B FAIL — a price-reaction association exists, but it is NOT specific to the Gann integer phase"
+  },
+  "one_shot": "this exposure is not repeatable under the frozen inference; any change of tolerance, block definition, horizon or claim after seeing it is a new search branch",
+  "exposure_timestamp": "2026-08-24 04:20:28 +04",
+  "runtime_min": 62.5
+}

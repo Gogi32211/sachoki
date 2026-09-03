@@ -1,0 +1,87 @@
+{
+  "spec_id": "T3_TOKEN_T12_SEMANTIC_CLOSURE_V1",
+  "result": "REVIEW",
+  "question": "does registry token T12 denote a priority-resolved signal that the priority order makes unreachable, making support 328 contradictory?",
+  "answer": "NO. T11 and T12 are DISJOINT raw predicates in this implementation, not nested: T11 requires close >= prev open, T12 requires close < prev open. The premise T12_raw subset of T11_raw does not hold here, so the priority order never starves T12. Machine-checked below on 24.8M stored bars and by recomputing both predicates from OHLC.",
+  "semantic_role": "RAW PATTERN FLAG THAT IS ALSO THE RESOLVED CODE HERE",
+  "A_registry_row": {
+    "row": {
+      "token_id": "T12",
+      "family": "PATTERN_T",
+      "source": "bars",
+      "column": "sig_t12",
+      "kind": "flag",
+      "value": null,
+      "null_requirement": "OPPORTUNITY_LEVEL",
+      "exclusion_group": "",
+      "note": ""
+    },
+    "row_hash": "fa2a990cd3f69200",
+    "registry_digest": "08b73d474f17a778",
+    "registry_total": 172
+  },
+  "B_writer": {
+    "source_table": "bars (1H store) / bars (1D store)",
+    "column": "sig_t12",
+    "python_writers": [
+      "l43_triple_scan.py"
+    ],
+    "origin": "no Python assigns this column — it arrives with the Pine signal import (studio/importer.py carries it in the import column list); signal_engine.py holds the same predicate for recomputation",
+    "engine_predicate": [
+      "cT12 = p1Bull & isBull & (o < o.shift(1)) & (c < o.shift(1))"
+    ],
+    "engine_priority_line": [
+      "Priority bullish (highest wins):  T4 > T6 > T1G > T2G > T1 > T2 > T9 > T10 > T3 > T11 > T5 > T12"
+    ],
+    "signal_engine_digest": "aca4c3e43daea7d4"
+  },
+  "C_store_counts": {
+    "n": 24838705,
+    "t12_flag": 141314,
+    "t11_flag": 78854,
+    "co_occurrence": 0,
+    "flag_and_resolved": 141314,
+    "flag_not_resolved": 0,
+    "resolved_t12": 141314
+  },
+  "D_engine_vs_store": {
+    "bars_tested": 534547,
+    "tickers": 60,
+    "raw_t12": 2516,
+    "raw_t11": 1207,
+    "raw_t12_and_raw_t11": 0,
+    "raw_equals_flag": 2494,
+    "raw_not_flag": 22,
+    "flag_not_raw": 142,
+    "raw_t12_resolved_to_other_code": 22,
+    "other_codes": {
+      "T2": 1,
+      "T6": 1,
+      "T1": 2,
+      "T4": 5,
+      "T5": 4,
+      "T3": 2,
+      "T1G": 3,
+      "": 1,
+      "T2G": 3
+    },
+    "subset_claim_T12_in_T11": "REFUTED"
+  },
+  "E_support": {
+    "needle": {
+      "index_zero_based": 85,
+      "j": 376,
+      "claim_id": "1154862b563850e3",
+      "membership_hash": "7791cf04f3e279d3",
+      "representative": "T12→T2",
+      "family": "PREV_INTRADAY",
+      "length": 2,
+      "support": 328
+    },
+    "episodes_with_T12_bar_in_prev_1h_session": 3822,
+    "reading": "the needle counts episodes whose previous-day 1H session contains a T12 bar immediately followed by a T2 bar; the 328 is a strict-adjacency subset of the episodes above"
+  },
+  "capability_impact": "NONE — the needle is a legitimate claim; no capability rerun is implied by this closure",
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 2.2
+}

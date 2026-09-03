@@ -1,0 +1,55 @@
+{
+  "report_id": "MASSIVE_1M_P1B_EXECUTION_V1",
+  "spec": {
+    "artifact": "MASSIVE_1M_P1B_AMENDMENT_V1.json",
+    "digest": "adb713be1cd66424",
+    "rule_unchanged": "the bands were frozen before any of these sessions was requested"
+  },
+  "classification": "PASS_ADJUSTED",
+  "cases": {
+    "TSLA": {
+      "split_factor": 3,
+      "pre_session": "2022-08-24",
+      "effective_session": "2022-08-25",
+      "last_rth_close_pre": 297.15,
+      "first_rth_open_eff": 302.36,
+      "r": 0.9828,
+      "in_adjusted_band": true,
+      "in_unadjusted_band": false
+    },
+    "AMZN": {
+      "split_factor": 20,
+      "pre_session": "2022-06-03",
+      "effective_session": "2022-06-06",
+      "last_rth_close_pre": 122.35,
+      "first_rth_open_eff": 125.245,
+      "r": 0.9769,
+      "in_adjusted_band": true,
+      "in_unadjusted_band": false
+    }
+  },
+  "parameter_test": {
+    "digests": {
+      "TSLA": {
+        "true": "b0cc9785f7e45531edcdf05c4318e498e0e4a0e6cebe98b70759a7e58b4e4cd0",
+        "false": "af70b942cbb99c5e4e6c0d89efb2b3474867456af48ddd1cea0f41a51794aaa7"
+      },
+      "AMZN": {
+        "true": "300710dd7d94eae81dff6f5db11e77d32d3aee5b2a5e13b1c266a39bb3798061",
+        "false": "b61bdc397877f8d59001d397d0d52a177969974b030216dda672ba6e3a8f7293"
+      }
+    },
+    "identical": {
+      "TSLA": false,
+      "AMZN": false
+    }
+  },
+  "consequence": "the series is split-adjusted; vendor RESTATEMENT behaviour becomes a vintage concern, since the same history may change between extracts",
+  "supersedes_nothing": "P1 remains UNRESOLVED in its original artifacts",
+  "raw_archive": {
+    "requests": 8
+  },
+  "canonical_1m_rows_downloaded": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:35 +04"
+}

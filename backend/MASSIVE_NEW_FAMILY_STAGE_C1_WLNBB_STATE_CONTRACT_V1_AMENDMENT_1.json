@@ -1,0 +1,23 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_C1_WLNBB_STATE_CONTRACT_V1_AMENDMENT_1",
+  "amends": "d759fe7c7695eb03",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "l_sig was classified EFFECTIVELY_BOUNDED on a 3-security sample showing 100% L-digit coverage. A full-store census refutes it.",
+  "CENSUS": {
+    "scope": "all 476 securities, full Massive window",
+    "method": "count bars with age>=20 (bounded requirement met) where NO L-digit L1..L6 is active — those bars fall through to the named fallback list",
+    "bounded_bars": 5846542,
+    "bars_with_no_L_digit": 47,
+    "securities_affected": 41,
+    "rate": "0.0008%"
+  },
+  "superseded": "l_sig = EFFECTIVELY_BOUNDED (depth 20)",
+  "replacement": "l_sig = MIXED_BOUNDED_WITH_REAL_FALLBACK",
+  "rule": {
+    "bar has an active L-digit": "BOUNDED depth 20 — the ascending-digit concat path",
+    "bar has no active L-digit": "falls through to the named list (FRI34, BLUE, CCI_*, BE_UP, BO_UP, BX_UP, FUCHSIA_*, PRE_PUMP) and therefore INHERITS the anchored/unbounded carrier requirement of bo_up/bx_up/be_up on that row"
+  },
+  "significance": "47 of 5,846,542 is negligible for support but NOT for correctness: treating those rows as bounded would assert a value the state does not license. The rule is per-row, not per-column.",
+  "note": "the check tested all six digits L1..L6, matching the l_chart producer loop range(1,7) — not only L34/L22/L43"
+}

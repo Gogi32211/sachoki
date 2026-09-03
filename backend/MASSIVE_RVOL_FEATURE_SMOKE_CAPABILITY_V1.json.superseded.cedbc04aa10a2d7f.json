@@ -1,0 +1,204 @@
+{
+  "report_id": "MASSIVE_RVOL_FEATURE_SMOKE_CAPABILITY_V1",
+  "status": "MASSIVE_RVOL_FEATURE_SMOKE_CAPABILITY_V1_PASS",
+  "classification": "SMOKE_OR_CAPABILITY_STAGING_ONLY",
+  "explicitly_not": [
+    "PRODUCTION_RVOL",
+    "RESEARCH_EVIDENCE",
+    "T/Z DATA"
+  ],
+  "binding": {
+    "dictionary": "6095852c4a2eeaa5",
+    "derived_base": "5591685cfa33b62a",
+    "eligibility": "7c0a5ad6b17d7ae0",
+    "cohort": 476,
+    "sessions": 1254,
+    "families": [
+      "slot-RVOL",
+      "CUM-RVOL"
+    ]
+  },
+  "implementation_hash": "2a5e8ad39c006d76a06fc0a0a5d724537bdb4fe4dab207c50c5ce28f32c8bb84",
+  "staging_path": "/Volumes/QUANT_RESEARCH/staging/rvol_smoke_capability_v1/2a5e8ad39c006d76",
+  "smoke": {
+    "total": 12,
+    "positive_passed": 10,
+    "negative_passed": 2,
+    "results": [
+      {
+        "fixture": "F1",
+        "name": "minimum 15 prior samples is exact",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "14 priors -> VALID 0 / INSUFFICIENT 780; 15 priors -> VALID 780"
+      },
+      {
+        "fixture": "F2",
+        "name": "current session excluded from its own denominator",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "numerator 1000 over fifteen 100s -> 10.000000 (exactly 10.0; including itself would give 6.4000)"
+      },
+      {
+        "fixture": "F3",
+        "name": "window is a fixed trailing 20, not expanding",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "twenty 1s then twenty 100s -> baseline 100.0000 (expanding would give 50.5)"
+      },
+      {
+        "fixture": "F4",
+        "name": "normal history cannot serve an early-close session",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "20 normal priors present; early-close session sees 0 priors -> VALID 0"
+      },
+      {
+        "fixture": "F5",
+        "name": "UNOBSERVED is excluded from the baseline, not counted as zero",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "slot 4 baseline sample_count 0 (a zero-fill would have made it 15); current-minute reason NUMERATOR_UNOBSERVED"
+      },
+      {
+        "fixture": "N1",
+        "name": "an UNOBSERVED minute carrying a volume is rejected",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD unobserved_volume: an UNOBSERVED minute carries a volume; UNOBSERVED is never a zero and never"
+      },
+      {
+        "fixture": "N2",
+        "name": "a session that is neither 390 nor 210 minutes is rejected",
+        "kind": "NEGATIVE",
+        "passed": true,
+        "detail": "GUARD session_shape: 8 expected regular minutes is neither a normal (390) nor an early-close (210) s"
+      },
+      {
+        "fixture": "F6",
+        "name": "zero baseline emits UNAVAILABLE / ZERO_BASELINE",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "0/0 -> ZERO_BASELINE value nan; x/0 -> ZERO_BASELINE value nan (never 0, 1 or inf)"
+      },
+      {
+        "fixture": "F7",
+        "name": "genuine observed zeros stay valid baseline samples",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "sample_count 15 — the fifteen observed zeros were not ejected merely because their mean is 0"
+      },
+      {
+        "fixture": "F8",
+        "name": "a broken cumulative path stays unavailable to the session end",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "slots 1-4 valid, slots 5-390 PATH_CONTAMINATED after the gap"
+      },
+      {
+        "fixture": "F9",
+        "name": "no infinity, no epsilon floor, no substituted constant",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "every emitted ratio is finite or absent; the engine has no epsilon or floor"
+      },
+      {
+        "fixture": "F10",
+        "name": "first and last regular slots are included, attribution UNRESOLVED",
+        "kind": "POSITIVE",
+        "passed": true,
+        "detail": "slot 1 VALID · slot 390 VALID · boundary_print_attribution = UNRESOLVED (no auction claim)"
+      }
+    ],
+    "method": "synthetic fixtures with hand-computable answers — real data cannot demonstrate the ABSENCE of a future observation in a denominator; a constructed one can"
+  },
+  "capability_census": {
+    "label_free": true,
+    "y_exposed": 0,
+    "slot_rvol": {
+      "VALID": 197854994,
+      "UNAVAILABLE": 34080766,
+      "NUMERATOR_UNOBSERVED": 17956549,
+      "INSUFFICIENT_SAMPLES": 16124217
+    },
+    "cum_rvol": {
+      "VALID": 78098431,
+      "UNAVAILABLE": 153837329,
+      "INSUFFICIENT_SAMPLES": 26594436,
+      "PATH_CONTAMINATED": 127242893
+    },
+    "by_session_type": {
+      "normal": {
+        "slot_VALID": 197854994,
+        "slot_UNAVAILABLE": 33081166,
+        "slot_NUMERATOR_UNOBSERVED": 17874393,
+        "slot_INSUFFICIENT_SAMPLES": 15206773,
+        "cum_VALID": 78098431,
+        "cum_UNAVAILABLE": 152837729,
+        "cum_INSUFFICIENT_SAMPLES": 26120802,
+        "cum_PATH_CONTAMINATED": 126716927
+      },
+      "early": {
+        "slot_VALID": 0,
+        "slot_UNAVAILABLE": 999600,
+        "slot_NUMERATOR_UNOBSERVED": 82156,
+        "slot_INSUFFICIENT_SAMPLES": 917444,
+        "cum_VALID": 0,
+        "cum_UNAVAILABLE": 999600,
+        "cum_INSUFFICIENT_SAMPLES": 473634,
+        "cum_PATH_CONTAMINATED": 525966
+      }
+    },
+    "securities_with_any_VALID_slot": 476,
+    "securities_with_any_VALID_cum": 476,
+    "slot_valid_share": 0.8531,
+    "cum_valid_share": 0.3367
+  },
+  "early_close_confirmation": {
+    "expected": "UNAVAILABLE by construction — 10 sessions cannot supply 15 priors",
+    "measured_valid_values": 0,
+    "confirmed": true,
+    "note": "measured rather than assumed; any VALID here would mean the pooling barrier leaked"
+  },
+  "eleventh_parameter_watch": {
+    "found": false,
+    "probed": [
+      "current minute unobserved",
+      "exactly 14 vs exactly 15 samples",
+      "genuinely zero baseline",
+      "broken cumulative path"
+    ],
+    "derived_labels": {
+      "NUMERATOR_UNOBSERVED": "names an outcome already determined by the frozen authority (UNOBSERVED excluded from numerator and denominator)",
+      "INSUFFICIENT_SAMPLES": "names the outcome of parameter 3",
+      "PATH_CONTAMINATED": "names the charter's cumulative contamination rule",
+      "status": "LABELS FOR DETERMINED OUTCOMES, NOT NEW DECISIONS"
+    }
+  },
+  "no_epsilon_or_floor": {
+    "present": false,
+    "note": "np.maximum(cnt, 1) guards integer division only where the result is discarded; it is not a floor on any baseline value"
+  },
+  "independent_checks": {
+    "checks": {
+      "early_close_entirely_unavailable": true,
+      "no_eleventh_parameter": true,
+      "slot_states_only_valid_or_unavailable": true,
+      "cohort_preserved": true,
+      "y_exposed_zero": true,
+      "production_not_written": true
+    },
+    "passed": true,
+    "failed": []
+  },
+  "immutability": {
+    "dictionary": true,
+    "eligibility": true,
+    "rvol_production_writes": 0,
+    "y_exposure": 0
+  },
+  "authorises": "ONLY the RVOL production build. NOT T, Z or Y.",
+  "elapsed_sec": 171.0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 00:53 +04"
+}

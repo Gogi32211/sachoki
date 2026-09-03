@@ -1,0 +1,92 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_REGISTRATION_V1",
+  "STATUS": "DRAFT",
+  "Y_EXPOSED": 0,
+  "SEARCH_EXECUTED": 0,
+  "TOKEN_REGISTRY": "NOT_YET_FROZEN",
+  "k": "NOT_COMPUTED",
+  "writes": 0,
+  "massive_production": 0,
+  "binds": {
+    "exact_branch_closure": "85caaf7bbfa53b92",
+    "pine_replay": "cc20ef7f94549aad"
+  },
+  "IDENTITY": {
+    "this_family_IS": "a new pre-Y registration built only on reproducible, Massive-producible X",
+    "this_family_IS_NOT": [
+      "a cleaned 35,587 family",
+      "a subset repair of the frozen family",
+      "a continuation of the frozen claim_order registry",
+      "an inheritance of the frozen k or claim ordering"
+    ],
+    "outside_candidate_authority_surface": [
+      "bar_line5",
+      "wyc_phase",
+      "ad_fresh",
+      "ad_cluster"
+    ],
+    "reason": "these four are WRITER_NOT_RECOVERED_FROM_PRESERVED_AUTHORITIES (85caaf7bbfa53b92)"
+  },
+  "PROVENANCE": {
+    "classification": [
+      "PRE_Y_WITHIN_MASSIVE_BRANCH",
+      "HISTORICALLY_EXPOSED_HYPOTHESIS_LINEAGE",
+      "NOT_PRISTINE_DISCOVERY"
+    ],
+    "statement": "Y has not been opened on Massive for this branch, but the token families and structural ideas descend from the historically exposed T-family programme. This is NOT globally pristine discovery and must never be described as such."
+  },
+  "ELIGIBILITY_CORRECTION": {
+    "wrong": "64 qualified-or-authorized == 64 usable in the new family",
+    "right": "qualification for the T1 historical role does NOT transfer to an arbitrary new inferential role",
+    "two_distinct_gates": [
+      "MASSIVE_PRODUCIBLE + DEPENDENCIES_COMPLETE",
+      "NEW_FAMILY_ROLE_ALLOWED (explicit role rebinding)"
+    ],
+    "worked_example": "physics (11) is PASS_FOR_T1_FAMILY_X_DEPENDENCY, but its Massive production was bound to bar_line5 -> wvf_spike, and bar_line5 is now unrecoverable. Physics therefore does NOT automatically enter the new family.",
+    "consequence": "the real new-family X surface is NOT 64 and NOT 80; it is whatever survives the eligibility matrix"
+  },
+  "WINDOWS": {
+    "DEVELOPMENT_CUTOFF": "<= 2026-08-06",
+    "cutoff_justification": "the last frozen historical-family population session is 2026-08-06 (census in e1d9a251ea58a65f), so development search does not consume anything after it",
+    "HISTORICAL_RESERVED_OOS": ">= 2026-08-07",
+    "OOS_correct_name": "SEALED_HISTORICAL_HOLDOUT",
+    "OOS_naming_rule": "2026-08-07+ is pre-existing historical data. It must NEVER be called true forward evidence.",
+    "TRUE_FORWARD_CONFIRMATION": "the first eligible session AFTER MASSIVE_NEW_FAMILY_PRESPEC_V1 becomes FROZEN",
+    "immature_outcome_semantics": "UNAVAILABLE — never FALSE, never NO_BREAKOUT, never silently dropped"
+  },
+  "FREEZE_PRECONDITIONS": [
+    "remaining 16 column ports complete",
+    "MASSIVE_15M_ATR14_PORT_BINDING_V1 sealed",
+    "MASSIVE_NEW_FAMILY_FEATURE_ELIGIBILITY_MATRIX_V1 complete with role rebinding",
+    "actual reproducible X surface determined"
+  ],
+  "FREEZE_CONTENTS_WHEN_READY": [
+    "eligible atomic X surface",
+    "token dictionary",
+    "sequence grammar",
+    "allowed horizons",
+    "support floors",
+    "episode definition",
+    "control population",
+    "estimands",
+    "multiplicity correction",
+    "permutation scheme",
+    "claim hierarchy",
+    "historical holdout",
+    "forward confirmation rule"
+  ],
+  "ORDER_AFTER_FREEZE": [
+    "enumerate claims",
+    "derive new k",
+    "synthetic-Y engine smoke",
+    "seal",
+    "first real Y"
+  ],
+  "HARD_RULE": "no feature may be added to the candidate surface after this registration is FROZEN — that would be search-space drift. Expansion must happen BEFORE freeze, which is why the remaining 16 ports come first.",
+  "not_done": [
+    "nothing enumerated",
+    "no k computed",
+    "no search executed",
+    "no Y touched"
+  ]
+}

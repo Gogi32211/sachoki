@@ -1,0 +1,119 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PHASE1_PRODUCTION_V1",
+  "status": "ACCEPTED",
+  "run_id": "PHASE1_R1",
+  "EXECUTION_PATH": "VERIFIED_SERIAL_REFERENCE",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "columns": 39,
+  "securities": "476 / 476",
+  "base_rows": 15445454,
+  "output_rows": 602372706,
+  "TERMINAL_CERTIFICATION": {
+    "sentinel": "PHASE1_FINAL_COMPLETE.json",
+    "criteria": {
+      "exit_code_zero": true,
+      "output_stable": true,
+      "checkpoint_FINISHED": true,
+      "completed_securities_476": true,
+      "producer_errors_zero": true,
+      "terminal_DONE_line": true,
+      "no_traceback_in_log": true,
+      "db_opens_clean": true,
+      "rows_exact": true,
+      "columns_39": true,
+      "per_column_uniform": true
+    },
+    "EXIT_CODE_CAPTURED": true,
+    "exit_code": 0,
+    "significance": "FIRST run certified under MASSIVE_NEW_FAMILY_PRODUCER_LAUNCH_AND_COMPLETION_RULE_V1 — exit_code==0 was a REQUIRED criterion, not the DONE-line substitute STAGE_D_R2 needed",
+    "output_db": {
+      "sha16": "91a4502c6613f03a",
+      "bytes": 4738527232
+    },
+    "elapsed_s": 11338
+  },
+  "IDENTITY_BINDING": {
+    "sentinel": "PHASE1_FINAL_COMPLETE.json",
+    "sha16": "91a4502c6613f03a",
+    "exit_code": 0,
+    "securities": "476 / 476",
+    "verdict": "BOUND"
+  },
+  "ACCEPTANCE": {
+    "OVERALL": "PASS",
+    "ROWS": "PASS — 39 x 15,445,454 = 602,372,706 exact, per-column uniform",
+    "GENERIC_NULL_INVARIANTS": "PASS — valid_and_null=0, nonvalid_and_notnull=0, wrong_slot=0 across all 39",
+    "DUPLICATES": "PASS (0)",
+    "TEMPORAL": "PASS — valid_on_non_COMPLETE_bar=0 for all 39; age floors: 2 (T/Z/g/suffix/body_wick/vol), 22 (vbo_up), NOT_APPLICABLE (sig_tz_flip, FINITE_PERSISTENT_STATE)",
+    "TZ_ONE_HOT_EXCLUSIVITY": "PASS — max_simultaneous=1, violations=0 across 25 T/Z columns",
+    "SUFFIX_WRAP_GUARD": "PASS — segment_head_VALID_rows=0; the np.roll wrap-around contamination never reaches the surface"
+  },
+  "AVAILABILITY_SUMMARY": {
+    "depth_2_columns_33": "9,484,243 VALID (61.40%)",
+    "vbo_up": "5,654,454 VALID (36.61%) — trigger depth 22",
+    "sig_tz_flip": "4,677,779 VALID (30.29%) — state-identifiability, not a depth floor",
+    "observation": "sig_tz_flip 30.29% is almost exactly sig_buy's 30.29% (4,679,000); both are gated by an EMA50-class dependency, reached independently"
+  },
+  "FIRES_ON_VALID": {
+    "sig_z4": 646603,
+    "sig_z11": 31025,
+    "sig_t1": 416995,
+    "sig_vol_5x": 56007,
+    "sig_vol_20x": 645,
+    "sig_z12": 24068,
+    "sig_z10": 59872,
+    "sig_t4": 696337,
+    "sig_z1g": 71611,
+    "sig_z2g": 927290,
+    "sig_g1": 26909,
+    "sig_z7": 148016,
+    "sig_g4": 48976,
+    "sig_t3": 427317,
+    "sig_vol_10x": 3623,
+    "sig_z3": 429430,
+    "sig_g2": 8909,
+    "sig_z5": 91950,
+    "sig_z9": 644608,
+    "sig_z2": 1196234,
+    "sig_t6": 71583,
+    "sig_t12": 19243,
+    "sig_t1g": 101366,
+    "sig_g11": 33146,
+    "sig_t2": 1244017,
+    "sig_t9": 643459,
+    "sig_t10": 59656,
+    "sig_t11": 7745,
+    "sig_t2g": 929362,
+    "sig_z1": 390945,
+    "sig_tz_flip": 161694,
+    "sig_z6": 116796,
+    "vbo_up": 293790,
+    "sig_t5": 88715
+  },
+  "NONEMPTY_STRING": {
+    "wick_suffix": 8125361,
+    "full_suffix": 9484243,
+    "bar_body_wick": 9484243,
+    "close_suffix": 9484243,
+    "ne_suffix": 9484243
+  },
+  "PRELAUNCH_DEFECTS": {
+    "artifact": "MASSIVE_NEW_FAMILY_PHASE1_PRELAUNCH_DEFECTS_AND_STANDING_RULES_V1",
+    "digest": "5dceb69c2110b6a8",
+    "count": 3,
+    "note": "all three would have produced a schema-valid, row-count-correct, entirely wrong surface"
+  },
+  "AUTHORITIES": {
+    "producer_binding": "628a0a2bc655a241",
+    "depth_and_availability": "cd1e0ca82135e02f",
+    "sig_tz_flip_state": "996570d102551aa5",
+    "vbo_up_state": "7bf34a5275f152e3"
+  },
+  "DURABLE_LAYER_STATUS": {
+    "39_new": "CLOSED",
+    "30_existing": "d6 (6) + pd12 (12) + stageC4 (12)",
+    "total": 69,
+    "next": "canonical physical 69-column X surface, one certified digest"
+  }
+}

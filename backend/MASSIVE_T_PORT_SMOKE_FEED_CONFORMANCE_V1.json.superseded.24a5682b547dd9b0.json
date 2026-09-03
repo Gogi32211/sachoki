@@ -1,0 +1,508 @@
+{
+  "report_id": "MASSIVE_T_PORT_SMOKE_FEED_CONFORMANCE_V1",
+  "status": "HOLD",
+  "hold_reason": "EXTERNAL_VOLUME_UNREADABLE — Layers 2 and 3, the 476-cohort evaluability census and the price-basis diagnostics could not be run",
+  "task_class": "SMOKE_AND_CONFORMANCE",
+  "authorities": {
+    "amendment_2": "bd9292853ee10f2c",
+    "provenance": "a8e1f3725ddfe7a1",
+    "base_spec": "545d293b4f1e4653",
+    "producer_t_slice": "2901107d9baa6320",
+    "coarse_source": {
+      "artifact": "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1.json",
+      "digest": "6ec73d5f462761f0",
+      "readable": false
+    },
+    "eligibility": {
+      "artifact": "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1.json",
+      "digest": "7c0a5ad6b17d7ae0",
+      "readable": false
+    }
+  },
+  "implementation_hash": "8295a9ec1ab8c621d30c56bd2cf5beee28fec6a455af6cac7a2c181223a8642d",
+  "port_implementation_hash": "5ab5390171e0d5d2206d4aed82a3a85d4600c98be0352cf59c1dad1da0c672ef",
+  "harness_hash": "15b8b757913b1cebbc2ae84d595d4ad34370b120e59e533d9f2143a6522f2298",
+  "hash_split": {
+    "note": "the earlier run reported ONE combined hash (ee48e008e7c20b10) over port + verifier + harness + producer; it could not distinguish a port change from a fixture correction, so it is split here",
+    "port_scope": [
+      "t_port_v1.py",
+      "t_port_verifier_v1.py",
+      "t_port_census_v1.py"
+    ],
+    "harness_scope": [
+      "t_port_smoke_conformance_v1.py"
+    ],
+    "producer_bound_by": "T-slice digest 2901107d9baa6320",
+    "prior_combined_hash": "ee48e008e7c20b10",
+    "prior_hash_was_mixed": true
+  },
+  "implementation_frozen_before_first_fixture": true,
+  "hash_drift": {
+    "prior_port": "5ab5390171e0d5d2",
+    "actual_port": "5ab5390171e0d5d2",
+    "prior_harness": "5a183315f801b568",
+    "actual_harness": "15b8b757913b1ceb",
+    "changed": [
+      "harness"
+    ],
+    "permission_change_is_not_a_mutation": true,
+    "rule": "restoring volume access mutates no artifact and no code; a hash may differ ONLY because the corresponding source actually changed"
+  },
+  "timeframe_registry_guard": {
+    "amendment_2_frozen_15m_only": true,
+    "amendment_2_forbidden_list": [
+      "1D",
+      "1H",
+      "1m",
+      "5m"
+    ],
+    "amendment_2_forbids_1D": true,
+    "scope_research_unchanged": true,
+    "scope_1D_is_diagnostic_only": true,
+    "scope_forbidden_consequences": 6,
+    "scope_family_not_enlarged": true,
+    "port_registered_timeframe": "15m",
+    "port_is_15m": true,
+    "research_registry": [
+      "15m"
+    ],
+    "diagnostic_registry": [
+      "1D"
+    ],
+    "registries_disjoint": true,
+    "research_registry_is_15m_alone": true,
+    "verdict": "PASS",
+    "enforces": "adding a 1D reader cannot become a research-registry expansion; the research registry is 15m alone and 1D stays DIAGNOSTIC_ONLY_NOT_HYPOTHESIS_REGISTRATION"
+  },
+  "frozen_config_integrity": {
+    "fingerprint_before": "4d6344bed8fc025d",
+    "fingerprint_after": "4d6344bed8fc025d",
+    "unchanged": true,
+    "covers": [
+      "use_wick",
+      "min_body_ratio",
+      "doji_thresh",
+      "1e-10 guard",
+      "priority chain",
+      "bc->sig_id mapping",
+      "sig_id->name mapping",
+      "registered timeframe",
+      "call context",
+      "required prior bars"
+    ],
+    "enforces": "Layer 2 and Layer 3A are diagnostics, not tuning inputs — no measured result can reach these values, because they are proven identical after the run",
+    "also_catches": "a negative fixture that mutates a module global and fails to restore it"
+  },
+  "call_context_preflight": {
+    "established": true,
+    "facts": {
+      "dedup_on_index_then_sort_ascending": true,
+      "vendor_requested_ascending": true,
+      "adjusted_series": true,
+      "utc_datetime_index": true,
+      "trim_to_last_N_rows": true,
+      "single_ticker_per_call": true,
+      "producer_normaliser": true,
+      "caller_source": true,
+      "norm_does_not_sort": true,
+      "norm_does_not_dropna": true,
+      "norm_does_not_dedup": true
+    },
+    "input_source": "Massive/Polygon aggregates via data_polygon.fetch_bars (adjusted=true, vendor sort=asc)",
+    "security_scope": "ONE ticker per compute_signals call",
+    "range_scope": "tail(bars) of a days-derived window; optional `since` filter",
+    "row_ordering": "chronologically ASCENDING (df.sort_index())",
+    "timestamp_ordering": "UTC DatetimeIndex",
+    "duplicate_handling": "df[~df.index.duplicated()] — first kept, BEFORE computation",
+    "rows_span_multiple_sessions": true,
+    "dataframe_reset_by_session": false,
+    "filtering_before_compute": "`since` filter and tail(bars) only; no session or time-of-day filter",
+    "ohlc_consumed": [
+      "open",
+      "high",
+      "low",
+      "close"
+    ],
+    "volume_consumed": false,
+    "null_drop_behaviour": "NONE — norm_ohlcv neither sorts, drops nor deduplicates; ordering is therefore entirely the caller's",
+    "shift1_semantics": "the immediately preceding row of this security's deduplicated ascending series",
+    "session_boundary": "CROSSED — classified SESSION_CONTINUOUS",
+    "producer_export_timeframe": "1d (the legacy export); the port is 15m ONLY",
+    "note": "the producer imposes no ordering discipline of its own, which is exactly why this preflight was mandatory"
+  },
+  "layer_1_semantic_correctness": {
+    "expectation": "EXACT",
+    "evaluable_bars": 39999,
+    "producer_vs_port": 0,
+    "port_vs_verifier": 0,
+    "producer_vs_verifier": 0,
+    "raw_predicate_mismatches": {
+      "T1G": 0,
+      "T1": 0,
+      "T2G": 0,
+      "T2": 0,
+      "T3": 0,
+      "T4": 0,
+      "T5": 0,
+      "T6": 0,
+      "T9": 0,
+      "T10": 0,
+      "T11": 0,
+      "T12": 0
+    },
+    "result": "EXACT",
+    "note": "three independent implementations: vectorised producer, vectorised port, scalar if/elif verifier"
+  },
+  "layer_2_historical_materialization": {
+    "status": "BLOCKED",
+    "reason": "bars.t_sig unreadable"
+  },
+  "layer_3_source_divergence": {
+    "status": "BLOCKED",
+    "reason": "Massive 15m coarse production unreadable"
+  },
+  "massive_evaluability_census": {
+    "status": "BLOCKED",
+    "cohort": 476
+  },
+  "price_basis": {
+    "status": "INDICATIVE_COMPATIBILITY_PENDING_FULL_CONFORMANCE",
+    "upgraded": false,
+    "reason": "matched comparison not runnable"
+  },
+  "per_state": {
+    "raw_counts": {
+      "T1G": 1340,
+      "T1": 2015,
+      "T2G": 902,
+      "T2": 1763,
+      "T3": 854,
+      "T4": 2828,
+      "T5": 1822,
+      "T6": 1952,
+      "T9": 1929,
+      "T10": 2007,
+      "T11": 1332,
+      "T12": 930
+    },
+    "priority_resolved_counts": {
+      "T4": 2828,
+      "T6": 1952,
+      "T1G": 1340,
+      "T2G": 902,
+      "T1": 1336,
+      "T2": 1323,
+      "T9": 1774,
+      "T10": 1872,
+      "T3": 854,
+      "T11": 1332,
+      "T5": 1822,
+      "T12": 930
+    },
+    "scope": "Layer 1 corpus only — NOT a Massive population statistic"
+  },
+  "fixtures": [
+    {
+      "fixture": "L1",
+      "name": "producer vs port vs verifier — EXACT on identical input",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "39,999 evaluable bars; producer!=port 0, port!=verifier 0, producer!=verifier 0"
+    },
+    {
+      "fixture": "L1b",
+      "name": "raw predicate agreement port vs verifier (pre-priority)",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "12 families, total mismatches 0"
+    },
+    {
+      "fixture": "P1",
+      "name": "every registered T state represented (raw and priority-resolved)",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "raw min 854, resolved min 854"
+    },
+    {
+      "fixture": "P2",
+      "name": "priority winner is the highest-ranked competing predicate",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "1,409 bars with >=2 raw predicates; winner matches rank-1 in all"
+    },
+    {
+      "fixture": "P3",
+      "name": "isDoji is EXACT equality and drives prior-bar bearishness",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "prev c==o exactly -> T4"
+    },
+    {
+      "fixture": "P4",
+      "name": "a near-doji is NOT a doji despite doji_thresh=0.05",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "prev body/range = 0.0167 (<0.05) -> T6, not T4"
+    },
+    {
+      "fixture": "P5",
+      "name": "prevBodySafe binds to 1e-10 when the previous body is exactly zero",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "pBody=0 -> safe=1e-10 -> ratio unbounded, so engOk rests on the edges alone"
+    },
+    {
+      "fixture": "P6",
+      "name": "use_wick=False — wick-engulf does not engulf",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "current wicks span the prior wicks but bodies do not -> T2"
+    },
+    {
+      "fixture": "P7",
+      "name": "min_body_ratio=1.0 is inclusive at the boundary",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "cBody == pBody exactly and the bodies coincide (ratio 1.0) -> T4"
+    },
+    {
+      "fixture": "P7b",
+      "name": "body-edge engulf implies cBody >= pBody, so ratio<=1.0 cannot bind",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "0 counterexamples in 9,465 edge-engulfing bars; only min_body_ratio > 1.0 is semantically active"
+    },
+    {
+      "fixture": "P8",
+      "name": "raw prior-bar doji == resolved Z7 in this producer (proven, not assumed)",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "3,639 doji bars, none of which is bull or bear, so anyB=anyZ=False and cZ7c collapses to isDoji"
+    },
+    {
+      "fixture": "P9",
+      "name": "state code mapping identical to the producer",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "bc->sig_id and sig_id->name match signal_engine exactly"
+    },
+    {
+      "fixture": "P10",
+      "name": "SESSION_CONTINUOUS shift(1) crosses the boundary, and it matters",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "first bar of session 2: continuous -> 'T6', session-reset -> ''; differs=True"
+    },
+    {
+      "fixture": "P11",
+      "name": "first evaluable observation after unavailable history",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "states ['UNAVAILABLE', 'UNAVAILABLE', 'UNAVAILABLE', 'AVAILABLE']"
+    },
+    {
+      "fixture": "P12",
+      "name": "session-partitioned census engine == validated 1-D port",
+      "kind": "POSITIVE",
+      "passed": true,
+      "detail": "3 securities x 5 sessions, 387 compared bars incl. planted UNOBSERVED at a session boundary; mismatches 0"
+    },
+    {
+      "fixture": "N1",
+      "name": "Pine mintick semantics cannot silently replace the guard",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N2",
+      "name": "authority is bound by module identity + T-slice digest",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N3",
+      "name": "use_wick mutation detected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N4",
+      "name": "min_body_ratio mutation detected (active direction)",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N5",
+      "name": "1e-10 guard mutation detected (active direction)",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N6",
+      "name": "threshold-doji cannot replace exact equality",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N7",
+      "name": "priority permutation detected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N8",
+      "name": "wrong state-code mapping detected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N9",
+      "name": "non-15m timeframe rejected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "GUARD timeframe: '1H' is not registered; Amendment 2 freezes 15m ONLY, and the presence of"
+    },
+    {
+      "fixture": "N10",
+      "name": "contaminated current bar cannot become FALSE",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N11",
+      "name": "unavailable required prior bar cannot become FALSE",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N12",
+      "name": "reordered caller dataframe rejected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "GUARD ordering: the frozen call context requires a chronologically ascending index; the po"
+    },
+    {
+      "fixture": "N13",
+      "name": "changed session-slicing semantics detected",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N14",
+      "name": "port emits no research-facing Z label",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N15",
+      "name": "no tunable config path exists on the port entry point",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    },
+    {
+      "fixture": "N16",
+      "name": "supplemental / new-vintage V1 data rejected",
+      "kind": "NEGATIVE",
+      "passed": null,
+      "detail": "BLOCKED — requires the frozen cohort binding on the external volume"
+    },
+    {
+      "fixture": "N17",
+      "name": "no Y-side symbol reachable from the port",
+      "kind": "NEGATIVE",
+      "passed": true,
+      "detail": "detected"
+    }
+  ],
+  "fixtures_passed": 31,
+  "fixtures_blocked": 1,
+  "fixtures_total": 32,
+  "guard_sensitivity_band": {
+    "changes_output": {
+      "1e-10": false,
+      "1e-06": false,
+      "0.0001": false,
+      "0.005": false,
+      "0.01": true,
+      "0.02": true
+    },
+    "interpretation": "the guard is inert for any value below the data's minimum body and becomes active around one tick; on a 2-decimal lattice the ratio==1.0 comparison is additionally float-marginal",
+    "taxonomy": "PREDICATE_BOUNDARY_SENSITIVITY",
+    "inherited_faithfully": "the producer behaves identically — Layer 1 is exact"
+  },
+  "independent_verifier": {
+    "module": "t_port_verifier_v1.py",
+    "imports_port": false,
+    "imports_producer": false,
+    "method": "scalar row loop with an explicit if/elif priority ladder",
+    "same_input_mismatches": 0
+  },
+  "findings": [
+    {
+      "finding": "raw prior-bar doji and resolved Z7 COINCIDE in this producer",
+      "proof": "every Z condition requires isBear and every T condition requires isBull, so on a doji bar anyB=anyZ=False and cZ7c == isDoji",
+      "consequence": "Amendment 2's rule stands and is now proven harmless rather than merely obeyed"
+    },
+    {
+      "finding": "the session-boundary choice is observable",
+      "detail": "on a constructed two-session frame the first bar of session 2 differs between SESSION_CONTINUOUS and session-reset",
+      "consequence": "binding it in the preflight was necessary; it could not have been left to be discovered from results"
+    },
+    {
+      "finding": "min_body_ratio <= 1.0 is redundant under use_wick=False",
+      "proof": "the body-edge conditions cTop>=pTop and pBot>=cBot imply cBody = cTop-cBot >= pTop-pBot = pBody; measured with 0 counterexamples over the corpus",
+      "consequence": "only min_body_ratio > 1.0 is semantically active; a downward mutation is a no-op rather than an undetected change",
+      "fixture_corrected": "P7 originally used bars whose ratio was 1.0 but whose bodies did not engulf, so it tested nothing"
+    },
+    {
+      "finding": "the 1e-10 guard has a measured inert band",
+      "detail": "it binds only where the previous body falls below it, i.e. after a doji, and the current body must then clear it",
+      "consequence": "registered as PREDICATE_BOUNDARY_SENSITIVITY and carried into the divergence taxonomy for the blocked feed comparison"
+    }
+  ],
+  "divergence_taxonomy_registered": [
+    "LEGACY_STORAGE_PRECISION",
+    "INPUT_VINTAGE_DIFFERENCE",
+    "SOURCE_OHLC_DIFFERENCE",
+    "PREDICATE_BOUNDARY_SENSITIVITY",
+    "CALL_CONTEXT_DIFFERENCE",
+    "PRIORITY_DIFFERENCE",
+    "IMPLEMENTATION_DEFECT",
+    "UNAVAILABLE_INPUT",
+    "UNRESOLVED"
+  ],
+  "no_conformance_threshold_invented": true,
+  "blocked_components": [
+    "MASSIVE_T_EVALUABILITY_CENSUS (476 cohort)",
+    "LAYER_2 historical materialization conformance vs bars.t_sig",
+    "LAYER_3 legacy-vs-Massive source/input divergence",
+    "PRICE_BASIS full matched diagnostics",
+    "N16 supplemental/new-vintage rejection"
+  ],
+  "blocker": {
+    "kind": "MACOS_TCC_FILE_ACCESS",
+    "symptom": "PermissionError [Errno 1] Operation not permitted on /Volumes/QUANT_RESEARCH despite the volume being mounted",
+    "mount_guard": "fail-closed; sentinel_uuid_matches could not be read",
+    "nothing_written": true,
+    "remedy": "grant the Claude Code app Full Disk Access in System Settings and restart it; this is a user action"
+  },
+  "t_production_writes": 0,
+  "z_research_outputs": 0,
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "authorizes": null,
+  "sealed_at": "2026-08-26 10:59 +04"
+}

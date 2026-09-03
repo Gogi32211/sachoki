@@ -1,0 +1,43 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PRODUCER_LAUNCH_AND_COMPLETION_RULE_V1",
+  "status": "FROZEN",
+  "FUTURE_LAUNCH_RULE": {
+    "rule": [
+      "producer launcher retains PID and exit status",
+      "launcher calls wait()",
+      "ONLY exit_code == 0 enters completion certification"
+    ],
+    "applies_from": "next producer run onward",
+    "not_retrofittable_to": "STAGE_D_R2 (launched nohup-detached)"
+  },
+  "R2_SUBSTITUTE": {
+    "exit_code_captured": false,
+    "substitute_invariants": [
+      "terminal DONE line (printed only after the loop and the final atomic sentinel)",
+      "checkpoint FINISHED == True",
+      "completed_securities == 476",
+      "producer_errors == 0",
+      "no Traceback in log",
+      "output DB opens clean",
+      "output_rows == 6 x base_rows"
+    ],
+    "PID_semantics": "PID disappearance is NOT an exit-code substitute; it proves only that the producer is no longer writing output"
+  },
+  "GATE_ORDER": [
+    "WAIT producer PID gone",
+    "WAIT transient WAL/temp artifacts settle",
+    "STABLE-OUTPUT guard: digest+size read twice, must match",
+    "evaluate terminal invariants",
+    "certify or refuse"
+  ],
+  "FAILURE_CLASSIFICATION": {
+    "DONE present but PID alive": "WAITING_FOR_PROCESS_EXIT (NOT INCOMPLETE_RUN)",
+    "PID gone but DB unopenable or rows not reconciled": "INCOMPLETE_RUN + ACCEPTANCE=NOT_RUN"
+  },
+  "DURABILITY_AUTHORITY": {
+    "authority": "the output DATABASE, re-opened and reconciled by the gate",
+    "NOT_authority": "the producer checkpoint",
+    "reason": "the producer writes FINISHED=True BEFORE out.close(), so the sentinel alone does not prove the output is flushed"
+  },
+  "ACCEPTANCE_BINDING": "acceptance refuses (ACCEPT_R2_REFUSED.json, non-zero exit) if FINAL_COMPLETE.json is absent or the output DB digest differs from the certified one"
+}

@@ -1,0 +1,68 @@
+{
+  "spec_id": "T5_FORWARD_MEDOID_IDENTITY_V1",
+  "result": "FAIL",
+  "question": "do the frozen 1H forward rule memberships survive the session-validity correction unchanged?",
+  "answer": "SEE FAILURES",
+  "provenance": "all comparisons are on the SAME sealed T5 microstructure vintage; the currently mutable 1H store is never used to regenerate family X — only expected_bars(date) is taken, from the sealed calendar",
+  "sealed_identity": {
+    "source_population_hash": "e500f6f158e23719",
+    "claim_order_hash": "8286de69150fa226",
+    "block_assignment_hash": "8f786b5cdd63e815",
+    "cache_file_digest": "ad93a3069ef72ed3",
+    "episode_id_digest": "e500f6f158e23719",
+    "n_claims_used": 9,
+    "n_population": 118849
+  },
+  "session_validity": {
+    "sessions": 246513,
+    "old_valid": 237833,
+    "corrected_valid": 237833,
+    "flips": 0
+  },
+  "input_frames": {
+    "rows_old": 1659965,
+    "rows_corrected": 1659965,
+    "digest_old": "06160bf4cefaaf1a",
+    "digest_corrected": "06160bf4cefaaf1a",
+    "bit_identical": true,
+    "invariant_D": 0
+  },
+  "forward_memberships": {
+    "file": "t5_1h_survivor_membership.parquet",
+    "digest": "ad93a3069ef72ed3",
+    "n_episodes": 128285,
+    "n_claims": 3,
+    "per_claim": {
+      "kind": {
+        "n": 128285,
+        "membership_hash": "27263bbe55bf6cc2"
+      },
+      "j": {
+        "n": 128285,
+        "membership_hash": "27263bbe55bf6cc2"
+      },
+      "claim_id": {
+        "n": 9436,
+        "membership_hash": "13b6da20fc0284d2"
+      }
+    },
+    "episodes_outside_corrected_complete_sessions": 0
+  },
+  "checks": {
+    "cache file digest matches the sealed identity": true,
+    "episode_id digest matches the sealed identity": false,
+    "claim count matches the sealed identity": false,
+    "session-validity flips on the T5 microstructure": true,
+    "sealed vs corrected input frames are bit-identical": true,
+    "invariant D on the corrected frame": true,
+    "no forward-membership episode falls outside a corrected complete session": true,
+    "corrected rule admits no episode the old rule excluded": true
+  },
+  "scope": {
+    "unblocks": "the SESSION-SEMANTICS reason for the T5 forward hold, and nothing else",
+    "still_held": "SOURCE DATA VERSION — ONE_HOUR_DATA_VERSION_DIVERGENCE_V1 is an independent incident and keeps forward outcome finalization, promotion and status computation on hold",
+    "code_environment": "prior status unchanged; this artifact makes no statement about the code/environment axis"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 2.9
+}

@@ -1,0 +1,92 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_EXECUTION_STACK_QUALIFICATION_V1",
+  "status": "INFERENTIAL_EXECUTION_STACK_QUALIFIED",
+  "REAL_Y_ACCESS_DURING_QUALIFICATION": "NONE",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "COMPONENTS": {
+    "PERMUTATION_REFERENCE_KERNEL": {
+      "status": "QUALIFIED",
+      "note": "UNCHANGED throughout; it is the semantic oracle"
+    },
+    "PERMUTATION_PARALLEL_EXECUTION": {
+      "status": "QUALIFIED",
+      "artifact": "2946a87660e45e84",
+      "evidence": "1,037,550 claim-draws, 4-worker vs 1-worker oracle, all BIT-IDENTICAL; c_j, s_j, T_j, M_b, p_adj identical"
+    },
+    "CI_PRIMITIVE_WEIGHTED_MEDIAN_V2": {
+      "status": "QUALIFIED",
+      "artifact": "b082eae1574f0223",
+      "evidence": "271,089 exhaustive + 60,000 randomized vs the expanded-multiset oracle, 0 mismatches; unit-weight bit-identity with the frozen ordinary median on 50,000 cases"
+    },
+    "CI_WEIGHT_ONLY_EXACT_KERNEL": {
+      "status": "QUALIFIED",
+      "artifact": "2e7a6f2938f634b7",
+      "evidence": "415,020 claim-draws vs the reference CI kernel, theta* BIT-IDENTICAL, status EXACT"
+    },
+    "CI_PARALLEL_EXECUTION": {
+      "status": "QUALIFIED",
+      "artifact": "2e7a6f2938f634b7"
+    },
+    "TIME_LOCAL_NULL": {
+      "status": "FROZEN",
+      "artifact": "7b52b9df13764228",
+      "wording": "48bf72d9bbe00000"
+    },
+    "RNG_MANIFESTS": {
+      "status": "SEALED BEFORE WORKERS",
+      "permutation": "d54378212391c6a6",
+      "CI": "sealed",
+      "worker_RNG_calls": 0
+    },
+    "CRASH_RESTART": {
+      "status": "QUALIFIED",
+      "permutation": "4/4 PASS",
+      "CI": "5/5 PASS",
+      "note": "re-run separately for CI because the worker kernel differs"
+    }
+  },
+  "REJECTED_CANDIDATE": {
+    "name": "POOL_SORT_FAST_KERNEL",
+    "artifact": "738f939c1cb757c8",
+    "status": "CORRECT_BUT_REJECTED_FOR_PRODUCTION",
+    "explicit": "it is NOT reclassified as a qualified fast kernel; the umbrella deliberately does not carry that name"
+  },
+  "WHY_THE_SAME_IDEA_IS_ACCEPTED_FOR_CI": {
+    "permutation": "Y changes every draw -> sort amortises over 3.91 claims vs log2(pool)=17.8 -> FAILS",
+    "CI": "Y is invariant; only weights change -> sort amortises over 2000 draws x 3.91 = 7,820 vs 17.8 -> PASSES by ~440x",
+    "conclusion": "a different amortisation regime, not a reintroduction of a rejected optimisation"
+  },
+  "GOVERNANCE_FINDINGS_CARRIED": [
+    "TEST-HARNESS DEFECT: a test failure is not evidence of an implementation defect until the harness authority is correct",
+    "MEASUREMENT FAILURE READ AS RESULT: worker RSS of 0.01 GB was a ps-grep miss, not a memory finding",
+    "ELEMENT-TOUCH COUNT IS NOT A RUNTIME MODEL: the baseline's algorithmic class must be stated before claiming a speedup",
+    "IDEAL-SCALING PROJECTIONS must be labelled as such (3.74 h ideal vs 7.81 h measured)"
+  ],
+  "MEASURED_PROJECTIONS_SYNTHETIC": {
+    "permutation_B_2000_8w_hours": 7.81,
+    "CI_B_2000_8w_hours": 2.0,
+    "combined_hours": 9.8,
+    "one_time_synthetic_build_s": 195,
+    "one_time_REAL_Y_build": "NOT YET MEASURED",
+    "status": "SYNTHETIC-Y projections; not a production-runtime guarantee"
+  },
+  "FROZEN_AND_UNCHANGEABLE_AFTER_REAL_Y": [
+    "statistic (theta, studentization, max-stat, p_adj)",
+    "time-local null and its guards",
+    "B_SCALE 200 / B_NULL 1800 / B_CI 2000",
+    "sort algorithm and tie rule",
+    "rank representation",
+    "complement algorithm",
+    "worker topology selection rule",
+    "quantile convention (Type 7)",
+    "registered k = 20,751",
+    "claim membership",
+    "promotion gate"
+  ],
+  "GATE": {
+    "FIRST_REAL_Y": "OPEN",
+    "meaning": "the execution stack is qualified; nothing about the outcome has been observed",
+    "reminder": "opening the gate is not a decision to run — the run itself is a separate, explicit authorisation"
+  }
+}

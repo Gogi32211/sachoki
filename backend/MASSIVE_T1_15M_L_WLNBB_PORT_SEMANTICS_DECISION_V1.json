@@ -1,0 +1,223 @@
+{
+  "artifact": "MASSIVE_T1_15M_L_WLNBB_PORT_SEMANTICS_DECISION_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": {
+    "l_gate": "3ca679df606958f9",
+    "mechanism": "e843ff42b9a17e79",
+    "pd_decision": "4fc579ab064bbded"
+  },
+  "VERDICT": "ACCEPT_FULL_HISTORY_SEMANTIC_PORT_WITH_ENUMERATED_HISTORICAL_MATERIALIZATION_DIVERGENCE_AND_BOUNDED_MEMBERSHIP_IMPACT",
+  "not_a_pass": "NOT a plain PASS, and NOT an exact historical materializer replication",
+  "ACCEPTANCE_CONDITION": {
+    "required": "no claim-relevant cell may remain UNEXPLAINED",
+    "result": "MET — 13 / 13 classified, 0 UNEXPLAINED",
+    "method": "per-cell 45-day truncated recompute reproduces the STORED value at each of the 13 bars"
+  },
+  "CANONICAL_PORT_SEMANTICS": {
+    "history": "full chronological history",
+    "ffill_state": "unbounded ffill state PRESERVED",
+    "cooldown_state": "sequential state seeded from series start",
+    "truncation": "NO 45-day state truncation — the historical defect is deliberately NOT reproduced",
+    "discriminated_implementation": "wlnbb_engine @ 1f0ae4ab (uniquely exact; 6 of 7 historical signatures rejected)",
+    "label_producer": "main.py:5217-5240 ascending-digit concat + priority-named fallback"
+  },
+  "HISTORICAL_MATERIALIZATION": "MIXED full-history / 45-day incremental regime",
+  "CONFIRMED_MECHANISM": {
+    "primary": "45-day incremental frame truncates UNBOUNDED ffill level state -> missing prior L34/L43/setup levels -> fillna(0) -> (level>0) guards fail -> downstream breakout flags SUPPRESSED",
+    "secondary": "cooldown() is a sequential state machine seeded at series start (last = -(n+1)); a truncated frame resets it, so PRE_PUMP = cooldown(vsa_sum>=2, 6) can fire where full history suppresses it — this is the NBBK M4 l_sig path",
+    "shared_root": "sequential state carried across the whole series, truncated by the incremental frame",
+    "distinct_from_PD": "P/D diverged through EMA convergence deficit; WLNBB through unbounded/sequential state truncation. The P/D mechanism was NOT transferred."
+  },
+  "IMMUTABLE_MANIFEST": [
+    {
+      "ticker": "ADMA",
+      "universe": "nasdaq",
+      "timestamp": "2026-07-27 13:30:00",
+      "slot": "M1",
+      "column": "bx_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "CMG",
+      "universe": "sp500",
+      "timestamp": "2026-07-29 13:30:00",
+      "slot": "M1",
+      "column": "bx_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "DNOW",
+      "universe": "russell2k",
+      "timestamp": "2026-07-10 13:30:00",
+      "slot": "M1",
+      "column": "be_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "DNOW",
+      "universe": "russell2k",
+      "timestamp": "2026-07-10 14:00:00",
+      "slot": "M3",
+      "column": "be_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "DNOW",
+      "universe": "russell2k",
+      "timestamp": "2026-07-10 14:00:00",
+      "slot": "M3",
+      "column": "bx_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "KEY",
+      "universe": "sp500",
+      "timestamp": "2026-07-30 13:30:00",
+      "slot": "M1",
+      "column": "bx_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "NBBK",
+      "universe": "nasdaq",
+      "timestamp": "2026-07-15 14:15:00",
+      "slot": "M4",
+      "column": "l_sig",
+      "full_history": "",
+      "historical_stored": "PRE_PUMP",
+      "mechanism_class": "DOWNSTREAM_LABEL_EFFECT_OF_CONFIRMED_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "NOV",
+      "universe": "sp500",
+      "timestamp": "2026-07-24 13:30:00",
+      "slot": "M1",
+      "column": "bx_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "ORLY",
+      "universe": "sp500",
+      "timestamp": "2026-07-24 13:30:00",
+      "slot": "M1",
+      "column": "be_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "ORLY",
+      "universe": "sp500",
+      "timestamp": "2026-07-24 13:30:00",
+      "slot": "M1",
+      "column": "bx_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "SG",
+      "universe": "russell2k",
+      "timestamp": "2026-07-17 13:30:00",
+      "slot": "M1",
+      "column": "be_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "SG",
+      "universe": "russell2k",
+      "timestamp": "2026-07-17 13:30:00",
+      "slot": "M1",
+      "column": "bx_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    },
+    {
+      "ticker": "VG",
+      "universe": "russell2k",
+      "timestamp": "2026-08-06 13:30:00",
+      "slot": "M1",
+      "column": "bx_up",
+      "full_history": 1,
+      "historical_stored": 0,
+      "mechanism_class": "CONFIRMED_FFILL_STATE_TRUNCATION",
+      "verified": "45-day truncated recompute reproduces the STORED value at this exact bar"
+    }
+  ],
+  "MEMBERSHIP_IMPACT": {
+    "claim_relevant_cells": 13,
+    "upper_bound_members": 1388,
+    "total": 35587,
+    "share": "3.90%",
+    "status": "UPPER_BOUND_ONLY",
+    "why_not_exact": "an exact recompute needs the PAIRED token value at the paired slot for each affected episode — that spans all 144 tokens, i.e. the integrated E2b token frame, which does not exist yet",
+    "deferred": "DEFERRED_UNTIL_INTEGRATED_TOKEN_FRAME",
+    "MANDATORY_LATER": "exact impact census is REQUIRED before D may be frozen; this acceptance does not waive it"
+  },
+  "NOT_A_TOLERANCE": {
+    "forbidden_readings": [
+      "3.9% is small therefore accepted",
+      "<=1,388 members is an acceptable threshold"
+    ],
+    "correct_reading": "the semantic defect is confirmed pre-Y, the affected claim-relevant X cells are fully enumerated and each individually explained; only their combinatorial effect on paired-token claims is not yet computable. This is a dependency-ordering issue, not evidence weakness.",
+    "circularity_resolved": "L was blocking E2b while the exact impact required E2b — the deadlock is broken by authorizing the port and deferring the census, not by lowering the standard"
+  },
+  "bo_up_open_detail": {
+    "observed": "14 suppressed vs 22 added across the full store (n=36)",
+    "status": "FULL_STORE_RESIDUAL_SUBMECHANISM_NOT_FULLY_EXPLAINED",
+    "blocking": "NON_BLOCKING_FOR_T1_FAMILY_PORT — verified: none of the 13 claim-relevant cells stands on bo_up",
+    "scope_limit": "this says nothing about bo_up qualification for standalone research"
+  },
+  "FAMILY_AUTHORITY": {
+    "k": 35587,
+    "preserved_by": "frozen historical claim_order registry",
+    "forbidden": [
+      "pruning post-boundary sessions",
+      "removing affected claims",
+      "re-running support floors",
+      "recounting aliases"
+    ],
+    "integrated_frame_role": "impact MEASUREMENT only, never family selection"
+  },
+  "HISTORICAL_RESULTS_UNCHANGED": "historical z_obs / survivor / theta remain bound to the original mixed materialization; no corrected historical Y rerun in this branch",
+  "GATING": {
+    "E2b_production": "MAY PROCEED",
+    "D_final_freeze": "STILL REQUIRES the exact impact amendment"
+  },
+  "not_done": [
+    "exact membership census (deferred, mandatory before D)",
+    "bo_up residual submechanism",
+    "no Massive L feature produced"
+  ]
+}

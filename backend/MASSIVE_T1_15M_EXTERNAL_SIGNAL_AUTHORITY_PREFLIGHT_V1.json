@@ -1,0 +1,423 @@
+{
+  "artifact": "MASSIVE_T1_15M_EXTERNAL_SIGNAL_AUTHORITY_PREFLIGHT_V1",
+  "writes": 0,
+  "token_production": 0,
+  "Y_EXPOSED": 0,
+  "Z_outputs": 0,
+  "supersedes_finding_in": "3db5c3c49fd33c35",
+  "B1_Z_AUTHORITY": {
+    "verdict": "RESOLVED",
+    "producer": "signal_engine.py::compute_signals",
+    "evidence": [
+      "SIG_NAMES ids 13-25 = the 13 required Z states (signal_engine.py:41-42)",
+      "docstring: \"Translate Pine Script T/Z logic into signal codes for every bar\"",
+      "returns bc (bull 0-12) and zc (bear 0-13); _ZC_TO_SID maps zc 1-13 -> sids 13-25",
+      "bulk_export.py:208-209 splits ONE `tz` variable into the Z and T export columns"
+    ],
+    "consequence": "Z shares the ALREADY-PROVEN T producer, call path and OHLC input surface",
+    "correction_of_E2b0": "E2b0 stated z_sig is ingested and NOT computed by compute_signals. WRONG — string search for \"z_sig\" in a file that names it zc/sig_name. Error class NEGATIVE_SEARCH_WITHOUT_ENUMERATION.",
+    "still_required": "Z-slice port + same-input conformance gate mirroring the T port; Z remains HOLD for inferential use"
+  },
+  "B2_L_AUTHORITY": {
+    "verdict": "PRODUCER_LOCATED_UPSTREAM_NOT_ENUMERATED",
+    "producer": "wlnbb_engine.py:293 l_signal_label -> l_chart -> studio/importer.py:298 l_sig",
+    "note": "label vocabulary also emits BE_UP/BO_UP/BX_UP; upstream WLNBB flag computation not enumerated"
+  },
+  "B3_28_COLUMNS": {
+    "n_resolved": 12,
+    "n_unresolved": 16,
+    "unresolved_columns": [
+      "sig_3g",
+      "sig_buy",
+      "sig_svs",
+      "sig_va",
+      "sig_d2",
+      "sig_d3",
+      "sig_d50",
+      "sig_d55",
+      "sig_d66",
+      "sig_d89",
+      "sig_p2",
+      "sig_p3",
+      "sig_p50",
+      "sig_p55",
+      "sig_p66",
+      "sig_p89"
+    ],
+    "resolved_map": {
+      "sig_g1/g2/g4/g11": "signal_engine.compute_g_signals",
+      "be_up/bo_up/bx_up/vbo_up": "wlnbb_engine",
+      "sig_cisd_*": "studio/cisd_backfill.py"
+    }
+  },
+  "B5_TZ_FLIP": {
+    "verdict": "RESOLVED",
+    "semantics": "T x Z bull phase transition",
+    "evidence": [
+      "ultra_signal_parser.py:284-289",
+      "rtb_engine.py:221 \"TZ->3 = tz_bull_flip (full bull phase transition)\""
+    ],
+    "dependency": "qualified T + qualified Z"
+  },
+  "matrix": [
+    {
+      "status": "PORTABLE_NOW",
+      "columns": 19,
+      "tokens": 41,
+      "final_claims_affected": 17533
+    },
+    {
+      "status": "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "columns": 49,
+      "tokens": 86,
+      "final_claims_affected": 30516
+    },
+    {
+      "status": "PRODUCER_UNRESOLVED",
+      "columns": 16,
+      "tokens": 16,
+      "final_claims_affected": 6280
+    }
+  ],
+  "column_producer": {
+    "ad_cluster": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "analyzers/tz_wlnbb/signal_extraction.py"
+    ],
+    "ad_fresh": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "analyzers/tz_wlnbb/signal_extraction.py"
+    ],
+    "bar_body_wick": [
+      "PORTABLE_NOW",
+      "direct 15m OHLCV derivation"
+    ],
+    "bar_gap_range": [
+      "PORTABLE_NOW",
+      "direct 15m OHLCV derivation"
+    ],
+    "bar_line5": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "analyzers/tz_wlnbb/signal_extraction.py"
+    ],
+    "be_up": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "wlnbb_engine flag set (l_signal_label vocabulary)"
+    ],
+    "bo_up": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "wlnbb_engine flag set (l_signal_label vocabulary)"
+    ],
+    "bx_up": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "wlnbb_engine flag set (l_signal_label vocabulary)"
+    ],
+    "close_suffix": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "analyzers/tz_wlnbb/signal_extraction.py"
+    ],
+    "full_suffix": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "analyzers/tz_wlnbb/signal_extraction.py"
+    ],
+    "l22": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "wlnbb_engine.py:293 l_signal_label -> l_chart -> l_sig"
+    ],
+    "l34": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "wlnbb_engine.py:293 l_signal_label -> l_chart -> l_sig"
+    ],
+    "l43": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "wlnbb_engine.py:293 l_signal_label -> l_chart -> l_sig"
+    ],
+    "l_sig": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "wlnbb_engine.py:293 l_signal_label -> l_chart -> l_sig"
+    ],
+    "ne_suffix": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "analyzers/tz_wlnbb/signal_extraction.py"
+    ],
+    "phys_ad": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_c": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_e": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_gap_true": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_h": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_k": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_m": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_r": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_regime": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_s": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "phys_wyc": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/bar_physics.py (causal; reads E1 atr_14)"
+    ],
+    "rsi_14": [
+      "PORTABLE_NOW",
+      "direct 15m OHLCV derivation"
+    ],
+    "sig_3g": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_buy": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_cisd_cplus": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/cisd_backfill.py"
+    ],
+    "sig_cisd_cplus_minus": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/cisd_backfill.py"
+    ],
+    "sig_cisd_minus_struct": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/cisd_backfill.py"
+    ],
+    "sig_cisd_mpm": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "studio/cisd_backfill.py"
+    ],
+    "sig_d2": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_d3": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_d50": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_d55": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_d66": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_d89": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_g1": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_g_signals (calls compute_signals)"
+    ],
+    "sig_g11": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_g_signals (calls compute_signals)"
+    ],
+    "sig_g2": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_g_signals (calls compute_signals)"
+    ],
+    "sig_g4": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_g_signals (calls compute_signals)"
+    ],
+    "sig_p2": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_p3": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_p50": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_p55": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_p66": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_p89": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_svs": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_t1": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t10": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t11": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t12": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t1g": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t2": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t2g": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t3": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t4": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t5": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t6": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_t9": [
+      "PORTABLE_NOW",
+      "signal_engine.compute_signals T-slice (qualified, massive_t_v1)"
+    ],
+    "sig_tz_flip": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "T x Z composite — ultra_signal_parser.py:284-289; rtb_engine.py:221"
+    ],
+    "sig_va": [
+      "PRODUCER_UNRESOLVED",
+      "not located; name is not authority"
+    ],
+    "sig_vol_10x": [
+      "PORTABLE_NOW",
+      "direct 15m OHLCV derivation"
+    ],
+    "sig_vol_20x": [
+      "PORTABLE_NOW",
+      "direct 15m OHLCV derivation"
+    ],
+    "sig_vol_5x": [
+      "PORTABLE_NOW",
+      "direct 15m OHLCV derivation"
+    ],
+    "sig_z1": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z10": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z11": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z12": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z1g": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z2": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z2g": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z3": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z4": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z5": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z6": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z7": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "sig_z9": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "signal_engine.compute_signals Z-slice via zc/_ZC_TO_SID — SAME function as T"
+    ],
+    "vbo_up": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "wlnbb_engine flag set (l_signal_label vocabulary)"
+    ],
+    "vol_bucket": [
+      "PORTABLE_NOW",
+      "direct 15m OHLCV derivation"
+    ],
+    "wick_suffix": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "analyzers/tz_wlnbb/signal_extraction.py"
+    ],
+    "wyc_phase": [
+      "PRODUCER_RESOLVED_PORT_GATE_REQUIRED",
+      "analyzers/tz_wlnbb/signal_extraction.py"
+    ]
+  },
+  "claims_gated_by_unresolved": 6280,
+  "umbrella_decision": "PORT_FEASIBLE_AFTER_ENUMERATED_X_PREREQUISITES",
+  "caveat": "feasible != qualified. Every PRODUCER_RESOLVED column still needs its own port + same-input conformance gate. Z stays HOLD for inferential use until its own gate passes."
+}

@@ -1,0 +1,60 @@
+{
+  "artifact": "MASSIVE_15M_RSI14_RESIDUAL_AUTHORITY_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": "b60d3164e662c6f1",
+  "column": "rsi_14",
+  "writer": "studio/enricher.py:328-334",
+  "surface": "enriched 2dp OHLC",
+  "full_store": {
+    "compared": 91027821,
+    "mismatches": 5033
+  },
+  "CORRECTION_OF_MY_OWN_CLAIM": {
+    "previous": "\"spread across the full history — NOT a boundary artifact — genuinely non-exact and unexplained\"",
+    "wrong_because": "I read a date RANGE (2022-06-09 -> 2026-08-24) as a distribution",
+    "actual": "bimodal: 136 in 2022, 4,897 in 2026, and ZERO in 2023, 2024 and 2025"
+  },
+  "BLOCK_A_SERIES_HEAD": {
+    "count": 136,
+    "tickers": 1,
+    "ticker": "META/sp500",
+    "mechanism": "WILDER_SEED_CONVERGENCE",
+    "evidence": [
+      "the ENRICHED META series head is 2022-06-09 (27,383 rows) while the BASE head is 2021-07-02 (31,114 rows) — the enriched series is head-truncated",
+      "mismatches occupy bar indices 0..238 only",
+      "monotone decay: bars 0-20 max|d| 32.1 · 20-50 40.0 · 50-80 19.2 · 80-110 2.7 · 110-140 0.2 · 140-170 0.1 · 170-200 0.000",
+      "exactly 1 mismatch after bar 200 out of 27,183 remaining bars"
+    ],
+    "verdict": "EXPLAINED — an ewm(alpha=1/14) seed difference that decays to zero by ~bar 170",
+    "generalization": "the enriched store can carry a LATER per-ticker series head than the lean base. Every EWM/RMA-seeded feature inherits a head-convergence artifact there. This also explains the single bar_body_wick / bar_gap_range cells at META 2022-06-09."
+  },
+  "BLOCK_B_INCREMENTAL": {
+    "count": 4897,
+    "tickers": 130,
+    "temporal": "earliest 2026-07-10 13:30; ZERO before 2026-07-06",
+    "concentration": "4,591 of 4,897 fall in the single week 2026-07-10 .. 2026-07-17",
+    "verdict": "INCREMENTAL_REGIME — consistent with the store materialization regime authority (ab8c97240787860e); the specific micro-mechanism for rsi_14 was NOT separately proven"
+  },
+  "DELTA_DISTRIBUTION": {
+    "median_abs": 0.2,
+    "max_abs": 40.0,
+    "within_one_rounding_step": 2139,
+    "greater_than_half": 1524,
+    "reading": "not a rounding-order problem — 1,524 cells exceed 0.5, far beyond a 1-decimal rounding boundary"
+  },
+  "INTERIOR_UNEXPLAINED": {
+    "count": 0,
+    "statement": "after removing the META head-convergence block and the 2026 incremental block, ZERO interior-series mismatches remain across 2023, 2024 and 2025"
+  },
+  "VERDICT": "RESIDUAL_FULLY_CHARACTERIZED",
+  "eligibility_input": {
+    "DEV_X_ALLOWED": "the 4,777 development-window mismatches are ALL incremental-regime (2026-07-10 onward), because the dev window (<= 2026-08-06) overlaps that regime by one month",
+    "note": "this is a role decision for the eligibility matrix, not a verdict of this gate"
+  },
+  "not_done": [
+    "rsi_14-specific micro-mechanism inside the incremental regime not proven",
+    "no per-ticker audit of how many other tickers have head-truncated enriched series"
+  ]
+}

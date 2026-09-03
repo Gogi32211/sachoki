@@ -1,0 +1,175 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_HUB_PRESPEC_V1",
+  "status": "FROZEN",
+  "sealed_local_date": "2026-08-31",
+  "PROVENANCE": [
+    "POST_DEV_Y_DERIVED_HYPOTHESIS",
+    "NOT_PRISTINE_DISCOVERY",
+    "FORWARD_CONFIRMATION_ONLY"
+  ],
+  "HISTORICAL_Y_EXPOSED": 1,
+  "FORWARD_Y_EXPOSED": 0,
+  "FORWARD_RESULTS_READ": 0,
+  "parents": {
+    "registration": "751058971beae07c",
+    "promoted_set": "5893f9d0f5be4dbb",
+    "census": "9fef130a58f27f9c",
+    "census_amendment": "13e5015bdebaa8e4",
+    "inference": "324690afd38e3ffb"
+  },
+  "PRIMARY_FAMILY": {
+    "k_hub": 4,
+    "hubs": {
+      "H1_VOL_BUCKET": {
+        "n": 460,
+        "digest": "b0d6f9b4d67d2b6d"
+      },
+      "H2_GAP_V": {
+        "n": 173,
+        "digest": "c814b6ddaf166f3d"
+      },
+      "H3_VOL_CONSTRUCT": {
+        "n": 61,
+        "digest": "b4d902efd7103dfb"
+      },
+      "H4_LSIG_M1_STAR": {
+        "n": 48,
+        "digest": "938a6f0f5eb6a9b7"
+      }
+    },
+    "membership": "IMMUTABLE — frozen by claim id in FORWARD_HUB_REGISTRATION_V1",
+    "overlap": "RETAINED; no disjoint partition; the shared map preserves the dependence"
+  },
+  "FIRST_LOOK_TRIGGER": {
+    "evaluation_cadence": "ONLY at the end of a COMPLETED forward calendar month. No mid-month evaluation.",
+    "start_evaluating_after": "month 6",
+    "condition_a": ">= 6 complete eligible forward calendar months accrued",
+    "condition_b": {
+      "basis": "X-SIDE ONLY",
+      "statistic": "X_positive_episode_n",
+      "NAMING_RULE": "X_positive_episode_n is NOT positive_n. positive_n means the Y-AVAILABLE positive denominator used in the historical inference. The trigger must not touch any Y value and must not touch Y AVAILABILITY.",
+      "thresholds": {
+        "H1": "230 / 460 members with X_positive_episode_n >= 100",
+        "H2": "87 / 173",
+        "H3": "31 / 61",
+        "H4": "24 / 48"
+      }
+    },
+    "on_pass": [
+      "freeze the forward date/session window at that month-end",
+      "exactly one primary look"
+    ],
+    "BACKSTOP": "if condition_b has still not passed at the end of 12 complete forward calendar months, freeze the window there and run anyway",
+    "LOOKS": {
+      "count": 1,
+      "rule": "any subsequent look is a NEW registration with NEW provenance, not a continuation"
+    },
+    "indicative_calendar": {
+      "first_complete_forward_month": "2026-09",
+      "earliest_theoretical_look": "after 2027-02 completes",
+      "backstop_look": "after 2027-08 completes",
+      "note": "indicative only — the actual look is governed by condition_b"
+    }
+  },
+  "DEFINEDNESS": {
+    "per_member": "theta_j is DEFINED iff both the Y-available positive group and the Y-available nonpositive group satisfy the frozen theta computation's minimum mathematical definedness requirements",
+    "NO_FORWARD_Y_FLOOR": "no forward Y-based n>=100 floor is introduced. The n>=100 criterion belongs ONLY to the X-side first-look trigger.",
+    "handling": "undefined member theta_j are OMITTED from median_j, identically in OBSERVED and in every SCALE and every NULL draw",
+    "hub_minimum_defined_members": {
+      "H1": 230,
+      "H2": 87,
+      "H3": 31,
+      "H4": 24
+    },
+    "ESTIMAND_STATEMENT": "DEFINEDNESS CHANGES THE REALIZED HUB COMPOSITION. THETA_h is therefore an availability/definedness-conditioned hub effect among the members whose theta_j is defined. Its difference from the full registered-member hub estimand has UNKNOWN DIRECTION. No upward or downward bias direction is asserted.",
+    "VALIDITY_STATEMENT": "applying the identical dropping rule inside the null is NECESSARY but NOT SUFFICIENT for validity. Validity continues to rest on the frozen permutation invariance assumption and on fixed-family stability.",
+    "FIXED_HUB_STABILITY_GATE": {
+      "trigger": "hub h fails its minimum-defined threshold in OBSERVED or in ANY required SCALE/NULL draw",
+      "consequence": [
+        "status = HUB_PERMUTATION_SUPPORT_UNSTABLE",
+        "p_adj,h = 1",
+        "hub is NONCONFIRMABLE",
+        "T_h = -inf inside the family max-stat machinery"
+      ],
+      "PROHIBITION": "the hub MAY NOT disappear from k_hub = 4. The family dimension is FIXED at 4 in every draw. Variable-dimension max-stat is forbidden."
+    }
+  },
+  "DRAW_BUDGET": {
+    "B_SCALE": 500,
+    "B_NULL": 9999,
+    "p_adj_denominator": 10000,
+    "minimum_attainable_p_adj": 0.0001,
+    "p_le_0.05_means": "at most 499 exceedances",
+    "rationale": "a NEW k=4 forward family, frozen BEFORE forward Y. 500 SCALE draws stabilise the robust c_h/s_h studentisation better than 200. Not raised further: 0.0001 resolution is sufficient for a 4-hub confirmation; extreme p-value ranking is not an objective.",
+    "NOT_A_RERANKING": "this budget may NOT be used to re-rank the 265 floor-bound historical claims. B_NULL for the historical family remains 1800."
+  },
+  "STATISTIC": {
+    "theta_j": "unchanged from the historical design",
+    "THETA_h_obs": "median over defined j in hub h of theta_j_obs",
+    "THETA_h_b": "median over defined j in hub h of theta_j^(b)",
+    "c_h": "median of the 500 SCALE THETA_h draws",
+    "s_h": "1.4826 * MAD of the same 500 SCALE draws",
+    "T_h_obs": "(THETA_h_obs - c_h) / s_h",
+    "T_h_b": "(THETA_h^(b) - c_h) / s_h",
+    "M_b": "max over the FOUR registered hubs of T_h^(b)",
+    "p_adj_h": "(1 + #{b : M_b >= T_h_obs}) / 10000",
+    "WEIGHTED_MEDIAN": "WEIGHTED_MEDIAN_V2 semantics unchanged where weights apply",
+    "QUANTILE": "Hyndman-Fan Type 7, explicit; library default FORBIDDEN"
+  },
+  "CONFIRMATION_RULE": {
+    "per_hub": "p_adj,h <= 0.05 AND THETA_h_obs > 0",
+    "report": "x / 4 confirmed, naming exactly which",
+    "PERMITTED": "at least one post-DEV registered structural motif replicated in clean forward data",
+    "FORBIDDEN": [
+      "'all four confirmed' when fewer passed",
+      "attributing a hub pass to the 732 set",
+      "any member claim inheriting confirmation from its hub",
+      "any directional, profitability or tradability reading"
+    ]
+  },
+  "SECONDARY_FAMILY": {
+    "k_claim_forward": 732,
+    "membership_digest": "f4baf91ab0a063c8",
+    "separate_correction": "family-wide over 732, never over 4",
+    "HARD_SEPARATION": "HUB CONFIRMED != every member claim confirmed"
+  },
+  "RNG_AUTHORITY": {
+    "generator": "PCG64",
+    "master_seed": 9968714824903163673,
+    "seed_provenance": "drawn from os.urandom at prespec seal time, BEFORE any forward Y exists",
+    "named_substreams": [
+      "SCALE",
+      "NULL"
+    ],
+    "CI": "NOT REGISTERED for the primary forward test. The substream name 'CI' is reserved; if CI is ever registered it requires its own prespec.",
+    "no_silent_fallback": "any RNG or substream not resolvable at run time is a HARD FAILURE, never a fallback"
+  },
+  "EXECUTION_ORDER_AT_TRIGGER": [
+    "1. freeze the exact forward date/session window",
+    "2. freeze the X-support census",
+    "3. construct the admissible time-local map universe",
+    "4. seal the SCALE/NULL draw manifest",
+    "5. ONLY THEN permit the first forward-Y access"
+  ],
+  "PERMUTATION_MECHANICS": {
+    "FULL_REGULAR": "cyclic shift within (forward inferential scope) INTERSECT (calendar year-month) INTERSECT (session class)",
+    "EARLY_CLOSE": "identity",
+    "OUT_OF_SCOPE_OR_SOURCE_HOLD": "FORBIDDEN as payload sources; permanently non-evidentiary",
+    "inherits": [
+      "TIME_LOCAL_CYCLIC_SHIFT_INVARIANCE",
+      "the corrected scoped-map authority a11752cb3f51262d"
+    ],
+    "FEASIBILITY_ASSERT": {
+      "rule": "N_admissible_maps >= B_SCALE + B_NULL = 10,499",
+      "enforcement": "a HARD pre-Y assert at step 3; failure blocks the look, it does not shrink the budget",
+      "expectation": "under the 6-month floor the admissible universe is the product over months of the in-scope FULL_REGULAR date count, ordinarily many orders of magnitude above 10,499"
+    }
+  },
+  "FORWARD_EVIDENCE_BOUNDARY": {
+    "starts": "the first eligible session strictly AFTER this seal",
+    "backfill": "FORBIDDEN for any pre-seal date, including 2026-08-25..31",
+    "source_HOLD_or_unavailable": "PERMANENTLY NON-EVIDENTIARY",
+    "historical_HOLDOUT": "NON-PRISTINE — diagnostic only, never confirmation"
+  },
+  "CLOSED": "after this seal NO substantive change enters the primary forward design. The forward window and draw manifest are a MECHANICAL INSTANTIATION of rules already frozen here."
+}

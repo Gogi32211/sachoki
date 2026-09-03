@@ -1,0 +1,176 @@
+{
+  "report_id": "MASSIVE_T_LEGACY_15M_THREE_WAY_CONFORMANCE_V2",
+  "status": "HOLD",
+  "task_class": "X_ONLY_CONFORMANCE_DIAGNOSTIC",
+  "supersedes": {
+    "artifact": "MASSIVE_T_LEGACY_15M_THREE_WAY_CONFORMANCE_V1",
+    "digest": "715765f2be4b8711",
+    "why": "V1 fed B the enriched store's own OHLC; the true input surface is the lean base",
+    "v1_A_vs_B_reclassified": "WRONG_INPUT_SURFACE_DIAGNOSTIC — not a materializer-conformance residual",
+    "not_edited": true
+  },
+  "objects": {
+    "A": "studio_15m.duckdb :: bars.t_sig",
+    "B": "canonical engine(studio_15m_base OHLC) — TRUE historical input",
+    "C": "canonical engine(Massive 15m OHLC) — T_MASSIVE_PORT"
+  },
+  "supports": {
+    "L0_legacy_materializer_support": 15647361,
+    "L1_timestamp_common_base_massive": 15189253,
+    "L2_current_usable_all_sides": 10455957,
+    "L3_current_and_predecessor_aligned": 9339483,
+    "binding": {
+      "A_vs_B": "L0",
+      "B_vs_C": "L3",
+      "A_vs_C": "L3 (identical rows)"
+    }
+  },
+  "invariant_A_equals_B": {
+    "requirement": "EXACT — a single mismatch is a HOLD",
+    "support": 15647361,
+    "mismatches": 3,
+    "holds": false,
+    "examples": [
+      {
+        "ticker": "COIN",
+        "ts": "2026-07-09 17:30:00+00:00",
+        "A": "T9",
+        "B": "T10"
+      },
+      {
+        "ticker": "HBAN",
+        "ts": "2026-07-09 17:30:00+00:00",
+        "A": "T2G",
+        "B": "T4"
+      },
+      {
+        "ticker": "PODD",
+        "ts": "2026-07-09 17:30:00+00:00",
+        "A": "T5",
+        "B": "T2G"
+      }
+    ],
+    "tolerance_forbidden": true,
+    "meaning": "the canonical engine on the true historical input surface reproduces the historical materialized label surface"
+  },
+  "invariant_AC_equals_BC": {
+    "requirement": "A<->C and B<->C must disagree on exactly the SAME rows, because A == B",
+    "row_level_identical": true,
+    "A_vs_C_agreement": 0.998659,
+    "B_vs_C_agreement": 0.998659,
+    "confusion_identical": true,
+    "meaning_if_false": "a support-alignment defect in the harness, not a finding about the data"
+  },
+  "source_port_divergence": {
+    "support": 9339483,
+    "agreement": 0.998659,
+    "divergence": 0.001341,
+    "top_disagreements": {
+      "NO_T_LABEL->T2": 1678,
+      "NO_T_LABEL->T2G": 1209,
+      "NO_T_LABEL->T4": 959,
+      "NO_T_LABEL->T9": 851,
+      "T4->NO_T_LABEL": 831,
+      "NO_T_LABEL->T1": 541,
+      "NO_T_LABEL->T3": 519,
+      "T1G->NO_T_LABEL": 295,
+      "T5->NO_T_LABEL": 281,
+      "T2->NO_T_LABEL": 276,
+      "T4->T2": 260,
+      "T2G->NO_T_LABEL": 217,
+      "T9->NO_T_LABEL": 201,
+      "T1G->T2G": 192,
+      "T5->T12": 177
+    },
+    "interpretation": "pure source/input divergence under identical canonical semantics"
+  },
+  "blank_semantics": {
+    "legacy_blank_means": "NO_MATERIALIZED_T_LABEL",
+    "legacy_blank_does_NOT_mean": "EVALUABLE_NO_T_STATE",
+    "unchanged_by_provenance_resolution": true,
+    "why": "knowing who wrote the column does not add an availability field to it",
+    "raw_what_C_says_on_blank_rows": {
+      "NO_T_LABEL": 4702672,
+      "T2": 1678,
+      "T2G": 1209,
+      "T4": 959,
+      "T9": 851,
+      "T1": 541,
+      "T3": 519,
+      "T5": 150
+    },
+    "allowed_claim": "materialized T-token agreement",
+    "forbidden_claim": "availability-semantic equivalence"
+  },
+  "by_position": {
+    "M1": {
+      "bars": 384493,
+      "A_vs_C": 0.996086,
+      "B_vs_C": 0.996086
+    },
+    "M2": {
+      "bars": 355031,
+      "A_vs_C": 0.998234,
+      "B_vs_C": 0.998234
+    },
+    "M3": {
+      "bars": 380631,
+      "A_vs_C": 0.99856,
+      "B_vs_C": 0.99856
+    },
+    "M4": {
+      "bars": 384515,
+      "A_vs_C": 0.998505,
+      "B_vs_C": 0.998505
+    },
+    "SESSION_FINAL": {
+      "bars": 501752,
+      "A_vs_C": 0.998671,
+      "B_vs_C": 0.998671
+    },
+    "OTHER": {
+      "bars": 7333061,
+      "A_vs_C": 0.998828,
+      "B_vs_C": 0.998828
+    }
+  },
+  "registered_position_pairs": {
+    "M1+M2": {
+      "comparable": 354186,
+      "both_same": 352693,
+      "first_only": 890,
+      "second_only": 200,
+      "both_differ": 403,
+      "pair_portability": 0.995785
+    },
+    "M2+M3": {
+      "comparable": 340938,
+      "both_same": 340226,
+      "first_only": 202,
+      "second_only": 175,
+      "both_differ": 335,
+      "pair_portability": 0.997912
+    },
+    "M3+M4": {
+      "comparable": 357217,
+      "both_same": 356573,
+      "first_only": 154,
+      "second_only": 172,
+      "both_differ": 318,
+      "pair_portability": 0.998197
+    }
+  },
+  "provenance_chain": [
+    "update_all.sh -> derive_intraday.py --tf 15m",
+    "studio_15m_base.duckdb (LEAN base); 15m resample = IDENTITY",
+    "build_intraday_db._process",
+    "main.api_bar_signals(..., _df=df)",
+    "compute_all_signals -> signal_engine.compute_signals",
+    "studio_15m.duckdb :: bars.t_sig"
+  ],
+  "authority_statement": "same canonical legacy 15m materializer semantics, verified exactly against the historical materialized 15m signal surface on its true input surface",
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "elapsed_sec": 60.6,
+  "sealed_at": "2026-08-27 00:16 +04"
+}

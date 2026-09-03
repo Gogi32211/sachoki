@@ -1,0 +1,272 @@
+{
+  "report_id": "MASSIVE_1M_RAW_INTEGRITY_V1",
+  "status": "PASS",
+  "read_only": "this verifier repairs nothing, re-fetches nothing into the archive, and rewrites no manifest",
+  "window": {
+    "start": "2021-08-25",
+    "end": "2026-08-24"
+  },
+  "sessions": {
+    "expected": 1254,
+    "completed": 1254,
+    "not_ingested": 0,
+    "earliest_preserved": "2021-08-25",
+    "latest_preserved": "2026-08-24"
+  },
+  "security_session_pairs": {
+    "expected": 630762,
+    "accounted": 630762,
+    "OBSERVED": 615255,
+    "UNOBSERVED": 5,
+    "NOT_YET_REGULAR_WAY": 15502
+  },
+  "raw": {
+    "rows_total": 239252625,
+    "compressed_bytes": 4830704282,
+    "compressed_gb": 4.831,
+    "payload_files": 1254,
+    "manifest_entries": 1254
+  },
+  "integrity": {
+    "missing_payloads": [],
+    "missing_manifests": [],
+    "digest_mismatches": [],
+    "duplicate_session_files": [],
+    "unreadable_payloads": [],
+    "truncated_pages": [],
+    "canonical_raw_corruption": 0
+  },
+  "unobserved": {
+    "total": 5,
+    "sessions_affected": 5,
+    "detail": [
+      {
+        "session": "2023-06-07",
+        "count": 1,
+        "securities": [
+          "FISV"
+        ]
+      },
+      {
+        "session": "2023-07-10",
+        "count": 1,
+        "securities": [
+          "EG"
+        ]
+      },
+      {
+        "session": "2023-08-30",
+        "count": 1,
+        "securities": [
+          "COR"
+        ]
+      },
+      {
+        "session": "2024-03-04",
+        "count": 1,
+        "securities": [
+          "DOC"
+        ]
+      },
+      {
+        "session": "2024-10-02",
+        "count": 1,
+        "securities": [
+          "EXE"
+        ]
+      }
+    ],
+    "handling": "the first failure and its status code remain in the manifest as recorded. No silent retry-until-success was performed. Classifying a failure as transport blip / entitlement gap / legitimately empty / lineage defect is a SEPARATE diagnosis, and any recovery must carry its own record without erasing the original observation."
+  },
+  "replay_check": {
+    "classification": "PARTIAL",
+    "method": "ordered canonical row digest, stored versus re-requested",
+    "replay_scope": "SAMPLE_ONLY",
+    "sample_n": 5,
+    "selection_rule": "evenly_spaced_sessions",
+    "retrieval_time": "2026-08-25T05:12:23Z",
+    "comparisons": 15,
+    "matches": 12,
+    "differences": 0,
+    "unavailable": 3,
+    "detail": [],
+    "results": [
+      {
+        "session": "2021-08-25",
+        "security": "A",
+        "ticker": "A",
+        "state": "REPLAY_UNAVAILABLE",
+        "http_status": 403,
+        "stored_rows": 393,
+        "note": "the source could not be re-read; this is NEITHER a match NOR a difference"
+      },
+      {
+        "session": "2021-08-25",
+        "security": "AAPL",
+        "ticker": "AAPL",
+        "state": "REPLAY_UNAVAILABLE",
+        "http_status": 403,
+        "stored_rows": 730,
+        "note": "the source could not be re-read; this is NEITHER a match NOR a difference"
+      },
+      {
+        "session": "2021-08-25",
+        "security": "ABBV",
+        "ticker": "ABBV",
+        "state": "REPLAY_UNAVAILABLE",
+        "http_status": 403,
+        "stored_rows": 403,
+        "note": "the source could not be re-read; this is NEITHER a match NOR a difference"
+      },
+      {
+        "session": "2022-08-23",
+        "security": "A",
+        "ticker": "A",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 389,
+        "live_rows": 389,
+        "stored_digest": "3dc9d19fc18e3ab2",
+        "live_digest": "3dc9d19fc18e3ab2"
+      },
+      {
+        "session": "2022-08-23",
+        "security": "AAPL",
+        "ticker": "AAPL",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 753,
+        "live_rows": 753,
+        "stored_digest": "07332b693ad4c660",
+        "live_digest": "07332b693ad4c660"
+      },
+      {
+        "session": "2022-08-23",
+        "security": "ABBV",
+        "ticker": "ABBV",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 403,
+        "live_rows": 403,
+        "stored_digest": "546920cc9d40b724",
+        "live_digest": "546920cc9d40b724"
+      },
+      {
+        "session": "2023-08-22",
+        "security": "A",
+        "ticker": "A",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 384,
+        "live_rows": 384,
+        "stored_digest": "298babd26608be9a",
+        "live_digest": "298babd26608be9a"
+      },
+      {
+        "session": "2023-08-22",
+        "security": "AAPL",
+        "ticker": "AAPL",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 743,
+        "live_rows": 743,
+        "stored_digest": "b311492e268b6749",
+        "live_digest": "b311492e268b6749"
+      },
+      {
+        "session": "2023-08-22",
+        "security": "ABBV",
+        "ticker": "ABBV",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 404,
+        "live_rows": 404,
+        "stored_digest": "1b12777fe268fcc5",
+        "live_digest": "1b12777fe268fcc5"
+      },
+      {
+        "session": "2024-08-20",
+        "security": "A",
+        "ticker": "A",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 379,
+        "live_rows": 379,
+        "stored_digest": "ca0affc0cdc20214",
+        "live_digest": "ca0affc0cdc20214"
+      },
+      {
+        "session": "2024-08-20",
+        "security": "AAPL",
+        "ticker": "AAPL",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 684,
+        "live_rows": 684,
+        "stored_digest": "031c387e300a3738",
+        "live_digest": "031c387e300a3738"
+      },
+      {
+        "session": "2024-08-20",
+        "security": "ABBV",
+        "ticker": "ABBV",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 399,
+        "live_rows": 399,
+        "stored_digest": "3f9d11ce331558df",
+        "live_digest": "3f9d11ce331558df"
+      },
+      {
+        "session": "2025-08-20",
+        "security": "A",
+        "ticker": "A",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 361,
+        "live_rows": 361,
+        "stored_digest": "f62f596a56413d51",
+        "live_digest": "f62f596a56413d51"
+      },
+      {
+        "session": "2025-08-20",
+        "security": "AAPL",
+        "ticker": "AAPL",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 705,
+        "live_rows": 705,
+        "stored_digest": "5341b8e5f1289904",
+        "live_digest": "5341b8e5f1289904"
+      },
+      {
+        "session": "2025-08-20",
+        "security": "ABBV",
+        "ticker": "ABBV",
+        "state": "REPLAY_MATCH",
+        "stored_rows": 397,
+        "live_rows": 397,
+        "stored_digest": "30ff831c28553b70",
+        "live_digest": "30ff831c28553b70"
+      }
+    ],
+    "NOT_LOCAL_CORRUPTION": "a replay difference means the VENDOR now returns something else for an interval whose stored bytes are internally consistent. That is SOURCE DRIFT or RESTATEMENT, not archive corruption, and it is excluded from canonical_raw_corruption and from the integrity acceptance gate.",
+    "archived_bytes_remain_authoritative": "the stored payload is the authoritative evidence for ITS vintage; a fresh response is a different vintage, not a correction of the old one",
+    "limitation": "this is a SAMPLE of 5 sessions. It can demonstrate drift; it cannot demonstrate its absence across 1254 sessions."
+  },
+  "lineage": {
+    "artifact": "MASSIVE_TICKER_LINEAGE_V6.json",
+    "digest": "8c961aa3a0c67934",
+    "securities": 503,
+    "regular_way_intervals": 522,
+    "when_issued_excluded": 4,
+    "states_encountered": [
+      "NOT_YET_REGULAR_WAY",
+      "OBSERVED",
+      "UNOBSERVED"
+    ]
+  },
+  "derived_layer": "HOLD — no densification, zero-fill, RTH filtering or derived product was created",
+  "acceptance": {
+    "all_expected_sessions_ingested": true,
+    "no_missing_payloads": true,
+    "no_missing_manifests": true,
+    "no_digest_mismatches": true,
+    "no_duplicate_session_files": true,
+    "no_unreadable_payloads": true,
+    "every_pair_has_a_state": true,
+    "no_truncated_pages": true
+  },
+  "acceptance_scope": "LOCAL ARCHIVE INTEGRITY ONLY — stored-vs-manifest digests, missing payloads, missing manifests, duplicate files, unreadable payloads, truncated pages. Vendor replay differences are reported separately and do NOT affect this gate.",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 09:12 +04"
+}

@@ -1,0 +1,87 @@
+{
+  "artifact": "MASSIVE_T1_15M_CISD_RESIDUAL_AUTHORITY_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "binds": "b60d3164e662c6f1",
+  "columns": [
+    "sig_cisd_cplus",
+    "sig_cisd_cplus_minus",
+    "sig_cisd_minus_struct",
+    "sig_cisd_mpm"
+  ],
+  "CENSUS": {
+    "totals": {
+      "sig_cisd_cplus": 5355,
+      "sig_cisd_cplus_minus": 496,
+      "sig_cisd_minus_struct": 586,
+      "sig_cisd_mpm": 409
+    },
+    "first_mismatch_ALL_FOUR": "2026-08-17 13:30:00 — the first bar of that session, identical across all four columns",
+    "last": "2026-08-26 19:45:00 (store end)",
+    "contiguity": "an unbroken tail from 2026-08-17 to the end of the store",
+    "before_2026_08_17": 0,
+    "tickers_affected": {
+      "sig_cisd_cplus": 1567,
+      "sig_cisd_cplus_minus": 365,
+      "sig_cisd_minus_struct": 157,
+      "sig_cisd_mpm": 238
+    },
+    "direction": {
+      "sig_cisd_cplus": "5,256 are 0->1 (store has MORE), 99 are 1->0",
+      "sig_cisd_cplus_minus": "476 are 0->1, 20 are 1->0",
+      "sig_cisd_minus_struct": "586 of 586 are 1->0 (store has FEWER)",
+      "sig_cisd_mpm": "409 of 409 are 1->0"
+    }
+  },
+  "MECHANISM": {
+    "verdict": "CISD_MATERIALIZATION_REGIME_CONFIRMED",
+    "name": "PER_TICKER_STRUCTURE_STATE_TRUNCATED_BY_INCREMENTAL_SLICE",
+    "documented_in_source": "studio/cisd_backfill.py docstring: \"STATE IS PER-TICKER AND STARTS AT ITS FIRST BAR. The engine walks a ticker whole history carrying structure state, so a partial slice would produce different answers from a full one.\"",
+    "git_timeline": [
+      [
+        "2026-08-15",
+        "494243a",
+        "fix(cisd): seed the structure from bar 0 — half the engine was dead code"
+      ],
+      [
+        "2026-08-15",
+        "ad4f35a",
+        "feat(cisd): backfill sig_cisd_* across all five timeframes"
+      ],
+      [
+        "2026-08-15",
+        "e92d5af",
+        "feat(cisd): store the structural half separately"
+      ]
+    ],
+    "reconstruction": "the seeding fix and its backfill landed 2026-08-15 and corrected history through 2026-08-16. From 2026-08-17 the nightly incremental wrote these columns on a truncated slice, and CISD structure state does not survive truncation — exactly the failure the backfill docstring warns about.",
+    "truncation_test": {
+      "cells_tested": 60,
+      "reproduces_stored": {
+        "30d": "45.0%",
+        "45d": "45.0%",
+        "60d": "38.3%",
+        "90d": "31.7%",
+        "full_history": "0%"
+      },
+      "reading": "supporting, not decisive — the declining curve with window length matches a truncated-state mechanism, but per-run boundaries were not preserved so exact reproduction is unavailable"
+    },
+    "strength": "this is the best-evidenced mechanism in the programme so far: the source code documents the failure mode IN ADVANCE, the git timeline dates it, and the divergence begins on the first bar after the backfill window and never stops"
+  },
+  "ROLE_STATUS": {
+    "FULL_STORE": "NOT_EXACT",
+    "DEVELOPMENT_WINDOW_CONFORMANCE": "EXACT — zero divergence at or before 2026-08-06",
+    "HOLDOUT_CONFORMANCE": "NOT_EXACT — the entire 2026-08-17+ tail diverges",
+    "ROLE_DECISION": "DEFERRED_TO_ELIGIBILITY_MATRIX",
+    "DEV_X_ALLOWED": "candidate — development history is clean",
+    "HISTORICAL_HOLDOUT_X_ALLOWED": "FALSE by default — the sealed historical holdout (2026-08-07+) overlaps the contaminated CISD tail (2026-08-17+)",
+    "TRUE_FORWARD_X_ALLOWED": "not precluded — a frozen deterministic Massive production would carry no such defect",
+    "principle": "a feature usable for DEVELOPMENT is not automatically usable as HOLDOUT EVIDENCE"
+  },
+  "CONTAMINATION_NOTE": "part of the sealed historical holdout (2026-08-07 .. 2026-08-26) is source-uncertain for these four columns. The holdout is not uniformly clean and must be treated per-feature.",
+  "not_done": [
+    "per-column first-divergent-intermediate trace inside compute_cisd",
+    "no per-run boundary reconstruction"
+  ]
+}

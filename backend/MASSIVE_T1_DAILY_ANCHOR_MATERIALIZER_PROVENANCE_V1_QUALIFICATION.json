@@ -1,0 +1,53 @@
+{
+  "amendment_id": "MASSIVE_T1_DAILY_ANCHOR_MATERIALIZER_PROVENANCE_V1_QUALIFICATION",
+  "status": "QUALIFIED_PROVENANCE",
+  "task_class": "STATUS_QUALIFICATION_ONLY",
+  "qualifies": {
+    "artifact": "MASSIVE_T1_DAILY_ANCHOR_MATERIALIZER_PROVENANCE_V1",
+    "digest": "7b4a7ac5facbf0a7",
+    "disposition": "FROZEN — not edited"
+  },
+  "classification": {
+    "WRITER_AUTHORITY": "RESOLVED",
+    "CANONICAL_PRODUCER": "RESOLVED",
+    "TRUE_HISTORICAL_INPUT_SURFACE": "IDENTIFIED_BY_CALL_PATH_BUT_NOT_PRESERVED",
+    "SAME_INPUT_DAILY_MATERIALIZATION_CONFORMANCE": "NOT_VERIFIABLE_FROM_PRESERVED_INPUTS",
+    "STORED_2DP_RECONSTRUCTION": {
+      "value": 0.999171,
+      "status": "DIAGNOSTIC_ONLY"
+    },
+    "MASSIVE_1D_RECONSTRUCTION": {
+      "value": 0.916174,
+      "status": "CROSS_SOURCE_DIAGNOSTIC_ONLY"
+    }
+  },
+  "the_distinction": {
+    "not_this": "EXACT REPRODUCTION FAILED — the authoritative same-input surface exists and the engine did not match it",
+    "but_this": "EXACT REPRODUCTION IS NOT TESTABLE — the authoritative same-input surface was demonstrably not preserved",
+    "evidence": "0 of 780,261 stored sp500 rows carry more than two decimals; the exporter rounds before writing"
+  },
+  "sharpened_rule": {
+    "where_input_surface_exists": "semantic conformance must be EXACT — unchanged, and 15m met it on qualified support",
+    "where_input_surface_not_preserved": "exactness is NOT replaced by a tolerance; the status becomes NOT_VERIFIABLE_FROM_PRESERVED_INPUTS",
+    "explicitly_not": "a relaxation of the exact-or-HOLD rule"
+  },
+  "prohibitions": [
+    "NO TOLERANCE ACCEPTED",
+    "NO 0.999171 THRESHOLD CREATED",
+    "NO LABEL CORRECTION",
+    "NO PARAMETER TUNING",
+    "0.999171 may not become an expected Massive agreement",
+    "0.999171 may not become an estimate of true historical semantic error",
+    "0.916174 does not mean the daily engine fails to reproduce itself — it is cross-source population sensitivity"
+  ],
+  "consequence_for_c3": {
+    "authorized": true,
+    "allowed_claim": "The historical daily T1 selector semantics are ported to Massive 1D source data using the resolved canonical producer path. Exact same-input reproduction of the historical daily materialization cannot be tested, because the unrounded historical input frame was not preserved.",
+    "forbidden_claim": "Massive daily T1 exactly reproduces the historical daily T1 materializer population",
+    "historical_diagnostic_authority": "the PRESERVED positive episode set (t1_episodes.parquet, 220,351)",
+    "forbidden_diagnostic_authority": "engine(stored rounded daily OHLC) used as truth"
+  },
+  "y_exposed": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-27 10:04 +04"
+}

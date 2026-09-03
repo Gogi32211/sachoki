@@ -1,0 +1,93 @@
+{
+  "artifact": "MASSIVE_T1_15M_REMAINING_16_FULL_STORE_CONFORMANCE_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "supersedes_sample_gate": "00df873ec25eb31f",
+  "RUN_VALIDITY": {
+    "series": 3203,
+    "compared_rows_per_column": 91027821,
+    "INVALID_series": 0,
+    "census_captured": 12036,
+    "census_total": 12036,
+    "capped": false,
+    "FALSE_EXACT_GUARD": "enforced as a hard condition — compared_rows==0 would mark INVALID_RUN and can never PASS. Every column compared the full 91,027,821 rows."
+  },
+  "SAMPLE_VS_FULL_STORE": {
+    "sample_claim": "15 of 16 exact on 5 series / 165,909 rows",
+    "full_store_reality": "ZERO of 16 are exact on 91,027,821 rows",
+    "lesson": "sample exactness is not full-store authority — every one of the 15 sample-exact columns showed divergence at full scale"
+  },
+  "PER_COLUMN": {
+    "sig_vol_5x": 23,
+    "sig_vol_10x": 15,
+    "sig_vol_20x": 12,
+    "sig_g1": 3,
+    "sig_g2": 7,
+    "sig_g4": 8,
+    "sig_g11": 6,
+    "vbo_up": 51,
+    "sig_tz_flip": 30,
+    "rsi_14": 5033,
+    "bar_body_wick": 1,
+    "bar_gap_range": 1,
+    "sig_cisd_cplus": 5355,
+    "sig_cisd_cplus_minus": 496,
+    "sig_cisd_minus_struct": 586,
+    "sig_cisd_mpm": 409
+  },
+  "THREE_DISTINCT_PATTERNS": {
+    "A_CISD_holdout_only": {
+      "columns": [
+        "sig_cisd_cplus",
+        "sig_cisd_cplus_minus",
+        "sig_cisd_minus_struct",
+        "sig_cisd_mpm"
+      ],
+      "total": 6846,
+      "earliest": "2026-08-17 13:30:00",
+      "in_development_window": 0,
+      "in_sealed_holdout": 6846,
+      "reading": "ZERO divergence inside the new-family development window (<= 2026-08-06). A fourth distinct boundary at 2026-08-17, later than the physics 2026-08-14 backfill."
+    },
+    "B_incremental_regime": {
+      "columns": [
+        "sig_vol_5x",
+        "sig_vol_10x",
+        "sig_vol_20x",
+        "sig_g1",
+        "sig_g2",
+        "sig_g4",
+        "sig_g11",
+        "vbo_up",
+        "sig_tz_flip"
+      ],
+      "total": 155,
+      "earliest": "2026-07-09 17:30:00",
+      "in_development_window": 153,
+      "reading": "small counts, all beginning at the familiar 2026-07-09 17:30 boundary — but they DO fall inside the development window, because the incremental regime (from 2026-07-06) overlaps the development cutoff (2026-08-06) by one month"
+    },
+    "C_spread_across_history": {
+      "columns": [
+        "rsi_14",
+        "bar_body_wick",
+        "bar_gap_range"
+      ],
+      "rsi_14": {
+        "total": 5033,
+        "in_development_window": 4777,
+        "earliest": "2022-06-09 13:30:00",
+        "reading": "NOT a boundary artifact — spread across the full history. Genuinely non-exact and unexplained."
+      },
+      "bar_body_wick_gap_range": "1 each, both at META 2022-06-09 13:30 — the series-head artifact already seen in the suffix gate"
+    }
+  },
+  "STRUCTURAL_FINDING": "the new-family development window (<= 2026-08-06) OVERLAPS the incremental regime (>= 2026-07-06) by one month. A column being \"boundary-confined\" does NOT make it clean for development use.",
+  "NO_COLUMN_PASSES_YET": "not one of the 16 is full-store exact; per-column role decisions belong to the eligibility matrix, not to this gate",
+  "not_done": [
+    "rsi_14 divergence not investigated (5,033, spread across history)",
+    "sig_cisd_cplus residual not investigated",
+    "no claim-relevance census for the old frozen family",
+    "no eligibility ruling — that is the next gate"
+  ]
+}

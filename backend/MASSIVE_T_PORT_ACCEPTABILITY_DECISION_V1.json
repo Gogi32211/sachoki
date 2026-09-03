@@ -1,0 +1,312 @@
+{
+  "decision_id": "MASSIVE_T_PORT_ACCEPTABILITY_DECISION_V1",
+  "status": "ACCEPT_FOR_REPLICATION_LIKE_SOURCE_PORT",
+  "task_class": "ACCEPTABILITY_DECISION_ONLY",
+  "decided_from": "already-sealed X-side evidence only",
+  "verdict_computed_not_asserted": true,
+  "decision_question": {
+    "answered": "Is the Massive 15m T port sufficiently specified, semantically verified and provenance-controlled to be used as a REPLICATION-LIKE SOURCE PORT of the historically exposed T-family?",
+    "not_answered": "Does Massive reproduce the same historical 15m T population?",
+    "why_not": "NOT ESTIMABLE — the legacy canonical materialization is structurally 1D only, so no matched legacy 15m T population exists"
+  },
+  "authorities": {
+    "MASSIVE_T_SUPERCHART_EXPORT_PROVENANCE_V1.json": "a8e1f3725ddfe7a1",
+    "MASSIVE_T_FEATURE_PORT_SPEC_V1.json": "545d293b4f1e4653",
+    "MASSIVE_T_FEATURE_PORT_SPEC_V1_AMENDMENT_2.json": "bd9292853ee10f2c",
+    "MASSIVE_T_PORT_CONFORMANCE_DIAGNOSTIC_SCOPE_AMENDMENT_V1.json": "c6358576c5c9411b",
+    "MASSIVE_T_PORT_SMOKE_FEED_CONFORMANCE_V1.json": "21166d63a73181bd"
+  },
+  "producer_t_slice": "2901107d9baa6320",
+  "port_hash": "5ab5390171e0d5d2",
+  "final_harness_hash": "b45f9fcb88165b95",
+  "allowed_claim": {
+    "text": "The same canonical legacy T materializer semantics are executed on Massive 15m source data under a pre-registered source-port contract.",
+    "provenance": [
+      "PREVIOUSLY_EXPOSED_HYPOTHESIS",
+      "CURRENT_PRE_REGISTERED_SOURCE_PORT",
+      "REPLICATION_LIKE"
+    ]
+  },
+  "forbidden_claims": [
+    "NEW_DISCOVERY",
+    "INDEPENDENT_REPLICATION",
+    "SAME_MATERIALIZED_POPULATION",
+    "LEGACY_15M_POPULATION_REPRODUCED",
+    "FEED_EQUIVALENCE_PROVEN"
+  ],
+  "accepted_object": {
+    "is_": "T_MASSIVE_PORT",
+    "is_not": "RECONSTRUCTED_LEGACY_15M_T",
+    "because": "the same canonical semantic program can produce different T labels when its X-side source representation differs; that is not automatically a defect"
+  },
+  "hard_requirements": [
+    {
+      "requirement": "canonical materializer authority resolved",
+      "met": true
+    },
+    {
+      "requirement": "exact producer call-context resolved",
+      "met": true
+    },
+    {
+      "requirement": "canonical config resolved",
+      "met": true
+    },
+    {
+      "requirement": "research timeframe frozen to 15m",
+      "met": true
+    },
+    {
+      "requirement": "same-input semantic verification EXACT",
+      "met": true
+    },
+    {
+      "requirement": "independent implementation agreement exact",
+      "met": true
+    },
+    {
+      "requirement": "priority semantics exact",
+      "met": true
+    },
+    {
+      "requirement": "state mapping exact",
+      "met": true
+    },
+    {
+      "requirement": "session-continuous shift(1) semantics exact",
+      "met": true
+    },
+    {
+      "requirement": "FALSE vs UNAVAILABLE preserved",
+      "met": true
+    },
+    {
+      "requirement": "supplemental / new-vintage leakage = 0",
+      "met": true
+    },
+    {
+      "requirement": "no Z-family leakage",
+      "met": true
+    },
+    {
+      "requirement": "Y_EXPOSED = 0",
+      "met": true
+    }
+  ],
+  "hard_requirements_met": true,
+  "reject_conditions": [
+    {
+      "condition": "same-input implementation mismatch > 0",
+      "triggered": false
+    },
+    {
+      "condition": "caller semantics ambiguous",
+      "triggered": false
+    },
+    {
+      "condition": "a hidden parameter remains unresolved",
+      "triggered": false
+    },
+    {
+      "condition": "availability cannot distinguish FALSE from UNAVAILABLE",
+      "triggered": false
+    },
+    {
+      "condition": "the source-port claim requires unmeasured legacy 15m equivalence",
+      "triggered": false
+    },
+    {
+      "condition": "supplemental / new-vintage contamination occurred",
+      "triggered": false
+    },
+    {
+      "condition": "Y influenced the port",
+      "triggered": false
+    },
+    {
+      "condition": "parameter fitting occurred from conformance results",
+      "triggered": false
+    }
+  ],
+  "any_reject_condition_triggered": false,
+  "accept_rule_clauses": [
+    {
+      "clause": "T evaluability is measurable and nonzero across the whole cohort",
+      "met": true
+    },
+    {
+      "clause": "availability is observation-level explicit",
+      "met": true
+    },
+    {
+      "clause": "source-divergence limitations are explicitly bounded",
+      "met": true
+    },
+    {
+      "clause": "15m feed equivalence is NOT claimed",
+      "met": true
+    },
+    {
+      "clause": "no outcome information influenced the port",
+      "met": true
+    },
+    {
+      "clause": "no parameter was tuned from Layer 2 / Layer 3A",
+      "met": true
+    },
+    {
+      "clause": "X-side guards and source firewalls pass",
+      "met": true
+    }
+  ],
+  "accept_rule_met": true,
+  "semantic_exactness_evidence": {
+    "bars": 39999,
+    "producer_vs_port": 0,
+    "port_vs_verifier": 0,
+    "producer_vs_verifier": 0,
+    "raw_predicate_mismatches": 0,
+    "priority_winner_mismatches": 0,
+    "conclusion": "SEMANTIC_IMPLEMENTATION_CONFORMANCE = EXACT",
+    "role": "the primary evidence for port correctness"
+  },
+  "massive_15m_capability": {
+    "total_expected_slots": 15462384,
+    "current_complete": 10618186,
+    "t_evaluable": 9484243,
+    "unavailable_current_incomplete": 4844198,
+    "unavailable_required_history": 1133943,
+    "t_fired": 4705795,
+    "zero_evaluable_securities": 0,
+    "cohort": 476,
+    "classification": "CAPABILITY_FACT",
+    "forbidden_uses": [
+      "converting evaluability into an inferential power claim",
+      "calling the unavailable remainder FALSE"
+    ],
+    "no_threshold_invented": true,
+    "why_no_threshold": "no evaluability minimum was ever pre-registered, so the measured share is neither a PASS rule nor a FAIL rule"
+  },
+  "cohort_preservation": {
+    "frozen_cohort": 476,
+    "shrunk_by_feature_availability": false,
+    "rule": "a security with no evaluable observation for a downstream condition remains in cohort accounting",
+    "t_zero_evaluable_securities": 0,
+    "note": "capability evidence, not predictive evidence"
+  },
+  "legacy_1d_diagnostics": {
+    "layer_2": {
+      "name": "LEGACY_1D_MATERIALIZER_STORAGE_CONFORMANCE",
+      "support": 614059,
+      "agreed": 613613,
+      "agreement": 0.999274,
+      "classification": "DIAGNOSTIC_ONLY",
+      "establishes": "consistency of the canonical producer/storage lineage",
+      "does_not_establish": "15m historical materialization equivalence",
+      "forbidden": "using 99.9274% as the acceptance threshold for the 15m port"
+    },
+    "layer_3a": {
+      "matched": 212108,
+      "securities": 447,
+      "t_agreement": 0.975711,
+      "classification": "DIAGNOSTIC_ONLY_NOT_HYPOTHESIS_REGISTRATION",
+      "establishes": "that source representation CAN change the T state population",
+      "is_not": "a measured 15m feed-divergence rate"
+    }
+  },
+  "fifteen_minute_feed_divergence": {
+    "frozen_for_v1": "NOT_ESTIMABLE_FROM_AVAILABLE_MATCHED_DATA",
+    "reason": "the legacy canonical materialization is structurally 1D only; there is no matched legacy 15m T population",
+    "forbidden": [
+      "copying the 1D 97.5711% agreement to 15m",
+      "scaling it",
+      "treating it as an approximate 15m rate",
+      "describing it as 'likely similar'",
+      "using it to correct 15m T labels"
+    ]
+  },
+  "session_close_structural_limitation": {
+    "bound_fact": "Massive 15m bars derive their close from the regular-session minute aggregation contract",
+    "observed_1d": "the 1D close disagrees far more often than open/high/low",
+    "effect_on_15m_t_population": "UNMEASURED",
+    "forbidden_inferences": [
+      "auction effect",
+      "closing-auction effect",
+      "a 15m T divergence magnitude"
+    ],
+    "session_close_boundary_bar": "NEUTRAL"
+  },
+  "input_vintage": {
+    "status": "PLAUSIBLE_NOT_CONFIRMED",
+    "not_upgraded_on": "clustering alone",
+    "unresolved_remains_valid": true
+  },
+  "historical_provenance": {
+    "t_family": "PREVIOUSLY_EXPOSED",
+    "classification": [
+      "HYPOTHESIS_GENERATING",
+      "NOT_PRISTINE_DISCOVERY"
+    ],
+    "rule": "a cleaner source, a larger dataset and an exact new implementation do NOT reset hypothesis provenance",
+    "forbidden": "describing later positive findings as discovery"
+  },
+  "replication_language": {
+    "preferred": "REPLICATION_LIKE_SOURCE_PORT",
+    "avoid": "INDEPENDENT REPLICATION",
+    "because": [
+      "hypothesis lineage is historically exposed",
+      "source semantics differ",
+      "no matched legacy 15m population exists",
+      "a new pipeline does not make the study statistically independent"
+    ]
+  },
+  "multiplicity": {
+    "reset_here": false,
+    "final_family_frozen_here": false,
+    "ledger": "historically exposed T-family provenance remains on the ledger",
+    "rule": "downstream T-state / transition / conditioning tests must enter the final pre-Y analysis dictionary and multiplicity registry",
+    "port_acceptance_does_not_authorize": "testing every T state against every EMA/RVOL condition"
+  },
+  "t_state_prevalence": {
+    "classification": "DESCRIPTIVE_CAPABILITY_ONLY",
+    "counts": {
+      "T4": 696337,
+      "T6": 71583,
+      "T1G": 101366,
+      "T2G": 929362,
+      "T1": 416995,
+      "T2": 1244017,
+      "T9": 643459,
+      "T10": 59656,
+      "T3": 427317,
+      "T11": 7745,
+      "T5": 88715,
+      "T12": 19243
+    },
+    "rule": "frequency does NOT imply edge; states may not be chosen by frequency unless a separate pre-Y capability rule requires minimum support"
+  },
+  "semantic_findings": [
+    {
+      "finding": "min_body_ratio <= 1.0 is inactive under the canonical use_wick=False edge logic",
+      "status": "DESCRIPTIVE_SEMANTIC_FINDING — CONFIG REMAINS FROZEN"
+    },
+    {
+      "finding": "1e-10 has a measured inert range before larger floors alter states",
+      "status": "DESCRIPTIVE_SEMANTIC_FINDING — CONFIG REMAINS FROZEN"
+    }
+  ],
+  "canonical_config_frozen": true,
+  "parameters_changed": 0,
+  "limitation_statement": "The Massive T port is semantically exact with respect to the proven canonical legacy materializer on identical inputs. It is evaluated on Massive 15m data, for which no matched legacy 15m materialization exists. Therefore source-induced differences in the 15m T population cannot be directly estimated from legacy data. The port is suitable for a replication-like source-port study, but not for a claim of historical 15m population equivalence.",
+  "authorizes": "MASSIVE_T_FEATURE_PRODUCTION_V1 as a SEPARATE gate",
+  "does_not_authorize": [
+    "Z",
+    "the final T/Z analysis dictionary",
+    "Y exposure",
+    "T production in this gate"
+  ],
+  "y_exposed": 0,
+  "t_production_writes": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-26 12:37 +04"
+}

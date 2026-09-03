@@ -1,0 +1,148 @@
+{
+  "spec_id": "GANN_HISTORICAL_EXPOSED_V1",
+  "status": "HISTORICAL_EXPOSED",
+  "family": "GANN",
+  "spec": "d12ac62f7e399a58",
+  "capability_result": "c7b0c4277d7e04bf",
+  "theta_status": "5ee199b6916b82af",
+  "k_actual": 3,
+  "phi": 0,
+  "n_perm": 999,
+  "n_phase_worlds": 999,
+  "rng_root": "827698b533703452",
+  "common_frame": {
+    "rows": 2869721,
+    "nullization_blocks": 3204,
+    "per_claim": {
+      "ASC": {
+        "treated": 141505,
+        "eligible_blocks": 6330
+      },
+      "DESC": {
+        "treated": 138569,
+        "eligible_blocks": 6294
+      },
+      "CONF": {
+        "treated": 80711,
+        "eligible_blocks": 6278
+      }
+    }
+  },
+  "observed": {
+    "GANN_ASC_TOUCH_V1": 18.0392,
+    "GANN_DESC_TOUCH_V1": 21.2192,
+    "GANN_CONFLUENCE_TOUCH_V1": 21.4619
+  },
+  "gate_A": {
+    "name": "PRIMARY INFERENTIAL NULL — paired outcome permutation",
+    "p95": 2.0932,
+    "median": 0.7201,
+    "min": -2.056,
+    "max": 3.2936,
+    "promotion": "Z_obs > p95, STRICTLY",
+    "result": {
+      "GANN_ASC_TOUCH_V1": "PASS",
+      "GANN_DESC_TOUCH_V1": "PASS",
+      "GANN_CONFLUENCE_TOUCH_V1": "PASS"
+    },
+    "null_digest": "f6b16467dcab422b"
+  },
+  "gate_B": {
+    "name": "REGISTERED SHIFTED-LATTICE FAMILY-WISE PLACEBO REFERENCE",
+    "p95": 22.7281,
+    "median": 21.5213,
+    "min": 19.4915,
+    "max": 24.55,
+    "result": {
+      "GANN_ASC_TOUCH_V1": "FAIL",
+      "GANN_DESC_TOUCH_V1": "FAIL",
+      "GANN_CONFLUENCE_TOUCH_V1": "FAIL"
+    },
+    "wording": "registered shifted-lattice placebo reference — NOT an exact null, NOT a second p-value",
+    "null_digest": "f9dcaac7c1883442",
+    "runner_result": {
+      "value": {
+        "GANN_ASC_TOUCH_V1": "FAIL",
+        "GANN_DESC_TOUCH_V1": "FAIL",
+        "GANN_CONFLUENCE_TOUCH_V1": "FAIL"
+      },
+      "status": "LEGACY_COMPARATOR_FIELD",
+      "note": "NOT A VERDICT — a raw Z_obs > p95 comparison emitted by the runner before GANN_GATE_B_CLASSIFICATION_V1 narrowed gate B to descriptive placement. Retained verbatim for provenance; never overwritten."
+    },
+    "classification": {
+      "GANN_ASC_TOUCH_V1": "CASE_2_ORDINARY_WITHIN",
+      "GANN_DESC_TOUCH_V1": "CASE_2_ORDINARY_WITHIN",
+      "GANN_CONFLUENCE_TOUCH_V1": "CASE_2_ORDINARY_WITHIN"
+    },
+    "classification_basis": {
+      "rule": "d025fe13c36adb3a",
+      "zones": {
+        "CASE_1_CLEARLY_OUTSIDE": "observed > max (24.55)",
+        "CASE_2B_TAIL_INDETERMINATE": "22.7281 < observed <= 24.55",
+        "CASE_2_ORDINARY_WITHIN": "observed <= p95 (22.7281)"
+      },
+      "decided_by": "p95 and max alone — no rank or p99 was needed",
+      "cross_claim": "NOT MIXED — all three claims land in the same zone, so a family-level reading is permitted"
+    },
+    "semantic_status": [
+      "DESCRIPTIVE_PLACEBO_PLACEMENT",
+      "NOT EXACT NULL",
+      "NOT P-VALUE",
+      "NOT PROMOTION GATE"
+    ],
+    "placement_detail": {
+      "GANN_ASC_TOUCH_V1": {
+        "observed": 18.0392,
+        "shifted_median": 21.5213,
+        "shifted_p95": 22.7281,
+        "shifted_max": 24.55,
+        "shifted_min": 19.4915,
+        "below_shifted_median": true
+      },
+      "GANN_DESC_TOUCH_V1": {
+        "observed": 21.2192,
+        "shifted_median": 21.5213,
+        "shifted_p95": 22.7281,
+        "shifted_max": 24.55,
+        "shifted_min": 19.4915,
+        "below_shifted_median": true
+      },
+      "GANN_CONFLUENCE_TOUCH_V1": {
+        "observed": 21.4619,
+        "shifted_median": 21.5213,
+        "shifted_p95": 22.7281,
+        "shifted_max": 24.55,
+        "shifted_min": 19.4915,
+        "below_shifted_median": true
+      }
+    },
+    "rank_and_p99": {
+      "status": "NOT RECOVERABLE FROM THIS ARTIFACT",
+      "why": "the runner persisted the null's digest and summary stats, not the 999-element vector",
+      "needed_for_classification": false,
+      "optional_replay": "deterministic; the regenerated vector must match null_digest f9dcaac7c1883442 bit-for-bit or REPLAY = FAIL and rank = UNAVAILABLE. A replay may add a descriptive rank; it may never become a new threshold or interpretation gate."
+    }
+  },
+  "theta": "NO FROZEN ESTIMAND EXISTS — OFFICIALLY UNDEFINED — INTENTIONALLY NOT COMPUTED",
+  "verdict": {
+    "GANN_ASC_TOUCH_V1": "A PASS, B FAIL — a price-reaction association exists, but it is NOT specific to the Gann integer phase",
+    "GANN_DESC_TOUCH_V1": "A PASS, B FAIL — a price-reaction association exists, but it is NOT specific to the Gann integer phase",
+    "GANN_CONFLUENCE_TOUCH_V1": "A PASS, B FAIL — a price-reaction association exists, but it is NOT specific to the Gann integer phase"
+  },
+  "one_shot": "this exposure is not repeatable under the frozen inference; any change of tolerance, block definition, horizon or claim after seeing it is a new search branch",
+  "exposure_timestamp": "2026-08-24 04:20:28 +04",
+  "runtime_min": 62.5,
+  "final_reading": {
+    "gate_A": "the effect is incompatible with the registered paired-outcome null: observed +18.04 / +21.22 / +21.46 against p95 2.0932",
+    "gate_B": "the registered shifted lattices reproduce that scale — their max-Z median is 21.5213 and their full range 19.4915 to 24.55, and all three observed values sit at or BELOW the shifted median",
+    "conclusion": "A registered directional association exists historically. The shifted lattice reproduces its scale, therefore Gann-specific spatial attribution is UNSUPPORTED.",
+    "what_this_is_not": [
+      "a failure of the inference engine — the engine worked and the capability qualified it at 360/360",
+      "a claim that no association exists — gate A is a very strong PASS",
+      "a tradeability statement — neither gate speaks to that"
+    ],
+    "what_failed": "the MECHANISM / SPECIFICITY claim, not the test"
+  },
+  "amended_by": "additive semantic layer per GANN_GATE_B_CLASSIFICATION_V1; no value written by the runner was changed or removed",
+  "amended_at": "2026-08-24 09:26 +04"
+}

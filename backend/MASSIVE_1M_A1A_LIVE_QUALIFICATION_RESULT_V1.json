@@ -1,0 +1,111 @@
+{
+  "artifact": "MASSIVE_1M_A1A_LIVE_QUALIFICATION_RESULT_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "spec": "MASSIVE_1M_A1A_LIVE_QUALIFICATION_SPEC_V1 · 7983a668c5ac4ebc (frozen BEFORE the call)",
+  "VERDICT": "PASS_WITH_SOURCE_REVISION_OBSERVED",
+  "CALL": {
+    "date": "2026-08-24",
+    "role": "DIAGNOSTIC HISTORICAL REFETCH",
+    "securities_requested": 503,
+    "elapsed_s": 15,
+    "http_status_counts": {
+      "200": 503
+    },
+    "forward_evidence_created": false,
+    "primary_use": "FORBIDDEN"
+  },
+  "GUARDS": {
+    "1_original_vintage_sealed": true,
+    "2_destination_outside_canonical_root": true,
+    "4_target_vintage_does_not_exist": true,
+    "2b_original_payload_unchanged_after_call": true,
+    "2c_original_manifest_unchanged_after_call": true
+  },
+  "ORIGINAL_VINTAGE_UNTOUCHED": "payload and manifest digests re-verified AFTER the call — both unchanged",
+  "NEW_VINTAGE": {
+    "vintage_id": "2026-08-24__20260831T101345Z",
+    "session_date": "2026-08-24",
+    "retrieval_timestamp": "2026-08-31T10:13:45Z",
+    "source_family": "massive /v2/aggs 1m",
+    "payload_digest": "b553f8a127a466857992386f2f5863eacc49cb5f4d735b0b14c13c1ba46841ec",
+    "diagnostic_refetch_of": "09ee800dcd54f62743195e322581444a19a42675b622d62e06ac8440e9d334fc",
+    "role": "DIAGNOSTIC_ONLY",
+    "primary_use": "FORBIDDEN",
+    "bytes": 4785694,
+    "rows": 205455,
+    "observed": 503,
+    "unobserved": 0,
+    "not_yet_regular_way": 0
+  },
+  "CONTRACT_LEVEL_ALL_PASS": {
+    "top_level_schema": "identical {adjusted,securities,session,source}",
+    "adjusted": "True == True",
+    "source": "'massive /v2/aggs 1m' == same",
+    "session": "2026-08-24",
+    "securities_set": "503 == 503, no additions, no removals",
+    "per_security_key_set": "{massive_ticker,results,truncated} == same",
+    "massive_ticker_per_security": "0 differences",
+    "truncated_on_admitted_members": "none",
+    "identity_resolution": "503/503 resolved via MASSIVE_TICKER_LINEAGE_V6",
+    "conclusion": "CONTRACT_OK — SOURCE_REGIME_HOLD is NOT triggered"
+  },
+  "SOURCE_REVISION_OBSERVED": {
+    "byte_identical": false,
+    "total_1m_bars": {
+      "original": 205240,
+      "refetch": 205455,
+      "delta": "+215"
+    },
+    "minutes_added": 215,
+    "minutes_removed": 0,
+    "bars_in_both_vintages": 205240,
+    "of_those_values_differ": 3036,
+    "pct": 1.479,
+    "differing_field_counts": {
+      "v": 1118,
+      "c": 871,
+      "o": 722,
+      "h": 708,
+      "l": 622
+    },
+    "relative_close_change_on_differing_bars": {
+      "median": 0.0,
+      "p95": 0.000109,
+      "max": 0.00934,
+      "bars_with_rel_change_gt_1e-6": 336
+    },
+    "securities_touched": {
+      "bar_count_changed": 158,
+      "ohlcv_values_changed": 325,
+      "of": 503
+    },
+    "elapsed_between_vintages": "original ingested 2026-08-25T03:21:22Z; refetch 6 days later",
+    "CLASSIFICATION": "a vendor revision/backfill, NOT a regime change. The original vintage remains the authoritative historical vintage and NO completed inference changes."
+  },
+  "WORDING": {
+    "permitted": "LIVE PATH QUALIFIED — the frozen A1a ingest code path has been demonstrated live against the vendor on an already-evidentiary historical session, without modifying the authoritative original vintage",
+    "FORBIDDEN": "vendor guaranteed unchanged for all future sessions",
+    "standing": "source-contract guards must run again on EVERY real forward ingest"
+  },
+  "MATERIAL_FINDING_INGEST_LAG_HETEROGENEITY": {
+    "measured_over": "all 1,254 historical retrieval manifests",
+    "lag_days_session_date_to_ingested_at": {
+      "p0": 1,
+      "p5": 94,
+      "p25": 459,
+      "p50": 914,
+      "p75": 1373,
+      "p95": 1735,
+      "p100": 1825
+    },
+    "sessions_with_lag_le_7_days": 5,
+    "sessions_with_lag_le_30_days": 21,
+    "cause": "the historical ingest was DATE-MAJOR OLDEST-FIRST by design (the entitlement window is perishable at its old end), so old sessions were fetched fully settled while the newest sessions were fetched 1-21 days after the fact",
+    "CONSEQUENCE": "the historical corpus is NOT vintage-homogeneous. ~99.3% of it is long-settled data; the final ~21 sessions are comparatively unsettled — and the 12-session HOLDOUT sits entirely inside that unsettled tail.",
+    "IMPACT_ON_COMPLETED_DEV_INFERENCE": "approximately 9 of 1,242 DEV sessions (0.7%) carry lag <= 30 days. Small, and the DEV result is sealed on those exact vintages either way.",
+    "IMPACT_ON_FORWARD": "UNRESOLVED AND SUBSTANTIVE. Forward sessions will be ingested at whatever lag we choose. At T+1 the forward X surface would be built on markedly less-settled data than 99.3% of DEV — a measurement-regime difference between DEV and forward that no statistical gate would detect.",
+    "STATUS": "REPORTED — the forward ingest lag is NOT yet frozen and MUST be decided before the first authoritative forward ingest",
+    "evidence_for_materiality": "one T+1 vs T+7 comparison already shows +215 minutes and 1.479% of common bars revised across 325 of 503 securities"
+  }
+}

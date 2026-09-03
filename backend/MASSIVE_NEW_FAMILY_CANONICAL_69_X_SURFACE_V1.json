@@ -1,0 +1,113 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1",
+  "status": "ACCEPTED",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "PRINCIPLE": {
+    "rule": "CONSOLIDATION != RECOMPUTATION",
+    "statement": "no feature value or state was recomputed; all 69 were COPIED from accepted durable stores",
+    "execution_authority": "this single physical 69-feature surface",
+    "provenance_authority": "the upstream sealed producer artifacts, which retain evidence authority"
+  },
+  "PHYSICAL_ARTIFACT": {
+    "path": "/private/tmp/claude-501/-Users-sachoki-Desktop-sachoki-desktop/4dae8c94-36b8-47ac-89bb-fc7415e08193/scratchpad/CANON69.duckdb",
+    "table": "x69",
+    "sha16": "b6781bd87c4f97e8",
+    "bytes": 8464379904,
+    "build_exit_code": 0,
+    "build_elapsed_s": 75,
+    "schema": "k, bar_start, session_date, feature, bval, dval, sval, availability"
+  },
+  "SOURCE_MANIFEST": {
+    "file": "CANONICAL_69_MANIFEST.json",
+    "digest": "a44fd5cda3f22ef9",
+    "entries": 69,
+    "fields": [
+      "feature",
+      "source_artifact",
+      "source_digest",
+      "source_db",
+      "source_table",
+      "producer_authority",
+      "availability_contract",
+      "provenance_class",
+      "value_type",
+      "source_slot",
+      "canonical_slot"
+    ]
+  },
+  "SOURCE_DIGESTS_BOUND": {
+    "STAGE_D_R2 (6 features)": "21032d2cfc56e8c5",
+    "PD_12 (12 features)": "d5176edabb421573",
+    "STAGE_C4 (12 features)": "0650f4bc695e4dac",
+    "PHASE1_R1 (39 features)": "27577029aeb5085a"
+  },
+  "INVENTORY_RECONCILIATION": {
+    "FULL_HISTORY_SEMANTIC_CORRECTION": 42,
+    "ROLE_BOUND_PORT": 13,
+    "EXACT_PORT": 12,
+    "NEW_MASSIVE_DERIVED_DEFINITION": 1,
+    "NEW_MASSIVE_STATE_REGIME_SAME_FORMULA": 1,
+    "total": 69,
+    "authority": "MASSIVE_NEW_FAMILY_FEATURE_ELIGIBILITY_MATRIX_V1_AMENDMENT_2 685ef5df1afc2a7f"
+  },
+  "ACCEPTANCE": {
+    "OVERALL": "PASS",
+    "ROWS": "PASS — 1,065,736,326 = 69 x 15,445,454 exact; every feature exactly 15,445,454",
+    "INVENTORY": "PASS — 69 present, missing 0, unexpected 0, phys_* blocked 11 present 0, unrecoverable 4 present 0",
+    "DUPLICATES": "PASS — duplicate(k, bar_start, feature) = 0",
+    "VALUE_STATE_INVARIANTS": "PASS — AVAILABLE_VALID and value NULL = 0; non-VALID and value non-NULL = 0; wrong typed slot = 0",
+    "ROW_LEVEL_SOURCE_CONFORMANCE": {
+      "verdict": "PASS",
+      "mismatches": 0,
+      "features_checked": 69,
+      "method": "per-feature checksum over (k, bar_start, bval, dval, sval, availability), canonical vs source",
+      "why": "a copy bug must not be able to hide behind the semantic producer's PASS"
+    }
+  },
+  "AVAILABILITY_VOCABULARY": {
+    "policy": "PRESERVED VERBATIM PER SOURCE — not normalised",
+    "reason": "pd uses a COARSE INITIALIZATION_SENSITIVE that never distinguished HEAD from POST_GAP. Normalising would FABRICATE that distinction; coarsening the others would DESTROY information.",
+    "counts": {
+      "AVAILABLE_VALID": 488859872,
+      "UNAVAILABLE_CURRENT": 333081492,
+      "INITIALIZATION_SENSITIVE_POST_GAP": 160719641,
+      "INITIALIZATION_SENSITIVE": 77255900,
+      "UNAVAILABLE_REQUIRED_HISTORY": 5693774,
+      "INITIALIZATION_SENSITIVE_HEAD": 125647
+    }
+  },
+  "BAR_GAP_RANGE_TYPE": {
+    "value_type": "CATEGORICAL VARCHAR",
+    "categories": 12,
+    "FORBIDDEN": [
+      "numeric thresholding",
+      "quantile bins",
+      "ordered interpretation"
+    ],
+    "warning": "G1/G2/G3 look ordinal but NO ordering is proven or registered"
+  },
+  "SIG_BUY_RESIDUAL_170_ATTRIBUTION": {
+    "status": "RESOLVED — measured, not inferred",
+    "residual_bars": 170,
+    "securities": 61,
+    "age_range": [
+      50,
+      64
+    ],
+    "all_are": "INITIALIZATION_SENSITIVE_POST_GAP",
+    "EMA_9_20_50_not_all_valid": 0,
+    "COOLDOWN_AMBIGUOUS": 170,
+    "verdict": "all 170 are COOLDOWN STATE-AMBIGUITY; the dependency-state hypothesis is excluded with 0 counterexamples",
+    "supersedes": "RESIDUAL_ATTRIBUTION = UNRESOLVED_FROM_PERSISTED_D6_ALONE (13bae76c5575f76e)",
+    "mechanism_consistency": "age range 50..64 matches exactly: the base gate opens at 50, and the cooldown needs up to 6 further PROVEN-FALSE bars to resolve"
+  },
+  "COHERENCE_DIAGNOSTIC_NOT_EVIDENCE": {
+    "observation": "sig_tz_flip 30.29% and sig_buy 30.29% VALID coverage",
+    "status": "ENGINEERING COHERENCE DIAGNOSTIC ONLY",
+    "explicitly_not": "an evidence claim — two features with independent state semantics reached similar coverage; nothing more is known"
+  },
+  "PENDING_IN_THIS_PASS": {
+    "sig_buy_7_cell_census": "RUNNING — raw from pre-cooldown buy_raw only"
+  }
+}

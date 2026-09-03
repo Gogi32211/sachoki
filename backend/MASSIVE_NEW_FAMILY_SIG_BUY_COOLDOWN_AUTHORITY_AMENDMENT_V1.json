@@ -1,0 +1,97 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_SIG_BUY_COOLDOWN_AUTHORITY_AMENDMENT_V1",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_SIG_BUY_COOLDOWN_AUTHORITY_V1",
+    "parent_digest": "edb215dff040cf18",
+    "parent_defect": "GATE3b reported 'divergences: 213504' beside a kinds map summing to 338,984 without distinguishing the two denominators; parent is NOT rewritten"
+  },
+  "DENOMINATOR_SEPARATION": {
+    "enumeration_range": "L = 2..10 (single enumeration, both figures from the same pass)",
+    "comparison_units_raw_obs_pairs": 1396052,
+    "divergent_comparison_units": 213504,
+    "divergent_comparison_unit_rate": "15.29%",
+    "output_bars_compared": 13496544,
+    "differing_output_bars": 338984,
+    "differing_output_bar_rate": "2.51%",
+    "reconciliation": "kinds sum == differing_output_bars == 338,984",
+    "reading_rule": "213,504 and 338,984 are NOT the same measure and must never be read as one"
+  },
+  "SEVERITY_CLASSIFICATION": {
+    "AVAILABILITY_ERROR": {
+      "definition": "exactly one side unidentifiable",
+      "defective_F_correct_UNKNOWN": 192316,
+      "defective_UNKNOWN_correct_F": 92864,
+      "defective_T_correct_UNKNOWN": 2616,
+      "subtotal_bars": 287796,
+      "note": "not uniformly permissive: 92,864 bars are the OPPOSITE direction (defect lost identifiability the correct engine retains)"
+    },
+    "VALUE_ERROR": {
+      "definition": "BOTH sides identifiable and they disagree",
+      "defective_F_correct_T_false_negative": 50476,
+      "defective_T_correct_F_false_positive": 712,
+      "subtotal_bars": 51188,
+      "consequence": "the killed run would have written outright WRONG sig_buy VALUES into production, predominantly suppressed fires"
+    }
+  },
+  "DEFECT_MECHANISM_TERMINOLOGY": {
+    "REJECTED_NAME": "double-cooling",
+    "why_rejected": "GATE3a proved canonical cooldown is IDEMPOTENT on a fully observed boolean stream: cooldown(cooldown(raw)) == cooldown(raw). Applying cooldown twice is, by itself, harmless.",
+    "CORRECT_NAME": "post-cooldown output incorrectly used as the RAW INPUT to an availability-aware cooldown state machine",
+    "mechanism": "the first cooldown pass had ALREADY DISCARDED rejected raw fires. Those rejected fires are exactly the information the state-identifiability analysis needs, because a rejected fire still constrains the reachable state set. Feeding the survivors forward as if they were raw destroys that constraint.",
+    "why_this_distinction_is_load_bearing": "fully observed VALUE conformance can PASS while missingness-aware production is substantively wrong. Value conformance on complete histories is therefore NOT sufficient evidence for an availability-aware producer."
+  },
+  "KILLED_PREDECESSOR": {
+    "pids": [
+      19604,
+      19624
+    ],
+    "classification": [
+      "INCOMPLETE_RUN",
+      "NON_EVIDENTIARY",
+      "DEFECT_MECHANISM_RECOVERED"
+    ],
+    "explicitly_not": "FAIL",
+    "reason": "halted by the operator BEFORE production acceptance; no acceptance verdict was ever issued against it"
+  },
+  "CONSOLIDATION_CROSSTAB_SPEC": {
+    "deferred_to": "69-feature durable consolidation (re-reads bars anyway; avoids a ~2h standalone pass)",
+    "blocker_status": "NOT an acceptance blocker; support-characterization metric",
+    "cells": [
+      "raw TRUE  -> output VALID TRUE",
+      "raw TRUE  -> output VALID FALSE",
+      "raw TRUE  -> output INIT/UNKNOWN",
+      "raw FALSE -> output VALID FALSE",
+      "raw UNKNOWN -> output VALID TRUE",
+      "raw UNKNOWN -> output VALID FALSE",
+      "raw UNKNOWN -> output INIT/UNKNOWN"
+    ],
+    "interpretive_purpose": "separate signal rarity from state-ambiguity loss; the three raw-UNKNOWN cells demonstrate reachable-state analysis, since raw UNKNOWN does NOT imply output UNKNOWN"
+  },
+  "R2_ACCEPTANCE_SEAL_SCHEMA": {
+    "ROWS": "92,672,724 exact",
+    "GENERIC": [
+      "AVAILABLE_VALID and value IS NULL = 0",
+      "non-VALID and value IS NOT NULL = 0",
+      "duplicates = 0",
+      "independent rebuild = exact"
+    ],
+    "TEMPORAL": [
+      "sig_3g VALID age < 51 = 0",
+      "rsi_14 VALID age < 14 = 0",
+      "bar_gap_range VALID age < 14 = 0"
+    ],
+    "SIG_BUY": [
+      "400-case frozen regression = PASS",
+      "canonical reduction = PASS",
+      "unknown-gap propagation = PASS",
+      "known defective witnesses classified as corrected = PASS"
+    ]
+  },
+  "stage_d_run": {
+    "run_id": "STAGE_D_R2",
+    "EXECUTION_PATH": "VERIFIED_SERIAL_REFERENCE",
+    "STATUS": "RUNNING",
+    "decision": "OPTION_A_APPROVED — serial to completion; no new parallel/merge wiring introduced"
+  }
+}

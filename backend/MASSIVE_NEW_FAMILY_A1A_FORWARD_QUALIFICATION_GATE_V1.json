@@ -1,0 +1,58 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_A1A_FORWARD_QUALIFICATION_GATE_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "role": "pre-frozen gate for the A1a layer. No forward Y exists; no research design decision is contained here.",
+  "GATE_1_RAW_CANONICAL_PERSISTENCE": [
+    "original vendor response/payload preserved",
+    "request parameters preserved",
+    "retrieval timestamp preserved",
+    "manifest/digest preserved",
+    "NO silent overwrite by a later vendor revision"
+  ],
+  "ORIGINAL_VINTAGE_RULE": {
+    "rule": "forward evidence requires ORIGINAL-VINTAGE raw preservation",
+    "if_the_vendor_later_changes_the_same_date": "a fresh fetch MAY be a diagnostic comparison; it MAY NOT replace the first archived vintage"
+  },
+  "GATE_2_FORWARD_IDENTITY_SESSION_CONFORMANCE": {
+    "required": [
+      "security_key_v1 binding demonstrated",
+      "frozen-476 allowlist demonstrated",
+      "exchange calendar / session_date demonstrated",
+      "timezone behaviour demonstrated"
+    ],
+    "note": "demonstrated FORWARD, never inherited from the historical run"
+  },
+  "GATE_3_SOURCE_REGIME_CONFORMANCE": {
+    "frozen_query_semantics": [
+      "1 minute",
+      "adjusted=true",
+      "same source family"
+    ],
+    "unexpected_vendor_or_schema_behaviour": "HARD FAIL",
+    "alternate_bar_source": "FORBIDDEN",
+    "ADJUSTED_TRUE_RULE": "adjusted=true is the CURRENT CONTRACT and may not be changed pre-emptively because vendor adjustment semantics might drift. If vendor behaviour changes materially the correct status is SOURCE_REGIME_HOLD, never a quietly reselected query parameter."
+  },
+  "EVIDENTIARY_BOUNDARY_ENFORCEMENT": {
+    "rule": "a forward session unavailable at the required observation time is UNAVAILABLE / SOURCE-HOLD as applicable",
+    "backfill": "a later backfill does NOT retroactively create forward evidence",
+    "clarification": "this is ENGINEERING ENFORCEMENT of the already-frozen forward evidentiary boundary, not a mixing of source regime with statistical design"
+  },
+  "CREDENTIALS": {
+    "rule": "the value of any Massive credential is NOT needed and is NOT read",
+    "sufficient_for_proving_endpoint_semantics": [
+      "the environment variable NAME",
+      "the code path"
+    ],
+    "explicit": "credential provenance is NOT part of any research artifact"
+  },
+  "SEQUENCE": {
+    "NOW": "A1b wrapper -> 9 fixtures -> full 15,445,454-row regression -> frozen-476 allowlist qualification",
+    "THEN": "seal A1b production qualification",
+    "IN_PARALLEL_BEFORE_FIRST_AUTHORITATIVE_FORWARD_INGEST": [
+      "canonical_1m raw persistence",
+      "A1a forward execution qualification"
+    ],
+    "END_TO_END_A1_QUALIFIED_ONLY_WHEN": "A1a PASS AND A1b PASS"
+  }
+}

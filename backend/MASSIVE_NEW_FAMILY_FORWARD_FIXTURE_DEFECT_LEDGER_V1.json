@@ -1,0 +1,95 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_FIXTURE_DEFECT_LEDGER_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "FORWARD_Y": "UNEXPOSED",
+  "FORWARD_EVIDENCE": "CLOSED",
+  "purpose": "canonical count and enumeration of fixture defects across the forward engineering arc, because a wrong number must not stand silently",
+  "CORRECTION": {
+    "my_prose_said": "'fixture was itself at fault FOUR times', then enumerated A2/A3 3 + C 1 + D 1 = 5",
+    "the_caller_caught_the_arithmetic": true,
+    "on_re-audit": "the enumeration was ALSO wrong, in the other direction: A3 contributed one case I had not counted at all, and one of the three I attributed to A2/A3 was a resource defect, not a wrong-reason pass",
+    "CANONICAL_COUNT": {
+      "FIXTURE_PASSED_FOR_THE_WRONG_REASON": 5,
+      "HARNESS_RESOURCE_DEFECTS_not_wrong_reason": 2
+    },
+    "note": "the total 5 happens to match the caller's arithmetic, but not by the enumeration I gave. Both were corrected."
+  },
+  "CLASS_1_FIXTURE_PASSED_FOR_THE_WRONG_REASON": [
+    {
+      "n": 1,
+      "layer": "A2 / pd12",
+      "artifact": "e0d163b7b8b39faf",
+      "fixture": "'a refused write leaves the partition INCOMPLETE, not silently current'",
+      "why_wrong": "the EXPECTATION was wrong. A rejected short write must not destroy validated prior data; the safe behaviour would have been scored a failure.",
+      "repair": "added a run_id currency guard so the bytes stay COMPLETE but are NOT CURRENT for a new run; the suite grew 13 -> 15"
+    },
+    {
+      "n": 2,
+      "layer": "A2 / PHASE1_R1",
+      "artifact": "74768739c721477d",
+      "fixture": "'vbo live state not materialised -> HARD FAIL'",
+      "why_wrong": "the fixture used state s=100 at window start 200 — 100 bars old, so the frozen engine kills it via i-s > BREAK before any lookup. No exception could ever fire.",
+      "repair": "s=195, within BREAK of the window start; the guard then fired"
+    },
+    {
+      "n": 3,
+      "layer": "A3",
+      "artifact": "3840a5df1a626aa1",
+      "fixture": "'one of the 69 features missing -> A3Hold'",
+      "why_wrong": "the fixture raised A3Hold FROM ITSELF and never called load_manifest. It proved nothing about the module.",
+      "found": "during this bookkeeping re-audit, after A3 was already sealed PASS",
+      "repair": "the fixture now writes a 68-feature manifest and calls the real guard",
+      "verification": "re-run confirms the MODULE guard fires: 'GUARD feature_count: 68 != 69'. A3 fixtures remain 32/32.",
+      "why_A3_still_stands": "the same guard was independently exercised by the extra-70th-feature fixture, which did call load_manifest. The guard was always sound; only this one fixture was hollow."
+    },
+    {
+      "n": 4,
+      "layer": "C",
+      "artifact": "fbf22a8572b8819a + amendment 7ebf042faa828950",
+      "fixture": "'DRY_RUN record appended with a production role -> CHold'",
+      "why_wrong": "it hit GUARD no_genesis because the directory did not exist; it never reached the role guard",
+      "repair": "relabelled to what it actually tests, and the DRY_RUN-into-PRODUCTION direction recorded as CODE-PATH INSPECTION ONLY, since exercising it live would require creating a production genesis"
+    },
+    {
+      "n": 5,
+      "layer": "D",
+      "artifact": "4e374040ecdd80ce",
+      "fixture": "'a PRODUCTION runner cannot accept a DRY_RUN LOOK'",
+      "why_wrong": "the expectation named DHold; the refusal correctly arrives as CHold from the ledger's chain-role layer, one layer EARLIER",
+      "repair": "the fixture accepts either hold and names which one fired; the behaviour was right, the expectation too narrow"
+    }
+  ],
+  "CLASS_2_HARNESS_RESOURCE_DEFECTS": [
+    {
+      "layer": "A2 / PHASE1_R1",
+      "defect": "a whole-store 602M-row join exhausted 49 GiB of temp",
+      "repair": "the two-way EXCEPT ALL already IS the exhaustive per-column oracle; replaced with a bounded reconciliation"
+    },
+    {
+      "layer": "A2 / PHASE1_R1",
+      "defect": "a duplicate-key scan over 602M rows OOM'd",
+      "repair": "per-partition scan across all 476"
+    }
+  ],
+  "not_in_either_class": "the monolithic pd12 EXCEPT ALL that spilled 23 GB — that was a deliberate method change for disk safety, disclosed at the time, not a defect",
+  "PRODUCER_AND_WRAPPER_DEFECTS_FOUND_BY_FIXTURES": [
+    "KeyError instead of A2Hold on a missing upstream column (pd12)",
+    "BIGINT emitted where the frozen table declares TINYINT (pd12)",
+    "completion decided by file readability alone (A2 partition authority)",
+    "a vbo live state outside the resumed window (PHASE1_R1) — drove the state-materialisation design",
+    "a resumed window silently assuming eprev=False (STAGE_D_R2)",
+    "_require() advancing the state machine on a REFUSED step (D)"
+  ],
+  "observation": "every one of these was found by a fixture, not by reading the code",
+  "LESSON": "Guards and fixtures are part of the evidence system, not merely test infrastructure. A fixture that passes for the wrong reason is itself a defect and must be preserved as such rather than silently repaired.",
+  "INVARIANTS": [
+    "failed validation != successful guard coverage",
+    "expected exception != correct-path PASS",
+    "readable artifact != complete/current artifact",
+    "historical exactness != forward evidence",
+    "qualification PASS != production activation"
+  ],
+  "no_qualification_verdict_changes": true,
+  "STATE": "FROZEN. No further action before the registered 2026-09-19 V30 capture."
+}

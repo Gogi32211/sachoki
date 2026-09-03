@@ -1,0 +1,135 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_CLAIM_GRAMMAR_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "TOKEN_DICTIONARY": {
+    "artifact": "MASSIVE_NEW_FAMILY_PRESEARCH_TOKEN_DICTIONARY_V1",
+    "digest": "4944126121f8fe16",
+    "token_table_digest": "299c963427568b49",
+    "base_tokens": 123
+  },
+  "CLAIM_FORM": {
+    "canonical_name": "ORDERED_ADJACENT_PAIR_CLAIM",
+    "form": "TOKEN_A @ M_i  AND  TOKEN_B @ M_{i+1}",
+    "TERMINOLOGY_GUARD": {
+      "do_not_call_it": "transition",
+      "why": "a pair claim asserts only co-occurrence at two ordered positions. True state-change semantics belong ONLY to tokens whose own definition is a transition (e.g. sig_tz_flip).",
+      "the_claim_does_NOT_assert": [
+        "A disappeared",
+        "B newly appeared",
+        "A caused B",
+        "only A and B were active"
+      ],
+      "the_claim_asserts_exactly": "TOKEN_A is TRUE at M_i AND TOKEN_B is TRUE at M_{i+1}",
+      "other_token_cofires": "ALLOWED"
+    }
+  },
+  "POSITIONS": {
+    "allowed": [
+      "M1->M2",
+      "M2->M3",
+      "M3->M4"
+    ],
+    "forbidden": [
+      "M1->M3",
+      "M1->M4",
+      "M2->M4",
+      "reverse-time pairs",
+      "3-bar sequences",
+      "4-bar sequences"
+    ],
+    "position_pair_is_part_of_claim_identity": "A@M1->B@M2 != A@M2->B@M3"
+  },
+  "SINGLE_POSITION_CLAIMS": {
+    "searchable": "NO",
+    "may_be": "support DIAGNOSTIC only, never a hypothesis claim",
+    "rationale": [
+      "the programme's state-transition question is built on adjacent pairs from the outset",
+      "the historical T1 grammar was M1->M2, M2->M3, M3->M4",
+      "excluding it a priori prevents deciding AFTER seeing support that some single-position effect is also wanted"
+    ]
+  },
+  "TOKEN_COMBINATION_RULES": {
+    "ordered": "A->B != B->A",
+    "same_token_pair": "ALLOWED (persistence claim)",
+    "same_feature_different_values": "ALLOWED — different time positions",
+    "example_allowed": [
+      "sig_buy@M1->sig_buy@M2",
+      "bar_gap_range==N@M1->bar_gap_range==V@M2"
+    ],
+    "counts": {
+      "same_token_pairs": 369,
+      "same_feature_pairs": 2229
+    }
+  },
+  "AVAILABILITY_SEMANTICS": {
+    "PAIR_EVALUABLE": "A.source AVAILABLE_VALID at left position AND B.source AVAILABLE_VALID at right position",
+    "POSITIVE_PAIR": "pair evaluable AND both tokens TRUE",
+    "NEGATIVE_PAIR": "pair evaluable AND at least one token FALSE",
+    "PAIR_UNAVAILABLE": "either side non-valid",
+    "INVARIANT": "UNAVAILABLE != FALSE — an unavailable side NEVER counts as a non-fire",
+    "support_denominator": "evaluable pair opportunities ONLY"
+  },
+  "FORBIDDEN_CLAIM_FORMS": [
+    "negation",
+    "disjunction",
+    "OR-unions",
+    "wildcard",
+    "either-M1-or-M2",
+    "same-position conjunction",
+    "non-adjacent pair",
+    "reverse-time pair",
+    "3-bar grammar",
+    "4-bar grammar",
+    "RSI thresholds or bins",
+    "categorical ordering",
+    "support-dependent grammar expansion",
+    "exact-bundle semantics (e.g. A@M1 AND B@M1 AND nothing else)"
+  ],
+  "PRE_SUPPORT_CLAIM_UNIVERSE": {
+    "count": 45387,
+    "derivation": "123 tokens x 123 tokens x 3 position pairs",
+    "verified": "enumerated and de-duplicated at seal time; 45,387 unique claim ids",
+    "file": "CLAIM_UNIVERSE_45387.txt",
+    "digest": "684b6dce407c9f0e",
+    "EXPLICITLY_NOT_K": "this is the PRE-SUPPORT universe. k is computed only AFTER the support floor is frozen and applied."
+  },
+  "SUPPORT_METRICS_PRESPECIFIED": {
+    "scope": "named now, BEFORE any distribution is observed",
+    "DEV": [
+      "evaluable pair opportunities",
+      "positive pair occurrences",
+      "securities with >=1 evaluable pair",
+      "securities with >=1 positive pair",
+      "top-10% securities share of evaluable opportunities",
+      "top-10% securities share of positive occurrences"
+    ],
+    "per_position_pair": [
+      "M1->M2",
+      "M2->M3",
+      "M3->M4"
+    ],
+    "HOLDOUT": {
+      "same_descriptive_metrics": true,
+      "role": "DIAGNOSTIC ONLY",
+      "NOT": "hard eligibility authority",
+      "warning": "12 sessions — episode/opportunity counts, NOT independent temporal replications"
+    },
+    "authority": "DEV support is the registry eligibility authority; TRUE FORWARD is confirmation authority later"
+  },
+  "TOKEN_CLOSURE_GUARD": {
+    "rule": "the census accepts ONLY frozen token ids from TOKEN_DICTIONARY_123",
+    "forbidden": "runtime discovery of new values",
+    "consequence": "the l_sig producer fallback labels, already semantically excluded from the dictionary, cannot re-enter the claim grammar by any path"
+  },
+  "NEXT": "X-only support census over the frozen 45,387 claim universe",
+  "NOT_STARTED": [
+    "support census",
+    "support floor",
+    "floor application",
+    "searchable registry",
+    "k",
+    "multiplicity universe freeze"
+  ]
+}

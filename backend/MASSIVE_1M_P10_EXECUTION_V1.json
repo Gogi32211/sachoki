@@ -1,0 +1,45 @@
+{
+  "report_id": "MASSIVE_1M_P10_EXECUTION_V1",
+  "spec": {
+    "artifact": "MASSIVE_1M_P10_TICKER_LINEAGE_AMENDMENT_V1.json",
+    "digest": "766e9b5de8dd326f",
+    "buckets_unchanged": "fixed before any of the four queries ran"
+  },
+  "classification": "TICKER_AT_TIME",
+  "observations": {
+    "FB@2022-06-08": {
+      "rth_bars": 390,
+      "http": 200,
+      "first_open": 194.67,
+      "last_close": 196.63,
+      "row_digest": "a008d552b75cc31a"
+    },
+    "META@2022-06-08": {
+      "rth_bars": 0,
+      "http": 200,
+      "first_open": null,
+      "last_close": null,
+      "row_digest": null
+    },
+    "FB@2022-06-09": {
+      "rth_bars": 0,
+      "http": 200,
+      "first_open": null,
+      "last_close": null,
+      "row_digest": null
+    },
+    "META@2022-06-09": {
+      "rth_bars": 390,
+      "http": 200,
+      "first_open": 194.28,
+      "last_close": 183.969,
+      "row_digest": "0a4d2d4d26aa6e7d"
+    }
+  },
+  "identical_payload_pre": null,
+  "consequence": "canonical identity becomes (security_id, massive_ticker_at_time, effective_from, effective_to) and the full ticker history of all 503 securities must be frozen from Massive reference data BEFORE ingestion. CIK corroborates issuer identity but is NOT sufficient alone, because a dual-class issuer maps one CIK to several securities.",
+  "ingestion_impact": "ticker-history freezing is REQUIRED before ingestion",
+  "canonical_1m_rows_downloaded": 0,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:51 +04"
+}

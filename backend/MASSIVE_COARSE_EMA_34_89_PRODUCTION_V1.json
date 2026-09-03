@@ -1,0 +1,105 @@
+{
+  "artifact": "MASSIVE_COARSE_EMA_34_89_PRODUCTION_V1",
+  "Y_EXPOSED": 0,
+  "binds": "0e33b4f878194ac7",
+  "nature": "ADDITIVE EXTENSION of the frozen EMA feature spec — the existing massive_coarse_ema_v1 artifact is NOT mutated",
+  "SPEC": {
+    "periods": [
+      34,
+      89
+    ],
+    "input": "massive_coarse_v1/15m",
+    "usable_input": "coverage_state == COMPLETE",
+    "recursion": "alpha = 2/(p+1); seed = close at segment start; equivalent to ewm(span=p, adjust=False) restarted per segment",
+    "contaminated_gap": "resets state",
+    "validity": {
+      "age < p": "INITIALIZATION_SENSITIVE",
+      "age >= p": "VALID",
+      "contaminated": "UNAVAILABLE"
+    },
+    "convention_derived_from_surface": "VALID threshold confirmed empirically: first_valid_age = 9/20/50/200 exactly; last_init_age = 8/19/49/199"
+  },
+  "SHADOW_REPLAY": {
+    "method": "the SAME generalized producer run for 9/20/50/200 and compared against the existing registered surface",
+    "rows_compared": 519744,
+    "ema_value_mismatches": 0,
+    "validity_state_mismatches": 0,
+    "age_valid_bars_mismatches": 0,
+    "segment_partition_disagreements": 0,
+    "segment_seed_position_diffs": 0,
+    "segments_matched": 55160,
+    "id_namespace_difference": "the registered ema_segment_id is allocated GLOBALLY across securities (max 1,132,979); mine is a per-security counter. Partition and seed positions are identical, so this carries no semantics — recorded rather than silently normalised.",
+    "VERDICT": "EXACT on all four semantic axes — no convention drift"
+  },
+  "NEGATIVE_FIXTURES": {
+    "baseline registered convention": "PASS (0 value, 0 state)",
+    "N: no reset across contaminated gap": "PASS — rejected (15,275 value / 14,116 state diffs)",
+    "N: adjust=True": "PASS — rejected (10,738 value diffs)",
+    "N: session reset": "PASS — rejected (2,969 / 841)",
+    "N: VALID at age >= p-1": "PASS — rejected (109 state diffs)",
+    "N: INIT_SENSITIVE treated as VALID": "structurally rejected — availability is the sole gate"
+  },
+  "PRODUCTION": {
+    "securities": "476 / 476",
+    "rows_written": 30890908,
+    "rows_expected": 30890908,
+    "duplicate_keys": 0,
+    "elapsed_s": 49,
+    "determinism": "two independent builds bitwise identical — PASS",
+    "stored_vs_rebuilt": "324,840 rows re-derived, 0 mismatches"
+  },
+  "FULL_STORE_INVARIANTS": {
+    "AVAILABLE_VALID and value IS NULL": 0,
+    "age>=p not marked VALID": 0,
+    "age<p marked VALID": 0,
+    "duplicate (k,bar,period)": 0,
+    "note": "this is the FULL-STORE null guard the Stage A amendment required at durable-write time — asserted here over all 30,890,908 rows, not sampled"
+  },
+  "SUPPORT": {
+    "EMA34": {
+      "VALID": 5160391,
+      "pct": "33.41%",
+      "INIT": 5457795,
+      "UNAVAIL": 4827268
+    },
+    "EMA89": {
+      "VALID": 4030486,
+      "pct": "26.09%",
+      "INIT": 6587700,
+      "UNAVAIL": 4827268
+    }
+  },
+  "COVERAGE_HETEROGENEITY": {
+    "EMA34": {
+      "zero": 30,
+      "any": 446,
+      "median": 0.14839613348109837,
+      "p10": 0.0006926486885851496,
+      "p25": 0.011690370644009358,
+      "p75": 0.6377986085457455,
+      "p90": 0.958533431843369
+    },
+    "EMA89": {
+      "zero": 98,
+      "any": 378,
+      "median": 0.05368796946188893,
+      "p10": 0.0,
+      "p25": 0.0009774042605590445,
+      "p75": 0.44203300086196284,
+      "p90": 0.9001046669129418
+    },
+    "reading": "same bimodality as the existing periods — EMA34 median 14.8% but p90 95.9%; EMA89 median 5.4% with 98 of 476 securities at zero"
+  },
+  "DEPTH_LADDER_NOW_COMPLETE": {
+    "EMA9": "45.71%",
+    "EMA20": "37.86%",
+    "EMA34": "33.41%",
+    "EMA50": "30.30%",
+    "EMA89": "26.09%",
+    "EMA200": "20.81%"
+  },
+  "not_done": [
+    "not written to a Massive derived surface — held in a local durable table pending prespec",
+    "P/D not yet computed against this input"
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "artifact": "MASSIVE_T1_15M_COMBO_RESIDUAL_FOUR_CONFORMANCE_V1",
+  "writes": 0,
+  "massive_production": 0,
+  "Y_EXPOSED": 0,
+  "future_values_read": 0,
+  "R1_THREE_COLUMN_DISCRIMINATION": {
+    "columns": [
+      "sig_3g",
+      "sig_buy",
+      "sig_svs"
+    ],
+    "signature_enumeration": {
+      "revisions_examined": 8,
+      "distinct_signatures": 2,
+      "difference": "only keyword-argument style: _apply_cooldown(buy_raw, 6) vs (buy_raw, cooldown=6) — semantically identical",
+      "conclusion": "ONE stable semantic definition across all repository history — unlike P/D"
+    },
+    "definitions": {
+      "sig3g": "prev_below_all3 & curr_open_above & curr_close_above",
+      "buy_2809": "_apply_cooldown(buy_raw, 6) where buy_raw = upmove_ok & break_gate",
+      "svs_2809": "_crossover(vol_ratio, 1.4) & (close > open_) where vol_ratio = volume / avg_vol"
+    },
+    "execution": "both candidates run verbatim on FULL preserved ticker history; compared only on matched timestamps",
+    "full_store": {
+      "matched_rows": 91027821,
+      "mismatches": {
+        "sig_svs": 32,
+        "sig_3g": 11,
+        "sig_buy": 2
+      },
+      "total": 45
+    },
+    "verdict": "MATERIALIZED_BEHAVIORAL_SEMANTICS_RESOLVED / PYTHON_CANDIDATE_DISCRIMINATED"
+  },
+  "R2_SIG_VA_AUTHORITY": {
+    "prior_classification": "RESOLVED_EXTERNAL_CHART_AUTHORITY (in 3db5c3c49fd33c35)",
+    "correction": "WRONG. sig_va HAS a Python producer on the proven export path.",
+    "evidence": [
+      "main.py:4682 va_ser = ((_vr > 2.0) & (_vr.shift(1, fill_value=0) <= 2.0)).astype(int) where _vr = volume / volume.rolling(20, min_periods=1).mean()",
+      "main.py:5476 \"sig_va\": int(bool(va_ser.iloc[i])) — emitted DIRECTLY inside api_bar_signals",
+      "turbo_engine.py:1082 documents the Pine origin: volConfirmATR = ta.crossover(volume/ta.sma(volume,20), 2.0) — 260402_COMBO_OSC"
+    ],
+    "why_missed": "ultra_signal_parser.py:219 is a PARSER of an incoming chart token, not the definition; api_bar_signals own emission was not enumerated. Error class: NEGATIVE_SEARCH_WITHOUT_ENUMERATION.",
+    "full_store": {
+      "matched_rows": 91027821,
+      "mismatches": 47
+    },
+    "verdict": "DEFINITION_RESOLVED — not external"
+  },
+  "EXCLUSION_DISCIPLINE": {
+    "rule_followed": "the P/D 3.354% structural exclusion was NOT transferred to these columns",
+    "why": "sig_va uses rolling(20) and sig_svs uses a 1-bar volume ratio; a ~580-bar warmup fully covers those windows, so the EMA-warmup mechanism CANNOT explain their divergence",
+    "what_was_established": "temporal confinement only: 92/92 mismatch cells on/after 2026-07-06, ZERO before, over 91,027,821 rows; earliest cell is 2026-07-09 17:30:00, exactly the truncation boundary independently identified in the T programme",
+    "what_was_NOT_established": "the micro-mechanism for these four columns (why those specific days: 07-09, 07-14, 07-15, 07-28, 08-13, 08-14) is NOT proven; likely partial-session materialization, not verified",
+    "denominator_used": "RAW matched support — no qualified denominator was constructed for these columns"
+  },
+  "CLAIM_RELEVANCE": {
+    "total_mismatch_cells": 92,
+    "by_column": {
+      "sig_va": 47,
+      "sig_svs": 32,
+      "sig_3g": 11,
+      "sig_buy": 2
+    },
+    "ET_time_range": "10:30 - 15:45",
+    "cells_in_M1_M4_opening_window": 0,
+    "cells_on_frozen_population_pairs": 0,
+    "verdict": "MEMBERSHIP_INVARIANT",
+    "contrast": "unlike the P/D family (3 claim-relevant cells, 225 affected members), these four introduce ZERO membership divergence — the earliest divergent cell is 10:30 ET, after M4 (10:15)"
+  },
+  "PER_COLUMN_VERDICT": {
+    "sig_3g": "BEHAVIOR_RESOLVED",
+    "sig_buy": "BEHAVIOR_RESOLVED",
+    "sig_svs": "BEHAVIOR_RESOLVED",
+    "sig_va": "DEFINITION_RESOLVED"
+  },
+  "UMBRELLA": "ALL_FOUR_PORT_AUTHORIZED",
+  "residual_authority_closed": true,
+  "port_status": "PORT_GATE_REQUIRED for all four",
+  "not_done": [
+    "micro-mechanism of the 92 post-boundary cells not established",
+    "no Massive feature produced"
+  ]
+}

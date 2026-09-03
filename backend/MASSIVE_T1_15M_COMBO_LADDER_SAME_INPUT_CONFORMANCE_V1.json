@@ -1,0 +1,114 @@
+{
+  "artifact": "MASSIVE_T1_15M_COMBO_LADDER_SAME_INPUT_CONFORMANCE_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "future_bars_read": 0,
+  "massive_production": 0,
+  "sample": {
+    "series": 20,
+    "selection": "hash(ticker||universe) order, >20k rows, all 3 universes"
+  },
+  "denominators": {
+    "RAW_BASE_ROWS": 645044,
+    "MATERIALIZED_OUTPUT_ROWS": 645043,
+    "MATCHED_SUPPORT": 645043,
+    "note": "producer computed on FULL preserved ticker history; comparison restricted to matched timestamps; missing materialized row never scored as FALSE"
+  },
+  "execution": {
+    "full_history_compute": true,
+    "no_slice_head_ema": true,
+    "no_session_reset": true,
+    "historical_module_executed": "git show 1e774ce8:backend/combo_engine.py (run verbatim, not transcribed)"
+  },
+  "REFUTED_HYPOTHESIS": {
+    "claim": "the recovered 1e774ce8 priority ladder produced the stored columns",
+    "result": "REFUTED — 76,610 cell mismatches over 645,043 rows",
+    "detail": "top of ladder matched (sig_d66 0, sig_p66 1) because it carries no exclusion mask; every masked level diverged"
+  },
+  "ESTABLISHED_DEFINITION": {
+    "method": "candidate discrimination against stored values (raw vs hist_ladder vs current-tree), then full-sample re-verification",
+    "emas": "ema{9,20,34,50,89,200} = close.ewm(span=N, adjust=False).mean()",
+    "cx": "cx_N = (open < ema_N) & (close > ema_N)",
+    "dx": "dx_N = (open > ema_N) & (close < ema_N)",
+    "columns": {
+      "sig_p66": "cx200 & (cx9|cx20|cx34|cx50|cx89)",
+      "sig_p55": "cx89 & (cx9|cx20|cx34|cx50|cx200)",
+      "sig_p89": "cx89",
+      "sig_p3": "cx9 & cx20 & cx50",
+      "sig_p2": "cx9 & cx20 & ~sig_p3",
+      "sig_p50": "cx50 & ~cx9 & ~cx20",
+      "sig_d66": "dx200 & (dx9|dx20|dx34|dx50|dx89)",
+      "sig_d55": "dx89 & (dx9|dx20|dx34|dx50|dx200)",
+      "sig_d89": "dx89",
+      "sig_d3": "dx9 & dx20 & dx50",
+      "sig_d2": "dx9 & dx20",
+      "sig_d50": "dx50"
+    },
+    "ASYMMETRY": "P applies two exclusion masks (p2 ~p3; p50 ~cx9 ~cx20); D applies NONE. The families are NOT mirrors in the stored data, contrary to both the historical ladder and the naming.",
+    "NOT_a_ladder": "multi-fire is non-zero and matches exactly (P 14,295/14,295, D 19,509/19,509) — these columns are not mutually exclusive"
+  },
+  "INPUT_SURFACE": {
+    "verdict": "LEAN_BASE (studio_15m_base.duckdb)",
+    "evidence": "base input -> 1 mismatch / 645,043 ; enriched-store own OHLC -> 10,911 mismatches",
+    "consistency": "matches the T finding; enriched OHLC is a 2dp-rounded copy (7,720 open / 8,569 close rows differ, max 5.0e-03) and is NOT the producer input"
+  },
+  "CONFORMANCE": {
+    "level1_cell_mismatches": 1,
+    "level2_row_mismatches": 1,
+    "per_column": {
+      "sig_p66": 1,
+      "sig_p55": 0,
+      "sig_p89": 0,
+      "sig_p3": 0,
+      "sig_p2": 0,
+      "sig_p50": 0,
+      "sig_d66": 0,
+      "sig_d55": 0,
+      "sig_d89": 0,
+      "sig_d3": 0,
+      "sig_d2": 0,
+      "sig_d50": 0
+    },
+    "exact_columns": 11,
+    "rate": 1.5502842446162504e-06,
+    "level3_invariants": {
+      "P_multifire": [
+        14295,
+        14295
+      ],
+      "D_multifire": [
+        19509,
+        19509
+      ],
+      "P_and_D_simultaneous": [
+        0,
+        0
+      ],
+      "status": "EXACT"
+    }
+  },
+  "RESIDUAL": {
+    "count": 1,
+    "series": "NVST/russell2k",
+    "timestamp": "2026-07-31 17:00:00",
+    "column": "sig_p66",
+    "recomputed": 0,
+    "stored": 1,
+    "boundary": "open=27.2098 vs ema200=27.209730499989593 — gap 6.95e-05 (2.6e-6 relative); one of only 4 rows in that series with |open-ema200| < 1e-4",
+    "excluded": [
+      "float32/float64 precision — same sign either way",
+      "row misalignment — NVST base 33,508 = enriched 33,508, identical head",
+      "EMA seed — decay over 33,508 bars makes initialization irrelevant",
+      "wrong input surface — enriched OHLC gives 10,911 mismatches, far worse"
+    ],
+    "remaining_candidate": "a minor OHLCV revision in the base since enrichment ran; NOT verified — the historical base vintage was not reconstructed",
+    "character": "single bounded boundary cell, not scattered and not systematic"
+  },
+  "verdict": "EXACT_EXCEPT_ONE_BOUNDARY_CELL",
+  "verdict_note": "No tolerance was applied and none is proposed. 11 of 12 columns are bit-exact over 645,043 matched rows and all Level-3 invariants are exact; one boundary cell remains mechanically unexplained. Whether this qualifies as PASS is the ruling to make, not mine to assume.",
+  "not_done": [
+    "full-store conformance (20-series sample only)",
+    "historical base OHLCV vintage not reconstructed",
+    "no Massive feature produced"
+  ]
+}

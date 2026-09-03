@@ -1,0 +1,239 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PD_12_SUPPORT_CENSUS_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "binds": "d5176edabb421573",
+  "VERDICT": "SUPPORT_CHARACTERIZED",
+  "not_a_verdict": "this gate does NOT rule any feature searchable or unsearchable. No sparse column was dropped. The prespec support floor makes that call.",
+  "KEY_DISTINCTION": "VALID SUPPORT and SIGNAL FIRE SUPPORT are counted separately; fire rate = TRUE / VALID, never TRUE / all bars — contaminated and init-sensitive bars are excluded from the denominator",
+  "DEPTH_CLASS_IDENTITY": {
+    "method": "row-by-row availability comparison within each depth class, not merely equal counts",
+    "EMA50_class": {
+      "cols": [
+        "sig_p3",
+        "sig_p2",
+        "sig_p50",
+        "sig_d3",
+        "sig_d50"
+      ],
+      "row_level_disagreements": 0
+    },
+    "EMA89_class": {
+      "cols": [
+        "sig_p89",
+        "sig_d89"
+      ],
+      "row_level_disagreements": 0
+    },
+    "EMA200_class": {
+      "cols": [
+        "sig_p55",
+        "sig_p66",
+        "sig_d55",
+        "sig_d66"
+      ],
+      "row_level_disagreements": 0
+    },
+    "result": "IDENTICAL — availability masks coincide exactly within each class; only fire counts differ, as required"
+  },
+  "BAR_LEVEL_DEV": {
+    "sig_d2": {
+      "valid": 5791558,
+      "pct": 37.86,
+      "fires": 246887,
+      "fire_rate": 4.2629
+    },
+    "EMA50_class": {
+      "valid": 4634607,
+      "pct": 30.3,
+      "fires": {
+        "sig_d50": 159723,
+        "sig_p2": 141899,
+        "sig_p50": 72064,
+        "sig_d3": 57616,
+        "sig_p3": 57029
+      }
+    },
+    "EMA89_class": {
+      "valid": 3991781,
+      "pct": 26.1,
+      "fires": {
+        "sig_p89": 99404,
+        "sig_d89": 99310
+      }
+    },
+    "EMA200_class": {
+      "valid": 3183753,
+      "pct": 20.81,
+      "fires": {
+        "sig_d55": 49774,
+        "sig_p55": 49489,
+        "sig_d66": 28038,
+        "sig_p66": 27729
+      }
+    }
+  },
+  "BAR_LEVEL_HOLDOUT": {
+    "total_bars": 148512,
+    "sig_d2": {
+      "valid": 54984,
+      "pct": 37.02,
+      "fires": 2256
+    },
+    "EMA200_class": {
+      "valid": 30989,
+      "pct": 20.87,
+      "fires": {
+        "sig_p66": 193,
+        "sig_d66": 191
+      }
+    }
+  },
+  "SECURITY_LEVEL_DEV": {
+    "sig_d2": {
+      "zero_valid": 18,
+      "any_valid": 458,
+      "median": 22.92,
+      "p10": 0.27,
+      "p25": 2.84,
+      "p75": 72.05,
+      "p90": 97.61,
+      "zero_fire": 34
+    },
+    "EMA50_class": {
+      "zero_valid": 54,
+      "any_valid": 422,
+      "median": 9.75,
+      "p10": 0.0,
+      "p25": 0.52,
+      "p75": 54.77,
+      "p90": 94.24
+    },
+    "EMA89_class": {
+      "zero_valid": 99,
+      "any_valid": 377,
+      "median": 4.95,
+      "p10": 0.0,
+      "p25": 0.1,
+      "p75": 43.84,
+      "p90": 90.24
+    },
+    "EMA200_class": {
+      "zero_valid": 174,
+      "any_valid": 302,
+      "median": 1.24,
+      "p10": 0.0,
+      "p25": 0.0,
+      "p75": 28.58,
+      "p90": 81.91,
+      "zero_fire": {
+        "sig_d66": 211,
+        "sig_p66": 210,
+        "sig_d55": 194,
+        "sig_p55": 196
+      }
+    }
+  },
+  "EMA89_CROSSCHECK": {
+    "question": "EMA89 production reported 98 zero-valid securities; p89/d89 report 99",
+    "resolution": "WINDOW SCOPE, not a defect",
+    "ema89_full_window": 98,
+    "ema89_dev_only": 99,
+    "sig_p89_dev_only": 99,
+    "explanation": "one security has valid EMA89 bars only inside the HOLDOUT window"
+  },
+  "SECURITY_CONCENTRATION_DEV": {
+    "metric": "share of VALID observations and of TRUE fires contributed by the top 10% of securities",
+    "values": {
+      "sig_d2": {
+        "valid": 25.9,
+        "fires": 27.1
+      },
+      "EMA50_class": {
+        "valid": 32.1,
+        "fires": "32.2-33.8"
+      },
+      "EMA89_class": {
+        "valid": 36.9,
+        "fires": "36.8-37.0"
+      },
+      "EMA200_class": {
+        "valid": 44.9,
+        "fires": "44.9-45.2"
+      }
+    },
+    "finding": "CONCENTRATION RISES WITH DEPTH. For the deep four, roughly 45% of both valid observations and fires come from 10% of securities (about 48 names). Support counts for those columns must not be read as if spread across 476.",
+    "status": "descriptive only — no inferential correction applied or implied"
+  },
+  "OPENING_HOUR_DEV": {
+    "M1_valid": {
+      "sig_d2": 217316,
+      "EMA50_class": 178247,
+      "EMA89_class": 154429,
+      "EMA200_class": 122056
+    },
+    "M1_fire_rate_pct": {
+      "sig_d2": 5.422,
+      "sig_d50": 5.048,
+      "sig_p89": 4.138,
+      "sig_d89": 3.983,
+      "sig_p2": 3.493,
+      "sig_p66": 1.489,
+      "sig_d66": 1.473
+    },
+    "M4_fire_rate_pct": {
+      "sig_d2": 4.181,
+      "sig_d50": 3.59,
+      "sig_d89": 2.797,
+      "sig_p89": 2.717,
+      "sig_p66": 0.86,
+      "sig_d66": 0.833
+    },
+    "observation": "fire rate declines from M1 to M4 for every column — recorded as a descriptive fact, not analysed"
+  },
+  "ADJACENT_PAIR_DEV": {
+    "security_sessions": 590539,
+    "PAIR_AVAILABLE_both_positions_VALID": {
+      "sig_d2": {
+        "M1M2": 216411,
+        "M2M3": 216767,
+        "M3M4": 217689,
+        "all_four": 213895
+      },
+      "EMA50_class": {
+        "M1M2": 178027,
+        "M2M3": 177849,
+        "M3M4": 177772,
+        "all_four": 177238
+      },
+      "EMA89_class": {
+        "M1M2": 154338,
+        "M2M3": 155053,
+        "M3M4": 155478,
+        "all_four": 153981
+      },
+      "EMA200_class": {
+        "M1M2": 122033,
+        "M2M3": 122186,
+        "M3M4": 122348,
+        "all_four": 121940
+      }
+    }
+  },
+  "ADJACENT_PAIR_HOLDOUT": {
+    "security_sessions": 5712,
+    "all_four": {
+      "sig_d2": 2052,
+      "EMA50_class": 1712,
+      "EMA89_class": 1498,
+      "EMA200_class": 1198
+    },
+    "CAUTION": "the holdout spans 12 sessions. These counts are episode counts, NOT independent temporal replications, and must never be described as statistical power."
+  },
+  "no_sequence_claims": "no token sequence was constructed or compared. This is a census only.",
+  "not_done": [
+    "no support floor applied",
+    "no searchable/not-searchable ruling",
+    "Stage C and D not started"
+  ]
+}

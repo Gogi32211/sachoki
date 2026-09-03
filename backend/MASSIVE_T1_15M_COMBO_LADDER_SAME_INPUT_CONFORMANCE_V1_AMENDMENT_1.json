@@ -1,0 +1,18 @@
+{
+  "artifact": "MASSIVE_T1_15M_COMBO_LADDER_SAME_INPUT_CONFORMANCE_V1_AMENDMENT_1",
+  "amends": "2ff742f7eca5ff31",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "the sealed verdict EXACT_EXCEPT_ONE_BOUNDARY_CELL asserts a mechanism (\"boundary\") that has NOT been proven",
+  "superseded_verdict": "EXACT_EXCEPT_ONE_BOUNDARY_CELL",
+  "replacement_verdict": "MATERIALIZED_SEMANTICS_IDENTIFIED / ONE_CELL_RESIDUAL_UNRESOLVED",
+  "rationale": "the 6.95e-05 gap is a DESCRIPTION of the disagreement, not evidence of its cause. Smallness is not a mechanism. Calling it a boundary cell smuggles in an explanation and would establish exactly the tolerance this pipeline exists to prevent.",
+  "classification_now": {
+    "pd_semantics": "MATERIALIZED_SEMANTICS_RESOLVED",
+    "historical_writer_mapping": "NOT_YET_PROVEN",
+    "same_input_conformance": "645,042 / 645,043 exact — NOT EXACT -> HOLD",
+    "massive_port_authorization": "HOLD"
+  },
+  "effect_on_family": "the 5,187 final members are NO LONGER DEFINITION_UNRESOLVED, but are NOT granted PORT_GATE_REQUIRED either",
+  "pass_requirement": "full-store conformance, all 12 columns, qualified matched support, mismatches = 0; any exclusion only under a sealed provenance authority, never because a row mismatches"
+}

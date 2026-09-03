@@ -1,0 +1,24 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FORWARD_C_TRIGGER_LEDGER_QUALIFICATION_V1_AMENDMENT_1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_FORWARD_C_TRIGGER_LEDGER_QUALIFICATION_V1",
+    "parent_digest": "fbf22a8572b8819a",
+    "parent_not_rewritten": true
+  },
+  "class": "EVIDENCE PRECISION — states exactly what was live-tested and what was not",
+  "ROLE_ISOLATION_EVIDENCE": {
+    "DRY_RUN chain -> attempted PRODUCTION append": {
+      "LIVE_TESTED": "yes",
+      "result": "chain_role_boundary"
+    },
+    "PRODUCTION chain -> attempted DRY_RUN append": {
+      "LIVE_TESTED": "no",
+      "CODE_PATH_INSPECTION": "yes, symmetric guard present"
+    },
+    "LIMITATION": "reverse-direction role isolation not live-exercised because creating a production genesis was explicitly forbidden in this qualification task"
+  },
+  "does_not_invalidate": "C's qualification stands — not creating a production chain was itself the governing constraint",
+  "counting_rule": "within the 40/40, this one assertion is NOT a live runtime proof and is recorded as code-path inspection"
+}

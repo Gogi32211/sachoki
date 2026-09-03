@@ -1,0 +1,452 @@
+{
+  "report_id": "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1",
+  "status": "MASSIVE_1M_COARSE_AGGREGATION_PRODUCTION_V1_PASS",
+  "binding": {
+    "aggregation_spec": "51540a1cefe2ec2b",
+    "capability": "da30cf75b791a6cb",
+    "implementation_hash": "ec63aeb5a40de812",
+    "derived_base": "5591685cfa33b62a",
+    "eligibility": "7c0a5ad6b17d7ae0",
+    "cohort": 476,
+    "sessions": 1254,
+    "timeframes": [
+      "15m",
+      "1H",
+      "1D"
+    ]
+  },
+  "production_path": "/Volumes/QUANT_RESEARCH/studio_data/derived/massive_coarse_v1",
+  "output_bytes": 460717715,
+  "partitions": {
+    "sealed": 1254,
+    "digest_failures": 0,
+    "all_under_one_implementation_hash": true
+  },
+  "by_timeframe": {
+    "15m": {
+      "rows": 15445454,
+      "total_intervals": 15445454,
+      "complete": 10618186,
+      "contaminated": 4827268,
+      "complete_share": 0.6875,
+      "per_security_complete_ratio": {
+        "securities": 476,
+        "min": 0.0049,
+        "p10": 0.1869,
+        "p25": 0.4297,
+        "median": 0.788,
+        "p75": 0.9708,
+        "p90": 0.9986,
+        "max": 1.0,
+        "mean": 0.6877
+      },
+      "complete_run_lengths": {
+        "segments": 1133943,
+        "complete_observations": 10618186,
+        "max": 32484,
+        "mean": 9.36,
+        "median": 2,
+        "p75": 5,
+        "p90": 13,
+        "p99": 94,
+        "share_of_complete_in_runs_of_at_least": {
+          "8": 0.8041,
+          "9": 0.7887,
+          "13": 0.7392,
+          "20": 0.673,
+          "21": 0.6649,
+          "34": 0.5987,
+          "50": 0.5493,
+          "55": 0.5342,
+          "89": 0.479,
+          "200": 0.3918
+        }
+      },
+      "stub": {}
+    },
+    "1H": {
+      "rows": 4159489,
+      "total_intervals": 4159489,
+      "complete": 2392980,
+      "contaminated": 1766509,
+      "complete_share": 0.5753,
+      "per_security_complete_ratio": {
+        "securities": 476,
+        "min": 0.0014,
+        "p10": 0.1038,
+        "p25": 0.2497,
+        "median": 0.5886,
+        "p75": 0.9121,
+        "p90": 0.995,
+        "max": 1.0,
+        "mean": 0.5756
+      },
+      "complete_run_lengths": {
+        "segments": 373682,
+        "complete_observations": 2392980,
+        "max": 8748,
+        "mean": 6.4,
+        "median": 2,
+        "p75": 4,
+        "p90": 8,
+        "p99": 65,
+        "share_of_complete_in_runs_of_at_least": {
+          "8": 0.7154,
+          "9": 0.7043,
+          "13": 0.6519,
+          "20": 0.5919,
+          "21": 0.5813,
+          "34": 0.5216,
+          "50": 0.4725,
+          "55": 0.4632,
+          "89": 0.4076,
+          "200": 0.3224
+        }
+      },
+      "stub": {
+        "normal_COMPLETE": 509949,
+        "normal_UNOBSERVED_CONTAMINATED": 81546,
+        "early_COMPLETE": 3445,
+        "early_UNOBSERVED_CONTAMINATED": 1311
+      }
+    },
+    "1D": {
+      "rows": 596251,
+      "total_intervals": 596251,
+      "complete": 215920,
+      "contaminated": 380331,
+      "complete_share": 0.3621,
+      "per_security_complete_ratio": {
+        "securities": 476,
+        "min": 0.0,
+        "p10": 0.0024,
+        "p25": 0.0223,
+        "median": 0.1938,
+        "p75": 0.6874,
+        "p90": 0.9681,
+        "max": 1.0,
+        "mean": 0.3623
+      },
+      "complete_run_lengths": {
+        "segments": 35632,
+        "complete_observations": 215920,
+        "max": 1254,
+        "mean": 6.06,
+        "median": 2,
+        "p75": 4,
+        "p90": 9,
+        "p99": 71,
+        "share_of_complete_in_runs_of_at_least": {
+          "8": 0.7081,
+          "9": 0.6881,
+          "13": 0.6288,
+          "20": 0.5598,
+          "21": 0.5536,
+          "34": 0.4815,
+          "50": 0.4244,
+          "55": 0.4129,
+          "89": 0.3407,
+          "200": 0.2457
+        }
+      },
+      "stub": {}
+    }
+  },
+  "daily_report": {
+    "securities": 449,
+    "longest_complete_daily_run": {
+      "min": 1,
+      "p25": 5,
+      "median": 18,
+      "p75": 97,
+      "p90": 337,
+      "max": 1254,
+      "mean": 119.1
+    },
+    "securities_with_a_complete_run_of_at_least": {
+      "20": 215,
+      "50": 163,
+      "100": 109,
+      "200": 72
+    }
+  },
+  "capability_reconciliation": {
+    "method": "the capability census aggregated minute_states directly; production wrote coarse parquet; this verifier read that parquet back. Three paths, one definition, one population — agreement must be EXACT.",
+    "per_timeframe": {
+      "15m": {
+        "production_intervals": 15445454,
+        "capability_intervals": 15445454,
+        "production_complete": 10618186,
+        "capability_complete": 10618186,
+        "production_contaminated": 4827268,
+        "capability_contaminated": 4827268,
+        "exact_match": true
+      },
+      "1H": {
+        "production_intervals": 4159489,
+        "capability_intervals": 4159489,
+        "production_complete": 2392980,
+        "capability_complete": 2392980,
+        "production_contaminated": 1766509,
+        "capability_contaminated": 1766509,
+        "exact_match": true
+      },
+      "1D": {
+        "production_intervals": 596251,
+        "capability_intervals": 596251,
+        "production_complete": 215920,
+        "capability_complete": 215920,
+        "production_contaminated": 380331,
+        "capability_contaminated": 380331,
+        "exact_match": true
+      }
+    },
+    "all_exact": true,
+    "on_mismatch": "a near-miss would not be rounding; it would mean one path differs and must be found, never accepted as noise"
+  },
+  "strict_semantics": {
+    "tolerance_parameter_exists": false,
+    "contaminated_marked_complete": 0,
+    "contaminated_with_ohlcv": 0,
+    "structural_no_trade": 0
+  },
+  "contamination_by_session_position": {
+    "15m": {
+      "0": {
+        "complete": 391255,
+        "contaminated": 204996,
+        "contaminated_share": 0.3438
+      },
+      "1": {
+        "complete": 417429,
+        "contaminated": 178822,
+        "contaminated_share": 0.2999
+      },
+      "2": {
+        "complete": 436041,
+        "contaminated": 160210,
+        "contaminated_share": 0.2687
+      },
+      "3": {
+        "complete": 422814,
+        "contaminated": 173437,
+        "contaminated_share": 0.2909
+      },
+      "4": {
+        "complete": 419967,
+        "contaminated": 176284,
+        "contaminated_share": 0.2957
+      },
+      "5": {
+        "complete": 413990,
+        "contaminated": 182261,
+        "contaminated_share": 0.3057
+      },
+      "6": {
+        "complete": 406387,
+        "contaminated": 189864,
+        "contaminated_share": 0.3184
+      },
+      "7": {
+        "complete": 401266,
+        "contaminated": 194985,
+        "contaminated_share": 0.327
+      },
+      "8": {
+        "complete": 392863,
+        "contaminated": 203388,
+        "contaminated_share": 0.3411
+      },
+      "9": {
+        "complete": 382954,
+        "contaminated": 213297,
+        "contaminated_share": 0.3577
+      },
+      "10": {
+        "complete": 373573,
+        "contaminated": 222678,
+        "contaminated_share": 0.3735
+      },
+      "11": {
+        "complete": 373328,
+        "contaminated": 222923,
+        "contaminated_share": 0.3739
+      },
+      "12": {
+        "complete": 366983,
+        "contaminated": 229268,
+        "contaminated_share": 0.3845
+      },
+      "13": {
+        "complete": 363811,
+        "contaminated": 232440,
+        "contaminated_share": 0.3898
+      },
+      "14": {
+        "complete": 361762,
+        "contaminated": 229733,
+        "contaminated_share": 0.3884
+      },
+      "15": {
+        "complete": 364937,
+        "contaminated": 226558,
+        "contaminated_share": 0.383
+      },
+      "16": {
+        "complete": 373733,
+        "contaminated": 217762,
+        "contaminated_share": 0.3682
+      },
+      "17": {
+        "complete": 373079,
+        "contaminated": 218416,
+        "contaminated_share": 0.3693
+      },
+      "18": {
+        "complete": 390167,
+        "contaminated": 201328,
+        "contaminated_share": 0.3404
+      },
+      "19": {
+        "complete": 392145,
+        "contaminated": 199350,
+        "contaminated_share": 0.337
+      },
+      "20": {
+        "complete": 404156,
+        "contaminated": 187339,
+        "contaminated_share": 0.3167
+      },
+      "21": {
+        "complete": 416534,
+        "contaminated": 174961,
+        "contaminated_share": 0.2958
+      },
+      "22": {
+        "complete": 437651,
+        "contaminated": 153844,
+        "contaminated_share": 0.2601
+      },
+      "23": {
+        "complete": 465441,
+        "contaminated": 126054,
+        "contaminated_share": 0.2131
+      },
+      "24": {
+        "complete": 512622,
+        "contaminated": 78873,
+        "contaminated_share": 0.1333
+      },
+      "25": {
+        "complete": 563298,
+        "contaminated": 28197,
+        "contaminated_share": 0.0477
+      }
+    },
+    "1H": {
+      "0": {
+        "complete": 331784,
+        "contaminated": 264467,
+        "contaminated_share": 0.4435
+      },
+      "1": {
+        "complete": 330558,
+        "contaminated": 265693,
+        "contaminated_share": 0.4456
+      },
+      "2": {
+        "complete": 295957,
+        "contaminated": 300294,
+        "contaminated_share": 0.5036
+      },
+      "3": {
+        "complete": 280196,
+        "contaminated": 316055,
+        "contaminated_share": 0.5301
+      },
+      "4": {
+        "complete": 296171,
+        "contaminated": 295324,
+        "contaminated_share": 0.4993
+      },
+      "5": {
+        "complete": 348365,
+        "contaminated": 243130,
+        "contaminated_share": 0.411
+      },
+      "6": {
+        "complete": 509949,
+        "contaminated": 81546,
+        "contaminated_share": 0.1379
+      }
+    }
+  },
+  "early_close_conformance": {
+    "sessions": 10,
+    "intervals_15m_per_security": 14,
+    "intervals_1H_per_security": 4,
+    "stub_1H_per_security": 1
+  },
+  "independent_verification": {
+    "imports_aggregator": false,
+    "trusts_manifest_counts": false,
+    "checks": {
+      "partitions_1254": true,
+      "registered_tf_only": true,
+      "all_digests_valid": true,
+      "no_duplicate_coarse_keys": true,
+      "no_out_of_session_intervals": true,
+      "no_premature_availability": true,
+      "structural_no_trade_zero": true,
+      "no_unknown_identity": true,
+      "no_excluded_security": true,
+      "no_contaminated_with_ohlcv": true,
+      "no_complete_with_unobserved": true,
+      "normal_geometry_15m": true,
+      "normal_geometry_1H": true,
+      "normal_stub_1H": true,
+      "normal_no_15m_stub": true,
+      "early_geometry_15m": true,
+      "early_geometry_1H": true,
+      "early_close_sessions_10": true,
+      "capability_reconciliation_exact": true,
+      "no_problems": true
+    },
+    "passed": true,
+    "failed": [],
+    "problems": [],
+    "problem_count": 0
+  },
+  "coverage_report_status": "LABEL-FREE DATA CAPABILITY — not research findings",
+  "no_feature_decision": {
+    "ema_family": null,
+    "ema_period": null,
+    "rvol_thresholds": null,
+    "contamination_tolerance": null,
+    "feature_validity_threshold": null,
+    "feature_registry_created": false
+  },
+  "immutability": {
+    "artifacts": {
+      "MASSIVE_1M_COARSE_AGGREGATION_SMOKE_CAPABILITY_V1": true,
+      "MASSIVE_1M_COARSE_AGGREGATION_SPEC_V1": true,
+      "MASSIVE_1M_DERIVED_BASE_PRODUCTION_V1": true,
+      "SP500_CURRENT_1M_RESEARCH_ELIGIBILITY_V1": true,
+      "MASSIVE_1M_STATE_TRANSITION_V1": true,
+      "MASSIVE_TICKER_LINEAGE_V6": true
+    },
+    "all_unchanged": true,
+    "y_exposure": 0
+  },
+  "provenance_level": "FILE_LEVEL",
+  "known_limitations": [
+    "coverage is descriptive; no inferential claim is made",
+    "row-level raw-byte provenance is not implemented",
+    "strict completeness means a contaminated interval carries no OHLCV, so downstream feature validity must be segmented rather than thresholded"
+  ],
+  "authorises": "ONLY the next feature-specification gate. NOT EMA, RVOL, T, Z or Y.",
+  "y_exposed": 0,
+  "elapsed_sec": 31.7,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 23:31 +04"
+}

@@ -1,0 +1,23 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_C4_PRODUCTION_V1_AMENDMENT_1",
+  "amends": "0650f4bc695e4dac",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "reason": "the sealed ACCEPTANCE block listed row reconciliation, null invariants and duplicate keys, but DETERMINISTIC INDEPENDENT REBUILD was named in the plan and never run. The summary implied a complete acceptance set.",
+  "DETERMINISTIC_INDEPENDENT_REBUILD": {
+    "method": "5 securities recomputed from scratch by a separate implementation path and compared to the stored table on both value and availability",
+    "coverage": "bo_up (the anchored path) and sig_cisd_cplus (the non-recoverable path) — the two hardest contracts",
+    "rows_compared": 227388,
+    "mismatches": 0,
+    "VERDICT": "PASS"
+  },
+  "acceptance_set_now_complete": [
+    "row reconciliation",
+    "AVAILABLE_VALID and value IS NULL = 0",
+    "non-VALID and value IS NOT NULL = 0",
+    "duplicate keys = 0",
+    "CISD full-store checksum = 0",
+    "l_sig 47-row reconciliation",
+    "deterministic independent rebuild = PASS"
+  ]
+}

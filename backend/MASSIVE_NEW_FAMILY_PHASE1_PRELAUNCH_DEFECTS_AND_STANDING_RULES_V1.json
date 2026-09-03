@@ -1,0 +1,74 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_PHASE1_PRELAUNCH_DEFECTS_AND_STANDING_RULES_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "PRELAUNCH_DEFECTS_CAUGHT": [
+    {
+      "id": 1,
+      "defect": "SIG_NAMES mapping hand-written",
+      "assumed": "2:T2G, 3:T1",
+      "actual": "2:T1, 3:T2G",
+      "impact_if_shipped": "sig_t1 and sig_t2g values SILENTLY SWAPPED across all 476 securities",
+      "fix": "NAME2ID derived from _se.SIG_NAMES at runtime + assert on T1G/T1/T2G"
+    },
+    {
+      "id": 2,
+      "defect": "g_signals taken by positional slice [:4]",
+      "actual_columns": [
+        "g1",
+        "g2",
+        "g4",
+        "g6",
+        "g11"
+      ],
+      "impact_if_shipped": "sig_g11 would have carried g6's values",
+      "fix": "G_SRC=['g1','g2','g4','g11'] by NAME + assert"
+    },
+    {
+      "id": 3,
+      "defect": "compute_signals column read as 'sid' with an `else 0` fallback",
+      "actual_column": "sig_id",
+      "impact_if_shipped": "ALL 25 T/Z one-hot columns silently zero across the whole store",
+      "fix": "assert 'sig_id' in s.columns; fallback removed",
+      "class": "SILENT_FALLBACK_TO_A_LEGITIMATE_LOOKING_VALUE"
+    }
+  ],
+  "STANDING_RULE_SILENT_FALLBACK": {
+    "rule": "a 'not found -> 0 / False / empty' fallback is a DANGEROUS pattern wherever the fallback value is itself legitimate output",
+    "requirement": "assert presence instead; never let a lookup miss masquerade as a real value",
+    "evidence": "defect 3 produced a fully-populated, schema-valid, entirely wrong surface that passed row-count and type checks",
+    "relation": "same class as the sig_buy wiring defect — both converted 'unknown/absent' into a plausible value"
+  },
+  "STANDING_RULE_MODULE_IMPORT_SIDE_EFFECT_RISK": {
+    "incident": "a verification probe did `import phase1`, which executed the RUNNING producer's module-level code and attempted DROP TABLE on the live output database",
+    "what_prevented_damage": "DuckDB's single-writer file lock refused the write — the lock did the job the code should have done",
+    "damage": "NONE — producer continued unaffected, no write occurred, evidence intact",
+    "RULE": "module import MUST be side-effect free; production entrypoints only under `if __name__ == \"__main__\": main()`",
+    "applies_to": "all future producers",
+    "note": "PHASE1_R1 evidence is NOT impaired by this incident"
+  },
+  "SIG_TZ_FLIP_SMOKE_RESOLUTION": {
+    "smoke_valid": 88,
+    "smoke_securities_coverage": [
+      "47.1% COMPLETE",
+      "12.8% COMPLETE"
+    ],
+    "fully_covered_security_check": {
+      "bars": 32484,
+      "AVAILABLE_VALID": 32436,
+      "pct": 99.85,
+      "fires": 1144
+    },
+    "conclusion": "the low smoke figure is a COVERAGE artifact, not an over-restrictive engine"
+  },
+  "PHASE1_R1_FROZEN_STATE": {
+    "columns": 39,
+    "expected_rows": 602372706,
+    "securities": 476,
+    "launcher": "captures exit status -> PHASE1_R1.exitcode",
+    "completion_certification_requires": "exitcode == 0 (first run under the frozen launch rule)",
+    "status": "RUNNING",
+    "EXECUTION_PATH": "VERIFIED_SERIAL_REFERENCE"
+  }
+}

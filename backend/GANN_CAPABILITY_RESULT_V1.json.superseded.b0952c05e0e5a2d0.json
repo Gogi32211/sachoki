@@ -1,0 +1,365 @@
+{
+  "spec_id": "GANN_CAPABILITY_RESULT_V1",
+  "status": "CAPABILITY_ONLY",
+  "scope": "registered capability on real direction-neutral Y, read ONLY to feed the registered block-nullization",
+  "protocol": "1f36fdb0c97c739d",
+  "inference_amendment": "92067b36eb5626fd",
+  "prey_closure": "447f76d4a805f114",
+  "estimand_state": "435ad0db51c93ba5",
+  "outcome_values": "dae6a9f1efa13b55",
+  "capability_code": "1b1824f062f85c8f",
+  "rank_code": "c9086f25703db35b",
+  "fast_code": "d40a8cbd0b91c74c",
+  "runner_code": "46aa7e458f7d99af",
+  "rng_root": "827698b533703452",
+  "matrix": {
+    "claims": [
+      "GANN_ASC_TOUCH_V1",
+      "GANN_DESC_TOUCH_V1",
+      "GANN_CONFLUENCE_TOUCH_V1"
+    ],
+    "deltas": [
+      0.5,
+      1.0,
+      2.0,
+      3.0,
+      4.0,
+      5.0
+    ],
+    "worlds_per_cell": 20,
+    "total_worlds": 360,
+    "permutations_per_world": 999,
+    "per_permutation": "family-wise maxZ = max(Z_ASC, Z_DESC, Z_CONF) on ONE shared nullization"
+  },
+  "detections": {
+    "GANN_ASC_TOUCH_V1": {
+      "+0.5pp": 20,
+      "+1.0pp": 20,
+      "+2.0pp": 20,
+      "+3.0pp": 20,
+      "+4.0pp": 20,
+      "+5.0pp": 20
+    },
+    "GANN_DESC_TOUCH_V1": {
+      "+0.5pp": 20,
+      "+1.0pp": 20,
+      "+2.0pp": 20,
+      "+3.0pp": 20,
+      "+4.0pp": 20,
+      "+5.0pp": 20
+    },
+    "GANN_CONFLUENCE_TOUCH_V1": {
+      "+0.5pp": 20,
+      "+1.0pp": 20,
+      "+2.0pp": 20,
+      "+3.0pp": 20,
+      "+4.0pp": 20,
+      "+5.0pp": 20
+    }
+  },
+  "acceptance": {
+    "GANN_ASC_TOUCH_V1": {
+      "at_1pp": {
+        "detections": 20,
+        "required": 16,
+        "pass_": true
+      },
+      "at_2pp": {
+        "detections": 20,
+        "required": 19,
+        "pass_": true
+      },
+      "at_0_5pp": {
+        "detections": 20,
+        "role": "DESCRIPTIVE SENSITIVITY ONLY — not a criterion"
+      }
+    },
+    "GANN_DESC_TOUCH_V1": {
+      "at_1pp": {
+        "detections": 20,
+        "required": 16,
+        "pass_": true
+      },
+      "at_2pp": {
+        "detections": 20,
+        "required": 19,
+        "pass_": true
+      },
+      "at_0_5pp": {
+        "detections": 20,
+        "role": "DESCRIPTIVE SENSITIVITY ONLY — not a criterion"
+      }
+    },
+    "GANN_CONFLUENCE_TOUCH_V1": {
+      "at_1pp": {
+        "detections": 20,
+        "required": 16,
+        "pass_": true
+      },
+      "at_2pp": {
+        "detections": 20,
+        "required": 19,
+        "pass_": true
+      },
+      "at_0_5pp": {
+        "detections": 20,
+        "role": "DESCRIPTIVE SENSITIVITY ONLY — not a criterion"
+      }
+    }
+  },
+  "max_null_geometry": {
+    "p95_by_claim_delta": {
+      "ASC|+0.5pp": {
+        "median": 2.1102,
+        "min": 2.0309,
+        "max": 2.2276
+      },
+      "ASC|+1.0pp": {
+        "median": 2.0911,
+        "min": 1.9417,
+        "max": 2.1771
+      },
+      "ASC|+2.0pp": {
+        "median": 2.0953,
+        "min": 2.0515,
+        "max": 2.1889
+      },
+      "ASC|+3.0pp": {
+        "median": 2.1254,
+        "min": 2.0238,
+        "max": 2.2302
+      },
+      "ASC|+4.0pp": {
+        "median": 2.0734,
+        "min": 1.9242,
+        "max": 2.1549
+      },
+      "ASC|+5.0pp": {
+        "median": 2.119,
+        "min": 2.0198,
+        "max": 2.2056
+      },
+      "DESC|+0.5pp": {
+        "median": 2.0882,
+        "min": 2.0187,
+        "max": 2.202
+      },
+      "DESC|+1.0pp": {
+        "median": 2.1143,
+        "min": 1.9824,
+        "max": 2.2853
+      },
+      "DESC|+2.0pp": {
+        "median": 2.1159,
+        "min": 2.0385,
+        "max": 2.2407
+      },
+      "DESC|+3.0pp": {
+        "median": 2.0867,
+        "min": 1.9765,
+        "max": 2.2356
+      },
+      "DESC|+4.0pp": {
+        "median": 2.092,
+        "min": 2.0074,
+        "max": 2.2167
+      },
+      "DESC|+5.0pp": {
+        "median": 2.1012,
+        "min": 2.0022,
+        "max": 2.2417
+      },
+      "CONF|+0.5pp": {
+        "median": 2.0748,
+        "min": 1.9796,
+        "max": 2.1531
+      },
+      "CONF|+1.0pp": {
+        "median": 2.1025,
+        "min": 1.9856,
+        "max": 2.1846
+      },
+      "CONF|+2.0pp": {
+        "median": 2.0831,
+        "min": 2.0381,
+        "max": 2.2337
+      },
+      "CONF|+3.0pp": {
+        "median": 2.0991,
+        "min": 1.9893,
+        "max": 2.2344
+      },
+      "CONF|+4.0pp": {
+        "median": 2.1162,
+        "min": 1.9794,
+        "max": 2.1997
+      },
+      "CONF|+5.0pp": {
+        "median": 2.1171,
+        "min": 2.0316,
+        "max": 2.1801
+      }
+    },
+    "note": "p95 of the family-wise max-Z null, per world; median/min/max are taken across the 20 worlds of each cell"
+  },
+  "integrity": {
+    "expected": 360,
+    "completed": 360,
+    "missing": 0,
+    "duplicates": 0,
+    "permutations_per_world": [
+      999
+    ],
+    "distinct_maxz_vectors": 360,
+    "paired_nullization": "PASS",
+    "direction_excluded_from_nullization_blocks": "PASS",
+    "injection_semantics": "PASS",
+    "rank_rebuild": "PASS",
+    "nullize_rebuild": "PASS",
+    "engine_equivalence": "PASS",
+    "common_frame_equivalence": "PASS",
+    "rng_manifest": "PASS",
+    "world_replay": "PASS"
+  },
+  "fixtures": {
+    "rng_manifest": {
+      "ok": true,
+      "digest": "5f34f78ad47e9850",
+      "matches_prey_closure": true,
+      "n_seeds": 1440
+    },
+    "nullize_rebuild": {
+      "ok": true,
+      "seeds_checked": 3,
+      "scope": "real full frame, exact array equality"
+    },
+    "rank_rebuild": {
+      "ok": true,
+      "per_claim": {
+        "ASC": true,
+        "DESC": true,
+        "CONF": true
+      },
+      "scope": "real full frame, exact equality of Z and every diagnostic against gann_rank"
+    },
+    "paired_nullization": {
+      "ok": true,
+      "rows_moved": 2866513,
+      "ratio_preserved": true,
+      "independent_permutation_breaks_it": true,
+      "fixture": "LONG = k, SHORT = 10k — the pair identity is recoverable from the ratio"
+    },
+    "direction_excluded": {
+      "ok": true,
+      "key": "date | liq_half | vol_half",
+      "assignments_inspected": 2,
+      "method": "AST — the nullblock assignment expression is inspected for any direction term; direction attributes exist elsewhere in the module and are not confused with the key",
+      "direction_attributes_elsewhere": 5,
+      "key_attributes": 3
+    },
+    "injection_semantics": {
+      "ok": true,
+      "per_claim": {
+        "ASC": {
+          "long_hits": 93272,
+          "short_hits": 48233,
+          "treated_long": 93272,
+          "treated_short": 48233,
+          "exact": true,
+          "no_leak": true,
+          "matches_treated": true,
+          "max_abs_deviation_from_delta": 1.81903103690928e-14,
+          "within_float_resolution": true
+        },
+        "DESC": {
+          "long_hits": 44735,
+          "short_hits": 93834,
+          "treated_long": 44735,
+          "treated_short": 93834,
+          "exact": true,
+          "no_leak": true,
+          "matches_treated": true,
+          "max_abs_deviation_from_delta": 1.81903103690928e-14,
+          "within_float_resolution": true
+        },
+        "CONF": {
+          "long_hits": 39773,
+          "short_hits": 40938,
+          "treated_long": 39773,
+          "treated_short": 40938,
+          "exact": true,
+          "no_leak": true,
+          "matches_treated": true,
+          "max_abs_deviation_from_delta": 1.81903103690928e-14,
+          "within_float_resolution": true
+        }
+      },
+      "note": "the delta is added to the component that matches each treated row's frozen phi = 0 direction, and to nothing else",
+      "deviation_note": "max_abs_deviation_from_delta is the float64 resolution of the addition itself — (a + delta) - a is not delta for a general a. The binding checks are the exact array equalities above; the deviation is bounded relative to the operand scale, not against an absolute constant"
+    },
+    "engine_equivalence": {
+      "ok": true,
+      "per_claim": {
+        "ASC": {
+          "maxz_vector": true,
+          "z_obs": true,
+          "p95": true,
+          "detected": true
+        },
+        "CONF": {
+          "maxz_vector": true,
+          "z_obs": true,
+          "p95": true,
+          "detected": true
+        }
+      },
+      "scope": "60,000-row common frame, 25 permutations, family-wise; the sealed gann_capability.run_world with all_claims is the reference"
+    },
+    "common_frame_equivalence": {
+      "ok": true,
+      "per_claim": {
+        "ASC": true,
+        "DESC": true,
+        "CONF": true
+      },
+      "why": "direction is part of the block key, so an invalid-direction row is already in a block of its own; it holds no treated row, so the block is ineligible and enters neither the numerator nor the weight normaliser"
+    },
+    "world_replay": {
+      "ok": true,
+      "scope": "full-scale world, 40 permutations, two fresh runs",
+      "replay_digest": "110a5c4b3af9d21f"
+    },
+    "all_pass": true,
+    "fixture_min": 0.7
+  },
+  "common_frame": {
+    "rows": 2869721,
+    "nullization_blocks": 3204,
+    "per_claim": {
+      "ASC": {
+        "treated": 141505,
+        "blocks": 7612,
+        "eligible_blocks": 6330
+      },
+      "DESC": {
+        "treated": 138569,
+        "blocks": 7612,
+        "eligible_blocks": 6294
+      },
+      "CONF": {
+        "treated": 80711,
+        "blocks": 10818,
+        "eligible_blocks": 6278
+      }
+    },
+    "why": "a family-wise maximum needs ONE permutation feeding all three claims, so the nullization runs on the common outcome-eligible frame rather than on three separately filtered ones"
+  },
+  "hard_state": {
+    "GANN OBSERVED phi=0 Z": "NOT COMPUTED",
+    "GANN GATE-B HISTORICAL": "NOT EVALUATED",
+    "GANN theta": "NOT COMPUTED",
+    "GANN WINNERS / SURVIVORS": "UNKNOWN"
+  },
+  "outcome_exposure": "CAPABILITY ONLY — every Z here is on a nullized-then-injected outcome; no un-nullized association is computed anywhere",
+  "runtime_min": 1882.0
+}

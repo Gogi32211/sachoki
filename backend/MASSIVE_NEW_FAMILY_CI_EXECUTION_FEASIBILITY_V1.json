@@ -1,0 +1,76 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_CI_EXECUTION_FEASIBILITY_V1",
+  "status": "BENCHMARK_ONLY",
+  "EVIDENTIARY_STATUS": "NONE",
+  "Y_EXPOSED": 0,
+  "workload": {
+    "X": "REAL frozen registry",
+    "Y": "SYNTHETIC",
+    "real_Y_used": "NO"
+  },
+  "host": {
+    "cores": 10,
+    "RAM_GB": 16,
+    "baseline_swap_used_MB": 3223.69
+  },
+  "CLEAN_TIE_BREAK": {
+    "protocol": "no monitoring loop, 10 fixed CI draws, 2 repetitions",
+    "results": [
+      {
+        "workers": 1,
+        "draws_per_hour": [
+          373.2,
+          475.6
+        ]
+      },
+      {
+        "workers": 2,
+        "draws_per_hour": [
+          778.7,
+          749.8
+        ]
+      },
+      {
+        "workers": 4,
+        "draws_per_hour": [
+          940.3,
+          955.7
+        ]
+      },
+      {
+        "workers": 8,
+        "draws_per_hour": [
+          1001.0,
+          998.6
+        ]
+      }
+    ],
+    "why_a_tie_break_was_needed": "two earlier benchmark runs disagreed (4w 826.6 vs 8w 797.3; then 4w 734.7 vs 8w 902.8) because the RSS-sampling loop itself perturbed the timing"
+  },
+  "CI_WORKERS": {
+    "chosen": 8,
+    "basis": "highest sustained throughput in BOTH repetitions, no swap growth",
+    "margin_over_4_workers": "~4.7% — small, and recorded as such",
+    "independence": "measured independently of the permutation benchmark, as required; it coincidentally matches PERMUTATION_WORKERS = 8"
+  },
+  "MEASURED_THROUGHPUT": {
+    "reference_CI_single_worker": "612 s/draw",
+    "reference_CI_8_workers": "116.1 s/draw",
+    "fast_CI_8_workers": "~3.6 s/draw",
+    "speedup_fast_vs_reference_single": "~170x at 8 workers"
+  },
+  "PROJECTIONS": {
+    "CI_B_2000_at_8_workers": {
+      "hours": 2.0,
+      "basis": "SYNTHETIC 10-draw clean tie-break, ~1000 draws/hour"
+    },
+    "permutation_B_2000_at_8_workers": {
+      "hours": 7.81,
+      "basis": "SYNTHETIC benchmark, 256.0 draws/hour"
+    },
+    "combined_synthetic_projection_hours": 9.8,
+    "one_time_synthetic_build": "112 s pool order + 83 s claim ranks = 195 s",
+    "one_time_REAL_Y_ordering_rank_build": "NOT YET MEASURED"
+  },
+  "CAVEAT": "all figures are SYNTHETIC-Y projections; they are not a guarantee of production runtime"
+}

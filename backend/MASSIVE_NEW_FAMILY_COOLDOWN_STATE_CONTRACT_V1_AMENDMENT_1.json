@@ -1,0 +1,56 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_COOLDOWN_STATE_CONTRACT_V1_AMENDMENT_1",
+  "amends": "67ae43d86d0b7cbb",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "SUPERSEDED_CLAIM": "GAP_LENGTH_COLLAPSE — \"an observed gap of length >= 6 collapses the incoming cooldown state to {OLD} by itself\"",
+  "WHY_WRONG": "it assumed the contaminated bars carry raw = FALSE. They carry raw = UNOBSERVED. Treating time-passed as no-fire-occurred is the same unknown->FALSE coercion this programme rejects everywhere else.",
+  "caught_by": "caller",
+  "EVIDENCE": {
+    "N1": {
+      "setup": "incoming state unknown, 6 gap bars with raw UNKNOWN",
+      "finite_state_result": "{1,2,3,4,5,6}",
+      "brute_force_2exp6_gap_histories": "{1,2,3,4,5,6}",
+      "agreement": "exact",
+      "conclusion": "uncertainty SURVIVES a 6-bar gap; a fire accepted on the last gap bar leaves last recent"
+    },
+    "N2": {
+      "setup": "6 PROVEN-FALSE observed bars",
+      "result": "{OLD}",
+      "conclusion": "collapse holds"
+    },
+    "N3": {
+      "setup": "5 PROVEN-FALSE observed bars",
+      "result": "{5, OLD}",
+      "conclusion": "still ambiguous, consistent with the n-not-n-1 correction"
+    },
+    "source_check": "pandas NaN comparisons yield False, so a full-frame canonical run WOULD advance the counter over gap bars — but that is NaN propagation, not a structural guarantee that no fire occurred"
+  },
+  "CORRECTED_RULE": {
+    "collapse_requires": "6 CONSECUTIVE PROVEN-FALSE **observed** raw bars",
+    "gap_length": "contributes NOTHING to state recovery — unobserved bars propagate {FALSE, TRUE} branches",
+    "recovery_is_still_possible": "post-gap segments consist of observed bars, so 6 consecutive proven-FALSE raw bars inside the new segment do collapse the state to {OLD}",
+    "distinction": "\"time passed\" != \"no fire occurred\" — cooldown remembers the last ACCEPTED fire, not elapsed bars"
+  },
+  "RETRACTED_STATISTIC": {
+    "was": "83.9% of interior gaps are shorter than 6 bars, therefore only those are problematic",
+    "status": "RETRACTED as a scoping claim",
+    "why": "gaps of ANY length leave the cooldown state uncertain when gap raw is unobserved, so the <6 split does not partition problematic from safe"
+  },
+  "C4_NUMBERS_NOW_PROVISIONAL": {
+    "affected": "the l_sig fallback classification in 0650f4bc695e4dac",
+    "figures": {
+      "fallback rows": 47,
+      "VALID": 21,
+      "INIT": 26
+    },
+    "status": "PROVISIONAL until PRE_PUMP cooldown continuity is recomputed with unknown-raw propagation across gaps",
+    "note": "the 47 total is a digit-path census and stands; it is the 21/26 VALID/INIT split that depends on the cooldown contract"
+  },
+  "PRE_PUMP_BLAST_RADIUS_RESTATED": {
+    "downstream_exposure": "still bounded to the l_sig named-fallback path (47 rows)",
+    "but": "which of those rows are VALID must be re-derived, not assumed from the Stage A per-segment restart"
+  },
+  "STAGE_D_STATUS": "HOLD — narrow. The six formulas are settled; only the sig_buy cooldown gap-transition needed this correction.",
+  "next": "re-run the cooldown layer with unknown-raw propagation across gaps, re-derive the l_sig fallback split, then Stage D x6 production in one pass"
+}

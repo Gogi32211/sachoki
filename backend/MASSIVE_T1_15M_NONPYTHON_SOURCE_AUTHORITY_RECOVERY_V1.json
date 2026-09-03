@@ -1,0 +1,119 @@
+{
+  "artifact": "MASSIVE_T1_15M_NONPYTHON_SOURCE_AUTHORITY_RECOVERY_V1",
+  "writes": 0,
+  "feature_production": 0,
+  "Y_EXPOSED": 0,
+  "family_modification": 0,
+  "SEARCH_UNIVERSE": {
+    "working_tree_files": 2366,
+    "by_type": {
+      ".py": 1105,
+      ".json": 533,
+      ".pine": 19,
+      ".md": 73,
+      ".txt": 28,
+      ".sh": 12,
+      ".docx": 26,
+      ".ipynb": 0,
+      ".sql": 0
+    },
+    "all_git_refs": {
+      ".py": 2242,
+      ".pine": 31,
+      ".md": 97,
+      ".txt": 23,
+      ".sh": 17,
+      ".docx": 25
+    },
+    "scanned_for_content": 120,
+    "read_failures": 0,
+    "enumeration_complete": true,
+    "note": ".ipynb and .sql do not exist in this repo — enumerated, not assumed"
+  },
+  "RECOVERED_SOURCE": {
+    "file": "analysis/260523_TZ_F_WLNBB_CMB_pattern.pine (1,194 lines)",
+    "title": "260523_TZ_F_WLNBB_CMB — TZ+WLNBB+AD-FRESH+WYC Phase + Z11 Reversal",
+    "also_present": "pine/260809_TZ_F_WLNBB_CMB.pine (671 lines, later vintage)",
+    "corroborating_docs": [
+      "CHART_VS_DB_DIVERGENCE_FULL_260529.txt",
+      "DB_SCHEMA_GUIDE_260529.txt",
+      "FILTER_DIVERGENCE_AUDIT_260529.md"
+    ]
+  },
+  "AD_DEFINITION": {
+    "source_lines": "260523 Pine 330-349",
+    "pine": [
+      "a_sig_raw = Z1G_raw or Z2G_raw",
+      "d_sig_raw = T4_raw or T6_raw or T2G_raw or T2_raw",
+      "a_recent = barsSinceA <= adFreshLookback(12)",
+      "posRng = (close - lowest(low,20)) / max(highest(high,20)-lowest(low,20), mintick)",
+      "adFresh = d_sig_raw and a_recent and posRng < 0.50",
+      "adCluster = adFresh and barsSinceADF[1] > 0 and barsSinceADF[1] <= adClusterWin(8)"
+    ],
+    "parameters": {
+      "adFreshLookback": 12,
+      "adClusterWin": 8,
+      "adFreshPosThr": 0.5
+    },
+    "KEY_DIVERGENCE": "Pine uses RAW pre-priority predicates (T4_raw/T6_raw/T2G_raw/T2_raw, Z1G_raw/Z2G_raw). The Python port uses the RESOLVED t_signal/z_signal labels, which differ on every bar where a higher-priority state masked one of those. This is a stated source-level difference, NOT yet proven to be the cause of the residual mismatches.",
+    "cluster_rule_test": {
+      "method": "stored ad_fresh held fixed so only the cluster rule is under test",
+      "pine_sequential": 335,
+      "rolling_count": 19635,
+      "signal_extraction_own": 31,
+      "reading": "the Pine sequential form beats the rolling form decisively but does not reach signal_extraction own result, so the cluster rule alone does not explain the residual"
+    }
+  },
+  "WYC_DEFINITION": {
+    "source_lines": "260523 Pine 530-562",
+    "pine": [
+      "inCompress = atrWYC < ema(atrWYC,50) * wycCompMult(0.70)",
+      "macroUpWYC = ema50 > ema200 ; macroDownWYC = ema50 < ema200",
+      "priorSup20 = lowest(low,20)[1] ; priorRes20 = highest(high,20)[1]",
+      "sprWYC = low < priorSup20 and close > priorSup20 and isBull and macroDownWYC and volUpAdapted",
+      "utadWYC = high > priorRes20 and close < priorRes20 and isBear and macroUpWYC and volUpAdapted",
+      "sosWYC = adFresh and macroDownWYC and vixSpike",
+      "priority: SPRING > UTAD > SOS > ACC-TR > DIST-TR > MARKUP > MKDN"
+    ],
+    "vocabulary_difference": {
+      "pine": [
+        "SPRING",
+        "UTAD",
+        "SOS★",
+        "ACC-TR",
+        "DIST-TR",
+        "MARKUP",
+        "MKDN"
+      ],
+      "stored": [
+        "SPRING",
+        "UTAD",
+        "SOS",
+        "ACC_TR",
+        "DIST_TR",
+        "MARKUP",
+        "MKDN",
+        "NEUTRAL"
+      ],
+      "conclusion": "the STORE carries the Python normalized vocabulary (underscores, no star), so the WRITER is the Python port, not a direct Pine export. The Pine is the DEFINITION authority; the Python is the writer."
+    },
+    "python_deliberately_diverged": "the newer Python signature carries a \"Bug-fix v3.1: Spring needs STRONGER constraints — over-fires\" comment, i.e. it intentionally departs from the Pine rule"
+  },
+  "LINE5": {
+    "status": "Pine components identified (VIX-Fix / PSAR / RSI2) but the 4 residual claim-relevant cells were NOT re-tested against a Pine-exact PSAR in this gate"
+  },
+  "PER_OBJECT_VERDICT": {
+    "bar_line5": "DEFINITION_RECOVERED_WRITER_NOT_RECOVERED — 4 claim-relevant cells remain UNRESOLVED (19299423c8d89d56)",
+    "wyc_phase": "DEFINITION_RECOVERED_WRITER_NOT_RECOVERED — Pine definition recovered; the Python writer does not reproduce the store and has deliberately diverged",
+    "ad_fresh": "DEFINITION_RECOVERED_WRITER_NOT_RECOVERED",
+    "ad_cluster": "DEFINITION_RECOVERED_WRITER_NOT_RECOVERED"
+  },
+  "UMBRELLA": "DEFINITION_RECOVERED_WRITER_NOT_RECOVERED",
+  "upgrade_from": "PRODUCER_NOT_RECOVERED_FROM_AVAILABLE_AUTHORITY (9025fb20cb90760e) — the definition surface IS recovered; what remains unrecovered is the exact writer instance that produced the stored values",
+  "exact_family_status": "STILL HOLD — none of the four reaches same-input exactness",
+  "not_done": [
+    "no Pine-exact reimplementation was built and tested end-to-end",
+    "raw-vs-resolved predicate hypothesis NOT tested (raw predicates are not exposed by compute_signals)",
+    "no parameter fitting — deliberately excluded as non-provenance"
+  ]
+}

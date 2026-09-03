@@ -1,0 +1,104 @@
+{
+  "artifact": "MASSIVE_T1_15M_COMBO_PD_RESEARCH_VINTAGE_BIND_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "terminology_amendment": {
+    "amends": "fc2542395bc6dd18",
+    "superseded": "CONFIRMED_INPUT_VINTAGE_ANOMALY",
+    "replacement": "CONFIRMED_INCREMENTAL_WARMUP_REGIME_DIVERGENCE",
+    "reason": "the cause is now known precisely: a 45-day truncated recomputation regime (derive_intraday.py _INCR_WARMUP_DAYS), not an unidentified input vintage"
+  },
+  "boundary": "2026-07-06 13:30:00 UTC — first bar of the incremental-materialization regime",
+  "QUESTION": "does the frozen historical research object touch the incremental regime?",
+  "ANSWER": "YES",
+  "bind": {
+    "t1_15m_population": {
+      "rows": 157038,
+      "range": "2021-07-02 -> 2026-08-06",
+      "on_or_after_boundary": 3395,
+      "share": "2.162%"
+    },
+    "t1_episodes": {
+      "rows": 220351,
+      "range": "2021-05-27 -> 2026-08-20",
+      "on_or_after_boundary": 7030,
+      "share": "3.190%"
+    },
+    "t1_estimand_population": {
+      "rows": 154786,
+      "on_or_after_boundary": 2448,
+      "share": "1.582%"
+    },
+    "population_sessions": 1278,
+    "sessions_on_or_after_boundary": 24,
+    "claim_relevant_M1_M4_rows": {
+      "pre_boundary": 614572,
+      "post_boundary": 13580
+    }
+  },
+  "PATH_B_MEMBERSHIP_INVARIANCE": {
+    "test": "do any of the 652 incremental-regime mismatches land on a claim-relevant M1-M4 bar of a frozen-population (ticker, session)?",
+    "mismatches_in_opening_window": 80,
+    "mismatches_on_population_pairs": 3,
+    "affected_cells": [
+      {
+        "ticker": "HOOD",
+        "universe": "sp500",
+        "session": "2026-07-14",
+        "slot": "M1",
+        "col": "sig_d66",
+        "full_history": 1,
+        "stored": 0
+      },
+      {
+        "ticker": "EYE",
+        "universe": "nasdaq",
+        "session": "2026-07-14",
+        "slot": "M2",
+        "col": "sig_d66",
+        "full_history": 1,
+        "stored": 0
+      },
+      {
+        "ticker": "RKTO",
+        "universe": "nasdaq",
+        "session": "2026-07-31",
+        "slot": "M4",
+        "col": "sig_p66",
+        "full_history": 0,
+        "stored": 1
+      }
+    ],
+    "verdict": "MEMBERSHIP_NOT_INVARIANT",
+    "perturbation": {
+      "final_k_members_affected": 225,
+      "total": 35587,
+      "share": "0.63%",
+      "max_change_per_claim": "1 episode",
+      "affected_support": {
+        "min": 304,
+        "median": 809,
+        "max": 2360
+      },
+      "worst_case_relative": "0.3289%"
+    },
+    "breakdown": {
+      "D66 at M1": 67,
+      "D66 at M2": 104,
+      "P66 at M4": 54
+    }
+  },
+  "CONSEQUENCE": "the frozen 35,587-member family was materialized under a MIXED REGIME: full-history semantics for 96.646% of the store and 45-day incremental semantics for 3.354%. A Massive port written to full-history semantics will NOT bit-reproduce the historical family: 225 members (0.63%) would differ by at most one episode each.",
+  "what_this_is_not": "this does not invalidate the frozen object. It is a property OF the object, now measured, and it belongs in D as a declared characteristic of the historical family.",
+  "options_for_caller": [
+    "ACCEPT_AND_DECLARE — write the port to full-history semantics and seal the 225-member / 1-episode deviation as a known, enumerated difference",
+    "REPRODUCE_INCREMENTAL_REGIME — reconstruct per-run 45-day boundaries to bit-reproduce the historical mixed regime (heavy; run boundaries are not preserved)",
+    "RESTRICT_FAMILY — forbidden: pruning the 24 post-boundary sessions would create a NEW family (N8)"
+  ],
+  "not_done": [
+    "no port written",
+    "no membership recomputation performed",
+    "Y untouched"
+  ]
+}

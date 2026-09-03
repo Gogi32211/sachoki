@@ -1,0 +1,840 @@
+{
+  "report_id": "MASSIVE_SECURITY_LINEAGE_ANOMALY_QUALIFICATION_V1",
+  "status": "LINEAGE_ANOMALY_QUALIFICATION_COMPLETE",
+  "authoritative_input": {
+    "artifact": "MASSIVE_SECURITY_LINEAGE_V7_CANDIDATE_EXECUTION_V1.json",
+    "digest": "e454381d12c66441",
+    "verified": true,
+    "candidate_implementation": "PASS",
+    "independent_verification": "PASS",
+    "full_503_lineage_audit": "HOLD"
+  },
+  "candidate_provenance": {
+    "superseded_implementation": "63d8e03cdafb257f",
+    "superseded_reason": "next_session() off-by-one for non-trading effective_to boundaries",
+    "affected": [
+      "CPAY",
+      "WTW",
+      "XYZ"
+    ],
+    "replacement_implementation": "e81cb9367d3e37eb",
+    "independent_verifier": "PASS",
+    "hidden": false,
+    "classification_of_that_defect": "IMPLEMENTATION_DEFECT_NOT_A_LINEAGE_ANOMALY"
+  },
+  "evidence_standard": {
+    "binding": "a vendor bar is an observation; only a filed statement of listing or trading can move a coverage boundary",
+    "first_bar_discipline": "earliest_massive_bar_session, authoritative_regular_way_start and v6_regular_way_start are recorded as three separate fields and never conflated",
+    "massive_role": "corroborative for vendor behaviour only"
+  },
+  "branch_a": {
+    "scope": [
+      "CEG",
+      "FDXF",
+      "HONA",
+      "KVUE",
+      "PSKY",
+      "Q",
+      "RDDT",
+      "SNDK",
+      "SW",
+      "TKO",
+      "WBD"
+    ],
+    "counts": {
+      "total": 11,
+      "v6_anchor_delay_confirmed": 11,
+      "v6_start_correct": 0,
+      "security_identity_conflict": 0,
+      "source_only_early_bars_unresolved": 0,
+      "unresolved": 0
+    },
+    "hypothesis": "regular-way listing began before the V6 quarterly anchor",
+    "result": "confirmed for all 11",
+    "exact_session_statement_found": 9,
+    "bounded_by_certification": [
+      "RDDT",
+      "PSKY"
+    ],
+    "derived_from_stated_rule": [
+      "CEG"
+    ],
+    "lost_sessions": 345
+  },
+  "branch_b": {
+    "scope": [
+      "GEHC",
+      "SOLV",
+      "VLTO"
+    ],
+    "counts": {
+      "total": 3,
+      "wi_policy_correct_vendor_aliasing": 0,
+      "regular_way_same_day_confirmed": 3,
+      "source_behavior_conflict": 0,
+      "unresolved": 0
+    },
+    "hypothesis_expected": "WI_POLICY_CORRECT_VENDOR_ALIASING",
+    "hypothesis_result": "REFUTED by the filings",
+    "actual": "regular-way trading genuinely began on the session V6 labelled when-issued; V6's WI interval ran one session too long",
+    "wi_policy_itself": "CORRECT — excluding when-issued lines stands",
+    "requires": "an explicit WI-boundary amendment, separately from the anchor-delay repairs",
+    "lost_sessions": 3
+  },
+  "gev_control": {
+    "security": "GEV",
+    "role": "DESCRIPTIVE_NEGATIVE_CONTROL",
+    "not_an_anomaly_candidate": true,
+    "v6_regular_way_start": "2024-04-02",
+    "v6_when_issued": {
+      "ticker": "GEVw",
+      "dates": [
+        "2024-04-01"
+      ]
+    },
+    "observation": "the WI line traded on 2024-04-01 while the ordinary ticker returned no bars",
+    "audit_classification": "NO_ANOMALY_DETECTED",
+    "why_it_differs": "GE Vernova's distribution completed on 2024-04-02, so 2024-04-01 genuinely had no regular-way trading and V6's start is correct here",
+    "significance": "same calendar date and same structure as SOLV, opposite answer. A method that could not tell these apart would be worthless.",
+    "inference_forbidden": "GEV's behaviour is NOT generalised to GEHC/SOLV/VLTO"
+  },
+  "anchor_grid_mechanism": {
+    "branch_a_on_anchor_grid": 11,
+    "branch_b_on_anchor_grid": 0,
+    "descriptive_only": true,
+    "repair_rule_forbidden": "\"if V6 date is an anchor, move backward\" — repair must use the evidence-qualified regular-way start"
+  },
+  "candidates": [
+    {
+      "security_key_v1": "7950a3c358b7cda006beaad43e00048af7ff1dbaa4c6ce34df01529443eb0f16",
+      "ticker": "SW",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2024-10-01",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 60,
+      "earliest_massive_bar_session": "2024-07-08",
+      "authoritative_regular_way_start": "2024-07-08",
+      "boundary_precision": "EXACT_XNYS_SESSION_PROSPECTIVELY_STATED",
+      "listing_mechanism": "merger/combination (Smurfit Kappa + WestRock)",
+      "when_issued_status": "no WI period relied upon",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "425",
+          "filed": "2024-06-07",
+          "sha256": "62da07a7",
+          "doc": "SW_425"
+        }
+      ],
+      "quoted_statements": [
+        "Smurfit WestRock's ordinary shares will trade on the New York Stock Exchange with effect from 9:30 a.m. (New York City Time) on Monday, 8 July 2024"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 60,
+      "repaired": false,
+      "limitations": []
+    },
+    {
+      "security_key_v1": "03cb866cb9ea0402b48c41dedbe6d911c48c1199e0bc4bf3cbd050486690d151",
+      "ticker": "WBD",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2022-07-01",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 56,
+      "earliest_massive_bar_session": "2022-04-11",
+      "authoritative_regular_way_start": "2022-04-11",
+      "boundary_precision": "EXACT_XNYS_SESSION_RETROSPECTIVELY_STATED",
+      "listing_mechanism": "Reverse Morris Trust (Discovery + WarnerMedia)",
+      "when_issued_status": "no WI period relied upon",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2022-04-12",
+          "sha256": "d045c127",
+          "doc": "WBD_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "On April 11, 2022, WBD common stock commenced trading on Nasdaq under the ticker symbol “WBD”."
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 56,
+      "repaired": false,
+      "limitations": []
+    },
+    {
+      "security_key_v1": "b4e3cffd09deed70989c7038163733b1a99b696445c2d484d626169c9011ad8c",
+      "ticker": "CEG",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2022-04-01",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 41,
+      "earliest_massive_bar_session": "2022-02-02",
+      "authoritative_regular_way_start": "2022-02-02",
+      "boundary_precision": "CALENDAR_DATE_DERIVED_FROM_STATED_RULE",
+      "listing_mechanism": "spin-off from Exelon",
+      "when_issued_status": "no WI period relied upon",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "EX-99.1 Information Statement",
+          "filed": "2022-01-28",
+          "sha256": "add1966b",
+          "doc": "CEG_EX-991"
+        },
+        {
+          "form": "EX-99.1 press release",
+          "filed": "2022-02-02",
+          "sha256": "1b0fdb1f",
+          "doc": "CEG_EX-991"
+        }
+      ],
+      "quoted_statements": [
+        "“regular-way” trading in shares of the Company common stock will begin on the first trading day following the distribution date",
+        "Constellation (Nasdaq: CEG) today announced the completion of its separation from Exelon Corp."
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 41,
+      "repaired": false,
+      "limitations": [
+        "no filing names the session directly; the date follows from the stated rule plus the completion announcement"
+      ]
+    },
+    {
+      "security_key_v1": "2ce8a5a673195d915d23f4cb15274a4f8bce6017432277d771c22924443866b6",
+      "ticker": "Q",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2026-01-02",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 41,
+      "earliest_massive_bar_session": "2025-11-03",
+      "authoritative_regular_way_start": "2025-11-03",
+      "boundary_precision": "EXACT_XNYS_SESSION_RETROSPECTIVELY_STATED",
+      "listing_mechanism": "separation and distribution (Qnity from DuPont)",
+      "when_issued_status": "a separate WI ticker/period is documented and remains excluded",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2025-10-15",
+          "sha256": "4bfc47d3",
+          "doc": "Q_8-K"
+        },
+        {
+          "form": "8-K",
+          "filed": "2025-11-03",
+          "sha256": "5b654428",
+          "doc": "Q_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "“when-issued” trading is expected to begin on October 27, 2025, under the symbol “Q WI”, with such trading ending at the close of business on October 31, 2025",
+        "the Qnity Common Stock will commence “regular way” trading on the New York Stock Exchange under the symbol “Q” at the start of trading on November 3, 2025"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 41,
+      "repaired": false,
+      "limitations": []
+    },
+    {
+      "security_key_v1": "e285ef89c4084458c87ea48709edb6745695785b240ab3dc35e7a5b4be803e11",
+      "ticker": "KVUE",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2023-07-03",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 40,
+      "earliest_massive_bar_session": "2023-05-04",
+      "authoritative_regular_way_start": "2023-05-04",
+      "boundary_precision": "EXACT_XNYS_SESSION_RETROSPECTIVELY_STATED",
+      "listing_mechanism": "IPO carve-out from Johnson & Johnson",
+      "when_issued_status": "no WI period relied upon",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2023-05-08",
+          "sha256": "d8703090",
+          "doc": "KVUE_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "effective as of 8:00 a.m. New York City time on May 4, 2023, the date that Kenvue Common Stock was first listed on the New York Stock Exchange"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 40,
+      "repaired": false,
+      "limitations": []
+    },
+    {
+      "security_key_v1": "15f4235d8ec66648b24a380d15f3eb28f1c204480e610b60cf6a6106f13c083a",
+      "ticker": "PSKY",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2025-10-01",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 38,
+      "earliest_massive_bar_session": "2025-08-07",
+      "authoritative_regular_way_start": "2025-08-07",
+      "boundary_precision": "BOUNDED_BY_LISTING_CERTIFICATION",
+      "listing_mechanism": "merger (Paramount + Skydance) via New Pluto Global",
+      "when_issued_status": "no WI period relied upon",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K12B",
+          "filed": "2025-08-07",
+          "sha256": "ec432190",
+          "doc": "PSKY_8-K12B"
+        },
+        {
+          "form": "CERT",
+          "filed": "2025-08-07",
+          "sha256": null,
+          "doc": "exchange listing certification"
+        },
+        {
+          "form": "10-Q",
+          "filed": "2025-08-01",
+          "sha256": "8a07f07a",
+          "doc": "PSKY_10-Q"
+        }
+      ],
+      "quoted_statements": [
+        "Following the closing of the Transactions shares of New Paramount ... are expected to begin trading on the Nasdaq Stock Market LLC under the ticker symbol “PSKY”"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 38,
+      "repaired": false,
+      "limitations": [
+        "no filed sentence names the first session; succession (8-K12B) and exchange certification both dated 2025-08-07"
+      ]
+    },
+    {
+      "security_key_v1": "e15f386156b38d4996622f322bda80ae2225e5fb9031ed2109da0dcc942ffcea",
+      "ticker": "SNDK",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2025-04-01",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 26,
+      "earliest_massive_bar_session": "2025-02-24",
+      "authoritative_regular_way_start": "2025-02-24",
+      "boundary_precision": "EXACT_XNYS_SESSION_RETROSPECTIVELY_STATED",
+      "listing_mechanism": "spin-off from Western Digital",
+      "when_issued_status": "a separate WI ticker/period is documented and remains excluded",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2025-02-03",
+          "sha256": "0eefd799",
+          "doc": "SNDK_8-K"
+        },
+        {
+          "form": "8-K",
+          "filed": "2025-02-14",
+          "sha256": "540571a2",
+          "doc": "SNDK_8-K"
+        },
+        {
+          "form": "8-K",
+          "filed": "2025-02-24",
+          "sha256": "b864f2d6",
+          "doc": "SNDK_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "During the when-issued trading period ... between February 13, 2025 and February 21, 2025, shares ... will trade under the ticker symbol “SNDKV”",
+        "the Company Common Stock commenced trading “regular way” under the symbol “SNDK” on the Nasdaq Stock Market LLC on February 24, 2025, which is the next trading day following the Distribution Date"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 26,
+      "repaired": false,
+      "limitations": []
+    },
+    {
+      "security_key_v1": "95c91d7a71f613f6cec23858c13e481f464709bf53ee5303d09abb5190ffb2be",
+      "ticker": "FDXF",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2026-07-01",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 21,
+      "earliest_massive_bar_session": "2026-06-01",
+      "authoritative_regular_way_start": "2026-06-01",
+      "boundary_precision": "EXACT_XNYS_SESSION_PROSPECTIVELY_STATED",
+      "listing_mechanism": "spin-off from FedEx",
+      "when_issued_status": "a separate WI ticker/period is documented and remains excluded",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2026-05-13",
+          "sha256": "5e30c25d",
+          "doc": "FDXF_8-K"
+        },
+        {
+          "form": "8-K",
+          "filed": "2026-06-01",
+          "sha256": "5a240e29",
+          "doc": "FDXF_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "Following the separation, FedEx Freight common stock will begin trading on the New York Stock Exchange on June 1, 2026 under the symbol “FDXF”",
+        "immediately prior to the commencement of “when-issued” trading ... on May 27, 2026"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 21,
+      "repaired": false,
+      "limitations": []
+    },
+    {
+      "security_key_v1": "4f50ce52da2a20a0580c66b3681d496852fe928e7bf4d843afd74062565a4db6",
+      "ticker": "TKO",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2023-10-02",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 14,
+      "earliest_massive_bar_session": "2023-09-12",
+      "authoritative_regular_way_start": "2023-09-12",
+      "boundary_precision": "EXACT_XNYS_SESSION_PROSPECTIVELY_STATED",
+      "listing_mechanism": "combination (WWE + UFC/Endeavor)",
+      "when_issued_status": "no WI period relied upon",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "425",
+          "filed": "2023-09-07",
+          "sha256": "84886f2c",
+          "doc": "TKO_425"
+        }
+      ],
+      "quoted_statements": [
+        "on September 12, 2023, at which time TKO will begin trading on the New York Stock Exchange under the ticker symbol “TKO”"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 14,
+      "repaired": false,
+      "limitations": []
+    },
+    {
+      "security_key_v1": "0425a134ff8acab2c5d8bd31999eb0bd864093da4b09dae2d4eaa46027a768c6",
+      "ticker": "RDDT",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2024-04-01",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 6,
+      "earliest_massive_bar_session": "2024-03-21",
+      "authoritative_regular_way_start": "2024-03-21",
+      "boundary_precision": "BOUNDED_BY_LISTING_CERTIFICATION",
+      "listing_mechanism": "initial public offering",
+      "when_issued_status": "no WI period relied upon",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-A12B",
+          "filed": "2024-03-20",
+          "sha256": null,
+          "doc": "registration of the class on the NYSE"
+        },
+        {
+          "form": "CERT",
+          "filed": "2024-03-20",
+          "sha256": null,
+          "doc": "exchange listing certification"
+        },
+        {
+          "form": "424B4",
+          "filed": "2024-03-21",
+          "sha256": null,
+          "doc": "final prospectus"
+        },
+        {
+          "form": "8-K",
+          "filed": "2024-03-25",
+          "sha256": "16fa534f",
+          "doc": "RDDT_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "As described in the final prospectus, dated March 20, 2024 ... filed with the Securities and Exchange Commission on March 21, 2024"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 6,
+      "repaired": false,
+      "limitations": [
+        "no filed sentence names the first session; registration effective and exchange certification 2024-03-20, final prospectus 2024-03-21"
+      ]
+    },
+    {
+      "security_key_v1": "94ca83c229531d0b68efab9a28304e2f495629744f55b218e6607b68e351bb7c",
+      "ticker": "HONA",
+      "candidate_class": "ANCHOR_DELAY",
+      "classification": "V6_ANCHOR_DELAY_CONFIRMED",
+      "v6_status": "LISTED_LATER",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2026-07-01",
+      "v6_start_on_anchor_grid": true,
+      "anchor_displacement_sessions": 2,
+      "earliest_massive_bar_session": "2026-06-29",
+      "authoritative_regular_way_start": "2026-06-29",
+      "boundary_precision": "EXACT_XNYS_SESSION_RETROSPECTIVELY_STATED",
+      "listing_mechanism": "spin-off from Honeywell",
+      "when_issued_status": "no WI period relied upon",
+      "same_security_evidence": {
+        "identifiers_matching_current": [
+          "cik",
+          "share_class_figi",
+          "composite_figi"
+        ],
+        "note": "the frozen research security is the issuer named in the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2026-06-15",
+          "sha256": "9c112f33",
+          "doc": "HONA_8-K"
+        },
+        {
+          "form": "8-K",
+          "filed": "2026-06-29",
+          "sha256": "28738826",
+          "doc": "HONA_8-K"
+        },
+        {
+          "form": "424B3",
+          "filed": "2026-07-13",
+          "sha256": "44cb8a89",
+          "doc": "HONA_424B3"
+        }
+      ],
+      "quoted_statements": [
+        "On June 29, 2026, our common stock began regular-way trading on the Nasdaq Stock Market LLC under the ticker symbol “HONA”"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY — the filing is the evidence; agreement is recorded because disagreement would have changed the classification"
+      },
+      "proposed_lost_sessions": 2,
+      "repaired": false,
+      "limitations": []
+    },
+    {
+      "security_key_v1": "751cd10a480eb5838533ed1a1b7de5b55b5acc85c227199cc5b73d570e40b8bb",
+      "ticker": "GEHC",
+      "candidate_class": "WI_BOUNDARY",
+      "classification": "REGULAR_WAY_STARTED_ON_WI_DATE_CONFIRMED",
+      "v6_status": "RENAMED_IN_WINDOW",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2023-01-05",
+      "v6_start_on_anchor_grid": false,
+      "v6_when_issued_interval": [
+        "2023-01-03",
+        "2023-01-04"
+      ],
+      "v6_when_issued_ticker": "GEHCV",
+      "earliest_massive_bar_session": "2023-01-04",
+      "authoritative_regular_way_start": "2023-01-04",
+      "boundary_precision": "EXACT_XNYS_SESSION_PROSPECTIVELY_STATED_AND_CORROBORATED",
+      "listing_mechanism": "spin-off from General Electric",
+      "finding": "the ordinary-ticker bars on that session were REGULAR-WAY TRADING, not duplicated when-issued activity",
+      "wi_policy_verdict": {
+        "policy_correct": true,
+        "application_defective": true,
+        "detail": "excluding when-issued lines remains right; V6's WI interval ran one session too long and swallowed the first real regular-way session",
+        "consequence": "this is NOT WI_POLICY_CORRECT_VENDOR_ALIASING — the hypothesis the gate expected to confirm is refuted by the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2022-12-08",
+          "sha256": "83914010",
+          "doc": "GEHC_8-K"
+        },
+        {
+          "form": "8-K",
+          "filed": "2023-01-04",
+          "sha256": "a5525e1b",
+          "doc": "GEHC_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "the Company's common stock is expected to begin trading “regular way” on The Nasdaq Stock Market LLC under the ticker symbol “GEHC” on January 4, 2023, the first trading day after the Distribution Date",
+        "On January 3, 2023 (the “Distribution Date”), General Electric Company completed the previously announced distribution"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY"
+      },
+      "proposed_lost_sessions": 1,
+      "repaired": false
+    },
+    {
+      "security_key_v1": "52660f0a6d9513c989be47137fb722c1015d097aeef8852c2e88b9dfbf909c05",
+      "ticker": "SOLV",
+      "candidate_class": "WI_BOUNDARY",
+      "classification": "REGULAR_WAY_STARTED_ON_WI_DATE_CONFIRMED",
+      "v6_status": "RENAMED_IN_WINDOW",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2024-04-02",
+      "v6_start_on_anchor_grid": false,
+      "v6_when_issued_interval": [
+        "2024-04-01"
+      ],
+      "v6_when_issued_ticker": "SOLVw",
+      "earliest_massive_bar_session": "2024-04-01",
+      "authoritative_regular_way_start": "2024-04-01",
+      "boundary_precision": "CALENDAR_DATE_PROSPECTIVELY_STATED",
+      "listing_mechanism": "spin-off from 3M",
+      "finding": "the ordinary-ticker bars on that session were REGULAR-WAY TRADING, not duplicated when-issued activity",
+      "wi_policy_verdict": {
+        "policy_correct": true,
+        "application_defective": true,
+        "detail": "excluding when-issued lines remains right; V6's WI interval ran one session too long and swallowed the first real regular-way session",
+        "consequence": "this is NOT WI_POLICY_CORRECT_VENDOR_ALIASING — the hypothesis the gate expected to confirm is refuted by the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2024-03-13",
+          "sha256": "d6f39dd1",
+          "doc": "SOLV_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "Solventum common stock is expected to begin trading on a “when-issued” basis on the New York Stock Exchange ... under the symbol “SOLV WI,” with such trading ... ending at the close of trading on March 28, 2024",
+        "Beginning on April 1, 2024, Solventum common stock is expected to begin regular way trading on the NYSE under the ticker “SOLV”"
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY"
+      },
+      "proposed_lost_sessions": 1,
+      "repaired": false
+    },
+    {
+      "security_key_v1": "213bc10dc2fca2cda679b90293e89b1cc168d07d3f53f37c0fd8fe9e08bbb750",
+      "ticker": "VLTO",
+      "candidate_class": "WI_BOUNDARY",
+      "classification": "REGULAR_WAY_STARTED_ON_WI_DATE_CONFIRMED",
+      "v6_status": "RENAMED_IN_WINDOW",
+      "v6_canonical_status": "LISTED_LATER",
+      "v6_regular_way_start": "2023-10-03",
+      "v6_start_on_anchor_grid": false,
+      "v6_when_issued_interval": [
+        "2023-10-02"
+      ],
+      "v6_when_issued_ticker": "VLTOw",
+      "earliest_massive_bar_session": "2023-10-02",
+      "authoritative_regular_way_start": "2023-10-02",
+      "boundary_precision": "EXACT_XNYS_SESSION_RETROSPECTIVELY_STATED",
+      "listing_mechanism": "spin-off from Danaher",
+      "finding": "the ordinary-ticker bars on that session were REGULAR-WAY TRADING, not duplicated when-issued activity",
+      "wi_policy_verdict": {
+        "policy_correct": true,
+        "application_defective": true,
+        "detail": "excluding when-issued lines remains right; V6's WI interval ran one session too long and swallowed the first real regular-way session",
+        "consequence": "this is NOT WI_POLICY_CORRECT_VENDOR_ALIASING — the hypothesis the gate expected to confirm is refuted by the filings"
+      },
+      "primary_evidence": [
+        {
+          "form": "8-K",
+          "filed": "2023-10-02",
+          "sha256": "9279956d",
+          "doc": "VLTO_8-K"
+        }
+      ],
+      "quoted_statements": [
+        "Today marked the first day of regular way trading for Veralto (NYSE: VLTO) as it begins its new journey as a publicly traded company."
+      ],
+      "archived_in": "/Volumes/QUANT_RESEARCH/artifacts/provenance/anomaly_qualification",
+      "cross_check": {
+        "authoritative_equals_earliest_massive_bar": true,
+        "role": "CROSS_CHECK_ONLY"
+      },
+      "proposed_lost_sessions": 1,
+      "repaired": false
+    }
+  ],
+  "totals": {
+    "candidates": 14,
+    "treated": 14,
+    "lost_sessions_branch_a": 345,
+    "lost_sessions_branch_b": 3,
+    "lost_sessions_total": 348
+  },
+  "no_repair": {
+    "auto_repaired": 0,
+    "v7_candidate_modified": false,
+    "known_eight_table_expanded": false,
+    "repair_set_unchanged": [
+      "APO",
+      "J",
+      "CRH",
+      "BG",
+      "LH",
+      "FERG",
+      "BLK",
+      "XOM"
+    ]
+  },
+  "mutations": {
+    "canonical": 0,
+    "v7_candidate": 0,
+    "v6": 0,
+    "security_key_v1": 0,
+    "universe": 0,
+    "supplement_promotions": 0,
+    "derived_writes": 0
+  },
+  "canonical_v7_eligible": false,
+  "next_gate": "MASSIVE_SECURITY_LINEAGE_V7_SPEC_AMENDMENT_V1 — must carry BOTH the 11 evidence-qualified anchor-delay repairs AND the 3 WI-boundary corrections, which are different defect classes and must not share a rule",
+  "does_not_authorize": "lineage repair, V7 candidate modification, or canonical V7",
+  "limitations": [
+    "RDDT and PSKY first-session precision is bounded by listing certification rather than a filed sentence naming the session",
+    "CEG's date follows from a stated rule plus a completion announcement",
+    "the three WI-boundary cases were qualified only for their own securities; no sweep was run for other WI-adjacent boundaries outside the frozen four"
+  ],
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 18:37 +04"
+}

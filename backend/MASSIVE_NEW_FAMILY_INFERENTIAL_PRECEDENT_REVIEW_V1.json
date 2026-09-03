@@ -1,0 +1,360 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRECEDENT_REVIEW_V1",
+  "status": "PRECEDENTS_CHARACTERIZED",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "REVIEW_TYPE": "DESIGN_PRECEDENT_REVIEW — not an evidence review",
+  "GUARD": {
+    "read": "design artifacts only",
+    "NOT_read": [
+      "historical results",
+      "effect sizes",
+      "winners",
+      "p-values",
+      "outcome realizations"
+    ],
+    "method": "top-level keys screened by a result-pattern filter before extraction",
+    "keys_flagged_and_skipped": {
+      "FORWARD_EVALUATION_SPEC.json": [
+        "insufficient_support_result",
+        "underpowered_is_a_result"
+      ]
+    },
+    "INHERITANCE_RATIONALE_RULE": {
+      "admissible": [
+        "same measurement problem",
+        "same timing logic",
+        "same inferential objective",
+        "same availability/censoring requirements"
+      ],
+      "INADMISSIBLE": "'it worked well in that family' — historical success is NEVER a basis for inheritance"
+    }
+  },
+  "SOURCES_REVIEWED": [
+    "T1_15M_PRESPEC_V1",
+    "T3_15M_PRESPEC_V1",
+    "T1_OUTCOME_SPEC_V1",
+    "GANN_OUTCOME_SPEC_V1",
+    "FORWARD_EVALUATION_SPEC",
+    "FORWARD_OBSERVATION_POLICY"
+  ],
+  "KEY_STRUCTURAL_FINDING": {
+    "observation": "T1_15M_PRESPEC_V1 is the CLOSEST structural sibling — same primary_scope (OPENING HOUR ONLY), same position_families (M1->M2, M2->M3, M3->M4), same grammar (position-anchored 2-bar claims only)",
+    "critical": "but it explicitly DEFERS its outcome: sequencing = 'no 15m outcome statistic is enumerated until the T1 1H phase is sealed'",
+    "consequence": "the nearest precedent has NOT resolved the very timing question this family faces. There is no outcome architecture to inherit for an opening-hour 2-bar claim; the daily-signal precedents (T1_OUTCOME, GANN_OUTCOME) both assume a signal completing at/after a session close.",
+    "warning": "inheriting NEXT_SESSION_OPEN by default would import a daily-signal assumption into an intraday family without a timing argument"
+  },
+  "COMPARISON_TABLE": [
+    {
+      "field": "decision_timestamp",
+      "T1_OUTCOME_SPEC_V1": "after T1 session CLOSE (1D signal)",
+      "GANN_OUTCOME_SPEC_V1": "day D contact; grid frozen through D-1",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED — deferred",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "ADAPT",
+      "RATIONALE": "the new family's claim completes at the RIGHT-HAND opening-hour bar (09:45/10:00/10:15 ET), not at a session close. Same timing LOGIC (decision at the bar that completes the claim), different clock position."
+    },
+    {
+      "field": "signal_observation_cutoff",
+      "T1_OUTCOME_SPEC_V1": "T1 session close",
+      "GANN_OUTCOME_SPEC_V1": "D-1 for the grid, D for the contact",
+      "FORWARD_SPECS": "evidence_boundary 2026-08-06",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "ADAPT",
+      "RATIONALE": "must be the close of M2/M3/M4 respectively; three different cutoffs, one per position family"
+    },
+    {
+      "field": "entry_timestamp",
+      "T1_OUTCOME_SPEC_V1": "NEXT_SESSION_OPEN_V1",
+      "GANN_OUTCOME_SPEC_V1": "next regular-session open after D",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "both precedents use next-session open because their signals complete at/after a close. A claim completing at 09:45 ET has a same-session path available; inheriting next-session-open by default would discard it WITHOUT a timing argument."
+    },
+    {
+      "field": "entry_price",
+      "T1_OUTCOME_SPEC_V1": "EntryOpen (next session open)",
+      "GANN_OUTCOME_SPEC_V1": "EntryOpen (next session open)",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "ADAPT",
+      "RATIONALE": "the price must follow whichever entry timestamp is chosen"
+    },
+    {
+      "field": "same_or_next_session",
+      "T1_OUTCOME_SPEC_V1": "NEXT only",
+      "GANN_OUTCOME_SPEC_V1": "NEXT only",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "this is decision #3 and it changes what all 20,751 tests mean"
+    },
+    {
+      "field": "primary_outcome",
+      "T1_OUTCOME_SPEC_V1": "MFE_10D percent",
+      "GANN_OUTCOME_SPEC_V1": "MFE_LONG/SHORT_10D, direction-selected at evaluation",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "MFE-primary is a shared inferential objective (favourable excursion, no exit rule). Whether the new family is directional at all is undecided — its tokens are states, not directional signals."
+    },
+    {
+      "field": "secondary_registered",
+      "T1_OUTCOME_SPEC_V1": "MFE_ATR_10D",
+      "GANN_OUTCOME_SPEC_V1": "ATR20[D-1]-normalised components",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "ATR-normalised twin of the primary addresses the same measurement problem: cross-security scale comparability"
+    },
+    {
+      "field": "descriptive_only",
+      "T1_OUTCOME_SPEC_V1": "MAE_10D, terminal R_10D — explicitly NOT promotion paths",
+      "GANN_OUTCOME_SPEC_V1": "MAE/RET forbidden for selection",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "same inferential objective: prevent a second, unregistered selection channel"
+    },
+    {
+      "field": "horizon",
+      "T1_OUTCOME_SPEC_V1": "10 sessions",
+      "GANN_OUTCOME_SPEC_V1": "10 sessions",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "10 SESSIONS is a daily-signal horizon. For an intraday opening-hour claim the natural unit may be intraday bars, the rest of the session, or sessions. Not inheritable without a stated argument."
+    },
+    {
+      "field": "exit_policy",
+      "T1_OUTCOME_SPEC_V1": "NONE",
+      "GANN_OUTCOME_SPEC_V1": "implied NONE",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "same objective: measure the opportunity, not a strategy; an exit rule would add unregistered parameters"
+    },
+    {
+      "field": "ATR_normalisation",
+      "T1_OUTCOME_SPEC_V1": "MFE_ATR_10D",
+      "GANN_OUTCOME_SPEC_V1": "ATR20 at D-1 — scale from state BEFORE the signal bar",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "the D-1 rule is a LOOKAHEAD guard, not a performance choice: the normaliser must not read the signal bar"
+    },
+    {
+      "field": "availability_censoring",
+      "T1_OUTCOME_SPEC_V1": "AVAILABLE / NOT_YET_MATURE / NO_NEXT_SESSION_OPEN / TERMINAL_DURING_HORIZON / DATA_GAP",
+      "GANN_OUTCOME_SPEC_V1": "identical status set; availability is PHASE-INDEPENDENT",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "identical availability/censoring requirements, and phase-independence matches our AVAILABLE_VALID discipline exactly"
+    },
+    {
+      "field": "direction_neutrality",
+      "T1_OUTCOME_SPEC_V1": "single directional outcome",
+      "GANN_OUTCOME_SPEC_V1": "BOTH components persisted, direction selected at evaluation",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "NOT FIXED",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "GANN persists both because its phase supplies direction. The new family's tokens carry no direction, so either a direction rule is registered or the outcome is direction-neutral by construction."
+    },
+    {
+      "field": "episode_population",
+      "T1_OUTCOME_SPEC_V1": "T1 signal rows",
+      "GANN_OUTCOME_SPEC_V1": "contact rows",
+      "FORWARD_SPECS": "observations strictly after cutoff, in no exposed fingerprint",
+      "T1_15M_PRESPEC_V1": "opening-hour episodes",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "ADAPT",
+      "RATIONALE": "our population is (security, session, position-pair) evaluable episodes as already frozen in the census"
+    },
+    {
+      "field": "eligibility_n_min",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "n_min = 100 observations",
+      "T1_15M_PRESPEC_V1": "frozen support floors",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "NOTE ONLY",
+      "RATIONALE": "our POSITIVE_MIN = 100 already coincides; recorded as convergence, NOT as inheritance"
+    },
+    {
+      "field": "eligibility_dates_min",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "dates_min = 25 distinct dates",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "CONSIDER",
+      "RATIONALE": "a DATE-breadth criterion is orthogonal to our SECURITY-breadth floor and is not currently in our registry"
+    },
+    {
+      "field": "max_single_date_share",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "0.20",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "CONSIDER",
+      "RATIONALE": "a temporal-concentration cap; our concentration diagnostic is per-SECURITY, not per-DATE"
+    },
+    {
+      "field": "test_statistic",
+      "T1_OUTCOME_SPEC_V1": "MFE_10D (percent)",
+      "GANN_OUTCOME_SPEC_V1": "direction-selected MFE",
+      "FORWARD_SPECS": "theta, ranked descending",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "depends on the primary outcome decision"
+    },
+    {
+      "field": "null_mechanism",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "null_family = OPPORTUNITY_LEVEL",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "opportunity-level null matches our evaluable-episode denominator, but the permutation UNIT must be chosen against our clustering (security? session? security-session?)"
+    },
+    {
+      "field": "blocking_unit",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "strata with both arms",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "our claims cluster heavily by shared source feature AND by security; the blocking unit must be stated before any Y"
+    },
+    {
+      "field": "family_multiplicity",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "registered_claim_count = 31",
+      "T1_15M_PRESPEC_V1": "frozen floors",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "ADAPT",
+      "RATIONALE": "sibling k was 31; ours is 20,751. The PRINCIPLE (registered k fixed in advance) is inheritable; the machinery must scale."
+    },
+    {
+      "field": "clustering_changes_k",
+      "T1_OUTCOME_SPEC_V1": "not addressed",
+      "GANN_OUTCOME_SPEC_V1": "not addressed",
+      "FORWARD_SPECS": "not addressed",
+      "T1_15M_PRESPEC_V1": "not addressed",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT (already frozen)",
+      "RATIONALE": "our MULTIPLICITY_UNIVERSE_V1 already forbids it; no sibling contradicts this"
+    },
+    {
+      "field": "pooling_history_and_forward",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "POOLED estimator FORBIDDEN_IN_V1; historical_backfill FORBIDDEN",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "same inferential objective: an update rule written after new outcomes exist is chosen with the answer in view"
+    },
+    {
+      "field": "first_look_trigger",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "after 30 novel trading days; trigger OUTCOME-INDEPENDENT; listed forbidden triggers",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "same objective: the look must not be timed by reading theta, intervals or verdicts"
+    },
+    {
+      "field": "repeated_looks",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "FORBIDDEN_IN_V1; a 2nd look needs a sequential design registered BEFORE the 1st",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "identical inferential objective"
+    },
+    {
+      "field": "holdout_vs_forward_authority",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "n/a",
+      "FORWARD_SPECS": "estimator_input = FORWARD_ONLY; evaluation strictly after cutoff",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "NEEDS_ADAPTATION",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "our HOLDOUT (12 sessions) is already frozen as diagnostic-only for SUPPORT. Its role for INFERENCE is a separate, still-open decision."
+    },
+    {
+      "field": "promotion_threshold",
+      "T1_OUTCOME_SPEC_V1": "not in this artifact",
+      "GANN_OUTCOME_SPEC_V1": "not in this artifact",
+      "FORWARD_SPECS": "ranking theta descending",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "NOT_APPLICABLE",
+      "PROPOSED_ACTION": "DECISION REQUIRED",
+      "RATIONALE": "no sibling artifact reviewed fixes a promotion gate; must be authored"
+    },
+    {
+      "field": "outcome_exposure_discipline",
+      "T1_OUTCOME_SPEC_V1": "exposure: NOT EXPOSED — availability counts only",
+      "GANN_OUTCOME_SPEC_V1": "outcome_exposure: NOT_EXPOSED",
+      "FORWARD_SPECS": "evidence_fingerprint discipline",
+      "T1_15M_PRESPEC_V1": "evidence_status declared",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "identical requirement: define the outcome without reading it"
+    },
+    {
+      "field": "forbidden_post_hoc_changes",
+      "T1_OUTCOME_SPEC_V1": "n/a",
+      "GANN_OUTCOME_SPEC_V1": "changing horizon/entry/normaliser after any outcome is seen = FORBIDDEN",
+      "FORWARD_SPECS": "n/a",
+      "T1_15M_PRESPEC_V1": "n/a",
+      "NEW_FAMILY_COMPATIBILITY": "DIRECTLY_COMPATIBLE",
+      "PROPOSED_ACTION": "INHERIT",
+      "RATIONALE": "same objective as our immutability clause"
+    }
+  ],
+  "SUMMARY_COUNTS": {
+    "DIRECTLY_COMPATIBLE": 12,
+    "NEEDS_ADAPTATION": 16,
+    "NOT_APPLICABLE": 1,
+    "INHERIT": 11,
+    "DECISION_REQUIRED": 10
+  },
+  "TEN_OPEN_DECISIONS": [
+    "1. when exactly does a claim become KNOWN? (proposed: close of the right-hand bar — 09:45 / 10:00 / 10:15 ET)",
+    "2. earliest LICENSED entry after that?",
+    "3. same-session entry allowed, or next-session only?",
+    "4. what exactly is the primary Y?",
+    "5. horizon — intraday bars, rest-of-session, or sessions?",
+    "6. primary statistic?",
+    "7. blocking / permutation design (unit: security? session? security-session?)",
+    "8. family-wide correction machinery at k = 20,751",
+    "9. promotion threshold",
+    "10. historical HOLDOUT vs TRUE-FORWARD inferential authority"
+  ],
+  "NO_PRESPEC_AUTHORED": true,
+  "NEXT": "joint decision on the ten items, then MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1"
+}

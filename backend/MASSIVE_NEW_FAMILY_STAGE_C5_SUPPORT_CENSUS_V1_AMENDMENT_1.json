@@ -1,0 +1,179 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_C5_SUPPORT_CENSUS_V1_AMENDMENT_1",
+  "amends": "cbb060ae8d895ef5",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "STATUS_CORRECTION": {
+    "was": "SUPPORT_CHARACTERIZED",
+    "should_have_been_at_seal_time": "SUPPORT_CHARACTERIZED_PARTIAL",
+    "reason": "M1-M4 / adjacent-pair support and anchor-acquisition latency were declared in the C5 scope and had not been run when the artifact was sealed",
+    "now": "SUPPORT_CHARACTERIZED — both declared cuts are complete below"
+  },
+  "STRUCTURAL_CHECKS": {
+    "be_up_subset_of_bx_up": {
+      "test": "row-by-row: every be_up VALID row must also be bx_up VALID",
+      "violations": 0,
+      "result": "SUBSET HOLDS",
+      "rationale": "be_up requires the L43 anchor plus the setup anchor, so its VALID set cannot exceed bx_up"
+    },
+    "bounded_mask_identity": {
+      "pairs_tested": [
+        "l34 vs l22",
+        "l34 vs l43",
+        "l34 vs vol_bucket"
+      ],
+      "disagreements": 0,
+      "result": "IDENTICAL"
+    }
+  },
+  "POSITION_AND_PAIR_SUPPORT": {
+    "DEV": {
+      "bounded (l34/l22/l43/vol_bucket)": {
+        "M1": 217316,
+        "M4": 220763,
+        "M1M2": 216411,
+        "M3M4": 217689,
+        "all_four": 213895,
+        "sec_any": 447,
+        "sec_all4": 446
+      },
+      "l_sig": {
+        "M1": 217315,
+        "all_four": 213895,
+        "sec_any": 447
+      },
+      "bo_up": {
+        "M1": 216226,
+        "all_four": 212893,
+        "sec_any": 446,
+        "sec_all4": 445
+      },
+      "bx_up": {
+        "M1": 126060,
+        "all_four": 125346,
+        "sec_any": 433,
+        "sec_all4": 427
+      },
+      "be_up": {
+        "M1": 125908,
+        "all_four": 125206,
+        "sec_any": 430,
+        "sec_all4": 425
+      },
+      "CISD x4": {
+        "M1": 20910,
+        "all_four": 20843,
+        "sec_any": 333,
+        "sec_all4": 232
+      }
+    },
+    "HOLDOUT": {
+      "bounded": {
+        "M1": 2075,
+        "all_four": 2052,
+        "sec_any": 276,
+        "sec_all4": 267
+      },
+      "bo_up": {
+        "M1": 2067,
+        "all_four": 2044,
+        "sec_any": 276,
+        "sec_all4": 265
+      },
+      "bx_up": {
+        "M1": 1369,
+        "all_four": 1364,
+        "sec_any": 179,
+        "sec_all4": 171
+      },
+      "be_up": {
+        "M1": 1369,
+        "all_four": 1364,
+        "sec_any": 178,
+        "sec_all4": 171
+      },
+      "CISD x4": {
+        "M1": 84,
+        "all_four": 84,
+        "sec_any": 7,
+        "sec_all4": 7
+      }
+    }
+  },
+  "CISD_HOLDOUT_EVIDENCE_OPPORTUNITIES": {
+    "securities_with_any_valid_M1_M4_bar": 7,
+    "securities_with_any_valid_adjacent_pair": 7,
+    "securities_with_any_all_four_valid_session": 7,
+    "all_four_valid_sessions": 84,
+    "reading": "the historical holdout offers 84 all-four opening-hour episodes across 7 securities for CISD. This is the number a grammar would actually consume, and it is far smaller than the 2,184 valid bars headline."
+  },
+  "ANCHOR_ACQUISITION_LATENCY": {
+    "measured_from": "the first bounded-eligible bar (age==20) of each segment with >=20 COMPLETE bars",
+    "eligible_segments": 68392,
+    "L34": {
+      "HEAD": {
+        "n": 135,
+        "median": 0,
+        "p75": 0,
+        "p90": 4,
+        "p95": 10
+      },
+      "POST_GAP": {
+        "n": 65890,
+        "median": 0,
+        "p75": 0,
+        "p90": 0,
+        "p95": 3
+      },
+      "never_anchored_segments": 2367
+    },
+    "SETUP": {
+      "HEAD": {
+        "n": 135,
+        "median": 0,
+        "p75": 0,
+        "p90": 4,
+        "p95": 10
+      },
+      "POST_GAP": {
+        "n": 66197,
+        "median": 0,
+        "p75": 0,
+        "p90": 0,
+        "p95": 3
+      },
+      "never_anchored_segments": 2060
+    },
+    "L43": {
+      "HEAD": {
+        "n": 73,
+        "median": 163,
+        "p75": 343,
+        "p90": 463,
+        "p95": 593
+      },
+      "POST_GAP": {
+        "n": 14738,
+        "median": 5,
+        "p75": 41,
+        "p90": 133,
+        "p95": 243
+      },
+      "never_anchored_segments": 53581
+    },
+    "REGIME_ANSWER": {
+      "question": "is the bx_up loss because segments are short (A), or because L43 is intrinsically rare (B)?",
+      "answer": "B",
+      "evidence": "all 68,392 segments already have >=20 COMPLETE bars, yet 53,581 of them (78.3%) never contain a single L43 bar. L34 and SETUP anchor at median 0 bars on the same segments.",
+      "consequence": "the 43.4% bx_up / 43.5% be_up loss is a property of the L43 event rate, not of Massive coverage. Better coverage would not recover it."
+    }
+  },
+  "CISD_INTERPRETATION_GUARD_STRENGTHENED": {
+    "correct_statement": "no CISD fires were observed among the 2,184 valid historical-holdout observations, which came from only 7 securities and 84 all-four episodes",
+    "forbidden_statement": "CISD does not work on the holdout",
+    "reason": "a 12-session holdout with a 7-security effective cohort does not license that inference"
+  },
+  "not_done": [
+    "Stage D not started"
+  ]
+}

@@ -1,0 +1,209 @@
+{
+  "report_id": "MASSIVE_LINEAGE_SUPPLEMENTAL_RAW_PRESERVATION_V1",
+  "status": "SUPPLEMENTAL_RAW_PRESERVATION_COMPLETE",
+  "classification": "SUPPLEMENTAL_RAW_QUARANTINE",
+  "explicitly_not": [
+    "CANONICAL_RAW",
+    "DERIVED_DATA",
+    "RESEARCH_EVIDENCE",
+    "V6_REPAIR"
+  ],
+  "why_now": {
+    "perishability": "Massive's entitlement window rolls forward one session per day; 2021-08-25 was retrievable at ingest and returns 403 now",
+    "gap": "for these eight securities the pre-truncation sessions were never canonically ingested, so the bytes exist only at the vendor",
+    "tradeoff": "lineage semantics can be corrected later; these responses cannot be re-obtained"
+  },
+  "scope": {
+    "securities": [
+      "APO",
+      "BG",
+      "BLK",
+      "CRH",
+      "FERG",
+      "J",
+      "LH",
+      "XOM"
+    ],
+    "count": 8,
+    "not_expanded": "the other 495 were not touched",
+    "interval": "SOURCE_HISTORY_START through the session immediately before each security's existing V6 REGULAR_WAY start"
+  },
+  "attribution": {
+    "states": {
+      "J": "CONTINUITY_CONFIRMED",
+      "BG": "CONTINUITY_CONFIRMED",
+      "LH": "CONTINUITY_CONFIRMED",
+      "FERG": "CONTINUITY_CONFIRMED",
+      "BLK": "CONTINUITY_CONFIRMED",
+      "XOM": "CONTINUITY_CONFIRMED",
+      "CRH": "CONTINUITY_CONFIRMED_WITH_INSTRUMENT_TRANSITION",
+      "APO": "UNRESOLVED"
+    },
+    "binding": "preserving APO's bytes does NOT classify them as APO research evidence; its continuity is UNRESOLVED and the bytes are held only so the question stays answerable"
+  },
+  "order": "oldest XNYS session first — that is the perishable end",
+  "retry_policy": "a 403 is recorded ENTITLEMENT_UNAVAILABLE and never retried; retrying an expired session would manufacture the appearance of an empty response",
+  "empty_responses": "preserved as provenance and never translated to NO_TRADE",
+  "no_processing": [
+    "RTH filtering",
+    "densification",
+    "zero-fill",
+    "carry-forward",
+    "minute classification",
+    "session lattice",
+    "EMA/RVOL/T-Z",
+    "V6 relabelling"
+  ],
+  "totals": {
+    "attempted": 5077,
+    "with_bars": 5069,
+    "empty": 0,
+    "entitlement_unavailable": 8,
+    "other_failure": 0,
+    "raw_rows": 1875525,
+    "bytes": 38998989
+  },
+  "per_security": {
+    "APO": {
+      "security": "APO",
+      "candidate_security_key_v1": "d9c8cefaa04dbb32cdcc729f63d0f98a53df59e82aadc1beb654d8d0393d5e29",
+      "attribution_state": "UNRESOLVED",
+      "v6_regular_way_start": "2022-01-03",
+      "eligible_sessions": 90,
+      "attempted": 90,
+      "with_bars": 89,
+      "empty": 0,
+      "entitlement_unavailable": 1,
+      "other_failure": 0,
+      "rows": 34414,
+      "bytes": 665067
+    },
+    "J": {
+      "security": "J",
+      "candidate_security_key_v1": "b0d5adffa22717ca1f6d426e9ef34343a1ed10ae4919ee0c21e37297545de2e4",
+      "attribution_state": "CONTINUITY_CONFIRMED",
+      "v6_regular_way_start": "2022-10-03",
+      "eligible_sessions": 278,
+      "attempted": 278,
+      "with_bars": 277,
+      "empty": 0,
+      "entitlement_unavailable": 1,
+      "other_failure": 0,
+      "rows": 86797,
+      "bytes": 1727437
+    },
+    "CRH": {
+      "security": "CRH",
+      "candidate_security_key_v1": "a45d3c9e35ec52dba2e6885f9653e8b83e9fba31d2a489aada720147a6e92c80",
+      "attribution_state": "CONTINUITY_CONFIRMED_WITH_INSTRUMENT_TRANSITION",
+      "v6_regular_way_start": "2023-10-02",
+      "eligible_sessions": 528,
+      "attempted": 528,
+      "with_bars": 527,
+      "empty": 0,
+      "entitlement_unavailable": 1,
+      "other_failure": 0,
+      "rows": 183096,
+      "bytes": 3094901
+    },
+    "BG": {
+      "security": "BG",
+      "candidate_security_key_v1": "efdc8c73e47572a689dbc12da00e9bf1fc8041531752a96bb12c6fde9349b635",
+      "attribution_state": "CONTINUITY_CONFIRMED",
+      "v6_regular_way_start": "2024-01-02",
+      "eligible_sessions": 591,
+      "attempted": 591,
+      "with_bars": 590,
+      "empty": 0,
+      "entitlement_unavailable": 1,
+      "other_failure": 0,
+      "rows": 218811,
+      "bytes": 4309394
+    },
+    "LH": {
+      "security": "LH",
+      "candidate_security_key_v1": "d6e3f76caa9241a4332830299b5758bcd1649ff2191434009289a2972b58f5c9",
+      "attribution_state": "CONTINUITY_CONFIRMED",
+      "v6_regular_way_start": "2024-07-01",
+      "eligible_sessions": 715,
+      "attempted": 715,
+      "with_bars": 714,
+      "empty": 0,
+      "entitlement_unavailable": 1,
+      "other_failure": 0,
+      "rows": 233469,
+      "bytes": 5543068
+    },
+    "FERG": {
+      "security": "FERG",
+      "candidate_security_key_v1": "d177c46fe7e7ec9fa9556a4b2caedf74a2703ff596d1b4b91b874fd5de56d19c",
+      "attribution_state": "CONTINUITY_CONFIRMED",
+      "v6_regular_way_start": "2024-10-01",
+      "eligible_sessions": 779,
+      "attempted": 779,
+      "with_bars": 778,
+      "empty": 0,
+      "entitlement_unavailable": 1,
+      "other_failure": 0,
+      "rows": 236139,
+      "bytes": 4735518
+    },
+    "BLK": {
+      "security": "BLK",
+      "candidate_security_key_v1": "ec4b4f0f2cac042411785183b5508cfe7b996e7d8f619c6b24cd7ecba9bc55be",
+      "attribution_state": "CONTINUITY_CONFIRMED",
+      "v6_regular_way_start": "2025-01-02",
+      "eligible_sessions": 843,
+      "attempted": 843,
+      "with_bars": 842,
+      "empty": 0,
+      "entitlement_unavailable": 1,
+      "other_failure": 0,
+      "rows": 259047,
+      "bytes": 5980106
+    },
+    "XOM": {
+      "security": "XOM",
+      "candidate_security_key_v1": "c6fd905a512fe41410a41637b0dcdd661540868a182e8ca62e3fc79a14f909f8",
+      "attribution_state": "CONTINUITY_CONFIRMED",
+      "v6_regular_way_start": "2026-08-24",
+      "eligible_sessions": 1253,
+      "attempted": 1253,
+      "with_bars": 1252,
+      "empty": 0,
+      "entitlement_unavailable": 1,
+      "other_failure": 0,
+      "rows": 623752,
+      "bytes": 12943498
+    }
+  },
+  "output": {
+    "path": "/Volumes/QUANT_RESEARCH/source_data/massive/supplemental_lineage_quarantine_v1",
+    "layout": "one directory per security; one gzipped raw response per session; append-only _manifest.jsonl",
+    "mount_guard": "required and passed before any write"
+  },
+  "mutations": {
+    "canonical_raw": 0,
+    "v6": 0,
+    "security_key_v1": 0,
+    "derived_writes": 0,
+    "session_manifests_rewritten": 0,
+    "frozen_states_changed": 0
+  },
+  "verdict_meaning": "currently accessible source bytes were preserved. This does NOT authorise their use in canonical or inferential research.",
+  "elapsed_sec": 3087.6,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 15:33 +04",
+  "digest_coverage": {
+    "payloads_written": 5069,
+    "payloads_with_sha256_recorded_at_creation": 5069,
+    "payloads_missing_a_digest": 0,
+    "complete": true,
+    "reverification_sample": {
+      "payloads_rehashed": 40,
+      "mismatches": 0,
+      "meaning": "a SAMPLE re-hash of already-recorded digests — NOT the source of the digests themselves"
+    },
+    "why_this_distinction_matters": "if digests existed for only the 40 sampled payloads the preservation contract would be unmet and the verdict would have to be HOLD. Every payload carries a digest written at the moment it was archived; the sample only re-checks that the stored bytes still hash to it."
+  }
+}

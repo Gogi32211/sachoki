@@ -1,0 +1,161 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_X_SURFACE_CLOSURE_V1",
+  "status": "X_LAYER_CLOSED",
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "RECONCILIATION_1_CANON69": {
+    "artifact": "MASSIVE_NEW_FAMILY_CANONICAL_69_X_SURFACE_V1",
+    "digest": "e8016cb7c39a969d",
+    "amendment": "e59767fc6c231263",
+    "features": "69 / 69",
+    "missing": 0,
+    "unexpected": 0,
+    "rows": 1065736326,
+    "per_feature": 15445454,
+    "source_conformance": "PASS — per-feature checksum canonical vs source, 0 mismatches / 69",
+    "physical": {
+      "sha16": "CANON69.duckdb per parent artifact",
+      "bytes": 8464000000,
+      "build_exit_code": 0
+    },
+    "manifest": {
+      "v1_digest": "a44fd5cda3f22ef9",
+      "v2_digest": "58f21313250836bf",
+      "v2_adds": "source_artifact_digest vs source_physical_db_digest separated"
+    },
+    "inventory": {
+      "FULL_HISTORY_SEMANTIC_CORRECTION": 42,
+      "ROLE_BOUND_PORT": 13,
+      "EXACT_PORT": 12,
+      "NEW_MASSIVE_DERIVED_DEFINITION": 1,
+      "NEW_MASSIVE_STATE_REGIME_SAME_FORMULA": 1,
+      "total": 69
+    },
+    "excluded_absent": {
+      "phys_blocked_11": 0,
+      "unrecoverable_4": 0
+    }
+  },
+  "RECONCILIATION_2_SIG_BUY_3x4": {
+    "raw_source": "PRE-COOLDOWN predicate ONLY — buy_raw = upmove_ok & break_gate (combo_engine.py L74) via compute_combo_uncooled",
+    "forbidden_and_not_used": [
+      "derive raw from buy_2809",
+      "any post-cooldown surface",
+      "cooldown inversion"
+    ],
+    "census_population": "FULL population — all 15,445,454 base bars, no restriction",
+    "run": {
+      "securities": "476 / 476",
+      "errors": 0,
+      "exit_code": 0,
+      "elapsed_s": 3022
+    },
+    "matrix": {
+      "raw TRUE": {
+        "output VALID TRUE": 5454,
+        "output VALID FALSE": 5638,
+        "output INIT": 170,
+        "output UNAVAILABLE": 0
+      },
+      "raw FALSE": {
+        "output VALID TRUE": 0,
+        "output VALID FALSE": 4667908,
+        "output INIT": 0,
+        "output UNAVAILABLE": 0
+      },
+      "raw UNKNOWN": {
+        "output VALID TRUE": 0,
+        "output VALID FALSE": 0,
+        "output INIT": 245242,
+        "output UNAVAILABLE": 10521042
+      }
+    },
+    "UNAVAILABLE_column_note": "AGGREGATE for cross-tab purposes only; merges at least UNAVAILABLE_CURRENT and UNAVAILABLE_REQUIRED_HISTORY. Canonical availability reason codes on the surface are NOT rewritten.",
+    "CHAIN": {
+      "1_full_population": {
+        "sum_all_12": 15445454,
+        "expected": 15445454,
+        "verdict": "PASS"
+      },
+      "2_unavailable_split": {
+        "U": 10521042,
+        "sum_9_non_unavailable": 4924412,
+        "expected": 4924412,
+        "verdict": "PASS"
+      },
+      "3_structural_impossibility": {
+        "RAW_FALSE_to_VALID_TRUE": 0,
+        "RAW_FALSE_to_INIT": 0,
+        "verdict": "PASS",
+        "note": "MEASURED, not assumed — both are 0, so the original 7-cell specification reconciles exactly"
+      },
+      "4_seven_named_cells": {
+        "sum": 4924412,
+        "expected_non_unavailable": 4924412,
+        "verdict": "PASS"
+      }
+    },
+    "RAW_FIRE_DISPOSITION": {
+      "identifiable_raw_fires": 11262,
+      "accepted": 5454,
+      "suppressed_by_cooldown": 5638,
+      "undetermined": 170,
+      "accepted_pct": 48.4,
+      "cross_check": "5,454 matches the Stage D sig_buy fire count exactly"
+    },
+    "FINDING_base_gate_dominates": {
+      "observation": "RAW_UNKNOWN -> VALID_TRUE = 0 AND RAW_UNKNOWN -> VALID_FALSE = 0",
+      "cause": "sig_buy availability is base AND det, and base itself requires the raw predicate to be identifiable; when raw is UNKNOWN, base is FALSE, so the output can never be VALID",
+      "consequence": "for sig_buy the reachable-state engine is PURELY RESTRICTIVE, never restorative — it correctly withholds 170 bars and adds none",
+      "RETRACTED_EXPECTATION": "these two cells were predicted to quantify what the engine buys over an unknown->NULL rule; they are structurally zero",
+      "scope_limit": "this is a property of sig_buy's base gate, NOT of the engine. sig_tz_flip and vbo_up have no such dominating base gate."
+    }
+  },
+  "RECONCILIATION_3_RESIDUAL_170": {
+    "residual_bars": 170,
+    "securities": 61,
+    "EMA_9_20_50_not_all_valid": 0,
+    "cooldown_ambiguity": 170,
+    "all_are": "INITIALIZATION_SENSITIVE_POST_GAP",
+    "age_range": [
+      50,
+      64
+    ],
+    "INDEPENDENT_CONFIRMATION": {
+      "route": "the 3x4 cross-tab decomposes INIT without using EMA state at all",
+      "decomposition": "INIT 245,412 = 245,242 (RAW_UNKNOWN, depth) + 170 (RAW_TRUE, cooldown ambiguity)",
+      "sharper_statement": "the 170 are bars where a raw fire IS known to have occurred but accept/reject cannot be determined",
+      "agreement": "two independent routes (EMA-state attribution and raw/output cross-tab) give the same 170"
+    },
+    "MECHANISM_WORDING": "recovery requires 6 PROVEN-FALSE OBSERVED raw bars, NOT 6 elapsed bars; age 50..64 is CONSISTENT with the mechanism and is not an 'exactly six bars later' claim"
+  },
+  "RECONCILIATION_4_RESEARCH_STATE": {
+    "Y_EXPOSED": 0,
+    "SEARCH_PERFORMED": 0,
+    "no_outcome_data_accessed": true,
+    "no_threshold_or_bin_search": true,
+    "no_feature_selection": true
+  },
+  "BAR_GAP_RANGE_CONTRACT": {
+    "value_type": "CATEGORICAL VARCHAR",
+    "categories": 12,
+    "FORBIDDEN": [
+      "numeric thresholding",
+      "quantile bins",
+      "ordered interpretation"
+    ]
+  },
+  "AVAILABILITY_COMPARABILITY_RULE": {
+    "permitted": "AVAILABLE_VALID vs NON_VALID, comparable across all 69",
+    "forbidden": "treating non-valid REASON CODES as comparable across features; PD's coarse INITIALIZATION_SENSITIVE must never be decomposed into HEAD/POST_GAP"
+  },
+  "NEXT_STAGE": "support-floor prespec — the minimum support a feature/token must have to enter the searchable registry. Y_EXPOSED remains 0.",
+  "NOT_STARTED": [
+    "support-floor selection",
+    "searchable registry",
+    "k freeze",
+    "multiplicity universe freeze",
+    "synthetic-Y",
+    "real Y"
+  ]
+}

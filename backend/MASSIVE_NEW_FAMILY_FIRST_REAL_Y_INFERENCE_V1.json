@@ -1,0 +1,197 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_FIRST_REAL_Y_INFERENCE_V1",
+  "status": "EXECUTION_COMPLETE_RESULTS_SEALED_UNREAD",
+  "Y_EXPOSED": 1,
+  "EXPOSURE_PROVENANCE": {
+    "FIRST_REAL_Y_ACCESS": "2026-08-30T12:09:13+0400",
+    "event": "first successful real post-entry outcome read",
+    "irreversible": true,
+    "PRE_Y_LINEAGE_AUDIT": "5e5f31feca09628b",
+    "DRAW_MANIFEST": "2230e626eae7486f",
+    "CI_MANIFEST": "dd7b2bda1318f510"
+  },
+  "BOUND_AUTHORITIES": {
+    "X_CLOSURE": "228c9ceae10bd0cc",
+    "REGISTRY": "6900f9d3cf6f13e5",
+    "k": 20751,
+    "MULTIPLICITY": "a9852e1e4a9495c3",
+    "INFERENTIAL_PRESPEC": "8f112d7e760953b5 + 5e6a3788f06c4dc4 + b082eae1574f0223",
+    "TIME_LOCAL_NULL": "7b52b9df13764228 + 48bf72d9bbe00000",
+    "SYNTHETIC_REQUALIFICATION": "1568b798a0a8aed5 + b546c50b6bb0394b",
+    "EXECUTION_STACK": "6ef4ad29672a4a41"
+  },
+  "DEAD_PATHS_NOT_REACHABLE": [
+    "old global-date null ccdaa6a6f08e8588",
+    "old synthetic qualification under global null f6a043d3f188e8f8",
+    "old lower-weighted-median CI path",
+    "rejected pool-sort permutation kernel 738f939c1cb757c8"
+  ],
+  "OUTCOME_BUILD": {
+    "semantics": "claim-known = right-hand bar close; entry = next 15m bar OPEN; horizon = entry through that session's OWN final regular bar; EARLY_CLOSE valid not censored; ATR_PRIOR = previous session's own final regular bar, finite and > 0; any missing required path element -> PATH_UNAVAILABLE",
+    "elapsed_s": 310,
+    "episodes": 596251,
+    "per_position_pair": {
+      "M1->M2": {
+        "VALID": 194500,
+        "PATH_UNAVAILABLE": 49008,
+        "ATR_PRIOR_UNAVAILABLE": 352743,
+        "NO_ENTRY_BAR": 0
+      },
+      "M2->M3": {
+        "VALID": 194746,
+        "PATH_UNAVAILABLE": 48762,
+        "ATR_PRIOR_UNAVAILABLE": 352743,
+        "NO_ENTRY_BAR": 0
+      },
+      "M3->M4": {
+        "VALID": 195116,
+        "PATH_UNAVAILABLE": 48392,
+        "ATR_PRIOR_UNAVAILABLE": 352743,
+        "NO_ENTRY_BAR": 0
+      }
+    },
+    "reconciliation": {
+      "M1->M2": "194,500 + 49,008 + 352,743 + 0 = 596,251",
+      "M2->M3": "194,746 + 48,762 + 352,743 + 0 = 596,251",
+      "M3->M4": "195,116 + 48,392 + 352,743 + 0 = 596,251"
+    },
+    "ATR_PRIOR_FINDING": {
+      "OBSERVED": "ATR_PRIOR_UNAVAILABLE = 352,743 per position pair (59.2%)",
+      "MECHANICAL_DRIVER": "14 consecutive COMPLETE 15m bars required, ending at the previous session's own final regular bar",
+      "decomposition_on_40_security_sample": {
+        "session_final_bar_COMPLETE": "97.1% (loss 2.9 pp)",
+        "AND_age_ge_14": "41.7% (additional loss 55.4 pp)"
+      },
+      "NOT_A_DEFECT": true,
+      "NOT_A_REASON_TO_RELAX_ATR_AGE": true,
+      "NOT_A_REASON_TO_REBUILD_Y": true,
+      "RETRACTED_EXPLANATION": "an earlier claim that the session-final bar is complete 'far less often than an average bar' — it is complete MORE often (95.2% vs 68.7%); the driver is age>=14, not incompleteness"
+    }
+  },
+  "ONE_TIME_REAL_Y_BUILD": {
+    "CI_frozen_order_s": 79,
+    "CI_frozen_order_GB": 3.53,
+    "claim_ranks_s": 56,
+    "claim_ranks_GB": 0.2,
+    "claim_rank_entries": 50825695,
+    "total_s": 135,
+    "previously": "NOT YET MEASURED — now measured"
+  },
+  "EXECUTION": {
+    "SCALE": {
+      "required": 200,
+      "completed": 200,
+      "failed": 0,
+      "wall_s": 1688.4,
+      "draws_per_hour": 424.3
+    },
+    "c_s_freeze": {
+      "machine_enforced": "assert 200/200 shards before NULL may launch",
+      "digest": "0f51fb054f4565e0",
+      "defined_200of200_claims": 20751,
+      "degenerate_scale": 0
+    },
+    "NULL": {
+      "required": 1800,
+      "completed": 1800,
+      "failed": 0,
+      "wall_s": 16391.2,
+      "draws_per_hour": 395.3
+    },
+    "CI": {
+      "required": 2000,
+      "completed": 2000,
+      "failed": 0,
+      "wall_s": 4822.0,
+      "draws_per_hour": 1493.2
+    },
+    "total_wall_h": 6.6,
+    "workers": 8,
+    "crash_restarts_during_run": 0
+  },
+  "FROZEN_STATUS_COUNTS": {
+    "registered_k": 20751,
+    "stable": 20751,
+    "PERMUTATION_SUPPORT_UNSTABLE": 0,
+    "DEGENERATE_NULL_SCALE": 0,
+    "CI_STABILITY_GATE_pass": 20751,
+    "BOOTSTRAP_SUPPORT_UNSTABLE": 0,
+    "B_NULL": 1800,
+    "min_possible_p_adj": "1/1801",
+    "B_CI": 2000,
+    "quantile_method": "linear / Hyndman-Fan Type 7, explicit — not the library default"
+  },
+  "SHARD_MANIFEST_CONFORMANCE": {
+    "permutation_draws": "2,000 exactly once; missing 0, duplicate 0, unexpected 0",
+    "map_digests_and_COMPLETED": "2,000 / 2,000 valid",
+    "no_tmp_shards_remain": true,
+    "CI_draws": "2,000 exactly once; missing 0, duplicate 0, unexpected 0",
+    "CI_weight_digests_and_COMPLETED": "2,000 / 2,000 valid"
+  },
+  "IDENTITY_MAP_DENOMINATORS": {
+    "identity_map": true,
+    "source_Y_digest": "5cb91cfb037905bb",
+    "registry_digest": "6900f9d3cf6f13e5",
+    "denominators_digest": "7e369b7173d32d74",
+    "assert_positive_plus_nonpositive_equals_evaluable": "PASS on all 20,751 claims",
+    "Y_available_evaluable": {
+      "min": 20526,
+      "median": 185453,
+      "max": 192080
+    },
+    "Y_available_positive": {
+      "min": 15,
+      "median": 579,
+      "max": 106470
+    }
+  },
+  "DENOMINATOR_PROVENANCE": {
+    "rule": "PRE-Y X SUPPORT = registry eligibility provenance; REAL-Y AVAILABLE COUNTS = the ACTUAL inferential denominator. Both retained; neither replaces the other.",
+    "pre_y_positive": {
+      "pos_min": 100,
+      "pos_med": 816,
+      "pos_max": 192305
+    },
+    "real_y_positive": {
+      "pos_min": 15,
+      "pos_med": 579,
+      "pos_max": 106470
+    },
+    "median_real_over_pre_ratio": 0.7813965607087024,
+    "claims_below_the_pre_Y_floor_of_100": {
+      "100": 1681,
+      "50": 197,
+      "30": 18,
+      "15": 0
+    },
+    "reading": "the >=100 floor was applied to PRE-Y X support, as frozen. Real-Y availability is stricter, so 1,681 claims (8.10%) now carry a real-Y positive denominator below 100.",
+    "explicitly": "this does NOT retro-apply the floor, does NOT change k, and does NOT alter claim membership"
+  },
+  "DIGESTS": {
+    "source_Y": "5cb91cfb037905bb",
+    "source_AV": "d50fd9e5c3c203f4",
+    "registry": "6900f9d3cf6f13e5",
+    "draw_manifest": "2230e626eae7486f",
+    "CI_manifest": "dd7b2bda1318f510",
+    "c_s": "0f51fb054f4565e0",
+    "M_b": "e6bb90e2993a1068",
+    "p_adj": "d2f697f3e50eca94",
+    "T_obs": "2e1371daa3687bec",
+    "CI_lo": "d299bee0bb736028",
+    "CI_hi": "5cc8502ea5543078",
+    "denominators": "7e369b7173d32d74"
+  },
+  "REPORT_ONLY_DIAGNOSTIC_PENDING": [
+    "early_close_share_evaluable (per claim)",
+    "early_close_share_positive (per claim)"
+  ],
+  "RESULTS_NOT_READ": {
+    "statement": "theta, T_j, p_adj, M_b, rankings and winners have NOT been inspected",
+    "sealed_in": [
+      "PROD_INFER.npz",
+      "PROD_CI.npz"
+    ],
+    "gate": "scientific interpretation begins only after this execution artifact is accepted"
+  },
+  "TERMINAL_RECONCILIATION": "11 / 11 PASS"
+}

@@ -1,0 +1,148 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_STAGE_D_PRODUCTION_V1",
+  "status": "ACCEPTED",
+  "run_id": "STAGE_D_R2",
+  "EXECUTION_PATH": "VERIFIED_SERIAL_REFERENCE",
+  "columns": [
+    "rsi_14",
+    "sig_3g",
+    "sig_buy",
+    "sig_svs",
+    "sig_va",
+    "bar_gap_range"
+  ],
+  "TERMINAL_CERTIFICATION": {
+    "sentinel": "FINAL_COMPLETE.json",
+    "criteria": {
+      "output_stable": true,
+      "checkpoint_FINISHED": true,
+      "completed_securities_476": true,
+      "producer_errors_zero": true,
+      "terminal_DONE_line": true,
+      "no_traceback_in_log": true,
+      "db_opens_clean": true,
+      "output_rows_equal_6x_base": true
+    },
+    "producer_terminal_line": "DONE rows 92672724 err 0",
+    "elapsed_s": 7694,
+    "gate_sequence": [
+      "PID gone 22:51:26",
+      "no transient WAL/temp",
+      "output stable sha16=56eba94c6e858fea bytes=742,928,384",
+      "FINAL_COMPLETE 22:51:34"
+    ],
+    "exit_code_captured": false,
+    "exit_code_substitute": "terminal DONE line + FINISHED + 476/476 + err=0 + no Traceback + DB reconciliation"
+  },
+  "IDENTITY_BINDING": {
+    "sentinel": "FINAL_COMPLETE.json",
+    "output_db_sha16": "56eba94c6e858fea",
+    "input_surface": {
+      "stageA_input.duckdb": "39abadbd14901c0b",
+      "pd_input.duckdb": "a058d189de33103f"
+    },
+    "code_hash": {
+      "stageD_r2.py": "738b9fe6f907bba5",
+      "sig_buy_raw.py": "4e81d177a4bb5f6d",
+      "combo_engine.py": "e6c76c33e8d23e78",
+      "indicators.py": "6f913666cf296828",
+      "enricher.py": "6041f8cefc343ebb"
+    },
+    "securities": "476 / 476",
+    "verdict": "BOUND"
+  },
+  "ACCEPTANCE": {
+    "OVERALL": "PASS",
+    "ROWS": {
+      "base": 15445454,
+      "expected": 92672724,
+      "actual": 92672724,
+      "per_col_uniform": "PASS",
+      "verdict": "PASS"
+    },
+    "GENERIC_NULL_INVARIANTS": "PASS (valid_and_null=0, nonvalid_and_notnull=0, wrong_slot_used=0 for all six)",
+    "DUPLICATES": "PASS (0)",
+    "TEMPORAL": "PASS — all six: valid_below_min_age=0 AND valid_on_incomplete_bar=0; floors rsi_14/bar_gap_range 14, sig_svs/sig_va 21, sig_buy 50, sig_3g 51",
+    "SIG_BUY": {
+      "canonical_reduction": "PASS (16,382 exhaustive, 0 mismatches)",
+      "frozen_regression_400": "PASS (0 failures)",
+      "unknown_gap_propagation": "PASS (4/4 fixtures)",
+      "age_note": "age>=50 NECESSARY not SUFFICIENT; only (VALID and age<50)=0 is tested"
+    }
+  },
+  "AVAILABILITY_CENSUS": {
+    "bar_gap_range": {
+      "AVAILABLE_VALID": 6373690,
+      "INITIALIZATION_SENSITIVE_HEAD": 3015,
+      "INITIALIZATION_SENSITIVE_POST_GAP": 4241481,
+      "UNAVAILABLE_CURRENT": 4827268
+    },
+    "rsi_14": {
+      "AVAILABLE_VALID": 6373690,
+      "INITIALIZATION_SENSITIVE_HEAD": 3015,
+      "INITIALIZATION_SENSITIVE_POST_GAP": 4241481,
+      "UNAVAILABLE_CURRENT": 4827268
+    },
+    "sig_3g": {
+      "AVAILABLE_VALID": 4655630,
+      "INITIALIZATION_SENSITIVE_HEAD": 7632,
+      "INITIALIZATION_SENSITIVE_POST_GAP": 5954924,
+      "UNAVAILABLE_CURRENT": 4827268
+    },
+    "sig_buy": {
+      "AVAILABLE_VALID": 4679000,
+      "INITIALIZATION_SENSITIVE_HEAD": 988,
+      "INITIALIZATION_SENSITIVE_POST_GAP": 244424,
+      "UNAVAILABLE_CURRENT": 4827268,
+      "UNAVAILABLE_REQUIRED_HISTORY": 5693774
+    },
+    "sig_svs": {
+      "AVAILABLE_VALID": 5778150,
+      "INITIALIZATION_SENSITIVE_HEAD": 4002,
+      "INITIALIZATION_SENSITIVE_POST_GAP": 4836034,
+      "UNAVAILABLE_CURRENT": 4827268
+    },
+    "sig_va": {
+      "AVAILABLE_VALID": 5778150,
+      "INITIALIZATION_SENSITIVE_HEAD": 4002,
+      "INITIALIZATION_SENSITIVE_POST_GAP": 4836034,
+      "UNAVAILABLE_CURRENT": 4827268
+    }
+  },
+  "FIRES_ON_VALID": {
+    "sig_va": {
+      "n": 283475,
+      "rate_pct": 4.906
+    },
+    "sig_svs": {
+      "n": 198908,
+      "rate_pct": 3.4424
+    },
+    "sig_3g": {
+      "n": 8209,
+      "rate_pct": 0.1763
+    },
+    "sig_buy": {
+      "n": 5454,
+      "rate_pct": 0.1166
+    }
+  },
+  "COVERAGE": {
+    "total_bars": 15445454,
+    "COMPLETE_bars": 10618186,
+    "complete_pct": 68.75,
+    "UNAVAILABLE_CURRENT": 4827268,
+    "reconciles": "15,445,454 - 10,618,186 = 4,827,268"
+  },
+  "COOLDOWN_AMBIGUITY_COST": {
+    "sig_buy_INITIALIZATION_total": 245412,
+    "explained_by_depth_41_to_49": 245242,
+    "residual_EMA_invalid_or_cooldown_ambiguous": 170,
+    "reference_sig_3g_INIT_at_age_ge_51": 0,
+    "interpretation": "EMA validity adds nothing beyond depth (sig_3g reference = 0), so the 170 residual bars are effectively pure cooldown state-ambiguity. That is 0.0016% of COMPLETE bars.",
+    "why_so_small": "the age>=50 depth floor already forces a 50-bar observed window, and raw fires are rare (0.1166% of valid bars), so 6 consecutive PROVEN-FALSE raw bars almost always occur inside it and the state recovers before the column becomes eligible",
+    "consequence": "the frozen 'unknown raw -> propagate BOTH branches' rule is correct AND cheap; it does not erode the searchable surface"
+  },
+  "supersedes_nothing": true,
+  "predecessor": "pids 19604/19624 INCOMPLETE_RUN, NON_EVIDENTIARY (see PREDECESSOR_PROVENANCE_AND_STANDING_RULE_V1)"
+}

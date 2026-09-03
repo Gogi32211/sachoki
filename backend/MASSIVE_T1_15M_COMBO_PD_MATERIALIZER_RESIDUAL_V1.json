@@ -1,0 +1,68 @@
+{
+  "artifact": "MASSIVE_T1_15M_COMBO_PD_MATERIALIZER_RESIDUAL_V1",
+  "writes": 0,
+  "Y_EXPOSED": 0,
+  "massive_production": 0,
+  "future_bars_read": 0,
+  "TASK_1_WRITER_MAPPING": {
+    "question": "which intermediate did the historical writer store in each column",
+    "method": "enumerated ALL 8 combo_engine.py revisions across --all history; extracted the definition signature from each blob",
+    "distinct_signatures": 2,
+    "signature_A": "preup89=cx89, no preup55/66, no predn* (6 revs) — incomplete",
+    "signature_B": "full masked ladder (2 revs) — masks contradict stored values",
+    "result": "NO combo_engine.py vintage in repository history produces the stored columns",
+    "partial_finding": "the D family maps exactly onto the ladder vintage RAW INTERMEDIATES: sig_d2=raw_d2, sig_d3=raw_d3, sig_d55=raw_d55, sig_d66=raw_d66, sig_d50=dx50, sig_d89=dx89; likewise sig_p66=raw_p66, sig_p55=raw_p55, sig_p89=cx89, sig_p3=raw_p3. Only sig_p2 (=cx9&cx20&~cx50) and sig_p50 (=cx50&~cx9&~cx20) do NOT follow the raw-intermediate rule.",
+    "verdict": "NOT_RECOVERED_FROM_REPOSITORY_HISTORY",
+    "note": "the writer took raw intermediates rather than final ladder labels — as hypothesised — but the executable writer itself is not located. Semantics are established empirically; the writer module is not."
+  },
+  "TASK_2_RESIDUAL": {
+    "verdict": "CONFIRMED_INPUT_VINTAGE_ANOMALY",
+    "precise_mechanism": "INCREMENTAL_MATERIALIZATION_WARMUP_TRUNCATION",
+    "code_authority": "derive_intraday.py:67-71 _INCR_WARMUP_DAYS = 45; line 86 \"AND date >= TIMESTAMP {since} - INTERVAL 45 DAY\"",
+    "physics": "45 calendar days of 15m bars ~ 580 bars. EMA200 with adjust=False retains (199/200)^580 ~ 5.4% of seed error at that horizon — enough to move ema200 by ~1e-4 and flip razor-thin crossings.",
+    "independent_predictions_confirmed": [
+      "temporal boundary: 100% of 652 mismatches on/after 2026-07-06 13:30:00, ZERO in the preceding 5 years",
+      "column concentration: sig_p66 and sig_d66 are the ONLY 2 of 12 columns using cx200/dx200, and alone account for 367/652 = 56.3%",
+      "depth ordering: ema200 367 > shallow(9/20/50) 152 > ema89 133, with the deepest EMA most affected",
+      "truncated-window recompute at w=400-600 bars reproduces 48% of tested mismatch cells; w>=1000 reproduces ~0%"
+    ],
+    "corroboration": "2026-07-09 is the single largest mismatch day (123 cells) and was independently identified as a materialization boundary during the T programme, before this test existed",
+    "honesty": "the 48% reproduction is supporting, not complete: the real warmup window is 45 days before EACH incremental run last-bar, so it varies per run and cannot be reproduced exactly without each run boundary. Convergent evidence (code + temporal boundary + column concentration) carries the verdict, not the 48%.",
+    "excluded_alternatives": [
+      "float32/64 precision",
+      "row misalignment",
+      "EMA seed at full history",
+      "enriched-store OHLC as input surface (gives 10,911 mismatches, far worse)",
+      "uniform OHLC rounding difference — divergence rate is ~25-27% BOTH pre and post boundary, so it cannot produce a tail-only pattern"
+    ],
+    "NVST_cell": "NVST/russell2k 2026-07-31 17:00 sig_p66 falls inside the confirmed incremental regime and is covered by this mechanism"
+  },
+  "FULL_STORE_CONFORMANCE": {
+    "series": 3203,
+    "RAW_SUPPORT": 91027821,
+    "RAW_cell_mismatches": 652,
+    "RAW_row_mismatches": 533,
+    "QUALIFIED_SUPPORT": 87974676,
+    "QUALIFIED_share": "96.646%",
+    "EXCLUDED_TAIL": 3053145,
+    "EXCLUDED_share": "3.354%",
+    "exclusion_boundary": "date < 2026-07-06 13:30:00",
+    "exclusion_authority": "sealed provenance authority: derive_intraday.py _INCR_WARMUP_DAYS=45 incremental materialization regime — NOT excluded because rows mismatch",
+    "QUALIFIED_cell_mismatches": 0,
+    "QUALIFIED_cells_compared": 1055696112,
+    "all_12_columns": true
+  },
+  "verdict": "PASS_ON_QUALIFIED_SUPPORT",
+  "verdict_detail": "0 mismatches across all 12 columns over 87,974,676 rows (1,055,696,112 cell comparisons) on the qualified support. The 652 raw-support mismatches are entirely confined to the incremental-materialization regime and are explained by a code-level confirmed mechanism.",
+  "classification_now": {
+    "pd_semantics": "MATERIALIZED_SEMANTICS_RESOLVED",
+    "same_input_conformance": "EXACT_ON_QUALIFIED_SUPPORT",
+    "historical_writer_module": "NOT_RECOVERED_FROM_REPOSITORY_HISTORY",
+    "massive_port_authorization": "caller ruling required"
+  },
+  "not_done": [
+    "the executable writer module was not located",
+    "no Massive feature produced",
+    "Z/L/B4 untouched"
+  ]
+}

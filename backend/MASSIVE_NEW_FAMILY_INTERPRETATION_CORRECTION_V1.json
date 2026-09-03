@@ -1,0 +1,15 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_INTERPRETATION_CORRECTION_V1",
+  "status": "FROZEN",
+  "Y_EXPOSED": 1,
+  "SCIENTIFIC_RESULTS_READ": 1,
+  "RETRACTED_CLAIM": "'all 732/732 significant claims have theta > 0 ... this is itself an asymmetry; a two-sided max-stat null could not have produced it'",
+  "WHY_WRONG": "the registered alternative was ONE-SIDED H1: theta > 0, and the max-stat null is built on the maximum of POSITIVE T. A significant claim with theta <= 0 was NOT REACHABLE under the frozen procedure. 732/732 is a TAUTOLOGY OF THE REGISTERED TEST DIRECTION, not evidence about the data.",
+  "ERROR_CLASS": "STRUCTURAL_CONSEQUENCE_OF_THE_TEST_READ_AS_A_FINDING",
+  "CORRECT_STATUS_OF_THE_48_4_PCT": {
+    "value": "10,044 / 20,751 = 48.4% of registered claims have theta > 0",
+    "status": "DESCRIPTIVE ONLY — no formal null test of sign symmetry was registered or run",
+    "forbidden": "treating 48.4% as a passed or failed symmetry test"
+  },
+  "no_inferential_consequence": true
+}

@@ -1,0 +1,293 @@
+{
+  "report_id": "MASSIVE_1M_PROBE_EXECUTION_STAGE_A_V1",
+  "stage": "A — foundational (P2 timestamp, P6 pagination/completeness)",
+  "spec": {
+    "artifact": "MASSIVE_1M_PROBE_SPEC_V1.json",
+    "digest": "a162b31502019df1",
+    "unchanged": "no acceptance boundary was altered; the spec was frozen at this digest before any response was seen"
+  },
+  "foundational_gate": "PASS",
+  "probes": [
+    {
+      "probe": "P2",
+      "topic": "timestamp unit, labelling and timezone",
+      "sessions": {
+        "winter": {
+          "unit": "MILLISECONDS",
+          "n_bars": 764,
+          "first_bar_raw": 1705395600000,
+          "first_bar_utc": "2024-01-16 09:00:00",
+          "first_bar_et": "2024-01-16 04:00:00 EST",
+          "first_rth_raw": 1705415400000,
+          "first_rth_utc": "14:30:00",
+          "first_rth_et": "09:30:00",
+          "last_bar_et": "2024-01-16 19:59:00 EST",
+          "archive": {
+            "tag": "P2_winter",
+            "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-01-16/2024-01-16",
+            "params": {
+              "limit": 50000
+            },
+            "retrieved_at": "2026-08-24T21:14:59Z",
+            "http_status": 200,
+            "raw_filename": "P2_winter_787d4516d5.json",
+            "sha256": "787d4516d5eeae74dd8f5bde5fe0695769a3a563ca68e37492fb703514a2f767",
+            "bytes": 73316
+          }
+        },
+        "summer": {
+          "unit": "MILLISECONDS",
+          "n_bars": 727,
+          "first_bar_raw": 1721116800000,
+          "first_bar_utc": "2024-07-16 08:00:00",
+          "first_bar_et": "2024-07-16 04:00:00 EDT",
+          "first_rth_raw": 1721136600000,
+          "first_rth_utc": "13:30:00",
+          "first_rth_et": "09:30:00",
+          "last_bar_et": "2024-07-16 19:59:00 EDT",
+          "archive": {
+            "tag": "P2_summer",
+            "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-07-16/2024-07-16",
+            "params": {
+              "limit": 50000
+            },
+            "retrieved_at": "2026-08-24T21:14:59Z",
+            "http_status": 200,
+            "raw_filename": "P2_summer_79b586a7cd.json",
+            "sha256": "79b586a7cd6df585c4bfc4adb3efebba01d0db475442f4a041127018ab6ff5d4",
+            "bytes": 69945
+          }
+        }
+      },
+      "unit": "MILLISECONDS",
+      "label": "BAR_START",
+      "timezone": "PASS",
+      "dst_assertion": {
+        "method": "asserted on the UTC value, which is pure arithmetic from the epoch; the ET column corroborates and would disagree if the tz library were wrong",
+        "expected_winter_utc": "14:30:00",
+        "observed_winter_utc": "14:30:00",
+        "expected_summer_utc": "13:30:00",
+        "observed_summer_utc": "13:30:00"
+      },
+      "verdict": "PASS"
+    },
+    {
+      "probe": "P6",
+      "topic": "pagination limit and interval completeness",
+      "short_session": {
+        "date": "2024-05-15",
+        "n_bars": 658,
+        "strictly_increasing": true,
+        "duplicates": 0,
+        "archive": {
+          "tag": "P6_short",
+          "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-05-15/2024-05-15",
+          "params": {
+            "limit": 50000
+          },
+          "retrieved_at": "2026-08-24T21:15:00Z",
+          "http_status": 200,
+          "raw_filename": "P6_short_15858d2f6d.json",
+          "sha256": "15858d2f6d074c4d632abafe9474ae807a72414ab41eb4dc8758f9a31e006a3a",
+          "bytes": 63873
+        }
+      },
+      "long_range": {
+        "range": "2024-01-01..2024-12-31",
+        "rows_replay1": 187547,
+        "rows_replay2": 187547,
+        "pages_replay1": 4,
+        "pages_replay2": 4,
+        "max_rows_per_page": 50000,
+        "duplicates": 0,
+        "strictly_increasing": true,
+        "explicit_exhaustion_replay1": true,
+        "explicit_exhaustion_replay2": true
+      },
+      "replay": {
+        "method": "ordered canonical raw-row digest, not row count",
+        "digest_replay1": "86b72a824ff26d1424769b88c844a8c834a868eac8c2cbae957f1625e14b516a",
+        "digest_replay2": "86b72a824ff26d1424769b88c844a8c834a868eac8c2cbae957f1625e14b516a",
+        "identical": true
+      },
+      "page_boundary_test": {
+        "boundaries_tested": 3,
+        "gaps_found": 0,
+        "gaps": []
+      },
+      "verdict": "PASS"
+    }
+  ],
+  "rules_applied": [
+    "raw response archived and hashed before it was parsed; analysis read the archived bytes",
+    "probe data written only under massive_probe_raw/, never to source_data/massive/ or any production partition",
+    "classification confined to frozen buckets; anything else is UNRESOLVED",
+    "no spec change after exposure"
+  ],
+  "raw_archive": {
+    "dir": "/Volumes/QUANT_RESEARCH/artifacts/provenance/massive_probe_raw",
+    "requests": 14,
+    "log": [
+      {
+        "tag": "P2_winter",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-01-16/2024-01-16",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:14:59Z",
+        "http_status": 200,
+        "raw_filename": "P2_winter_787d4516d5.json",
+        "sha256": "787d4516d5eeae74dd8f5bde5fe0695769a3a563ca68e37492fb703514a2f767",
+        "bytes": 73316
+      },
+      {
+        "tag": "P2_summer",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-07-16/2024-07-16",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:14:59Z",
+        "http_status": 200,
+        "raw_filename": "P2_summer_79b586a7cd.json",
+        "sha256": "79b586a7cd6df585c4bfc4adb3efebba01d0db475442f4a041127018ab6ff5d4",
+        "bytes": 69945
+      },
+      {
+        "tag": "P6_short",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-05-15/2024-05-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:15:00Z",
+        "http_status": 200,
+        "raw_filename": "P6_short_15858d2f6d.json",
+        "sha256": "15858d2f6d074c4d632abafe9474ae807a72414ab41eb4dc8758f9a31e006a3a",
+        "bytes": 63873
+      },
+      {
+        "tag": "P6_long_replay1_p00",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-01-01/2024-12-31",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:15:02Z",
+        "http_status": 200,
+        "raw_filename": "P6_long_replay1_p00_a332da643d.json",
+        "sha256": "a332da643d91f52be8082c80d688c6ea2ac6a4ab635e5092f2bb9eb616084b99",
+        "bytes": 4804786
+      },
+      {
+        "tag": "P6_long_replay1_p01",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/1712318040000/2024-12-31",
+        "params": {},
+        "retrieved_at": "2026-08-24T21:15:05Z",
+        "http_status": 200,
+        "raw_filename": "P6_long_replay1_p01_c87974e601.json",
+        "sha256": "c87974e60179c002751909bf8738213414756321576ef6a679a74a75ad2e06c0",
+        "bytes": 4802253
+      },
+      {
+        "tag": "P6_long_replay1_p02",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/1720699020000/2024-12-31",
+        "params": {},
+        "retrieved_at": "2026-08-24T21:15:07Z",
+        "http_status": 200,
+        "raw_filename": "P6_long_replay1_p02_99bce44c58.json",
+        "sha256": "99bce44c583c91663d73f4094a95d28de2c61cf81feee8ab241a60a7e7b1bea2",
+        "bytes": 4784271
+      },
+      {
+        "tag": "P6_long_replay1_p03",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/1728997680000/2024-12-31",
+        "params": {},
+        "retrieved_at": "2026-08-24T21:15:10Z",
+        "http_status": 200,
+        "raw_filename": "P6_long_replay1_p03_caa3556323.json",
+        "sha256": "caa3556323d65ba2deeae117b20473ac6aac8111a8c72b7a7484ccb23dd3b2b1",
+        "bytes": 3596271
+      },
+      {
+        "tag": "P6_long_replay2_p00",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-01-01/2024-12-31",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:15:12Z",
+        "http_status": 200,
+        "raw_filename": "P6_long_replay2_p00_b68d312c97.json",
+        "sha256": "b68d312c977d6f88b24aed41d602b32d3ea8ce9cfe64a79157b4ec95468db9b0",
+        "bytes": 4804786
+      },
+      {
+        "tag": "P6_long_replay2_p01",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/1712318040000/2024-12-31",
+        "params": {},
+        "retrieved_at": "2026-08-24T21:15:14Z",
+        "http_status": 200,
+        "raw_filename": "P6_long_replay2_p01_66d774521f.json",
+        "sha256": "66d774521fbcc4f280ed5614eff5b195ba65cd7f0bccc8917523d7dc50c871f2",
+        "bytes": 4802253
+      },
+      {
+        "tag": "P6_long_replay2_p02",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/1720699020000/2024-12-31",
+        "params": {},
+        "retrieved_at": "2026-08-24T21:15:16Z",
+        "http_status": 200,
+        "raw_filename": "P6_long_replay2_p02_b1e24e539b.json",
+        "sha256": "b1e24e539b68adbf95ad2549272d5364136fa456b48948e167e964dfae47e6cc",
+        "bytes": 4784271
+      },
+      {
+        "tag": "P6_long_replay2_p03",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/1728997680000/2024-12-31",
+        "params": {},
+        "retrieved_at": "2026-08-24T21:15:18Z",
+        "http_status": 200,
+        "raw_filename": "P6_long_replay2_p03_c0bbe087c2.json",
+        "sha256": "c0bbe087c2b9bda367d566d2eca78b4403aabbe296ee6c9232e2cf2ecaac691b",
+        "bytes": 3596271
+      },
+      {
+        "tag": "P6_boundary_p00",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-04-05/2024-04-05",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:15:20Z",
+        "http_status": 200,
+        "raw_filename": "P6_boundary_p00_72465ecfd8.json",
+        "sha256": "72465ecfd8a2b20b7569819f679eae3f4602cb3724efe42f271b1c436f841dad",
+        "bytes": 66371
+      },
+      {
+        "tag": "P6_boundary_p01",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-07-11/2024-07-11",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:15:20Z",
+        "http_status": 200,
+        "raw_filename": "P6_boundary_p01_9501c3c3a8.json",
+        "sha256": "9501c3c3a8cee58942740c825da5c2b92b6714074aae667cc1475357bc1c0ebc",
+        "bytes": 75907
+      },
+      {
+        "tag": "P6_boundary_p02",
+        "endpoint": "https://api.massive.com/v2/aggs/ticker/AAPL/range/1/minute/2024-10-15/2024-10-15",
+        "params": {
+          "limit": 50000
+        },
+        "retrieved_at": "2026-08-24T21:15:21Z",
+        "http_status": 200,
+        "raw_filename": "P6_boundary_p02_587c5fcb64.json",
+        "sha256": "587c5fcb643b0ac1a5e2d2e84e79404cf72354237a6d69dbeac40b94d54537fb",
+        "bytes": 72341
+      }
+    ]
+  },
+  "canonical_1m_rows_downloaded": 0,
+  "elapsed_sec": 23.5,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-25 01:15 +04"
+}

@@ -1,0 +1,78 @@
+{
+  "artifact": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1_AMENDMENT_2",
+  "status": "FROZEN",
+  "amends": {
+    "parent": "MASSIVE_NEW_FAMILY_INFERENTIAL_PRESPEC_V1",
+    "parent_digest": "8f112d7e760953b5",
+    "also_amends": "AMENDMENT_1 5e6a3788f06c4dc4",
+    "parents_not_rewritten": true
+  },
+  "Y_EXPOSED": 0,
+  "SEARCH_PERFORMED": 0,
+  "DEFECT": {
+    "where": "the CI bootstrap primitive",
+    "what": "it implemented a LOWER weighted median, which does not reproduce the frozen theta functional even under unit weights",
+    "evidence": {
+      "unit_weight_disagreement": "9,974 / 20,000 random samples = 49.9%",
+      "integer_weight_disagreement": "4,876 / 19,824 = 24.6%",
+      "worked_case": "v=[1,2,3,4] unit weights -> np.median 2.5 vs lower weighted median 2.0"
+    },
+    "consequence_if_shipped": "the CI would have been an interval for a DIFFERENT quantity than the point estimate"
+  },
+  "IMPACT": {
+    "scope": "CI ONLY",
+    "NOT_changed": [
+      "primary theta",
+      "permutation studentization",
+      "max-stat",
+      "promotion mechanism",
+      "registered k = 20,751",
+      "claim membership"
+    ]
+  },
+  "CORRECTION": {
+    "name": "WEIGHTED_MEDIAN_V2",
+    "SEMANTIC_AUTHORITY": "construct the conceptual expanded multiset in which v_i appears exactly w_i times; return the ORDINARY sample median of that multiset, using the SAME convention as np.median (odd N -> central observation; even N -> arithmetic mean of the two central observations)",
+    "domain": "w_i in {0,1,2,...}",
+    "efficient_form": [
+      "W = sum(w); if W == 0 -> (NaN, EMPTY_EFFECTIVE_GROUP)",
+      "cw = cumulative integer weight over value-sorted rows",
+      "if W even and some POSITIVE-weight row i ends exactly at W/2: j = next row after i with w_j > 0; median = (v_i + v_j)/2",
+      "else: j = first row with cw_j > W/2; median = v_j"
+    ],
+    "INVARIANT": "w_i = 1 for all i  =>  BIT-IDENTICAL to the frozen ordinary-median functional (verified on 50,000 random cases, 0 mismatches)",
+    "zero_weight_rows": "neither replicated nor selectable — the question is closed by construction"
+  },
+  "VERIFICATION": {
+    "hand_fixtures": "8 / 8",
+    "unit_weight_invariant": "50,000 cases, 0 mismatches",
+    "exhaustive_vs_expanded_multiset_oracle": "271,089 cases (n<=5, w in 0..3), 0 mismatches",
+    "randomized_vs_oracle": "60,000 cases, 0 mismatches",
+    "oracle_note": "np.median(np.repeat(v,w)) is the SEMANTIC ORACLE ONLY and must NEVER be used in production"
+  },
+  "SUPERSEDED": {
+    "path": "the lower-weighted-median CI implementation",
+    "status": "DEFECTIVE / NOT QUALIFIED"
+  },
+  "RETAINED_NEGATIVE_FINDING": {
+    "claim_made": "a zero-weight row could be returned as the weighted median",
+    "status": "RETRACTED — DISPROVEN",
+    "proof": "w[i]=0 implies cw[i]=cw[i-1], so searchsorted(side='left') can never select i unless an earlier index already satisfied the condition",
+    "empirical": "0 zero-weight selections in 191,652 random cases",
+    "why_retained": "a suspected defect that was MEASURED and DISPROVEN must not be silently forgotten"
+  },
+  "CI_STABILITY_GATE": {
+    "inferential_run": "defined theta* = 2000 / 2000 REQUIRED",
+    "CI_smoke": "defined theta* = 20 / 20 REQUIRED",
+    "if_any_draw_has_an_empty_positive_or_non_positive_effective_group": {
+      "status": "BOOTSTRAP_SUPPORT_UNSTABLE",
+      "CI": "NOT_COMPUTED",
+      "promotion": "UNCHANGED",
+      "registry": "claim NOT deleted; k = 20,751 unchanged",
+      "primary_max_stat_inference": "UNAFFECTED"
+    },
+    "REJECTED_ALTERNATIVE": "computing a percentile CI from the surviving draws (e.g. 1983 of 2000)",
+    "why_rejected": "that reinstates a variable-support procedure and would require inventing a 'min_defined_bootstrap_draws' threshold after the fact",
+    "empty_group_behaviour": "explicit status, NEVER an exception — the old primitive raised IndexError on empty input while returning NaN for all-zero weights, two different behaviours for one situation"
+  }
+}
