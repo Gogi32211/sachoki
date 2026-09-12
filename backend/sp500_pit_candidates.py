@@ -1,0 +1,285 @@
+"""SP500_PIT_CANDIDATE_INVENTORY_V1 — what exists, not what is good.
+
+INVENTORY IS NOT QUALIFICATION. Every candidate below carries initial_status =
+UNASSESSED, and that is the whole point of writing it down separately. "It has historical
+constituents" is a product description, not a demonstration that effective dates are
+right, that identity survives a ticker change, or that deletions were ever recorded. Those
+are decided by the frozen fixtures in SP500_PIT_FIXTURES_V1 and nowhere else.
+
+EVERY COVERAGE FIGURE HERE IS PROVIDER-CLAIMED. None has been verified, and a claimed
+start year is the single most common place a membership dataset overstates itself: a
+provider that began recording CHANGES in year Y can still show pre-Y join dates for
+members who never left, while silently omitting everyone who was deleted before Y. That
+produces a dataset which looks like it reaches back decades and is survivorship-biased
+exactly where it matters. It is listed below as a risk to TEST, not as a finding.
+
+THE RISKS ARE HYPOTHESES, NOT ASSESSMENTS. Each candidate has a `risks_to_test` field. It
+records what would most plausibly be wrong with that class of source so the fixtures are
+read attentively — it does not pre-judge the outcome, and no candidate is ranked here.
+
+No candidate was queried, downloaded, or evaluated. No membership table was built. No
+price data was touched.
+"""
+from __future__ import annotations
+import os, sys, time                                                     # noqa: E402
+HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, HERE)
+import t5_artifact as ART                                                # noqa: E402
+
+QUAL = "SP500_PIT_UNIVERSE_SOURCE_QUALIFICATION_V1.json"
+FIX = "SP500_PIT_FIXTURES_V1.json"
+ARC = "SP500_PIT_FIXTURE_SOURCE_ARCHIVE_V1.json"
+
+
+def candidates():
+    U = "UNASSESSED"
+    return [
+        dict(candidate_id="C1", provider="CRSP (Morningstar Indexes) via WRDS",
+             product="CRSP Historical Indexes — crsp_a_indexes.dsp500list_v2 / dsp500list",
+             hierarchy_class_claimed="BEST — institutional PIT constituent history",
+             coverage_start_claimed="1958", coverage_end_claimed="provider-dependent; one "
+             "library note reports membership retrievable only to 2023-12-29 at time of "
+             "writing",
+             event_history_available="daily membership list rather than an event log",
+             effective_dates_available="yes — membership start and end dates (mbrenddt)",
+             stable_identifier_available="yes — PERMNO (security) and PERMCO (company), "
+                                         "which map directly onto our security_id / "
+                                         "entity_id split",
+             ticker_history_available="yes, via CRSP name history",
+             share_class_support="PERMNO is security-level, so distinct share classes are "
+                                 "distinct rows in principle",
+             raw_access_method="WRDS subscription (institutional); web query or "
+                               "programmatic",
+             versionability="CRSP releases are versioned and dated",
+             licensing_constraints="requires a WRDS/CRSP subscription — access not "
+                                   "currently established for this project",
+             risks_to_test=["coverage recency may lag the research window",
+                            "daily-list form must be converted to events without losing "
+                            "same-day add/drop ordering"],
+             initial_status=U),
+
+        dict(candidate_id="C2", provider="S&P Global Market Intelligence / Compustat",
+             product="index constituent history (idxcst_his / Indexcst_his)",
+             hierarchy_class_claimed="BEST — from the index provider's own data estate",
+             coverage_start_claimed="long history claimed", coverage_end_claimed="current",
+             event_history_available="constituent history with from/thru dates",
+             effective_dates_available="yes",
+             stable_identifier_available="yes — GVKEY / IID",
+             ticker_history_available="yes", share_class_support="IID distinguishes issues",
+             raw_access_method="S&P Global Marketplace or Compustat licence",
+             versionability="vendor-versioned",
+             licensing_constraints="AVAILABILITY CHANGED: idxcst_his was withdrawn from "
+                                   "WRDS, which is why CRSP became the common route. "
+                                   "Direct S&P licensing is a separate commercial "
+                                   "arrangement.",
+             risks_to_test=["access may simply not be obtainable, which is a REJECT for "
+                            "practical reasons rather than a data-quality finding"],
+             initial_status=U),
+
+        dict(candidate_id="C3", provider="S&P Dow Jones Indices",
+             product="official index constituent data / index services licence",
+             hierarchy_class_claimed="BEST — the index administrator itself",
+             coverage_start_claimed="full index history",
+             coverage_end_claimed="current",
+             event_history_available="yes", effective_dates_available="yes, definitionally",
+             stable_identifier_available="unknown without access",
+             ticker_history_available="unknown without access",
+             share_class_support="the administrator defines the multi-share-class policy",
+             raw_access_method="commercial index data licence",
+             versionability="unknown without access",
+             licensing_constraints="commercial licence; cost and terms unknown",
+             risks_to_test=["may be unobtainable at an individual-research scale"],
+             initial_status=U),
+
+        dict(candidate_id="C4", provider="S&P Dow Jones Indices press-release corpus",
+             product="the public change announcements themselves — the same class of "
+                     "document already archived for F1-F7",
+             hierarchy_class_claimed="GOOD — authoritative CHANGE event history from which "
+                                     "membership can be reconstructed deterministically",
+             coverage_start_claimed="press archive depth unknown",
+             coverage_end_claimed="current",
+             event_history_available="yes — this source IS an event history",
+             effective_dates_available="yes, stated verbatim in each release",
+             stable_identifier_available="NO — releases identify companies by name and "
+                                         "ticker only",
+             ticker_history_available="only as ticker-at-time within each release",
+             share_class_support="policy releases exist (see F6) but there is no "
+                                 "structured share-class field",
+             raw_access_method="public web; already demonstrated retrievable and "
+                               "quote-verifiable in SP500_PIT_FIXTURE_SOURCE_ARCHIVE_V1",
+             versionability="each release is immutable once published; our own snapshots "
+                            "are hashed",
+             licensing_constraints="public, but systematic scraping terms must be checked",
+             risks_to_test=["COMPLETENESS is the crux: reconstruction is only valid if "
+                            "EVERY change release is captured, and a single missed "
+                            "deletion silently creates a survivor",
+                            "no stable identifier means requirement 2 must be satisfied by "
+                            "joining to a separate reference source, which imports that "
+                            "source's errors",
+                            "corrections or superseding releases must be detectable"],
+             initial_status=U),
+
+        dict(candidate_id="C5", provider="EODHD",
+             product="Indices Historical Constituents API (S&P and Dow Jones)",
+             hierarchy_class_claimed="ACCEPTABLE WITH QUALIFICATION — commercial "
+                                     "aggregator",
+             coverage_start_claimed="tracks every ticker in the index since April 2012 "
+                                    "with join and leave dates; join dates for "
+                                    "long-standing members are said to reach back to 1957",
+             coverage_end_claimed="current",
+             event_history_available="additions and exclusions with dates",
+             effective_dates_available="claimed",
+             stable_identifier_available="unknown — likely ticker-keyed",
+             ticker_history_available="unknown", share_class_support="unknown",
+             raw_access_method="REST API, JSON",
+             versionability="unknown — restatement behaviour undocumented",
+             licensing_constraints="commercial subscription",
+             risks_to_test=["THE CENTRAL ONE: if change tracking begins in 2012 while "
+                            "pre-2012 join dates are shown for surviving members, then "
+                            "pre-2012 DELETIONS may be absent — which is survivorship bias "
+                            "in precisely the period it is hardest to notice. F1 (2020) "
+                            "cannot detect this; a pre-2012 deletion fixture would be "
+                            "needed to test it.",
+                            "ticker-keyed identity would fail F5 (FB -> META)"],
+             initial_status=U),
+
+        dict(candidate_id="C6", provider="Financial Modeling Prep",
+             product="historical S&P 500 constituents API",
+             hierarchy_class_claimed="ACCEPTABLE WITH QUALIFICATION — commercial "
+                                     "aggregator",
+             coverage_start_claimed="unspecified", coverage_end_claimed="current",
+             event_history_available="addition dates and a historical-changes endpoint",
+             effective_dates_available="claimed", stable_identifier_available="unknown",
+             ticker_history_available="unknown", share_class_support="unknown",
+             raw_access_method="REST API, JSON", versionability="unknown",
+             licensing_constraints="commercial subscription; a legacy endpoint is noted, "
+                                   "so endpoint stability is itself a question",
+             risks_to_test=["provenance of the underlying history is not stated",
+                            "an aggregator may itself be reconstructing from a public "
+                            "current-list page, which would make it NOT ACCEPTABLE "
+                            "regardless of its API quality"],
+             initial_status=U),
+
+        dict(candidate_id="C7", provider="Bloomberg / FactSet / LSEG (Refinitiv)",
+             product="terminal or feed index membership history",
+             hierarchy_class_claimed="BEST to GOOD depending on product",
+             coverage_start_claimed="long", coverage_end_claimed="current",
+             event_history_available="yes", effective_dates_available="yes",
+             stable_identifier_available="yes — vendor permanent identifiers",
+             ticker_history_available="yes", share_class_support="yes",
+             raw_access_method="terminal or licensed feed",
+             versionability="vendor-dependent",
+             licensing_constraints="enterprise licensing; access not established",
+             risks_to_test=["access is the binding constraint, not data quality"],
+             initial_status=U),
+
+        dict(candidate_id="C8", provider="State Street (SPDR S&P 500 ETF Trust)",
+             product="published daily fund holdings",
+             hierarchy_class_claimed="NOT CANONICAL — cross-check fixture only",
+             coverage_start_claimed="fund history", coverage_end_claimed="current",
+             event_history_available="derivable from daily holdings differences",
+             effective_dates_available="holdings dates, not index effective dates",
+             stable_identifier_available="CUSIP typically present",
+             ticker_history_available="ticker-at-time in each file",
+             share_class_support="holdings are security-level",
+             raw_access_method="public fund disclosure files",
+             versionability="daily files",
+             licensing_constraints="public",
+             disqualifying_note="a FUND'S HOLDINGS ARE NOT INDEX MEMBERSHIP. Holdings can "
+                                "diverge through sampling, timing, corporate-action "
+                                "handling and cash management. Using them as membership "
+                                "would substitute a tracking portfolio for the index, "
+                                "which is a different object.",
+             risks_to_test=["useful ONLY to detect disagreement with a canonical source; "
+                            "never to define membership"],
+             initial_status=U),
+
+        dict(candidate_id="C9", provider="Wikipedia",
+             product="'List of S&P 500 companies' plus its selected-changes table",
+             hierarchy_class_claimed="NOT ACCEPTABLE as canonical evidence",
+             coverage_start_claimed="selected changes, not complete",
+             coverage_end_claimed="current",
+             event_history_available="partial and explicitly 'selected'",
+             effective_dates_available="inconsistently",
+             stable_identifier_available="no", ticker_history_available="no",
+             share_class_support="no", raw_access_method="public web",
+             versionability="page revision history exists and is citable",
+             licensing_constraints="public",
+             disqualifying_note="the current-list page reconstructed backwards is one of "
+                                "the FATAL survivorship workarounds named in requirement "
+                                "10. Its permitted role is a cross-check fixture that can "
+                                "raise a disagreement, never a source that can settle one.",
+             risks_to_test=["'selected changes' means incompleteness is expected, not "
+                            "exceptional"],
+             initial_status=U),
+    ]
+
+
+def payload():
+    cs = candidates()
+    return dict(
+        spec_id="SP500_PIT_CANDIDATE_INVENTORY_V1",
+        status="ENUMERATED — no candidate queried, downloaded, or evaluated",
+        stage="step 3 of the qualification sequence; steps 4-11 not started",
+        sources=dict(
+            qualification=dict(artifact=QUAL, digest=ART.file_digest(QUAL)
+                               if os.path.exists(QUAL) else None),
+            fixtures=dict(artifact=FIX, digest=ART.file_digest(FIX)
+                          if os.path.exists(FIX) else None),
+            fixture_archive=dict(artifact=ARC, digest=ART.file_digest(ARC)
+                                 if os.path.exists(ARC) else None)),
+        inventory_is_not_qualification="every entry is UNASSESSED. Product descriptions, "
+                                       "claimed coverage and hierarchy class are recorded "
+                                       "as CLAIMS. Only the frozen fixtures can move a "
+                                       "candidate off UNASSESSED.",
+        all_unassessed=all(c["initial_status"] == "UNASSESSED" for c in cs),
+        n_candidates=len(cs),
+        coverage_claims_unverified="every coverage_start/end value is provider-claimed and "
+                                   "none has been checked",
+        candidates=cs,
+        identified_gap=dict(
+            issue="the frozen fixture set spans 2014-2025. A source whose change history "
+                  "silently begins in a later year — the risk flagged on C5 — would pass "
+                  "every current fixture while omitting earlier deletions entirely.",
+            consequence="a PRE-2012 deletion fixture would materially strengthen the set",
+            status="NOT ADDED — adding a fixture now would mean confirming another "
+                   "transition from primary sources, and SP500_PIT_FIXTURES_V1 is already "
+                   "sealed. This is recorded as a known limitation of the fixture set "
+                   "rather than silently patched.",
+            decision_required="whether to seal a fixtures V2 with a pre-2012 deletion "
+                              "before candidate evaluation begins"),
+        blindness_enforcement=dict(
+            module="backend/qualification_blindness.py",
+            conformance="PASS — allowlisted reads permitted; price parquet, price duckdb, "
+                        "outcome artifact and raw file-handle reads all refused and "
+                        "recorded; patches restored on exit",
+            rule="candidate evaluation runs inside blindness(), which may read the fixture "
+                 "archive, the candidate's own membership source and identity/reference "
+                 "data, and refuses every other data read",
+            why="the contract's seal-time audit detects a violation afterwards; this "
+                "prevents the read"),
+        next_steps=["decide on a pre-2012 deletion fixture (fixtures V2 or accept the "
+                    "limitation)", "establish which candidates are actually accessible",
+                    "run the frozen fixtures under blindness()", "classify each candidate",
+                    "select and seal the canonical source BEFORE any price join"],
+        not_authorised="no candidate may be queried on the basis of this artifact; "
+                       "enumeration confers no evaluation licence",
+        outcome_exposure="NOT_EXPOSED",
+        sealed_at=time.strftime("%Y-%m-%d %H:%M %Z"))
+
+
+def main():
+    p = payload()
+    d = ART.seal(p, "SP500_PIT_CANDIDATE_INVENTORY_V1.json",
+                 required=("spec_id", "status", "candidates", "n_candidates",
+                           "inventory_is_not_qualification"),
+                 supersede=os.path.exists("SP500_PIT_CANDIDATE_INVENTORY_V1.json"))
+    print(f"SP500_PIT_CANDIDATE_INVENTORY_V1 · {d} · {p['status']}")
+    for c in p["candidates"]:
+        print(f"  {c['candidate_id']}  {c['provider'][:38]:38s} "
+              f"{c['hierarchy_class_claimed'][:34]:34s} {c['initial_status']}")
+    print(f"  all UNASSESSED: {p['all_unassessed']} · candidates queried: 0")
+    print(f"  known gap     : {p['identified_gap']['consequence']}")
+
+
+if __name__ == "__main__":
+    main()

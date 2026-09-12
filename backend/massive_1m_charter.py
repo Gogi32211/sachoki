@@ -1,0 +1,329 @@
+"""MASSIVE_1M_STATE_TRANSITION_V1 — programme charter and data contract, frozen BEFORE
+any byte of Massive 1-minute data is downloaded.
+
+WHY THIS COMES BEFORE THE DOWNLOAD, NOT AFTER IT. Once coverage exists, every ambiguity in
+the specification acquires a convenient answer. If the universe is decided after seeing
+which tickers Massive happens to have, the universe becomes a function of the vendor. If
+the session is decided after seeing which minutes are present, the session becomes a
+function of the vendor. Neither would be visible in the results, and both would be
+survivorship dressed as a design choice. So the semantics are frozen while nothing is
+known about the coverage, and coverage is later reported AGAINST this contract rather than
+used to amend it.
+
+WHAT IS FROZEN HERE. Steps 1-2 of the programme chain: the charter and the data contract.
+The remaining steps are named but explicitly NOT frozen, and this artifact authorises no
+ingestion and no computation.
+
+    CHARTER · DATA CONTRACT          <- this artifact
+    UNIVERSE CONTRACT                <- stated here, one blocking dependency unresolved
+    SESSION / CALENDAR CONTRACT      <- stated here
+    AGGREGATION CONTRACT             <- stated here
+    FEATURE / CLOCK DICTIONARY       <- named only
+    EPISODE DEFINITION               <- named only
+    HYPOTHESIS PROVENANCE            <- recorded here, because it must not be restated later
+    OUTCOME / ESTIMAND               <- named only
+    NULL / MULTIPLICITY / INFERENCE  <- named only
+    FREEZE
+    ONLY THEN INGEST / COMPUTE
+
+THE ONE LESSON THIS CONTRACT IS BUILT AROUND. The existing `bars` store carried 39.6%
+duplicate rows per universe, so a shift(-1) "next bar" landed on the SAME bar. Every
+statistical guard passed. A chart caught it. That is the whole argument for a data
+contract that states the grain and is checked by looking at rows, not only at aggregates —
+and it is why `verify_sample` below is mandatory rather than advisory.
+
+Nothing is downloaded. No Y is read. No universe is materialised.
+"""
+from __future__ import annotations
+import os, sys, time                                                     # noqa: E402
+HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, HERE)
+import t5_artifact as ART                                                # noqa: E402
+
+
+def payload():
+    return dict(
+        programme="MASSIVE_1M_STATE_TRANSITION_V1",
+        status="CHARTER_AND_DATA_CONTRACT_FROZEN",
+        frozen_scope="steps 1-2 of 12; the rest are named and NOT frozen",
+        outcome_exposure="NOT_EXPOSED — no data exists yet",
+
+        charter=dict(
+            purpose="characterise how a state TRANSITION forms and persists, using "
+                    "1-minute data as the measurement instrument for timing",
+            why_1m="the 15m families located transitions but cannot time them: a 15m bar "
+                   "is the smallest unit in which formation, confirmation and failure are "
+                   "indistinguishable. 1m is the resolution at which 'when did it turn' "
+                   "becomes a question with an answer.",
+            deliberate_non_goal="this is NOT a search for 1-minute signals"),
+
+        # ── the restriction that keeps the search surface finite ───────────────
+        one_minute_role=dict(
+            permitted=["timing a transition whose DEFINITION is already fixed at 15m/1H/1D",
+                       "measuring a quantity whose definition is fixed at a coarser "
+                       "timeframe (e.g. when within the day a coarse-TF condition first "
+                       "became true)",
+                       "characterising the path between two coarse-TF states"],
+            forbidden=["searching for thresholds, patterns or rules AT 1m granularity",
+                       "promoting any 1m-native construct to a signal",
+                       "using 1m to redefine a coarse-TF state after seeing outcomes"],
+            rationale="1m over a decade of S&P 500 names is on the order of 10^9 bars. An "
+                      "unrestricted search there would generate a multiplicity burden that "
+                      "no deflation procedure could honestly absorb. Restricting 1m to "
+                      "MEASUREMENT of already-fixed definitions keeps the number of "
+                      "inferential claims tied to the coarse-TF layer, where it is countable.",
+            enforcement="the FEATURE / CLOCK DICTIONARY must name, for every 1m-derived "
+                        "quantity, the coarser-TF definition it measures. A 1m quantity "
+                        "with no coarse-TF parent is inadmissible by construction."),
+
+        # ── universe ───────────────────────────────────────────────────────────
+        universe_contract=dict(
+            definition="historical POINT-IN-TIME S&P 500 membership",
+            explicit="current S&P 500 membership is NOT the research universe",
+            why="using today's constituents over history selects companies for having "
+                "survived and been promoted, which is the single largest source of "
+                "spurious edge in equity research",
+            membership_rule="a ticker is eligible on date D if and only if it was an index "
+                            "constituent on D, by the membership source's own effective "
+                            "dates; eligibility is evaluated per-date, never per-study",
+            corporate_actions="renames, mergers and re-listings must be resolved to a "
+                              "stable entity identifier; a ticker string is NOT an identity",
+            BLOCKING_DEPENDENCY=dict(
+                issue="no point-in-time S&P 500 membership source has been established in "
+                      "this project. The existing store tags rows sp500/nasdaq/russell2k, "
+                      "which is CURRENT membership, not historical.",
+                status="UNRESOLVED",
+                consequence="the universe contract cannot be completed, and ingestion "
+                            "cannot begin, until a PIT membership source with effective "
+                            "dates is chosen and sealed",
+                forbidden_workaround="reconstructing membership from price availability, "
+                                     "or from current membership extended backwards")),
+
+        # ── atomic source ──────────────────────────────────────────────────────
+        atomic_source=dict(
+            vendor="Massive", base="https://api.massive.com",
+            compatibility="documented as Polygon-compatible (v2/v3)",
+            IMPORTANT="Polygon compatibility is a VENDOR CLAIM, not a verified property. "
+                      "Every field semantic below is an EXPECTATION to be empirically "
+                      "confirmed against Massive before ingestion, not an assumption to "
+                      "build on.",
+            endpoint_expected="/v2/aggs/ticker/{t}/range/1/minute/{from}/{to}",
+            fields=dict(
+                o="open", h="high", l="low", c="close",
+                v="volume — shares",
+                vw="volume-weighted average price for the bar",
+                n="transaction count for the bar",
+                t="bar timestamp — EXPECTED epoch milliseconds UTC, labelling the bar's "
+                  "OPEN. Both the unit and the open-vs-close convention are decision-"
+                  "critical and must be verified, not inferred."),
+            forbidden_source="yfinance is never a bar source in this project"),
+
+        # ── session ────────────────────────────────────────────────────────────
+        session_contract=dict(
+            regular_hours="09:30:00 - 16:00:00 America/New_York",
+            timezone_rule="all session logic is evaluated in America/New_York with DST "
+                          "applied by the tz database; UTC offsets are never hardcoded",
+            storage_rule="timestamps are STORED in UTC and CONVERTED for session logic; "
+                         "a local-time store would be ambiguous on DST transition days",
+            calendar="an explicit exchange calendar is required: holidays, and early "
+                     "closes at 13:00 ET (the day after Thanksgiving, Christmas Eve and "
+                     "similar). An early-close day has a SHORTER session and must not be "
+                     "padded to a full one.",
+            extended_hours="minute aggregates are expected to INCLUDE pre- and post-market "
+                           "bars. The RTH filter is explicit and applied at ingestion; "
+                           "extended-hours bars are retained but flagged, never silently "
+                           "mixed into RTH aggregates.",
+            auctions=dict(
+                issue="whether the opening auction print lands in the 09:30 bar and the "
+                      "closing auction in the 15:59 or 16:00 bar materially changes both "
+                      "first/last-slot volume and any VWAP anchored to them",
+                status="UNRESOLVED — must be verified empirically per vendor")),
+
+        # ── aggregation ────────────────────────────────────────────────────────
+        aggregation_contract=dict(
+            hierarchy="1m -> 15m -> 1H -> 1D, each level derived DETERMINISTICALLY from 1m",
+            single_source="every timeframe is built from the SAME 1m atoms. A coarse bar is "
+                          "never taken from a vendor endpoint while its finer bars come "
+                          "from another — that is how two timeframes silently disagree.",
+            boundary_convention="left-closed, left-labelled: a bar stamped 09:30 covers "
+                                "[09:30, 09:45) for 15m. Stated because it is the single "
+                                "most common silent mismatch between two pipelines.",
+            session_aligned_1H=dict(
+                rule="1H bars are aligned to the SESSION, not to the wall clock: "
+                     "09:30-10:30, 10:30-11:30, ... , 15:30-16:00",
+                why="clock-aligned hours would split the opening 30 minutes into a stub "
+                    "bar and make the first hour non-comparable across days",
+                last_bar="the final session hour is a 30-minute stub and must be FLAGGED as "
+                         "short, never silently treated as a full hour"),
+            ohlcv_rules=dict(
+                open="first 1m open in the window", high="max", low="min",
+                close="last 1m close in the window", volume="sum",
+                transaction_count="sum"),
+            vwap_rule=dict(
+                correct="recompute as sum(vw_i * v_i) / sum(v_i) over the constituent 1m bars",
+                incorrect="mean(vw_i) — an unweighted average of VWAPs is not a VWAP",
+                zero_volume="a window whose total volume is 0 has UNDEFINED vwap; it is "
+                            "recorded as null, never as 0 and never forward-filled"),
+            sparse_minutes=dict(
+                expectation="minutes with no trades are OMITTED by the vendor, so a 1m "
+                            "series is NOT a dense grid",
+                volume_rule="an absent minute means ZERO volume, not missing volume",
+                price_rule="an absent minute has NO price. It is not forward-filled in the "
+                           "stored atoms. Any feature needing a continuous price must "
+                           "declare its own fill rule in the feature dictionary.",
+                why_it_matters="slot-RVOL and CUM-RVOL divide by a per-slot baseline. If "
+                               "absent minutes are dropped instead of counted as zero, the "
+                               "baseline is computed over a biased subset of days and every "
+                               "RVOL is inflated for illiquid names."),
+            adjustment=dict(
+                issue="split/dividend adjustment is DECISION-CRITICAL over a multi-year 1m "
+                      "history: an unadjusted series has discontinuities at every split, "
+                      "and an adjusted one may be restated retroactively by the vendor",
+                status="UNRESOLVED",
+                requirement="the programme must choose ONE regime, seal it, and record the "
+                            "vendor's adjustment behaviour. Mixing adjusted coarse bars "
+                            "with unadjusted atoms is a defect, not a nuance.")),
+
+        # ── phase structure and the leakage rule ───────────────────────────────
+        phase_structure=dict(
+            phases=dict(
+                PRE="D-1 — conditions standing before the formation day",
+                FORMATION="D — the day the transition forms",
+                EARLY_PERSISTENCE="D+1 intraday — did it hold through the next session",
+                DAILY_PERSISTENCE="D+1 ... D+N — did it hold across days"),
+            leakage_rule="NO D+1 INFORMATION MAY ENTER FORMATION X. Persistence is an "
+                         "OUTCOME, never a feature.",
+            corollary="any feature whose value is first determinable after D's close is "
+                      "inadmissible in formation X, including 'confirmed' variants of "
+                      "same-day conditions",
+            enforcement="every feature carries an explicit determinable-at timestamp, and "
+                        "a gate refuses any formation feature whose timestamp exceeds D's "
+                        "session close"),
+
+        feature_families=[
+            "T/Z state clocks", "EMA topology", "VWAP state and clocks", "volume",
+            "slot-RVOL", "CUM-RVOL", "price/volume response",
+            "retest / new-low-after-attempt", "cross-timeframe propagation"],
+        feature_families_status="NAMED ONLY — the dictionary that defines them, with each "
+                                "one's coarse-TF parent and determinable-at rule, is a "
+                                "later step and is not frozen here",
+
+        # ── provenance of the hypotheses this programme inherits ───────────────
+        hypothesis_provenance=dict(
+            status="PREVIOUSLY EXPOSED · HYPOTHESIS-GENERATING · NOT PRISTINE DISCOVERY",
+            why_recorded_now="if this is not written down before the programme starts, the "
+                             "next confirmation of M1->M2 or M1:L3 will be reported as a "
+                             "new discovery. It would not be one. These motifs were seen "
+                             "AFTER outcome exposure in the 15m families, and a programme "
+                             "that re-finds them is corroborating a used hypothesis.",
+            exposed_hypotheses=["M1->M2", "M1:L3"],
+            origin=dict(
+                T9_15m="POST-EXPOSURE", T3_15m="POST-EXPOSURE", T1_15m="POST-EXPOSURE"),
+            inherited_frozen_wording=dict(
+                M1_M2_correct=[
+                    "T9: M1->M2 has materially higher POST-EXPOSURE SURVIVOR INCIDENCE "
+                    "(2.98% vs 0.98% and 0.47%); supply imbalance is not the explanation, "
+                    "since the eligible populations are near-equal (11,839/12,505/12,332)",
+                    "T3: survivors are disproportionately concentrated in M1->M2 RELATIVE "
+                    "TO EACH LANE'S OWN CLAIM POPULATION (4.00%/1.62%/0.84%)",
+                    "T1: concentrated in M1->M2 relative to each lane's claim population, "
+                    "WHILE THE CROSS-LANE GRADIENT IS WEAKER than in T9/T3 "
+                    "(5.10/2.85/2.48)"],
+                M1_M2_incorrect=["M1->M2 contains more edge"],
+                M1_L3_correct=[
+                    "T3: M1:L3 is a STRONGLY ENRICHED POST-EXPOSURE SURVIVOR "
+                    "CHARACTERISTIC within T3-15m (39/60 = 65% vs ~2.00%, descriptive lift "
+                    "~32x, across 21 components)",
+                    "T9: M1:L3 survivors 59 · distinct overlap components 42 · distinct "
+                    "medoids 42 — RECURRENT ACROSS 42 GRAPH-DISTINCT STRUCTURES"],
+                M1_L3_incorrect=["M1:L3 predicts T3 success"],
+                graph_distinct_caveat="graph-distinct components are NOT statistically "
+                                      "independent structures; recurrence across them is "
+                                      "descriptive, not replication"),
+            binding_consequence="any confirmation of these motifs in this programme is "
+                                "CORROBORATION OF A USED HYPOTHESIS and must be reported "
+                                "as such. Only motifs absent from this list are eligible "
+                                "to be called new."),
+
+        # ── the data contract's own gates ──────────────────────────────────────
+        data_contract_gates=dict(
+            grain="ONE ROW PER (entity_id, timestamp_utc, timeframe). This is the primary "
+                  "key and it is asserted, not assumed.",
+            duplicate_gate=dict(
+                rule="duplicate (entity_id, timestamp_utc, timeframe) rows are a FATAL "
+                     "ingestion error — never de-duplicated silently, never tolerated",
+                precedent="the existing bars store carried 39.6% duplicate rows per "
+                          "universe; shift(-1) therefore compared a bar with ITSELF and "
+                          "every statistical guard still passed"),
+            verify_sample=dict(
+                rule="MANDATORY. Before any aggregate statistic is computed on new data, a "
+                     "sample of raw rows and at least one rendered CHART must be inspected "
+                     "for a known symbol and a known date.",
+                why="the duplicate-row defect was invisible to every numeric guard and "
+                    "obvious on a chart. Aggregate checks answer 'is the distribution "
+                    "plausible', which a corrupted join can satisfy easily."),
+            assert_contract="an executable contract check runs at ingestion and refuses the "
+                            "batch on violation: grain uniqueness, monotone timestamps "
+                            "within (entity, timeframe), session membership, non-negative "
+                            "volume, high >= max(open, close), low <= min(open, close), "
+                            "null vwap only where volume is 0",
+            vintage_law=dict(
+                rule="every stored batch records its VINTAGE — the wall-clock time the "
+                     "vendor was queried — and vintages are never mixed within a study "
+                     "without being reported",
+                why="established by the T5 forward work: store-derived signals are "
+                    "window-vintage-dependent, so two extracts of 'the same' history taken "
+                    "at different times are not interchangeable",
+                restatement="if the vendor restates history, the restatement is stored as "
+                            "a NEW vintage alongside the old one, never in place of it"),
+            immutability="ingested atoms are append-only and are never edited in place; a "
+                         "correction is a new vintage",
+            storage="canonical atoms live on the external research volume behind the mount "
+                    "guard; the guard must PASS before any ingestion writes"),
+
+        must_resolve_before_ingest=[
+            "point-in-time S&P 500 membership source with effective dates (BLOCKING)",
+            "adjusted vs unadjusted regime, and the vendor's restatement behaviour",
+            "timestamp unit and open-vs-close labelling, verified empirically",
+            "confirmation that absent minutes are omitted rather than zero-filled",
+            "opening/closing auction attribution to specific minute bars",
+            "extended-hours presence in minute aggregates",
+            "pagination limit per request and a completeness proof for long ranges",
+            "vw computation basis, and n as transaction count vs trade count",
+            "venue and odd-lot inclusion, and whether volume is comparable with the "
+            "existing DuckDB bars store",
+            "an exchange calendar source covering holidays and early closes"],
+        resolution_method="each item is settled by a SMALL, EXPLICIT probe against a known "
+                          "symbol and date whose correct answer is independently known, and "
+                          "the answer is sealed. None is settled by reading vendor "
+                          "documentation alone.",
+
+        not_yet_frozen=["FEATURE / CLOCK DICTIONARY", "EPISODE DEFINITION",
+                        "OUTCOME / ESTIMAND", "NULL / MULTIPLICITY / INFERENCE", "FREEZE"],
+        not_authorised="this artifact authorises NO download, NO ingestion, NO universe "
+                       "materialisation and NO computation. It freezes semantics only.",
+        related=dict(
+            mount_guard="MOUNT_GUARD_IMPLEMENTATION_V1 (external volume, conformance PASS)",
+            exposed_families=["T9_15M_SURVIVOR_STRUCTURE_V1", "T3_15M_SURVIVOR_STRUCTURE_V1",
+                              "T1_15M_SURVIVOR_STRUCTURE_V1"]),
+        sealed_at=time.strftime("%Y-%m-%d %H:%M %Z"))
+
+
+def main():
+    p = payload()
+    d = ART.seal(p, "MASSIVE_1M_STATE_TRANSITION_V1.json",
+                 required=("programme", "status", "charter", "universe_contract",
+                           "atomic_source", "session_contract", "aggregation_contract",
+                           "hypothesis_provenance", "data_contract_gates"),
+                 supersede=os.path.exists("MASSIVE_1M_STATE_TRANSITION_V1.json"))
+    print(f"MASSIVE_1M_STATE_TRANSITION_V1 · {d} · {p['status']}")
+    print(f"  1m role          : measurement/timing only — 1m-native search FORBIDDEN")
+    print(f"  universe         : point-in-time S&P 500 · "
+          f"{p['universe_contract']['BLOCKING_DEPENDENCY']['status']} PIT source")
+    print(f"  exposed motifs   : {', '.join(p['hypothesis_provenance']['exposed_hypotheses'])}"
+          f" — {p['hypothesis_provenance']['status']}")
+    print(f"  must resolve     : {len(p['must_resolve_before_ingest'])} items before ingest")
+    print(f"  authorises       : nothing to be downloaded or computed")
+
+
+if __name__ == "__main__":
+    main()
