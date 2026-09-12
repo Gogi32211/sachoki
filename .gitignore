@@ -37,3 +37,11 @@ backend/.dsr_family.json
 backend/research_ledger/
 .decodetests/
 backend/.test_look_*
+
+# closed research programmes — local data root and regenerable dumps (2026-09-12)
+# /data is a symlink to the external QUANT_RESEARCH volume; the `data/` rule above
+# does not match a symlink, so it is anchored explicitly here.
+/data
+/.codex/
+/research_out/breakout_system_events.csv
+/research_out/breakout_system_by_ticker.csv
