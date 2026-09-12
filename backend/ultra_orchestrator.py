@@ -428,6 +428,7 @@ def _attach_ultra_score(row: dict) -> None:
             row["ultra_score_v3"]         = v3["ultra_score_v3"]
             row["ultra_score_v3_band"]    = v3["ultra_score_v3_band"]
             row["ultra_score_v3_reasons"] = v3["ultra_score_v3_reasons"]
+            row["ultra_score_v3_core"]    = v3.get("ultra_score_v3_core")   # 🎲 reads this (SCORE_AUDIT_V1)
         except Exception:
             row["ultra_score_v3"] = 0; row["ultra_score_v3_band"] = "D"; row["ultra_score_v3_reasons"] = []
         row["ultra_score_reasons"]            = sc["ultra_score_reasons"]

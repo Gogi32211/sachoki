@@ -5616,9 +5616,11 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
                 _v3 = _cv3(result[-1])
                 result[-1]["ultra_score_v3"]      = _v3.get("ultra_score_v3", 0)
                 result[-1]["ultra_score_v3_band"] = _v3.get("ultra_score_v3_band", "")
+                result[-1]["ultra_score_v3_core"] = _v3.get("ultra_score_v3_core", 0)   # == v3 here (no axes per bar)
             except Exception:
                 result[-1].setdefault("ultra_score_v3", 0)
                 result[-1].setdefault("ultra_score_v3_band", "")
+                result[-1].setdefault("ultra_score_v3_core", 0)
         except Exception:
             result[-1].setdefault("ultra_score", 0.0)
             result[-1].setdefault("ultra_score_band", "")
@@ -7825,6 +7827,7 @@ def _attach_ultra_v3(results: list) -> list:
             r["ultra_score_v3"]         = v3["ultra_score_v3"]
             r["ultra_score_v3_band"]    = v3["ultra_score_v3_band"]
             r["ultra_score_v3_reasons"] = v3["ultra_score_v3_reasons"]
+            r["ultra_score_v3_core"]    = v3.get("ultra_score_v3_core")   # 🎲 reads this (SCORE_AUDIT_V1)
             # 🎲 score-hits rides along: same inputs, and v3 is one of its six components,
             # so it has to be recomputed whenever v3 is.
             r.update(compute_score_hits(r))

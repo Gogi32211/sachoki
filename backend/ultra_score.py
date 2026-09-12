@@ -747,13 +747,19 @@ def compute_ultra_score_v3(row: dict) -> dict:
         elif _truthy(row.get("iv_vspike")):
             bonus += _V3_VOL_EVENT_BONUS; reasons.append("💥vol")
         score = max(0, min(100, int(round(earn + osv + pzv + bonus))))
+        # CORE = earners + oversold + price zone, WITHOUT the injected axes. This is the stored bars
+        # column's formula and the value the 🎲 score-hits zone was derived on (SCORE_AUDIT_V1,
+        # 2026-09-07: with axes the >25 zone fires on 52 % of rows vs 6 % core, and the live hits≥4
+        # tier went −0.11/47 % in 2025-26 while the core tier stayed ≥ 0). Additive field.
+        core = max(0, min(100, int(round(earn + osv + pzv))))
         return {
             "ultra_score_v3":         score,
             "ultra_score_v3_band":    compute_ultra_score_v3_band(score),
             "ultra_score_v3_reasons": reasons[:10],
+            "ultra_score_v3_core":    core,
         }
     except Exception:
-        return {"ultra_score_v3": 0, "ultra_score_v3_band": "D", "ultra_score_v3_reasons": []}
+        return {"ultra_score_v3": 0, "ultra_score_v3_band": "D", "ultra_score_v3_reasons": [], "ultra_score_v3_core": 0}
 
 
 # ── 🎲 SCORE-HITS: how many of our rankers sit in THEIR OWN good zone ────────────────────
@@ -787,13 +793,26 @@ _HIT_ZONES = (
 
 
 def compute_score_hits(row: dict) -> dict:
-    """{score_hits, score_hits_of, score_hits_which} — count of rankers inside their own
-    measured good zone. A FILTER, not a score: hits≥4 was 6/6yr with both bear years
-    positive. Missing fields simply don't count (never raises)."""
+    """{score_hits, score_hits_of, score_hits_which, score_hits_uv3_core} — count of rankers
+    inside their own measured good zone. A FILTER, not a score: hits≥4 was 6/6yr with both bear
+    years positive. Missing fields simply don't count (never raises).
+
+    The UV3 member reads `ultra_score_v3_core` (UV3 without the 🏆RS/🎯cluster/🎋TLS/💥vol axes)
+    when the row carries it — SCORE_AUDIT_V1 (2026-09-07, user: "1"): the zone was derived on
+    the stored (core) column, but the served row carried the axes-inflated score, so the live
+    🎲 counted a UV3 hit on 52 % of rows instead of 6 % and its hits≥4 tier did not hold in
+    2025-26 (−0.11 / 47 %), while the core construction stayed ≥ 0. Rows without the core field
+    (old caches, per-bar history where no axes exist) fall back to `ultra_score_v3`, which is
+    then the core by construction."""
     try:
         hit, which = 0, []
+        used_core = False
         for key, lo, hi in _HIT_ZONES:
             v = row.get(key)
+            if key == "ultra_score_v3":
+                c = row.get("ultra_score_v3_core")
+                if c is not None and c != "":
+                    v = c; used_core = True
             if v is None or v == "":
                 continue
             v = _safe_float(v, default=None)
@@ -801,9 +820,10 @@ def compute_score_hits(row: dict) -> dict:
                 continue
             if lo < v <= hi:
                 hit += 1; which.append(key)
-        return {"score_hits": hit, "score_hits_of": len(_HIT_ZONES), "score_hits_which": which}
+        return {"score_hits": hit, "score_hits_of": len(_HIT_ZONES), "score_hits_which": which,
+                "score_hits_uv3_core": used_core}
     except Exception:
-        return {"score_hits": 0, "score_hits_of": len(_HIT_ZONES), "score_hits_which": []}
+        return {"score_hits": 0, "score_hits_of": len(_HIT_ZONES), "score_hits_which": [], "score_hits_uv3_core": False}
 
 
 def compute_ultra_score_v3_band(score) -> str:

@@ -484,8 +484,11 @@ def _row_to_dict(row: pd.Series) -> dict:
         out["ultra_score_v3"]         = _v3["ultra_score_v3"]
         out["ultra_score_v3_band"]    = _v3["ultra_score_v3_band"]
         out["ultra_score_v3_reasons"] = _v3["ultra_score_v3_reasons"]
+        # UV3 without the axes — what the 🎲 score-hits UV3 member reads (SCORE_AUDIT_V1, 2026-09-07)
+        out["ultra_score_v3_core"]    = _v3.get("ultra_score_v3_core")
     except Exception:
         out["ultra_score_v3"] = None; out["ultra_score_v3_band"] = ""; out["ultra_score_v3_reasons"] = []
+        out["ultra_score_v3_core"] = None
 
     # BUY score (2026-07-03) — the screener's headline Score column: prebreak_v2 backbone
     # (saturated at its HOT threshold) + RSI oversold-position + vol=B, with a two-sided

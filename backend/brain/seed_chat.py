@@ -238,7 +238,9 @@ NEW_GATES = [
      "how many of 6 rankers sit in THEIR OWN measured good zone — NOT 'high is good': ULTRA and BUY are "
      "inverted-U and high prebreak_v2 is the single worst cell in the system. Each component alone is "
      "near-worthless; the AGREEMENT carries. hits 0→5: −1.06/−0.67/+0.00/+1.05/+2.12/+3.79 monotone; "
-     "≥4 = 6/6yr with BOTH bear years positive. Zones picked on 2021-23 and the ladder HELD on 2024-26.",
+     "≥4 = 6/6yr with BOTH bear years positive. Zones picked on 2021-23 and the ladder HELD on 2024-26. "
+     "Since 2026-09-07 (SCORE_AUDIT_V1) the UV3 member reads UV3-CORE (no RS/cluster/TLS/vol axes) — the value "
+     "the zone was derived on; the axes-inflated version fired 9× too often and its ≥4 tier failed 2025-26.",
      "project_score_ensemble"),
 ]
 
