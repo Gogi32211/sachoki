@@ -559,7 +559,8 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 
       {/* Chart */}
       <div style={{ width: CHART_W }}>
-        <CodeCandleChart bare codes={false} ticker={row.ticker} tf={tf} interactive={false} height={CHART_H} />
+        {/* lbal={false}: the hover preview stays a clean candle chart (user, 2026-09-06) */}
+        <CodeCandleChart bare codes={false} lbal={false} lvx={false} ovd={false} vol7={false} ticker={row.ticker} tf={tf} interactive={false} height={CHART_H} />
       </div>
 
       {/* Signal summary */}

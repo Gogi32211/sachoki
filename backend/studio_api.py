@@ -1232,6 +1232,89 @@ def get_ticker_bars(
         conn.close()
 
 
+@router.get("/lbal-marks/{ticker}")
+def lbal_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
+    """L-BAL per-session marks for the chart overlay and the Superchart row (1D sessions only).
+
+    UDN (effort: 15m L34+L3 vs L46) · UDN+ (labelled 15m bars by their own candle) and the five
+    agreement marks ★ divergence · ★★ conflict · ★★★ half-up · ○○○ half-down · XXX double-neutral —
+    the TradingView "260906_LTF_L_COUNT" label, ported from data/lbal_signals.parquet (lbal_build.py).
+    DESCRIPTIVE ONLY — INTRADAY_EFFORT_BALANCE_V1 closed 16/16 NULL; never a ranking input."""
+    from studio import lbal_store as LB
+    sp = LB.spec() or {}
+    if not LB.available():
+        return {"marks": [], "meta": None, "note": "lbal_signals.parquet not built — run backend/lbal_build.py"}
+    marks = LB.by_ticker(ticker, limit)
+    return {"marks": marks,
+            "meta": {"spec_id": sp.get("spec_id"), "as_of": sp.get("as_of"), "built_at": sp.get("built_at"),
+                     "definitions": sp.get("definitions"), "status_of_evidence": sp.get("status_of_evidence")}}
+
+
+@router.get("/lvx-marks/{ticker}")
+def lvx_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
+    """L-VX per-session marks (1D): the daily L34 / L46 graded V · VL · VH · VX — daily volume > SMA20
+    and the label's echo inside the day on 15m and 60m — the "260906_WLNBB_L34_L46_VX_CHART" Pine
+    script ported (data/lvx_signals.parquet, lbal_build.py). DESCRIPTIVE ONLY; never a ranking input."""
+    from studio import lvx_store as LX
+    from studio import lbal_store as LB
+    sp = LB.spec() or {}
+    if not LX.available():
+        return {"marks": [], "meta": None, "note": "lvx_signals.parquet not built — run backend/lbal_build.py"}
+    return {"marks": LX.by_ticker(ticker, limit),
+            "meta": {"as_of": sp.get("as_of"), "built_at": sp.get("built_at"), "definitions": sp.get("lvx")}}
+
+
+@router.get("/ovdmap-marks/{ticker}")
+def ovdmap_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
+    """OVD daily-map tokens (1D): OB/RC/CD/HO ·30/·60 + NM? — the "260904_OVD_4_VOLUME_LOGICS_DAILY_MAP"
+    Pine script ported for display (data/ovdmap_signals.parquet, ovd_map_build.py). DESCRIPTIVE ONLY —
+    the sealed OVD research family closed 0 BUILD / 0 VETO; never a ranking input."""
+    from studio import ovdmap_store as OV
+    from studio import lbal_store as LB
+    sp = LB.spec() or {}
+    if not OV.available():
+        return {"marks": [], "meta": None, "note": "ovdmap_signals.parquet not built — run backend/lbal_build.py"}
+    return {"marks": OV.by_ticker(ticker, limit),
+            "meta": {"as_of": sp.get("as_of"), "built_at": sp.get("built_at"), "definitions": sp.get("ovdmap")}}
+
+
+@router.get("/vol7-marks/{ticker}")
+def vol7_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
+    """VOL7 per-bar states (1D): MR level M0..M6, σ level, consensus (= / MR+ / Σ+), level jump (▲+2 ▼−2
+    ◆+3 ◆−3), VB2, SHIFT↑/↓ — the "260829 • 7-Level Volume MR + Sigma" Pine script ported for display
+    (data/vol7_signals.parquet, vol7_build.py). DESCRIPTIVE ONLY; never a ranking input."""
+    from studio import vol7_store as V7
+    from studio import lbal_store as LB
+    sp = LB.spec() or {}
+    if not V7.available():
+        return {"marks": [], "meta": None, "note": "vol7_signals.parquet not built — run backend/lbal_build.py"}
+    return {"marks": V7.by_ticker(ticker, limit),
+            "meta": {"as_of": sp.get("as_of"), "built_at": sp.get("built_at"), "definitions": sp.get("vol7")}}
+
+
+@router.get("/shapectx-marks/{ticker}")
+def shapectx_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
+    """SHAPE × CONTEXT per-bar readings (1D): the seven body-nest shapes under the Pine display
+    priority (MTH > CL4 > MID > EXP > CON > LST > WRP) with the ↑↓ arrow on the swallow shapes, the
+    EFFORT grade 0-2, the 📍FLOOR / 🧱KEY / 🏆RS legs, the ⛔KNIFE veto and the two cluster axes
+    🎯 diversity / 🔁 density — the "260910_SHAPE_CTX" Pine script ported for display
+    (data/shapectx_signals.parquet, shape_ctx_build.py).
+
+    DESCRIPTIVE ONLY. Four sealed families (MOTHER_V1, SHAPE_CLUSTER_V1, SHAPE_GATE_V1,
+    SWALLOW_DIR_V1), k = 21, 0 BUILD — clustering measured MONOTONICALLY WORSE, not better. The one
+    cell with two-window evidence is `shape_lstup_veto` (LST↑ = a green bar swallowing both prior
+    bodies: −0.63 MINE / −0.47 VERIFY, 0/4 positive years, DSR_neg 0.998), and it is a VETO.
+    Never a ranking or score input."""
+    from studio import shapectx_store as SC
+    sp = SC.spec() or {}
+    if not SC.available():
+        return {"marks": [], "meta": None,
+                "note": "shapectx_signals.parquet not built — run backend/shape_ctx_build.py"}
+    return {"marks": SC.by_ticker(ticker, limit),
+            "meta": {"spec_id": sp.get("spec_id"), "built_at": sp.get("built_at"),
+                     "status": sp.get("status"), "params": sp.get("params")}}
+
+
 @router.get("/capit-atom-marks/{ticker}")
 def capit_atom_marks(ticker: str, universe: str = Query(None)):
     """Return all historical Capit + Atom signal dates for a ticker from the Studio DB.

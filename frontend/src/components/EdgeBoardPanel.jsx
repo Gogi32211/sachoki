@@ -324,7 +324,33 @@ function FilteredEdgeTable({ rows, accent = {}, ...rest }) {
   )
 }
 
+// ── 2026-09-03 research audit → hover text on every EDGE chip (additive; labels/keys untouched).
+// Numbers only, never the audit's class word: its EVENT rule was too loose (40/52) and is not
+// trusted. What IS shown: day-clustered edge at 5 and 60 bars, entry-DAY count, top-2-day share.
+function auditHint(rec, asOf) {
+  if (!rec) return undefined
+  const h5 = rec.h5 || {}, h60 = rec.h60 || {}
+  const f = (v, d = 2) => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(d))
+  const thin = (h60.n_days ?? 0) < 80
+  return [
+    `${rec.audited_as || ''} · day-clustered (one obs per entry-day, minus same-day control)`,
+    `5-bar : day-edge ${f(h5.day_med)} · day-win ${f(h5.day_win, 0)}%`,
+    `60-bar: day-edge ${f(h60.day_med)} · day-win ${f(h60.day_win, 0)}% · ${h60.n_days ?? '—'} days${thin ? ' · THIN (<80 days)' : ''}`,
+    `top-2 days carry ${f(h60.top2_share, 0)}% of positive edge`,
+    `trade-level (what the label was built on): med ${f(h60.trade_med)} · win ${f(h60.trade_win, 0)}% · ${h60.pos_years ?? '?'}/${h60.total_years ?? '?'} yrs`,
+    `audit ${asOf || ''} · only 🔄DR 🥇G3 🥇G3A show a short-horizon event; the rest accrue with holding time`,
+  ].join('\n')
+}
+
 export default function EdgeBoardPanel({ onSelectTicker }) {
+  const [audit, setAudit] = useState(null)   // /api/edge-audit → {rows, by_col, as_of}
+  useEffect(() => {
+    let dead = false
+    fetch('/api/edge-audit').then(r => r.json())
+      .then(d => { if (!dead && d?.rows) setAudit(d) })
+      .catch(() => {})
+    return () => { dead = true }
+  }, [])
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
@@ -762,7 +788,8 @@ export default function EdgeBoardPanel({ onSelectTicker }) {
               <td className="px-3 py-1.5">
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(c.edges).sort((a, b) => (b[1] || '').localeCompare(a[1] || '')).map(([e, d], i) =>
-                    <span key={i} className="text-[9px] font-mono px-1 rounded border border-yellow-500/40 bg-yellow-500/10 text-yellow-100/90">{e}<span className="text-yellow-200/50"> {String(d).slice(5)}</span></span>)}
+                    <span key={i} title={auditHint(audit?.rows?.[e] || audit?.by_col?.[e], audit?.as_of)}
+                          className="text-[9px] font-mono px-1 rounded border border-yellow-500/40 bg-yellow-500/10 text-yellow-100/90">{e}<span className="text-yellow-200/50"> {String(d).slice(5)}</span></span>)}
                 </div>
               </td>
               <td className="text-center px-2 py-1.5 font-mono text-[10px] text-md-on-surface-var/70">{c.span === 0 ? 'same' : c.span + 'd'}</td>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { zoneColor as zColor } from '../utils/zoneColors'
 import { createChart } from 'lightweight-charts'
 import { api } from '../api'
+import { lbalPick } from '../lbalMode'
 
 // Volume-bucket colours (shared palette)
 const BUCKET_HEX = { W: '#c3c0d3', L: '#0099ff', N: '#ffd000', B: '#e48100', VB: '#b02020' }
@@ -11,6 +12,81 @@ const BAR_OPTIONS = [120, 200, 300, 500, 1000, 2000, 5000]
 const PT_FAMILIES = ['T5', 'T9', 'T3', 'T1']
 
 const fmtDate = (d) => String(d ?? '').slice(0, 10)
+
+// L-BAL overlay line — the TradingView "260906_LTF_L_COUNT" label, ported. Per 1D session:
+// UDN (effort · 15m L34+L3 vs L46) · UDN+ (labelled 15m bars by their own candle) as two dim
+// letters, then the agreement marks in the script's own colours: ★ divergence (yellow),
+// ★★ conflict (orange), ★★★ half-up / ○○○ half-down (sky), XXX double-neutral (grey).
+// Descriptive only — INTRADAY_EFFORT_BALANCE_V1 closed 16/16 NULL; never a ranking input.
+const LBAL_COLOR = { '★': '#ffd600', '★★': '#ff6d00', '★★★': '#00b0ff', '○○○': '#00b0ff', 'XXX': '#9ca3af' }
+// Printed only on sessions that carry a mark: a bar whose two lines agree with its candle gets
+// nothing, exactly as the Pine label adds these lines only when a state fires. The two letters
+// are ALWAYS printed with the marks ("D·D+ ★", "U·D+ ★★") — the TradingView label shows both
+// lines on every bar, and the user asked for that reading back (2026-09-06, after briefly
+// hiding repeated letters).
+//
+// BOTH counting modes are printed, V first then all (user, 2026-09-10). They are not two views of
+// one number: measured over 3,652,833 sessions the marks differ on 55.0 % and the UDN letters
+// invert outright on 13.0 %. A switch showing one of them hid a contradictory reading on most
+// bars, so the line carries both and labels which is which.
+const lbalOne = (h, mode) => {
+  const udn = lbalPick(h, 'udn', mode), udnC = lbalPick(h, 'udn_c', mode), mk = lbalPick(h, 'marks', mode)
+  if (!udn) return ''
+  const marks = String(mk || '').split(' ').filter(Boolean)
+    .map(m => `<span style="color:${LBAL_COLOR[m] || '#fff'};font-weight:700;">${m}</span>`).join(' ')
+  return `<span style="opacity:.55;">${mode === 'V' ? 'V' : 'a'}</span> `
+       + `<span style="opacity:.7;">${udn}·${udnC}+</span>${marks ? ' ' + marks : ''}`
+}
+const lbalLineHtml = (h) => {
+  const v = lbalOne(h, 'V'), a = lbalOne(h, 'ALL')
+  if (!v && !a) return ''
+  return [v, a].filter(Boolean).join('<span style="opacity:.3;"> │ </span>')
+}
+
+// L-VX overlay line — the "260906_WLNBB_L34_L46_VX_CHART" Pine script, ported: the daily L34 / L46
+// graded V (volume > SMA20) · VL / VH (a lower TF echoes the plain / V label) · VX (15m AND 60m
+// both echo). Printed from tier V upward in the script's own colour ladder; the plain daily
+// L34 / L46 already sits in the code line. Descriptive only — never a ranking input.
+const LVX_COLOR = {
+  L34V: '#00e676', L34VL: '#00c853', L34VH: '#00ff9c', L34VX: '#64dd17',
+  L46V: '#ff1744', L46VL: '#d50000', L46VH: '#ff6d00', L46VX: '#ff3d00',
+}
+const lvxLineHtml = (h) => {
+  if (!h?.lvx_label || !(h.lvx_tier >= 1)) return ''
+  return `<span style="color:${LVX_COLOR[h.lvx_label] || '#fff'};font-weight:700;">${h.lvx_label}</span>`
+}
+
+// OVD daily-map overlay line — the "260904_OVD_4_VOLUME_LOGICS_DAILY_MAP" Pine script ported for
+// display: OB opening build · RC prior-HV reclaim · CD close dominance · HO close→open handoff
+// (·30 / ·60 windows) · NM? near-miss proxy, in the script's marker colours. Descriptive only —
+// the sealed OVD research family closed 0 BUILD / 0 VETO.
+const OVD_COLOR = {
+  'OB·30': '#00e5ff', 'OB·60': '#2962ff', 'RC·30': '#c6ff00', 'RC·60': '#00c853',
+  'CD·30': '#ff9800', 'CD·60': '#ff1744', 'HO·30': '#e040fb', 'HO·60': '#7c4dff', 'NM?': '#ffea00',
+}
+const ovdLineHtml = (h) => {
+  if (!h?.ovdmap_tokens) return ''
+  return String(h.ovdmap_tokens).split(' ').filter(Boolean)
+    .map(t => `<span style="color:${OVD_COLOR[t] || '#fff'};font-weight:700;">${t}</span>`).join(' ')
+}
+
+// VOL7 overlay line — the "260829 • 7-Level Volume MR + Sigma" Pine script ported for display:
+// "M4·σ5" = median-ratio level (primary) · sigma level (comparison), then the marks in the script's
+// marker colours (Σ+/MR+ divergence, ▲+2 ▼−2 skips, ◆+3 ◆−3 big jumps, VB2, SHIFT↑/↓). Printed when a
+// mark fires or the MR level is M5/M6 (the script's B/VB — NOT the app's WLNBB bucket). Descriptive only.
+const VOL7_MARK_COLOR = {
+  'M0': '#9e9e9e', 'MR+': '#00e5ff', 'Σ+': '#ff9100', '▲+2': '#c6ff00', '▼−2': '#ff5252', '◆+3': '#76ff03', '◆−3': '#ff1744',
+  'VB2': '#ce93d8', 'SHIFT↑': '#76ff03', 'SHIFT↓': '#ff1744',
+}
+const VOL7_LEVEL_COLOR = ['#9e9e9e', '#5c6bc0', '#26c6da', '#66bb6a', '#ffee58', '#ff9800', '#ff1744']
+const vol7LineHtml = (h) => {
+  if (!h?.vol7_label) return ''
+  const marks = String(h.vol7_marks || '').split(' ').filter(Boolean)
+  if (!marks.length && !(h.vol7_mr >= 5)) return ''
+  const lvl = `<span style="color:${VOL7_LEVEL_COLOR[h.vol7_mr] || '#fff'};font-weight:${h.vol7_mr >= 5 ? 700 : 400};opacity:${h.vol7_mr >= 5 ? 1 : .75};">${h.vol7_label}</span>`
+  const mk = marks.map(m => `<span style="color:${VOL7_MARK_COLOR[m] || '#fff'};font-weight:700;">${m}</span>`).join(' ')
+  return mk ? `${lvl} ${mk}` : lvl
+}
 const isIntradayTf = (tf) => ['30m', '15m', '1h', '4h'].includes(tf)
 const isDbTf       = (tf) => tf === '1d' || tf === '1w'
 
@@ -66,6 +142,12 @@ export default function CodeCandleChart({
   interactive = true,
   bare = false,
   codes = false,         // initial state of the code overlay — OFF by default; toggle on when needed
+  // The four display-layer lines start OFF everywhere (user, 2026-09-07: "superchartis chatvirtvisas
+  // eseni gatishuli iyos yvela defoltad"); each has its own toolbar checkbox. Hover previews pass false explicitly.
+  lbal = false,          // ★ L-BAL line (UDN·UDN+ + marks)
+  lvx = false,           // L-VX line (L34/L46 V·VL·VH·VX)
+  ovd = false,           // OVD daily-map line (OB/RC/CD/HO ·30/·60 · NM?)
+  vol7 = false,          // VOL7 line (M·σ levels, jumps, VB2, SHIFT)
   onChartReady,
   zoneMarkers,           // [{date, rel}] — external markers to draw on bars (for HV-Zones panel)
   tradeMarkers,          // {signal_date, open_date, close_date, entry, exit} — focused journal trade
@@ -85,6 +167,18 @@ export default function CodeCandleChart({
   // default: only bars where something is NOT normal. Every bar carries physics, so drawing
   // all of them would paper the chart with RN·C1·H1·M1·E1·K0 and hide the ones that matter.
   const showPhysRef = useRef(false)
+  // ★ L-BAL line (UDN·UDN+ + agreement marks) — on by default, 1d DB charts only. The map is
+  // keyed by date and tagged with its ticker so a slow fetch can never paint the previous
+  // ticker's marks onto the rows of the next one.
+  const showLbalRef = useRef(lbal)
+  const lbalRef = useRef({ ticker: null, map: {} })
+  const showLvxRef = useRef(lvx)
+  const lvxRef = useRef({ ticker: null, map: {} })
+  const showOvdRef = useRef(ovd)
+  const ovdRef = useRef({ ticker: null, map: {} })
+  const showVol7Ref = useRef(vol7)
+  const vol7Ref = useRef({ ticker: null, map: {} })
+  const tickerRef = useRef(null)
   const rowsRef = useRef([])
   const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
   const tradeLinesRef = useRef([])          // active priceLines for journal entry/exit overlay
@@ -229,6 +323,14 @@ export default function CodeCandleChart({
   const [limit, setLimit]     = useState(initialLimit)
   const [showCodes, setShowCodes] = useState(codes)
   const [showPhys, setShowPhys] = useState(false)
+  const [showLbal, setShowLbal] = useState(lbal)    // ★ L-BAL line (UDN·UDN+ + marks), 1d only
+  const [lbalN, setLbalN] = useState(null)          // sessions with an L-BAL state on this chart
+  const [showLvx, setShowLvx] = useState(lvx)       // L-VX line (L34/L46 V·VL·VH·VX), 1d only
+  const [lvxN, setLvxN] = useState(null)            // graded (tier ≥ V) sessions on this chart
+  const [showOvd, setShowOvd] = useState(ovd)       // OVD daily-map line, 1d only
+  const [ovdN, setOvdN] = useState(null)            // token days on this chart
+  const [showVol7, setShowVol7] = useState(vol7)    // VOL7 line, 1d only
+  const [vol7N, setVol7N] = useState(null)          // printed VOL7 bars on this chart
   const [physMode, setPhysMode] = useState('rare')   // rare | ra | all
   const [error, setError]     = useState(null)
   const [loading, setLoading] = useState(false)
@@ -312,7 +414,7 @@ export default function CodeCandleChart({
     const ov = overlayRef.current, chart = chartRef.current, series = seriesRef.current
     if (!ov || !chart || !series) return
     ov.innerHTML = ''
-    if (!showCodesRef.current && !showPhysRef.current) return
+    if (!showCodesRef.current && !showPhysRef.current && !showLbalRef.current && !showLvxRef.current && !showOvdRef.current && !showVol7Ref.current) return
     const ts = chart.timeScale()
     for (const s of signalsRef.current) {
       const x = ts.timeToCoordinate(s.time)
@@ -337,11 +439,43 @@ export default function CodeCandleChart({
         : ''
       const physHtml = (showPhysRef.current && s.phys)
         ? `<div style="color:${s.physColor};letter-spacing:-.2px;">${s.phys}</div>` : ''
-      if (!codeHtml && !physHtml) continue
-      el.innerHTML = codeHtml + physHtml
+      const lbalHtml = (showLbalRef.current && s.lbal)
+        ? `<div style="letter-spacing:-.2px;">${s.lbal}</div>` : ''
+      const lvxHtml = (showLvxRef.current && s.lvx)
+        ? `<div style="letter-spacing:-.2px;">${s.lvx}</div>` : ''
+      const ovdHtml = (showOvdRef.current && s.ovd)
+        ? `<div style="letter-spacing:-.2px;">${s.ovd}</div>` : ''
+      const vol7Html = (showVol7Ref.current && s.vol7)
+        ? `<div style="letter-spacing:-.2px;">${s.vol7}</div>` : ''
+      if (!codeHtml && !physHtml && !lbalHtml && !lvxHtml && !ovdHtml && !vol7Html) continue
+      el.innerHTML = codeHtml + physHtml + lbalHtml + lvxHtml + ovdHtml + vol7Html
       ov.appendChild(el)
     }
   }, [])
+
+  // Merge the L-BAL, L-VX and OVD maps into the overlay objects. A bar that carries no code line
+  // still gets an overlay object when it has a state, so the lines print on every session the way
+  // the TradingView labels do. Safe to call before any fetch has returned.
+  const applyLbal = useCallback(() => {
+    const pick = (ref) => (ref.current.ticker && ref.current.ticker === tickerRef.current) ? ref.current.map : {}
+    const m = pick(lbalRef), mx = pick(lvxRef), mo = pick(ovdRef), mv = pick(vol7Ref)
+    const rows = rowsRef.current || []
+    if (rows.length) {
+      const have = new Map(signalsRef.current.map(s => [s.time, s]))
+      for (const r of rows) {
+        const time = fmtDate(r.date)
+        const hit = m[time], hx = mx[time], ho = mo[time], hv = mv[time]
+        const lb = hit ? lbalLineHtml(hit) : '', lx = hx ? lvxLineHtml(hx) : '', lo = ho ? ovdLineHtml(ho) : '', lv = hv ? vol7LineHtml(hv) : ''
+        const s = have.get(time)
+        if (s) { s.lbal = lb; s.lvx = lx; s.ovd = lo; s.vol7 = lv; continue }
+        if (!lb && !lx && !lo && !lv) continue
+        const ns = { time, low: +r.low, high: +r.high, isBull: +r.close >= +r.open, neutral: true,
+                     lines: [], vol: '', phys: '', physColor: '', lbal: lb, lvx: lx, ovd: lo, vol7: lv }
+        signalsRef.current.push(ns); have.set(time, ns)
+      }
+    }
+    renderOverlay()
+  }, [renderOverlay])
 
   // optional sector chip + company full name (one call, backend-cached)
   useEffect(() => {
@@ -498,6 +632,7 @@ export default function CodeCandleChart({
       if (hvZones?.length) applyZoneColors(hvZones)
       chartRef.current.priceScale('right').applyOptions({ autoScale: true })
       fitContentPadded(chartRef.current)
+      applyLbal()                        // ★ L-BAL line, if its map already arrived for this ticker
       requestAnimationFrame(() => { try { fitContentPadded(chartRef.current); renderOverlay() } catch {} })
       setMeta({ n: asc.length, src: 'db', dmin: fmtDate(asc[0].date), dmax: fmtDate(asc[asc.length - 1].date) })
 
@@ -525,11 +660,93 @@ export default function CodeCandleChart({
      .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
-  }, [ticker, tf, limit, useDb, intraday, renderOverlay])
+  }, [ticker, tf, limit, useDb, intraday, renderOverlay, applyLbal])
 
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
   useEffect(() => { showPhysRef.current = showPhys; renderOverlay() }, [showPhys, renderOverlay])
+  useEffect(() => { showLbalRef.current = showLbal; renderOverlay() }, [showLbal, renderOverlay])
+  // shared V / all counting mode — both sets are already on every row, so a switch is a re-merge
+  // The ★ L-bal line prints BOTH counting modes, so it no longer depends on the shared switch and
+  // does not need to re-apply when one is chosen elsewhere.
+  useEffect(() => { applyLbal() }, [applyLbal])
+  useEffect(() => { showLvxRef.current = showLvx; renderOverlay() }, [showLvx, renderOverlay])
+  useEffect(() => { showOvdRef.current = showOvd; renderOverlay() }, [showOvd, renderOverlay])
+  useEffect(() => { showVol7Ref.current = showVol7; renderOverlay() }, [showVol7, renderOverlay])
+
+  // VOL7 fetch — same shape and the same stale-ticker guard as the other three
+  useEffect(() => {
+    vol7Ref.current = { ticker: null, map: {} }
+    if (!showVol7 || !ticker || tf !== '1d' || !useDb) { setVol7N(null); applyLbal(); return }
+    let dead = false
+    api.vol7Marks(ticker, limit + 20)
+      .then(d => {
+        if (dead) return
+        const m = {}
+        for (const r of (d?.marks || [])) if (r?.date && r.vol7_label) m[fmtDate(r.date)] = r
+        vol7Ref.current = { ticker, map: m }
+        setVol7N(Object.values(m).filter(r => r.vol7_marks || r.vol7_mr >= 5).length)
+        applyLbal()
+      })
+      .catch(() => { if (!dead) { vol7Ref.current = { ticker, map: {} }; setVol7N(0); applyLbal() } })
+    return () => { dead = true }
+  }, [ticker, tf, limit, useDb, showVol7, applyLbal])
+
+  // OVD daily-map fetch — same shape and the same stale-ticker guard as the other two
+  useEffect(() => {
+    ovdRef.current = { ticker: null, map: {} }
+    if (!showOvd || !ticker || tf !== '1d' || !useDb) { setOvdN(null); applyLbal(); return }
+    let dead = false
+    api.ovdmapMarks(ticker, limit + 20)
+      .then(d => {
+        if (dead) return
+        const m = {}
+        for (const r of (d?.marks || [])) if (r?.date && r.ovdmap_tokens) m[fmtDate(r.date)] = r
+        ovdRef.current = { ticker, map: m }
+        setOvdN(Object.keys(m).length)
+        applyLbal()
+      })
+      .catch(() => { if (!dead) { ovdRef.current = { ticker, map: {} }; setOvdN(0); applyLbal() } })
+    return () => { dead = true }
+  }, [ticker, tf, limit, useDb, showOvd, applyLbal])
+
+  // L-VX fetch — same shape and the same stale-ticker guard as the L-BAL fetch below
+  useEffect(() => {
+    lvxRef.current = { ticker: null, map: {} }
+    if (!showLvx || !ticker || tf !== '1d' || !useDb) { setLvxN(null); applyLbal(); return }
+    let dead = false
+    api.lvxMarks(ticker, limit + 20)
+      .then(d => {
+        if (dead) return
+        const m = {}
+        for (const r of (d?.marks || [])) if (r?.date && r.lvx_label) m[fmtDate(r.date)] = r
+        lvxRef.current = { ticker, map: m }
+        setLvxN(Object.values(m).filter(r => r.lvx_tier >= 1).length)
+        applyLbal()
+      })
+      .catch(() => { if (!dead) { lvxRef.current = { ticker, map: {} }; setLvxN(0); applyLbal() } })
+    return () => { dead = true }
+  }, [ticker, tf, limit, useDb, showLvx, applyLbal])
+
+  // ★ L-BAL fetch — 1d DB charts only. The map is cleared synchronously first, so a chart that
+  // re-renders before the response arrives shows no marks rather than the previous ticker's.
+  tickerRef.current = ticker
+  useEffect(() => {
+    lbalRef.current = { ticker: null, map: {} }
+    if (!showLbal || !ticker || tf !== '1d' || !useDb) { setLbalN(null); applyLbal(); return }
+    let dead = false
+    api.lbalMarks(ticker, limit + 20)
+      .then(d => {
+        if (dead) return
+        const m = {}
+        for (const r of (d?.marks || [])) if (r?.date && (r.lbal_udn || r.lbal_all_udn)) m[fmtDate(r.date)] = r
+        lbalRef.current = { ticker, map: m }
+        setLbalN(Object.keys(m).length)
+        applyLbal()
+      })
+      .catch(() => { if (!dead) { lbalRef.current = { ticker, map: {} }; setLbalN(0); applyLbal() } })
+    return () => { dead = true }
+  }, [ticker, tf, limit, useDb, showLbal, applyLbal])
   // physAll changes what mkSig BUILDS, not just what renderOverlay draws, so the strips are
   // rebuilt from the rows already held rather than refetched.
   useEffect(() => {
@@ -1376,6 +1593,53 @@ export default function CodeCandleChart({
                   <option value="ra">+RA · 38%</option>
                   <option value="all">all</option>
                 </select>
+              )}
+              {tf === '1d' && useDb && (
+                <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
+                  title={'★ L-BAL — the TradingView 260906_LTF_L_COUNT label, ported. One line per session, from its 15m bars. '
+                       + 'The V / all chip is the counting mode (V = only bars with volume > SMA20, as on the TradingView chart; all = every labelled bar):\n'
+                       + 'UDN = effort (15m L34+L3 vs L46) · UDN+ = labelled 15m bars by their own candle → letters shown only when the two lines differ ("U·D+").\n'
+                       + 'Then the agreement marks: ★ divergence (UDN opposes the daily candle) · ★★ conflict (D & U+ / U & D+) · '
+                       + '★★★ half-up (U & N+ / N & U+) · ○○○ half-down (D & N+ / N & D+) · XXX double-neutral.\n\n'
+                       + 'DESCRIPTIVE ONLY — research family INTRADAY_EFFORT_BALANCE_V1 closed 16/16 NULL: the effort direction adds '
+                       + 'nothing measurable to the candle. Never a ranking input.'}>
+                  <input type="checkbox" checked={showLbal} onChange={e => setShowLbal(e.target.checked)} />
+                  <span>★ L-bal{showLbal && lbalN != null ? ` ${lbalN}` : ''}</span>
+                </label>
+              )}
+              {tf === '1d' && useDb && (
+                <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
+                  title={'L-VX — the TradingView 260906_WLNBB_L34_L46_VX_CHART script, ported. The daily L34 / L46 graded:\n'
+                       + 'V = daily volume > SMA20 · VL = a lower TF (15m or 60m) has a plain L34/L46 bar inside the day · '
+                       + 'VH = a lower TF has an L34V/L46V bar inside · VX = BOTH 15m and 60m echo (script default "Any confirmation on both TFs").\n'
+                       + 'Printed from V upward in the script\'s colour ladder; the plain daily label is already in the code line.\n\n'
+                       + 'DESCRIPTIVE ONLY — never a ranking input.'}>
+                  <input type="checkbox" checked={showLvx} onChange={e => setShowLvx(e.target.checked)} />
+                  <span>L-VX{showLvx && lvxN != null ? ` ${lvxN}` : ''}</span>
+                </label>
+              )}
+              {tf === '1d' && useDb && (
+                <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
+                  title={'OVD — the TradingView 260904_OVD_4_VOLUME_LOGICS_DAILY_MAP script ported for display. Same-slot 15m RVOL '
+                       + '(median of the last 20 full sessions):\n'
+                       + 'OB·30/60 opening build (RVOL rising 3 sessions) · RC·30/60 prior-HV reclaim (≥ the nearest HV-decline event 6..30 sessions back) · '
+                       + 'CD·30/60 close dominance (5-day decline, heavy last 30/60m ≥ first 30/60m) · HO·30/60 handoff (yesterday\'s heavy close carried into today\'s open, 0.80..1.25×) · '
+                       + 'NM? near-miss proxy.\n\nDESCRIPTIVE ONLY — the sealed OVD research family closed 0 BUILD / 0 VETO. Never a ranking input.'}>
+                  <input type="checkbox" checked={showOvd} onChange={e => setShowOvd(e.target.checked)} />
+                  <span>OVD{showOvd && ovdN != null ? ` ${ovdN}` : ''}</span>
+                </label>
+              )}
+              {tf === '1d' && useDb && (
+                <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
+                  title={'VOL7 — the TradingView "260829 • 7-Level Volume MR + Sigma" script ported for display (daily bars only).\n'
+                       + 'M0..M6 = volume / 20-day MEDIAN (<0.4 · 0.7 · 1 · 1.5 · 2.5 · 5×; M5 = script B, M6 = script VB — NOT the app\'s WLNBB B/VB). '
+                       + 'σ0..σ6 = the BB(volume,20,1) sigma model, shown as "M4·σ5". Σ+ / MR+ = the two models differ by ≥ 2 levels.\n'
+                       + '▲+2 ▼−2 = level skip vs yesterday · ◆+3 ◆−3 = big jump · VB2 = new extreme-volume event ≥ 6 bars after the previous · '
+                       + 'SHIFT↑/↓ = VB2 after a ≥3% 10-day move, then a close beyond the VB range within 5 bars.\n'
+                       + 'Printed when a mark fires or the level is M5/M6.\n\nDESCRIPTIVE ONLY — never a ranking input; SHIFT is an unstudied setup marker.'}>
+                  <input type="checkbox" checked={showVol7} onChange={e => setShowVol7(e.target.checked)} />
+                  <span>VOL7{showVol7 && vol7N != null ? ` ${vol7N}` : ''}</span>
+                </label>
               )}
             </>)}
             {/* Recent-N limiter — draw only the last N occurrences of EACH signal */}

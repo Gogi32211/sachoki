@@ -84,9 +84,62 @@ export function getSignalFamily(raw) {
 }
 
 // Class mapping — must match SuperchartPanel exactly for T/Z/L/F/FLY/G/B/I/WICK/SETUP/GOG/CTX.
+// ★ L-BAL agreement marks (descriptive; TradingView label colours): ★ yellow · ★★ orange ·
+// ★★★ / ○○○ sky · XXX grey. Matched before any family lookup — the symbols are not signal names.
+const LBAL_MARK_CLS = {
+  '★':   'bg-yellow-900/70 text-yellow-200 font-bold',
+  '★★':  'bg-orange-900/70 text-orange-200 font-bold',
+  '★★★': 'bg-sky-900/70 text-sky-200 font-bold',
+  '○○○': 'bg-sky-900/70 text-sky-200 font-bold',
+  'XXX': 'bg-gray-800 text-gray-300',
+}
+
+// L-VX tiers (descriptive; the Pine script's colour ladder): L34 family greens, L46 family reds.
+const LVX_CLS = {
+  L34V:  'bg-green-900/70 text-green-300 font-semibold',
+  L34VL: 'bg-green-900/70 text-green-300 font-semibold',
+  L34VH: 'bg-green-800/80 text-green-200 font-bold',
+  L34VX: 'bg-lime-800/80 text-lime-200 font-bold ring-1 ring-lime-400',
+  L46V:  'bg-red-900/70 text-red-300 font-semibold',
+  L46VL: 'bg-red-900/70 text-red-300 font-semibold',
+  L46VH: 'bg-orange-900/80 text-orange-200 font-bold',
+  L46VX: 'bg-orange-800/80 text-orange-100 font-bold ring-1 ring-orange-400',
+}
+
+// OVD daily-map tokens (descriptive; the Pine marker colours): OB aqua/blue · RC lime/green ·
+// CD orange/red · HO fuchsia/purple · NM? yellow.
+const OVD_CLS = {
+  'OB·30': 'bg-cyan-900/70 text-cyan-200 font-semibold',   'OB·60': 'bg-blue-900/70 text-blue-200 font-bold',
+  'RC·30': 'bg-lime-900/70 text-lime-200 font-semibold',   'RC·60': 'bg-green-900/70 text-green-200 font-bold',
+  'CD·30': 'bg-orange-900/70 text-orange-200 font-semibold', 'CD·60': 'bg-red-900/70 text-red-200 font-bold',
+  'HO·30': 'bg-fuchsia-900/70 text-fuchsia-200 font-semibold', 'HO·60': 'bg-violet-900/70 text-violet-200 font-bold',
+  'NM?':   'bg-yellow-900/70 text-yellow-200 font-semibold',
+}
+
+// VOL7 marks (descriptive; the Pine marker colours) and the M5/M6 level pairs ("M5·σ4", "M6·σ6").
+const VOL7_CLS = {
+  'M0':     'bg-gray-800 text-gray-400',
+  'MR+':    'bg-cyan-900/70 text-cyan-200 font-semibold',
+  'Σ+':     'bg-orange-900/70 text-orange-200 font-semibold',
+  '▲+2':    'bg-lime-900/70 text-lime-300',
+  '▼−2':    'bg-red-900/70 text-red-300',
+  '◆+3':    'bg-lime-800/80 text-lime-200 font-bold',
+  '◆−3':    'bg-red-800/80 text-red-200 font-bold',
+  'VB2':    'bg-purple-900/70 text-purple-200 font-bold',
+  'SHIFT↑': 'bg-lime-800/80 text-lime-100 font-bold ring-1 ring-lime-400',
+  'SHIFT↓': 'bg-red-800/80 text-red-100 font-bold ring-1 ring-red-400',
+}
+const VOL7_LEVEL_RE = /^M([0-6])·σ[0-6]$/
+
 export function getSignalBadgeClass(raw) {
   const s = normalizeSignal(raw)
   if (!s) return NEUTRAL_CLS
+  if (LBAL_MARK_CLS[s]) return LBAL_MARK_CLS[s]
+  if (LVX_CLS[s]) return LVX_CLS[s]
+  if (OVD_CLS[s]) return OVD_CLS[s]
+  if (VOL7_CLS[s]) return VOL7_CLS[s]
+  const lv = VOL7_LEVEL_RE.exec(s)
+  if (lv) return lv[1] === '6' ? 'bg-red-900/70 text-red-200 font-bold' : lv[1] === '5' ? 'bg-orange-900/70 text-orange-200 font-bold' : NEUTRAL_CLS
   const u = s.toUpperCase()
   const fam = getSignalFamily(s)
 

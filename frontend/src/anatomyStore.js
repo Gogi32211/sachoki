@@ -19,6 +19,10 @@ export function requestAnatomy() {
 
 export function getAnatomy(ticker) { return map ? (map[ticker] || null) : null }
 
+// Has the map arrived? A FILTER must not empty the grid while the fetch is still in flight —
+// callers no-op until this is true, then re-run on the subscribeAnatomy tick (2026-09-09).
+export function anatomyReady() { return map !== null }
+
 export function subscribeAnatomy(fn) { subs.add(fn); return () => subs.delete(fn) }
 
 // sort key: 🔻💪 (durable) → 🔻 (structural) → 🌀 (shakeout/spring) → 🔺 (markup) → none.

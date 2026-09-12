@@ -326,6 +326,31 @@ export function collectSignals(r) {
   else if (st === 'HH') info('HH', 4)
   else if (st === 'LH') bear('LH', 5)
 
+  // ★ L-BAL agreement marks (15m L-label balance vs the daily candle; Ultra DB scan only, from
+  // _enrich_lbal). BOTH counting modes, suffixed V / a: measured over 3.65 M sessions they differ
+  // on 55.0 % of the marks and invert outright on 13.0 %, so showing "whichever the switch is on"
+  // hid a contradictory reading most of the time. DESCRIPTIVE — the research family closed
+  // 16/16 NULL — so these stay neutral `info` badges at the lowest priority, never bull/bear.
+  for (const m of String(r.lbal_marks || '').split(' ')) if (m) info(m + 'V', 1)
+  for (const m of String(r.lbal_all_marks || '').split(' ')) if (m) info(m + 'a', 1)
+  // L-VX — the daily L34 / L46 graded V · VL · VH · VX (Ultra DB scan only, from _enrich_lvx). Shown
+  // from tier V upward; the plain daily label is already the L34 badge above. Descriptive only.
+  if (r.lvx_label && r.lvx_tier >= 1) info(r.lvx_label, 2)
+  // OVD daily-map tokens (OB/RC/CD/HO ·30/·60 · NM?) — descriptive, one badge per token
+  if (r.ovdmap_tokens) for (const t of String(r.ovdmap_tokens).split(' ')) if (t) info(t, 2)
+  // VOL7 — the M·σ level pair when the MR level is M5/M6 (the script's B/VB, not the WLNBB bucket),
+  // plus its marks (Σ+/MR+, ▲▼◆ jumps, VB2, SHIFT). Descriptive only.
+  if (r.vol7_mr >= 5 && r.vol7_label) info(r.vol7_label, 2)
+  if (r.vol7_marks) for (const t of String(r.vol7_marks).split(' ')) if (t) info(t, 2)
+  // SHAPE × CONTEXT — the body-nest shape label (Ultra DB scan only, from _enrich_shapectx).
+  // DESCRIPTIVE: four sealed families, k = 21, 0 BUILD, so the shape itself is a neutral `info`
+  // badge. The two VETOes are the exception — they are the only cells with measured evidence, and
+  // both say "do not buy", so they render bear. 🎯 / 🔁 are deliberately NOT badged here: the
+  // measurement had them MONOTONICALLY WORSE, and a badge would read as a strength mark.
+  if (r.shape_label) info(r.shape_label, 2)
+  if (r.shape_lstup_veto) bear('⛔LST↑', 6)
+  if (r.shape_veto) bear('⛔KNF', 6)
+
   sigs.sort((a, b) => b.priority - a.priority)
   return sigs
 }
@@ -596,7 +621,7 @@ export default function ScannerDataGrid({
             )}
             {/* 🎲 — score AGREEMENT: how many rankers sit in their own measured good zone */}
             {variant === 'ultra' && (
-              <SortTh col="score_hits" cls="text-center min-w-[40px]" title="🎲 SCORE-HITS (2026-07-27) — how many of our 6 rankers sit in THEIR OWN measured good zone (UV3 >18 · ULTRA 8-20 · BUY 39-57 · V2 10-12 · V3 5 · CONF-n ≥5). Note these are NOT 'high is good': ULTRA and BUY are inverted-U, and high V2 is the single worst cell in the system (med −3.80). Each component alone is near-worthless — the AGREEMENT is the edge. Full 6yr path-sim: hits 0→5 = −1.06 · −0.67 · +0.00 · +1.05 · +2.12 · +3.79 (monotone); hits≥4 = 6/6yr with BOTH bear years positive. Zones picked on 2021-23 only and the ladder HELD out-of-sample on 2024-26 (+0.43 → +3.54, pf 2.28). hits=5 is rare (~400/yr universe-wide) — that rarity is the point.">🎲</SortTh>
+              <SortTh col="score_hits" cls="text-center min-w-[40px]" title="🎲 SCORE-HITS (2026-07-27) — how many of our 6 rankers sit in THEIR OWN measured good zone (UV3-core >25 · ULTRA 9-22 · BUY 39-57 · V2 11-13 · V3 4-5 · CONF-n ≥5). UV3-core = UV3 without the 🏆RS/🎯cluster/🎋TLS/💥vol axes — the value the zone was derived on (SCORE_AUDIT_V1, 2026-09-07: with the axes the zone fired on 52% of rows instead of 6% and the served hits≥4 tier did not hold in 2025-26). Note these are NOT 'high is good': ULTRA and BUY are inverted-U, and high V2 is the single worst cell in the system (med −3.80). Each component alone is near-worthless — the AGREEMENT is the edge. Full 6yr path-sim: hits 0→5 = −1.06 · −0.67 · +0.00 · +1.05 · +2.12 · +3.79 (monotone); hits≥4 = 6/6yr with BOTH bear years positive. Zones picked on 2021-23 only and the ladder HELD out-of-sample on 2024-26 (+0.43 → +3.54, pf 2.28). hits=5 is rare (~400/yr universe-wide) — that rarity is the point.">🎲</SortTh>
             )}
             {/* BUY — validated zone buy-flags */}
             {variant === 'ultra' && (
@@ -605,6 +630,7 @@ export default function ScannerDataGrid({
             {/* EDGE — validated Edge-board setup fires (last 5 bars) */}
             {variant === 'ultra' && (<>
               <SortTh col="edge_n" cls="text-center min-w-[52px]" title="✅ EDGE fires — validated Edge-board setups on the last 5 bars, from the SAME edge_replay masks the backtest uses. Plain code (G3, QZC, 🎯3…) = fired TODAY; 'G3·2d' = 2 bars ago. Sorts by today's fire count.">EDGE</SortTh>
+              <SortTh col="rank_pct" cls="text-center min-w-[40px]" title="🏅 RANK (RANK_V1, sealed 2026-09-07) — which of today's edge fires to look at first. Expected edge of the fire from the state table (family × RSI band × conso × RS × price band, walk-forward top-10/day +4.57 vs pool +2.04 in 2025-26, 5/5 years) shown as a PERCENTILE among all fires that day across the universe (100 = best). Only rows with an edge fire carry a value. Adding the display layers (L-BAL/L-VX/OVD/VOL7/physics) or the scores LOWERED the top-10 in the sealed test, so this is the plain state table on purpose. Hover: expected edge (pp vs the day's median), driving family, fires that day.">🏅</SortTh>
               <th className="text-center min-w-[46px]" title="🧬 frozen-OOS 2-4-bar robust sequence completed TODAY (tier OOS✓ · OOS win≥55% · ps_med>0; bright ≥60; mined 2021-23, verified 2024-26). Number = OOS win%. 🏆 = DSR≥0.6 selection-proof.">SEQ</th>
               <SortTh col="conf_score" cls="text-center min-w-[46px]" title="CONF — all-vs-all confluence score: 812 dual-gate-qualified signal pairs on the LATEST bar (validated monotone decile ladder: D9 ≥10 → path-sim +4.01%/med+1.51/6-6yr · D0 ≤−15 → −3.04%/0-6yr; both tails era-robust). Hover a value for the driving cells.">CONF</SortTh>
               <SortTh col="gex" cls="text-center min-w-[52px]" title="💠 GEX — options dealer context (liquid names only; lazy-loaded). ⚡=negative gamma (dealers amplify = trend/volatile) · 🛡=positive gamma (dampen = range/pin). Arrow = LOCATION lean from max-pain + walls (↑ support/put-wall · ↓ resistance/call-wall/below-max-pain · → flat). Number = ATM IV%. SORT groups by lean_score (↑ up-lean first desc); sorting fetches GEX for all shown rows. UNVALIDATED context, not a buy signal.">💠GEX</SortTh>
@@ -849,6 +875,19 @@ export default function ScannerDataGrid({
                         ))}
                         {r.edges.length > 3 && <span className="text-emerald-300 text-[10px]">+{r.edges.length - 3}</span>}
                       </span>
+                    ) : <span className="text-gray-700">·</span>}
+                  </td>
+                  {/* 🏅 RANK_V1 — percentile of today's fires by expected edge (sealed A table) */}
+                  <td className="px-1 py-1 text-center whitespace-nowrap"
+                    title={r.rank_pct != null
+                      ? `🏅 RANK ${r.rank_pct} — expected edge ${r.rank_edge >= 0 ? '+' : ''}${r.rank_edge} pp vs the day's median · driving family ${r.rank_fam} · ${r.rank_n} fires that day`
+                      : 'No edge fire today → no rank'}>
+                    {r.rank_pct != null ? (
+                      <span className={`font-mono font-bold ${
+                        r.rank_pct >= 90 ? 'text-yellow-300'
+                        : r.rank_pct >= 75 ? 'text-green-300'
+                        : r.rank_pct >= 50 ? 'text-md-on-surface-var'
+                        : 'text-md-on-surface-var/50'}`}>{r.rank_pct}</span>
                     ) : <span className="text-gray-700">·</span>}
                   </td>
                   <td className="text-center"

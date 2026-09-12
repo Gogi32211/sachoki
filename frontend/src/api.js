@@ -182,6 +182,26 @@ export const api = {
   studioWeeklyBars: (ticker, limit = 300) =>
     get(`/api/studio/bars/${ticker}?limit=${limit}&tf=1w`),
 
+  // L-BAL — 15m L-label balance of each 1D session (UDN / UDN+) + ★ ★★ ★★★ ○○○ XXX marks.
+  // Descriptive only (research family closed NULL); chart overlay line + Superchart row.
+  lbalMarks: (ticker, limit = 400) =>
+    get(`/api/studio/lbal-marks/${ticker}?limit=${limit}`),
+  // L-VX — daily L34 / L46 graded V · VL · VH · VX (volume > SMA20, 15m / 60m echo). Descriptive only.
+  lvxMarks: (ticker, limit = 400) =>
+    get(`/api/studio/lvx-marks/${ticker}?limit=${limit}`),
+  // OVD daily map — OB/RC/CD/HO ·30/·60 + NM? tokens (opening-volume logics). Descriptive only.
+  ovdmapMarks: (ticker, limit = 400) =>
+    get(`/api/studio/ovdmap-marks/${ticker}?limit=${limit}`),
+  // VOL7 — 7-level volume regime (MR primary, σ comparison), jumps, VB2, SHIFT. Descriptive only.
+  vol7Marks: (ticker, limit = 400) =>
+    get(`/api/studio/vol7-marks/${ticker}?limit=${limit}`),
+  // SHAPE × CONTEXT — the seven body-nest shapes (display priority MTH>CL4>MID>EXP>CON>LST>WRP),
+  // the ↑↓ arrow on the swallow shapes, EFFORT 0-2, 📍🧱🏆 legs, ⛔KNIFE and the two cluster axes
+  // 🎯 diversity / 🔁 density. DESCRIPTIVE ONLY — four sealed families, k=21, 0 BUILD; clustering
+  // measured monotonically WORSE. The one two-window cell is LST↑ and it is a VETO.
+  shapectxMarks: (ticker, limit = 400) =>
+    get(`/api/studio/shapectx-marks/${ticker}?limit=${limit}`),
+
   // Today's LIVE forming 1d bar(s) + signals (Massive, 15-min delayed) to append
   // onto the DB chart. Returns {bars:[...]} with date > `after`; [] when closed.
   studioLiveTail: (ticker, after = '') =>

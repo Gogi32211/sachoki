@@ -425,6 +425,53 @@ def health():
     return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.8"}
 
 
+@app.get("/api/edge-audit")
+def api_edge_audit():
+    """2026-09-03 research audit of every displayed edge chip, read-only.
+
+    Serves MASSIVE_DATA/APP_AUDIT/research_audit.json (producer: app_research_audit.py):
+    per chip, the H=3/5/10/20/60 trade-level AND day-clustered stats plus a class
+    (EVENT / DRIFT / NULL / MIXED, ·THIN when < 80 entry-days). Only 3 chips carry a
+    convincing short-horizon event (🔄DR, 🥇G3, 🥇G3A); the rest are states whose edge
+    accrues with holding time — selection criteria, not entry timing. Missing file → {}.
+    """
+    import json as _json, os as _os
+    p = "/Users/sachoki/MASSIVE_DATA/APP_AUDIT/research_audit.json"
+    try:
+        d = _json.load(open(p))
+    except Exception:
+        return {"rows": {}, "as_of": None, "note": "audit file not found"}
+    # Keyed by the mask column (E_*) as well as by chip label: labels get relabelled
+    # (G3²RL → G3²RL🟡 by this very audit) while the column is the stable identity, so a
+    # lookup by the CURRENT display label must still resolve.
+    try:
+        from edge_replay import DISPLAY_SETUPS as _DS
+        _col2label = {c: l for l, c in _DS}
+    except Exception:
+        _col2label = {}
+    rows, by_col = {}, {}
+    for r in d.get("rows", []):
+        if "skipped" in r:
+            continue
+        h = r.get("H", {})
+        h5, h60 = h.get("5") or h.get(5) or {}, h.get("60") or h.get(60) or {}
+        rec = {
+            "class": r.get("class"), "col": r.get("col"),
+            "audited_as": r["chip"],
+            "h60": {k: h60.get(k) for k in ("n", "trade_med", "trade_win", "pos_years",
+                                            "total_years", "n_days", "day_med", "day_win",
+                                            "top2_share", "lpb")},
+            "h5": {k: h5.get(k) for k in ("day_med", "day_win", "lpb")},
+        }
+        rows[r["chip"]] = rec
+        by_col[r["col"]] = rec
+        cur = _col2label.get(r["col"])
+        if cur and cur != r["chip"]:
+            rows[cur] = rec                     # current label → same record
+    return {"as_of": d.get("as_of"), "run_id": d.get("run_id"),
+            "horizons": d.get("horizons"), "rows": rows, "by_col": by_col}
+
+
 @app.get("/api/gex/{ticker}")
 def api_gex(ticker: str, max_dte: int = 60, expiration: str = None, source: str = "auto"):
     """💠 GEX levels (gamma-flip, power-zone, call/put walls, max-pain, net GEX, ATM IV)
@@ -5751,6 +5798,19 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
                     _b["edges"] = _e
         except Exception:
             log.warning("edge attach skipped", exc_info=True)
+        # 🏅 RANK_V1 per bar (2026-09-07): the fire's expected edge (sealed A table) as a percentile of that
+        # day's fires across the frame — same warm frame, last 270 sessions; cold frame → row stays empty.
+        try:
+            from rank_v1 import rank_map as _rkm
+            _rm = _rkm()
+            if _rm:
+                _tku = ticker.upper()
+                for _b in result:
+                    _rk = _rm.get((_tku, str(_b.get("date"))[:10]))
+                    if _rk:
+                        _b.update(_rk)
+        except Exception:
+            log.debug("rank attach skipped", exc_info=True)
         # ⛔ NO-VOLUME-EVENT flag (2026-07-26): the session's biggest 15m bar never reached 2.5× that
         # session's own average. Validated across ALL 29 TZ/L signal codes — a day without a real
         # intraday volume event drops EVERY signal's median by ~4-8pts (Z9 −8.0, T1 −7.1; only Z11
@@ -7836,6 +7896,26 @@ def _attach_ultra_v3(results: list) -> list:
     return results
 
 
+def _enrich_rank(results: list, tf: str = "1d") -> list:
+    """🏅 RANK_V1 (2026-09-07, sealed family, user OK): expected edge of the row's fire from the A state table,
+    as a percentile of the day's fires. Same warm frame + SETUPS registry as the EDGE chips; cold frame → nothing."""
+    if tf != "1d":
+        return results
+    try:
+        from rank_v1 import rank_map, rank_for
+        rm = rank_map()
+        if not rm:
+            return results
+        asof = max(d for _, d in rm.keys())
+        for r in results:
+            hit = rank_for(rm, r.get("ticker"), r.get("scan_date") or r.get("date"), asof)
+            if hit:
+                r.update(hit)
+    except Exception:
+        log.debug("rank enrich skipped", exc_info=True)
+    return results
+
+
 def _enrich_edges(results: list, tf: str = "1d") -> list:
     """Attach TODAY's validated Edge-board fires to each Ultra row (2026-07-26) — the SAME
     edge_replay masks the backtest + Superchart + CSV use (backtest == display, no drift).
@@ -7973,6 +8053,7 @@ def api_ultra_scan_results(
             results = _enrich_vol3rise(results, universe, lookback_n=atomic_lookback)
             _attach_ultra_v3(results)   # reweighted ranker — fill on serve for pre-change caches
             _enrich_edges(results, tf)  # attach TODAY's Edge-board fires → EDGE column + edge filters
+            _enrich_rank(results, tf)   # 🏅 RANK_V1 percentile of today's fires (sealed A table)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])

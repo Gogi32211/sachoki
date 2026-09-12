@@ -5,7 +5,7 @@ import { idbGet, idbSet, getCacheBackend } from '../turboCache'
 import ScannerDataGrid from './ScannerDataGrid'
 import CodeCandleChart from './CodeCandleChart'
 import { gexSortVal, vrpSortVal, requestGexBulk, subscribeGex } from '../gexStore'
-import { anatSortVal, requestAnatomy, subscribeAnatomy } from '../anatomyStore'
+import { anatSortVal, anatomyReady, getAnatomy, requestAnatomy, subscribeAnatomy } from '../anatomyStore'
 import { atrForecast } from '../atrForecast'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
@@ -100,6 +100,24 @@ const SIG_GROUPS = [
   { key: 'pt5_m15_any',label: 'PT5·15', cls: 'text-cyan-300'    },
   { key: 'pt5_strong', label: 'PT5+',   cls: 'text-emerald-400' },
   { key: 'pt5_xr_volw_va', label: 'XR:VOL_W↔VA', cls: 'text-amber-300' },
+  // MT5+ — NOT a PT5 variant. PT5·1H/PT5·15 mean frozen token-family membership; MT5+
+  // means the SAME T5 literally fired on 1H and 15m that session. Separate builder
+  // (mt5_build.py), separate parquet, separate cache. Never injected into EDGE ranking.
+  //
+  // LABEL CORRECTED 2026-09-02 after a horizon sweep. "Confirmation" implies something
+  // happens AT the bar; it does not. The c2-minus-c0 lift per bar is flat — 0.030 / 0.040 /
+  // 0.040 / 0.035 / 0.030 at maxh 3 / 5 / 10 / 20 / 60 — i.e. a constant drift-rate
+  // difference, not an event. At 3 bars the whole lift is +0.09. The state is real
+  // (60-bar median +2.13, win 55.7%, PF 1.48, MAE better than baseline at every horizon)
+  // but it is a SLOW SELECTION criterion, not entry timing.
+  { key: 'mt5_strong', label: 'MT5+',  cls: 'text-rose-300',
+    hint: 'MT5+ — a 1D T5 whose same T5 also fired on 1H and 15m that session (close ≥ $21).\n\n'
+        + 'NOT an entry-timing signal. A horizon sweep shows the lift is a constant drift '
+        + 'rate (~+0.035%/bar, flat from 3 to 60 bars), not an event at the bar: at 3 bars '
+        + 'the whole edge is +0.09.\n\nRead it as a slow selection criterion — over 60 bars '
+        + 'median +2.13, win 55.7%, PF 1.48, and lower MAE than baseline at every horizon.\n\n'
+        + 'SEARCH-EXPOSED CANDIDATE: not forward validated, not a book edge. Unrelated to PT5, '
+        + 'which is frozen token-family membership.' },
   // PT9 — full ladder: T9's 15m phase is now built (260 cluster representatives), so ·15
   // and + are real states here, not UNAVAILABLE.
   { key: 'pt9',        label: 'PT9',    cls: 'text-emerald-300' },
@@ -117,6 +135,164 @@ const SIG_GROUPS = [
   { key: 'pt_any',        label: 'PT·ALL',   cls: 'text-teal-300'    },
   { key: 'pt_any_h1',     label: 'PT·ALL1H', cls: 'text-violet-300'  },
   { key: 'pt_any_strong', label: 'PT·ALL+',  cls: 'text-emerald-400' },
+  // ── L-BAL — the TradingView "260906_LTF_L_COUNT" label, ported (lbal_build.py → data/
+  //   lbal_signals.parquet, joined by (ticker, scan_date) in _enrich_lbal). Two lines per 1D
+  //   session from its 26 15m bars: UDN = effort (L34+L3 vs L46), UDN+ = labelled 15m bars by
+  //   their own candle. The five chips are the AGREEMENT states between the lines and the
+  //   daily candle. DESCRIPTIVE ONLY — INTRADAY_EFFORT_BALANCE_V1 closed 16/16 NULL (2026-09-06):
+  //   the effort direction adds nothing measurable to the candle. Never a ranking input.
+  // ── ★ L-BAL — BOTH counting modes as separate chips (user, 2026-09-10). Measured over
+  //   3,652,833 sessions: the V and all counts differ on the marks in 55.0 % of them and fully
+  //   invert (U vs D) in 13.0 %. A single toggled set of chips therefore hid a contradictory
+  //   reading on most bars; these are two different questions and each gets its own chip.
+  { divider: true, label: '★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)' },
+  { key: 'lbal_star_v', label: '★V', cls: 'text-yellow-300', custom: (r) => !!r.lbal_star,
+    hint: '★ divergence — the UDN effort line (15m L34+L3 vs L46) opposes the daily candle: U on a red day, or D on a green day. — COUNTS ONLY 15m bars with volume > SMA20 — the TradingView setting (L34V / L46V labels).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_conflict_v', label: '★★V', cls: 'text-orange-300', custom: (r) => !!r.lbal_conflict,
+    hint: '★★ conflict — the effort line and the candle line oppose each other: D & U+ or U & D+. UDN+ counts the labelled 15m bars by their own candle. — COUNTS ONLY 15m bars with volume > SMA20 — the TradingView setting (L34V / L46V labels).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_half_up_v', label: '★★★V', cls: 'text-sky-300', custom: (r) => !!r.lbal_half_up,
+    hint: '★★★ half-up — one line U, the other neutral: U & N+ or N & U+. — COUNTS ONLY 15m bars with volume > SMA20 — the TradingView setting (L34V / L46V labels).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_half_dn_v', label: '○○○V', cls: 'text-sky-300', custom: (r) => !!r.lbal_half_dn,
+    hint: '○○○ half-down — one line D, the other neutral: D & N+ or N & D+. — COUNTS ONLY 15m bars with volume > SMA20 — the TradingView setting (L34V / L46V labels).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_nn_v', label: 'XXXV', cls: 'text-gray-300', custom: (r) => !!r.lbal_nn,
+    hint: 'XXX double-neutral — both lines N (equal counts on both sides). — COUNTS ONLY 15m bars with volume > SMA20 — the TradingView setting (L34V / L46V labels).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_star_a', label: '★a', cls: 'text-yellow-300', custom: (r) => !!r.lbal_all_star,
+    hint: '★ divergence — the UDN effort line (15m L34+L3 vs L46) opposes the daily candle: U on a red day, or D on a green day. — COUNTS EVERY labelled 15m bar (the Pine default).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_conflict_a', label: '★★a', cls: 'text-orange-300', custom: (r) => !!r.lbal_all_conflict,
+    hint: '★★ conflict — the effort line and the candle line oppose each other: D & U+ or U & D+. UDN+ counts the labelled 15m bars by their own candle. — COUNTS EVERY labelled 15m bar (the Pine default).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_half_up_a', label: '★★★a', cls: 'text-sky-300', custom: (r) => !!r.lbal_all_half_up,
+    hint: '★★★ half-up — one line U, the other neutral: U & N+ or N & U+. — COUNTS EVERY labelled 15m bar (the Pine default).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_half_dn_a', label: '○○○a', cls: 'text-sky-300', custom: (r) => !!r.lbal_all_half_dn,
+    hint: '○○○ half-down — one line D, the other neutral: D & N+ or N & D+. — COUNTS EVERY labelled 15m bar (the Pine default).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  { key: 'lbal_nn_a', label: 'XXXa', cls: 'text-gray-300', custom: (r) => !!r.lbal_all_nn,
+    hint: 'XXX double-neutral — both lines N (equal counts on both sides). — COUNTS EVERY labelled 15m bar (the Pine default).'
+        + '\n\nThe V and all counts DISAGREE on 55.6 % of sessions and invert outright on 13.0 % (3.65 M sessions measured), so both are shown as separate chips instead of one behind a switch — filtering on one of them is a different question from filtering on the other.\n\nDescriptive only: INTRADAY_EFFORT_BALANCE_V1 tested this direction and closed 16/16 NULL.' },
+  // ── L-VX — the TradingView "260906_WLNBB_L34_L46_VX_CHART" script, ported (same builder,
+  //   data/lvx_signals.parquet, _enrich_lvx). The DAILY L34 / L46 graded: V = daily volume > SMA20 ·
+  //   VL = a lower TF (15m or 60m) has a plain L34/L46 bar inside the day · VH = a lower TF has an
+  //   L34V/L46V bar inside · VX = both 15m AND 60m echo. Each chip is a THRESHOLD ("at least this
+  //   tier"), like the script's "Minimum tier to show". DESCRIPTIVE ONLY — never a ranking input.
+  { divider: true, label: 'L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive)' },
+  { key: 'lvx_l34_v',  label: 'L34V',  cls: 'text-green-300',
+    hint: 'L34V — daily L34 with volume > SMA20(volume). Chip = tier ≥ V (includes VL / VH / VX).' },
+  { key: 'lvx_l34_vl', label: 'L34VL', cls: 'text-green-300',
+    hint: 'L34VL — L34V and at least one lower TF (15m or 60m) has a plain L34 bar inside the day. Chip = tier ≥ VL.' },
+  { key: 'lvx_l34_vh', label: 'L34VH', cls: 'text-green-200',
+    hint: 'L34VH — L34V and at least one lower TF has an L34V bar (its own volume > its SMA20) inside the day. Chip = tier ≥ VH.' },
+  { key: 'lvx_l34_vx', label: 'L34VX', cls: 'text-lime-300',
+    hint: 'L34VX — L34V confirmed on BOTH 15m and 60m (script default: any confirmation on both TFs).' },
+  { key: 'lvx_l46_v',  label: 'L46V',  cls: 'text-red-300',
+    hint: 'L46V — daily L46 with volume > SMA20(volume). Chip = tier ≥ V.' },
+  { key: 'lvx_l46_vl', label: 'L46VL', cls: 'text-red-300',
+    hint: 'L46VL — L46V and at least one lower TF has a plain L46 bar inside the day. Chip = tier ≥ VL.' },
+  { key: 'lvx_l46_vh', label: 'L46VH', cls: 'text-orange-300',
+    hint: 'L46VH — L46V and at least one lower TF has an L46V bar inside the day. Chip = tier ≥ VH.' },
+  { key: 'lvx_l46_vx', label: 'L46VX', cls: 'text-orange-200',
+    hint: 'L46VX — L46V confirmed on BOTH 15m and 60m.' },
+  // ── OVD daily map — the TradingView "260904_OVD_4_VOLUME_LOGICS_DAILY_MAP" script ported for
+  //   display (ovd_map_build.py → data/ovdmap_signals.parquet, _enrich_ovdmap). Tokens keep the
+  //   user's chart naming (OB/RC/CD/HO) so they never collide with the WLNBB L1..L6 labels.
+  //   Same-slot 15m RVOL = value / median of the last 20 FULL regular sessions. DESCRIPTIVE ONLY —
+  //   the sealed OVD research family closed 0 BUILD / 0 VETO (2026-09-04). Never a ranking input.
+  { divider: true, label: 'OVD daily map (opening / closing 15m volume logics · descriptive)' },
+  { key: 'ovdmap_ob30', label: 'OB·30', cls: 'text-cyan-300',
+    hint: 'OB·30 — Logic 1 opening build: same-slot RVOL of BOTH opening 30m windows (09:30-10:00, 10:00-10:30) rose three sessions in a row.' },
+  { key: 'ovdmap_ob60', label: 'OB·60', cls: 'text-blue-300',
+    hint: 'OB·60 — Logic 1 opening build: the opening-60m same-slot RVOL rose three sessions in a row.' },
+  { key: 'ovdmap_rc30', label: 'RC·30', cls: 'text-lime-300',
+    hint: 'RC·30 — Logic 2 prior-HV reclaim: both opening 30m windows ≥ the same windows of the nearest HV-decline event 6..30 sessions back (opening-60m RVOL ≥ 2 on a day whose prior close was below the close 6 sessions earlier).' },
+  { key: 'ovdmap_rc60', label: 'RC·60', cls: 'text-green-300',
+    hint: 'RC·60 — Logic 2 prior-HV reclaim: opening 60m ≥ the nearest HV-decline event\'s opening 60m.' },
+  { key: 'ovdmap_cd30', label: 'CD·30', cls: 'text-orange-300',
+    hint: 'CD·30 — Logic 3 close dominance: close < close 5 sessions ago, last-30m RVOL > 1 and last 30m volume ≥ first 30m volume.' },
+  { key: 'ovdmap_cd60', label: 'CD·60', cls: 'text-red-300',
+    hint: 'CD·60 — Logic 3 close dominance: close < close 5 sessions ago, last-60m RVOL > 1 and last 60m volume ≥ first 60m volume.' },
+  { key: 'ovdmap_ho30', label: 'HO·30', cls: 'text-fuchsia-300',
+    hint: 'HO·30 — Logic 4 handoff: yesterday (in a 5-day decline) closed with last-30m RVOL > 1, today\'s first 30m has RVOL > 1 and is 0.80..1.25× yesterday\'s last 30m.' },
+  { key: 'ovdmap_ho60', label: 'HO·60', cls: 'text-violet-300',
+    hint: 'HO·60 — Logic 4 handoff: the 60m analogue (yesterday\'s last 60m → today\'s first 60m, 0.80..1.25×).' },
+  { key: 'ovdmap_nm',   label: 'NM?',   cls: 'text-yellow-300',
+    hint: 'NM? — near-miss proxy: reclaim60 in [0.50, 0.75) of the nearest HV event and all four opening 15m slots have RVOL > 1. The script itself calls this a proxy; the sealed Family-B eligibility is not reproduced.' },
+  // ── VOL7 — the TradingView "260829 • 7-Level Volume MR + Sigma Consensus/Divergence + B/VB + Shift"
+  //   script ported for display (vol7_build.py → data/vol7_signals.parquet, _enrich_vol7). Daily bars
+  //   only. MR level = volume / 20-day MEDIAN (primary); σ level = BB(volume,20,1) comparison. M5/M6
+  //   are the script's B/VB and deliberately NOT named B/VB: in this app B/VB is the WLNBB bucket the
+  //   book edges use (VB = vol ≥ 2·mid+σ). DESCRIPTIVE ONLY; SHIFT is an unstudied setup marker.
+  { divider: true, label: 'VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive)' },
+  { key: 'vol7_m0',  label: 'M0',  cls: 'text-gray-400',
+    hint: 'M0 — extreme low volume: < 0.40× the 20-day median (the script\'s grey dot).' },
+  { key: 'vol7_m5',  label: 'M5',  cls: 'text-orange-300',
+    hint: 'M5 — 2.5..5× the 20-day median (the script calls it B). NOT the app\'s WLNBB B bucket. Inside the book\'s 2-3× sweet zone on absorption bars.' },
+  { key: 'vol7_m6',  label: 'M6',  cls: 'text-red-300',
+    hint: 'M6 — ≥ 5× the 20-day median (the script calls it VB). NOT the app\'s WLNBB VB bucket; 93% of M6 bars are WLNBB VB, but only 21% of WLNBB VB bars are M6.' },
+  { key: 'vol7_up2', label: '▲+2', cls: 'text-lime-300',
+    hint: '▲+2 — the MR volume level skipped UP exactly two levels vs yesterday (small green circle in the script).' },
+  { key: 'vol7_dn2', label: '▼−2', cls: 'text-red-300',
+    hint: '▼−2 — the MR volume level skipped DOWN exactly two levels vs yesterday.' },
+  { key: 'vol7_up3', label: '◆+3', cls: 'text-lime-200',
+    hint: '◆+3 — BIG volume jump UP: three or more MR levels vs yesterday (green diamond in the script).' },
+  { key: 'vol7_dn3', label: '◆−3', cls: 'text-red-200',
+    hint: '◆−3 — BIG volume jump DOWN: three or more MR levels vs yesterday.' },
+  { key: 'vol7_sigma_plus', label: 'Σ+', cls: 'text-orange-200',
+    hint: 'Σ+ — the sigma model rates the bar ≥ 2 levels above the median-ratio model: a quiet, uniform 20-day window makes σ tiny, so σ-based labels (the WLNBB bucket and its L-labels included) over-rate this bar. ~8% of bars.' },
+  { key: 'vol7_mr_plus', label: 'MR+', cls: 'text-cyan-200',
+    hint: 'MR+ — the median-ratio model rates the bar ≥ 2 levels above the sigma model (a spiky window inflates σ). Rare, ~0.2% of bars.' },
+  { key: 'vol7_vb2', label: 'VB2', cls: 'text-purple-300',
+    hint: 'VB2 — a NEW extreme-volume (M6) event at least 6 bars after the previous VB bar; VBs within 2 bars count as one event. The script\'s purple diamond.' },
+  { key: 'vol7_shift_up', label: 'SHIFT↑', cls: 'text-lime-300',
+    hint: 'SHIFT↑ — bullish regime shift: VB2 after a ≥ 3% decline over the prior 10 sessions, then within 5 bars a GREEN close above the VB bar\'s high (range expanded by VBs within 2 bars). Unstudied setup marker — descriptive only.' },
+  { key: 'vol7_shift_dn', label: 'SHIFT↓', cls: 'text-red-300',
+    hint: 'SHIFT↓ — bearish regime shift: VB2 after a ≥ 3% rise over the prior 10 sessions, then within 5 bars a RED close below the VB bar\'s low. Unstudied setup marker — descriptive only.' },
+  // ── SHAPE × CONTEXT — the TradingView "260910_SHAPE_CTX" script ported for display
+  //   (shape_ctx_build.py → data/shapectx_signals.parquet, _enrich_shapectx). Daily bars only.
+  //   DESCRIPTIVE ONLY, and unusually well measured: four sealed families, k = 21, 0 BUILD.
+  //   ⚠ 🎯 and 🔁 are NOT strength marks — SHAPE_CLUSTER_V1 measured the ladder MONOTONE and
+  //   DOWNWARD (NO_CLUSTER −0.13 was the BEST cell, 🎯🔁 −0.68 the WORST, 0/4 years). The one
+  //   chip with two-window evidence is ⛔LST↑ and it is a VETO.
+  { divider: true, label: 'SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE)' },
+  { key: 'shape_mth', label: 'MTH', cls: 'text-indigo-200', custom: (r) => r.shape_code === 'MTH',
+    hint: 'MOTHER — bars t−2 and t−1 nested inside bar t−3\'s body, and this bar closes above it. MOTHER_V1 (sealed, k=5): 4 NULL + 1 VETO; RSI<35 was the WORST cell (−3.54 / −2.04, 0/4 years), the opposite of the hypothesis.' },
+  { key: 'shape_cl4', label: 'CL4', cls: 'text-indigo-200', custom: (r) => r.shape_code === 'CL4',
+    hint: 'COIL4 — bar t−2 inside bar t−1, bar t−1 touching bar t−3\'s body, and this bar closes above t−3\'s body top.' },
+  { key: 'shape_mid', label: 'MID', cls: 'text-slate-300', custom: (r) => r.shape_code === 'MID',
+    hint: 'MIDNEST — bars t−2 and t sit inside bar t−1\'s body. Symmetric: the Pine gives it no direction.' },
+  { key: 'shape_exp', label: 'EXP', cls: 'text-slate-300', custom: (r) => r.shape_code === 'EXP',
+    hint: 'EXPAND — t−2 ⊂ t−1 ⊂ t. A swallow shape, so it carries the ↑↓ arrow. EXP ⊂ LST ⊂ WRP.' },
+  { key: 'shape_con', label: 'CON', cls: 'text-slate-300', custom: (r) => r.shape_code === 'CON',
+    hint: 'CONTRACT — t ⊂ t−1 ⊂ t−2. Symmetric, no direction.' },
+  { key: 'shape_lst', label: 'LST', cls: 'text-slate-300', custom: (r) => r.shape_code === 'LST',
+    hint: 'LASTNEST — this bar\'s body swallows BOTH prior bodies. Split it by direction: LST↓ is NULL, LST↑ is the one measured VETO.' },
+  { key: 'shape_wrp', label: 'WRP', cls: 'text-slate-300', custom: (r) => r.shape_code === 'WRP',
+    hint: 'WRAP — bar t−2 inside this bar, minus the tighter LASTNEST / EXPAND. SWALLOW_DIR_V1: stable UP > DN in both windows (the opposite of the book\'s red-beats-green law), but both halves are negative.' },
+  { key: 'shape_lstup_veto', label: '⛔LST↑', cls: 'text-red-300',
+    hint: '⛔ VETO — a GREEN bar swallowing both prior bodies. The ONLY shape cell with two-window evidence: −0.63 MINE / −0.47 VERIFY, 0 of 4 positive years, worst year −3.41, DSR_neg 0.998 over 29,911 trades, and the only shape cell that does not flip sign between windows. Do not buy it.' },
+  { key: 'shape_veto', label: '⛔KNF', cls: 'text-red-300',
+    hint: '⛔ KNIFE — MOTHER / COIL4 fired while rsi < 35. Measured −3.54 MINE / −2.04 VERIFY, 0/4 years: a breakout close while still deeply oversold is a dead cat.' },
+  { key: 'shape_absorb', label: '💨abs', cls: 'text-emerald-300',
+    hint: '💨 absorbed — volume ≥ 1.5× avg20 on a range ≤ 1 ATR. EFFORT is the only axis the script scores.' },
+  { key: 'shape_dry', label: '⛔dry', cls: 'text-red-200',
+    hint: '⛔ dry — volume < 0.7× avg20 on the shape bar.' },
+  { key: 'shape_sweet', label: '✅swt', cls: 'text-emerald-200',
+    hint: '✅ the 2-3× inverted-U volume band — where absorption bars measured best (project_volume_magnitude).' },
+  { key: 'shape_floor', label: '📍flr', cls: 'text-cyan-300',
+    hint: '📍 FLOOR — close in the bottom 35% of the 20-bar range. CONTEXT ONLY: corr(pos20, rsi) = +0.908, so scoring it would score rsi twice.' },
+  { key: 'shape_key', label: '🧱key', cls: 'text-cyan-300',
+    hint: '🧱 KEY — at least 2 bars in the last 40 whose low sits within 0.5 ATR of the 20-bar low.' },
+  { key: 'shape_rs', label: '🏆rs', cls: 'text-amber-300',
+    hint: '🏆 RS intact — close/SPY above its EMA200. Cross-sectional, so it is a screener filter and never a per-chart score.' },
+  { key: 'shape_by_fam', label: '🎯div', cls: 'text-gray-400',
+    hint: '🎯 DIVERSITY — ≥3 of the 4 shape families in the last 10 bars. ⚠ NOT a strength mark: SHAPE_CLUSTER_V1 measured NO_CLUSTER as the BEST cell (−0.13) and 🎯🔁 as the WORST (−0.68, 0/4 years), decaying monotonically with more clustering.' },
+  { key: 'shape_by_den', label: '🔁den', cls: 'text-gray-400',
+    hint: '🔁 DENSITY — ≥4 of the last 10 bars carried a shape. Measured no different from 🎯 (−0.27 vs −0.19): the two marks read differently on a chart but did not behave as different predictive axes.' },
   { divider: true },
   // ── F / G signals ─────────────────────────────────────────────────────
   { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
@@ -982,7 +1158,8 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 
       {/* Chart */}
       <div style={{ width: CHART_W }}>
-        <CodeCandleChart bare codes={false} ticker={row.ticker} tf={tf} interactive={false} height={CHART_H} />
+        {/* lbal={false}: the hover preview stays a clean candle chart (user, 2026-09-06) */}
+        <CodeCandleChart bare codes={false} lbal={false} lvx={false} ovd={false} vol7={false} ticker={row.ticker} tf={tf} interactive={false} height={CHART_H} />
       </div>
 
       {/* Signal summary */}
@@ -1060,7 +1237,7 @@ const KEEP_ALWAYS = new Set([
   // 📐 divergence × 🏆RS (2026-07-28) — bars-ago of the freshest fire (blank = none in 5 bars)
   'div_buy','div_deep','div_top','div_rsi_lo','div_rsi_hi',
   // validated zone buy-flags (2026-07-18)
-  'buy_flag','rev_buy','brk_buy','mtf_echo','mtf_score_conf','turn_echo_n','h4_rev_today','h1_rev_today','heavy_l','edges','edge_n','edge_rev','seq34','seq_ctx','conf_score','conf_top','conf_ext','conf_ext_top',
+  'buy_flag','rev_buy','brk_buy','mtf_echo','mtf_score_conf','turn_echo_n','h4_rev_today','h1_rev_today','heavy_l','edges','edge_n','edge_rev','rank_pct','rank_edge','rank_fam','rank_n','seq34','seq_ctx','conf_score','conf_top','conf_ext','conf_ext_top',
   'atr_pct','tt10','tt10_hit','ttdn10','no_vol_event',
   'beta_score','beta_zone','beta_auto_buy',
   'final_bull_score','final_regime',
@@ -1080,6 +1257,13 @@ const KEEP_ALWAYS = new Set([
   'pb_wvf_confirm','pb_follow_confirm','pb_macro_penalty',
   // Capit→Atomic confluence (boolean — needed for the 🔥Capit→Atom filter after cache reload)
   'atomic_post_capit','atomic_capit_age',
+  // SHAPE × CONTEXT (2026-09-10) — booleans and strings, so `v === 1` would drop them all and
+  // every shape chip would stop filtering after a cache reload. Descriptive only.
+  'shape','shape_code','shape_arrow','shape_label','shape_grade','shape_vr','shape_absorb',
+  'shape_dry','shape_sweet','shape_pos20','shape_floor','shape_touches','shape_key','shape_rs',
+  'shape_rsi','shape_band','shape_knife','shape_veto','shape_lstup_veto','shape_dir_up',
+  'shape_dir_dn','shape_can_dir','shape_cl_fam','shape_cl_bars','shape_by_fam','shape_by_den',
+  'shape_mark','shape_legs',
 ])
 function _slimRow(r) {
   const out = {}
@@ -1153,6 +1337,8 @@ function StarBtn({ ticker, tf, onToggle }) {
 }
 
 export default function UltraScanPanel({ onSelectTicker }) {
+  // The ★ L-BAL chips are now fixed pairs (★V / ★a …), so this panel no longer follows the shared
+  // switch and does not need to re-filter when it changes.
   const [localTf,    setLocalTf]    = useState(_initTf)
   const [universe,   setUniverse]   = useState(_initUni)
   const [allResults, setAllResults] = useState(() => { const tf = _initTf(); const uni = _initUni(); return _tsGet(tf, uni)?.results || [] })
@@ -1225,6 +1411,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
   }
   const [sweetSpotFilter, setSweetSpotFilter] = useState(false)
   const [buyFilter, setBuyFilter] = useState(() => new Set())  // multi-select AND: rev/brk/conf/turn/h4/any/veto (2026-07-19)
+  // ▽△ Bottom-Anatomy filter (2026-09-09) — the ▽△ column was sortable but had no filter.
+  // Verdict chips (durable/struct/shake/cont) are OR'd (one bar has ONE verdict); 's5' ANDs on top.
+  const [anatFilter, setAnatFilter] = useState(() => new Set())
   const [buildingFilter,  setBuildingFilter]  = useState(false)
   const [watchFilter,     setWatchFilter]     = useState(false)
   // HV-Zone re-test filter (3 vol-spike tiers, multi-select; union of selected sets)
@@ -1348,7 +1537,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
   // ── DB-backed fetch — instant (~1-2 sec) from enriched Studio DB ──────────
   const fetchFromDB = useCallback(async () => {
     const seq = ++fetchSeqRef.current
-    setScanning(true); setError(null)
+    // RUNNING must be set here too, not just `scanning`. Otherwise a DB-instant fetch
+    // renders "Scanning…" on the button while the state label still reads "not run yet".
+    setScanning(true); setScanState('RUNNING'); setError(null)
     try {
       const unis = _uniList(universe)
       const d = await api.ultraScanFromDB(unis)
@@ -1358,8 +1549,11 @@ export default function UltraScanPanel({ onSelectTicker }) {
       setAllResults(results)
       setLastScan(scanned || null)
       ultraCacheSet(localTf, universe, results, scanned)
+      setScanState('COMPLETE')
+      setCachedFromPreviousSession(false)   // these rows came from THIS backend, now
     } catch (e) {
       setError(e.message)
+      setScanState('ERROR')
     } finally {
       setScanning(false)
     }
@@ -1628,6 +1822,23 @@ export default function UltraScanPanel({ onSelectTicker }) {
         if (buyFilter.has('veto') && !((r.rev_buy && r.mtf_echo === false) || conf === 0)) return false
         if (buyFilter.has('any')  && !((r.rev_buy && r.mtf_echo !== false) || r.brk_buy || (conf != null && conf >= 1) || r.turn_echo_n)) return false
       }
+
+      // ▽△ Bottom-Anatomy (2026-09-09) — reads the shared anatomyStore map (ONE /api/anatomy-latest
+      // call, same source as the ▽△ cell and its sort), not a row field. While the map is in flight
+      // this is a no-op instead of emptying the grid; the subscribeAnatomy tick re-runs this memo.
+      if (anatFilter.size && anatomyReady()) {
+        const a = getAnatomy(r.ticker)          // null = no verdict on the latest bar
+        const picked = ['durable', 'struct', 'shake', 'cont'].filter(k => anatFilter.has(k))
+        if (picked.length) {
+          if (!a) return false
+          const hit = picked.some(k => k === 'durable' ? (a.v === 'rev' && a.rs)
+                                     : k === 'struct'  ? a.v === 'rev'
+                                     : k === 'shake'   ? a.v === 'shake'
+                                     :                   a.v === 'cont')
+          if (!hit) return false
+        }
+        if (anatFilter.has('s5') && !(a && (a.s ?? 0) >= 5)) return false
+      }
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
       if (buildingFilter && r.profile_category !== 'BUILDING') return false
       if (zoneFilterActive && activeZoneSet && !activeZoneSet.has(r.ticker)) return false
@@ -1716,7 +1927,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter, seqSlots, seqActive])
+  }, [allResults, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, anatFilter, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter, seqSlots, seqActive])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1873,6 +2084,19 @@ export default function UltraScanPanel({ onSelectTicker }) {
     else if (r.pt5_m15_any && r.pt5) out.push('PT5·15')
     else if (r.pt5) out.push('PT5')
     if (r.pt5_xr_volw_va) out.push('XR:VOL_W↔VA')
+    if (r.mt5_strong) out.push('MT5+')
+    // L-BAL agreement marks (★ ★★ ★★★ ○○○ XXX). BOTH counting modes, suffixed V / a — they
+    // disagree on 55.6 % of sessions, so exporting "whichever the switch was on" made the column
+    // depend on hidden UI state.
+    for (const m of String(r.lbal_marks || '').split(' ')) if (m) out.push(m + 'V')
+    for (const m of String(r.lbal_all_marks || '').split(' ')) if (m) out.push(m + 'a')
+    // L-VX graded daily L34 / L46 (tier ≥ V; the plain label is already the L badge)
+    if (r.lvx_label && r.lvx_tier >= 1) out.push(r.lvx_label)
+    // OVD daily-map tokens (OB/RC/CD/HO ·30/·60 · NM?)
+    for (const t of String(r.ovdmap_tokens || '').split(' ')) if (t) out.push(t)
+    // VOL7 — the level pair when M5/M6, plus every mark
+    if (r.vol7_mr >= 5) out.push(r.vol7_label)
+    for (const t of String(r.vol7_marks || '').split(' ')) if (t) out.push(t)
     // one badge per family that marked this bar — never merged into a single score
     for (const [f, n] of [['PT9','pt9'], ['PT3','pt3'], ['PT1','pt1']]) {
       if (r[n + '_strong']) out.push(f + '+')
@@ -2063,6 +2287,19 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'pt3','pt3_class','pt3_h1_any','pt3_strong','pt3_h1_family',
       'pt1','pt1_class','pt1_h1_any','pt1_strong','pt1_h1_family',
       'pt_any','pt_any_h1','pt_any_m15','pt_any_strong','pt_families','pt_n_families',
+      'mt5','mt5_class','mt5_h1','mt5_m15','mt5_conf','mt5_strong',
+      'lbal','lbal_mode','lbal_marks','lbal_text','lbal_udn','lbal_udn_c','lbal_star','lbal_conflict',
+      'lbal_half_up','lbal_half_dn','lbal_nn','lbal_n_pos','lbal_n_neg','lbal_n_pos_c','lbal_n_neg_c',
+      'lbal_all_marks','lbal_all_text','lbal_all_udn','lbal_all_udn_c','lbal_all_star','lbal_all_conflict',
+      'lbal_all_half_up','lbal_all_half_dn','lbal_all_nn',
+      'lvx','lvx_fam','lvx_tier','lvx_label','lvx_text','lvx_v','lvx_lv15','lvx_lv1h',
+      'lvx_l34_v','lvx_l34_vl','lvx_l34_vh','lvx_l34_vx','lvx_l46_v','lvx_l46_vl','lvx_l46_vh','lvx_l46_vx',
+      'ovdmap','ovdmap_tokens','ovdmap_text','ovdmap_ob30','ovdmap_ob60','ovdmap_rc30','ovdmap_rc60',
+      'ovdmap_cd30','ovdmap_cd60','ovdmap_ho30','ovdmap_ho60','ovdmap_nm','ovdmap_rv_o60','ovdmap_rv_c60',
+      'ovdmap_reclaim60','ovdmap_event_k','ovdmap_handoff60',
+      'vol7','vol7_mr','vol7_sg','vol7_ratio','vol7_cons','vol7_jump','vol7_label','vol7_marks','vol7_text','vol7_trans',
+      'vol7_prior_move','vol7_m0','vol7_m5','vol7_m6','vol7_up2','vol7_dn2','vol7_up3','vol7_dn3','vol7_sigma_plus',
+      'vol7_mr_plus','vol7_eq','vol7_vb2','vol7_shift_up','vol7_shift_dn',
       'ca','cd','cw','seq_bcont','any_f',
       'f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11',
       // B
@@ -2185,6 +2422,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.heavy_l = r.heavy_l ? 1 : 0
       flat.edges = (r.edges ?? []).join(' ')
       flat.edge_n = r.edge_n ?? 0
+      flat.rank_pct = r.rank_pct ?? ''
+      flat.rank_edge = r.rank_edge ?? ''
+      flat.rank_fam = r.rank_fam ?? ''
       flat.edge_rev = r.edge_rev ? 1 : 0
       // ⏱ ATR time-to-target forecast (2026-07-26): backend attaches atr_pct (ATR14/close)
       flat.atr_pct = r.atr_pct != null ? +(r.atr_pct * 100).toFixed(1) : ''
@@ -2193,6 +2433,34 @@ export default function UltraScanPanel({ onSelectTicker }) {
         flat.tt10_hit = _f ? _f.up10.hit : ''   // hit-rate %
         flat.ttdn10 = _f ? _f.dn10.days : '' }  // typical days to −10% (stop timing)
       flat.no_vol_event = r.no_vol_event ? 1 : 0   // ⛔ no intraday volume event today
+      // SHAPE × CONTEXT (2026-09-10) — descriptive; four sealed families, k = 21, 0 BUILD.
+      // shape_lstup_veto is the ONE cell with two-window evidence and it is a VETO.
+      // shape_by_fam / shape_by_den (🎯 / 🔁) measured MONOTONICALLY WORSE, so read them as
+      // context, never as strength.
+      flat.shape_code   = r.shape_code ?? ''
+      flat.shape_label  = r.shape_label ?? ''
+      flat.shape_grade  = r.shape_grade ?? ''
+      flat.shape_vr     = r.shape_vr != null ? +Number(r.shape_vr).toFixed(2) : ''
+      flat.shape_rsi    = r.shape_rsi != null ? +Number(r.shape_rsi).toFixed(1) : ''
+      flat.shape_band   = r.shape_band ?? ''
+      flat.shape_pos20  = r.shape_pos20 != null ? +Number(r.shape_pos20).toFixed(3) : ''
+      flat.shape_touches = r.shape_touches ?? ''
+      flat.shape_floor  = r.shape_floor ? 1 : 0
+      flat.shape_key    = r.shape_key ? 1 : 0
+      flat.shape_rs     = r.shape_rs ? 1 : 0
+      flat.shape_absorb = r.shape_absorb ? 1 : 0
+      flat.shape_dry    = r.shape_dry ? 1 : 0
+      flat.shape_sweet  = r.shape_sweet ? 1 : 0
+      flat.shape_dir_up = r.shape_dir_up ? 1 : 0
+      flat.shape_dir_dn = r.shape_dir_dn ? 1 : 0
+      flat.shape_cl_fam  = r.shape_cl_fam ?? ''
+      flat.shape_cl_bars = r.shape_cl_bars ?? ''
+      flat.shape_by_fam  = r.shape_by_fam ? 1 : 0
+      flat.shape_by_den  = r.shape_by_den ? 1 : 0
+      flat.shape_mark    = r.shape_mark ?? ''
+      flat.shape_legs    = r.shape_legs ?? ''
+      flat.shape_knife_veto = r.shape_veto ? 1 : 0
+      flat.shape_lstup_veto = r.shape_lstup_veto ? 1 : 0
       flat.seq34 = r.seq34 ? r.seq34.seq : ''
       flat.seq34_win = r.seq34?.win ?? ''
       flat.seq34_ps_med = r.seq34?.ps_med ?? ''
@@ -2312,6 +2580,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
   // ── Poll until done ────────────────────────────────────────────────────────
   const _stopPoll = () => {
     if (pollIvRef.current) { clearInterval(pollIvRef.current); pollIvRef.current = null }
+    if (pollToRef.current) { clearTimeout(pollToRef.current); pollToRef.current = null }
   }
 
   // ULTRA scan progress: phase + per-source state + enrich stage
@@ -2324,6 +2593,55 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [progressPct,    setProgressPct]    = useState(0)
   const [etaSeconds,     setEtaSeconds]     = useState(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
+
+  // ── Explicit ULTRA scan state ─────────────────────────────────────────────
+  // Replaces the implicit `scanning` boolean, which could not distinguish "no scan
+  // has ever run" from "a scan is running". After a backend restart the old model
+  // left a surviving tab showing "Scanning… 0%" while the backend was idle and had
+  // no run at all. The BACKEND is authoritative; localStorage never decides this.
+  //   NOT_RUN | RUNNING | COMPLETE | ERROR
+  const [scanState, setScanState] = useState('NOT_RUN')
+  const [cachedFromPreviousSession, setCachedFromPreviousSession] = useState(false)
+  const pollToRef = useRef(null)
+
+  // ── Reconcile against the backend on mount ────────────────────────────────
+  // Runs before the UI commits to any state. A tab that survived a backend restart
+  // must not keep showing a scan that is not happening, and cached rows in
+  // localStorage are results from a PREVIOUS backend session — they are displayable
+  // but they are not evidence that a current run completed.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const s = await api.ultraScanStatus()
+        if (cancelled) return
+        if (s?.running) {
+          setScanState('RUNNING'); setScanning(true); _poll()
+        } else if (s?.error) {
+          setScanState('ERROR'); setError(s.error); setScanning(false)
+        } else if (s?.completed_at || (s?.turbo_total || 0) > 0) {
+          // A run finished in THIS backend session — its results are current, not cached.
+          // completed_at is what separates "ran and finished" from "never ran"; both
+          // report running=false, and collapsing them would label a completed scan
+          // "not run yet".
+          setScanState('COMPLETE'); setScanning(false); setEnriching(false)
+          setCachedFromPreviousSession(false)
+        } else {
+          // Backend has no run for this session. Whatever the browser remembers,
+          // this is NOT_RUN — no spinner, and 0% is not presented as progress.
+          setScanState('NOT_RUN'); setScanning(false); setEnriching(false)
+          setProgressPct(0); setEtaSeconds(null); setElapsedSeconds(0)
+          setCachedFromPreviousSession(!!_tsGet(localTf, universe)?.results?.length)
+        }
+      } catch {
+        if (cancelled) return
+        setScanState('ERROR'); setScanning(false)
+        setError('Backend unreachable — press Run ULTRA Scan once it is back.')
+      }
+    })()
+    return () => { cancelled = true; _stopPoll() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const _poll = () => {
     _stopPoll()  // kill any previous poll before starting a new one
@@ -2342,13 +2660,35 @@ export default function UltraScanPanel({ onSelectTicker }) {
           setElapsedSeconds(Number.isFinite(s.elapsed_seconds) ? s.elapsed_seconds : 0)
           if (!s.running) {
             _stopPoll(); setScanning(false); setEnriching(false)
-            if (s.error) setError(s.error)
-            else fetchFreshResults(activeTf, uni)
+            if (s.error) { setError(s.error); setScanState('ERROR') }
+            else { setScanState('COMPLETE'); fetchFreshResults(activeTf, uni) }
           }
         })
-        .catch(() => { _stopPoll(); setScanning(false); setEnriching(false) })
+        // Backend unreachable: classify and stop. Never sit in RUNNING forever.
+        .catch(() => {
+          _stopPoll(); setScanning(false); setEnriching(false)
+          setScanState('ERROR')
+          setError('Backend unreachable while polling — press Run ULTRA Scan to retry.')
+        })
     }, 2000)
-    setTimeout(() => { _stopPoll(); setScanning(false); setEnriching(false); fetchFreshResults(activeTf, uni) }, 600_000)
+    // A poll timeout is NOT "still scanning". Ask the backend what is actually true and
+    // classify from its answer. The old code assumed completion and called
+    // fetchFreshResults, which is how a dead or never-started scan could look finished.
+    clearTimeout(pollToRef.current)
+    pollToRef.current = setTimeout(() => {
+      _stopPoll()
+      api.ultraScanStatus()
+        .then(s => {
+          if (s?.running) { setScanState('RUNNING'); _poll(); return }   // genuinely slow
+          setScanning(false); setEnriching(false)
+          if (s?.error) { setScanState('ERROR'); setError(s.error) }
+          else { setScanState('COMPLETE'); fetchFreshResults(activeTf, uni) }
+        })
+        .catch(() => {
+          setScanning(false); setEnriching(false)
+          setScanState('ERROR'); setError('Scan status unknown — backend unreachable.')
+        })
+    }, 600_000)
   }
 
   // Stage 2: enrich a subset of tickers. If user has rows checked (via the
@@ -2405,16 +2745,23 @@ export default function UltraScanPanel({ onSelectTicker }) {
       fetchFromDB()
       return
     }
-    // Live mode: traditional 30-60 min scan
-    setScanning(true); setError(null); setWarnings([]); setSources({}); setPhases({}); setPhase(null)
+    // Live mode: traditional 30-60 min scan.
+    // RUNNING is entered only AFTER the backend ACCEPTS the trigger. Setting it
+    // optimistically is what produced a ten-minute spinner for a scan that never
+    // started — e.g. triggering while the backend was still coming up after a boot.
+    setError(null); setWarnings([]); setSources({}); setPhases({}); setPhase(null)
     setProgressPct(0); setEtaSeconds(null); setElapsedSeconds(0)
     api.ultraScanTrigger(localTf, universe, {
       lookbackN, partialDay, minVolume: volMin,
       minStoreScore: getCacheBackend() === 'idb' ? 0 : 5,
     })
-      .then(() => _poll())
+      .then(() => {
+        setScanState('RUNNING'); setScanning(true)
+        setCachedFromPreviousSession(false)
+        _poll()
+      })
       .catch(e => {
-        setScanning(false)
+        setScanning(false); setScanState('ERROR')
         const msg = e?.detail || e?.message || String(e)
         if (msg.includes('409') || msg.toLowerCase().includes('already running')) {
           setError('__stuck__')
@@ -2533,8 +2880,25 @@ export default function UltraScanPanel({ onSelectTicker }) {
                        : 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white'}`}>
           {scanning
             ? <span className="animate-pulse">🧬 Scanning…</span>
-            : '🧬 ULTRA Scan'}
+            : scanState === 'NOT_RUN' ? '🧬 Run ULTRA Scan' : '🧬 ULTRA Scan'}
         </button>
+
+        {/* Explicit scan state. NOT_RUN is a real state, not a 0%-progress scan —
+            after a backend restart this is what a surviving tab must show. */}
+        {scanState === 'NOT_RUN' && (
+          <span className="text-[11px] text-md-on-surface-var px-2"
+                title="The backend has no ULTRA run for this session. Press Run ULTRA Scan.">
+            not run yet
+            {cachedFromPreviousSession && (
+              <span className="ml-1 text-amber-400/80">
+                · showing cached results from a previous backend session
+              </span>
+            )}
+          </span>
+        )}
+        {scanState === 'ERROR' && !error && (
+          <span className="text-[11px] text-red-400 px-2">scan error — retry</span>
+        )}
 
         {/* Hybrid Preview scan — DB history + TODAY's live forming bar (Massive).
             Recomputes the full signal suite so you can act on today's signals
@@ -2813,6 +3177,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
                     : <span key={`div-${i}`} className="text-gray-700 select-none px-0.5 self-center">·</span>)
                 : (
                   <button key={s.key} onClick={() => toggleSig(s.key)}
+                    title={s.hint}
                     className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
                       ${(seqTarget === 'main' ? selSigs : seqSlots[seqTarget]).has(s.key)
                           ? `${s.cls} ${seqTarget === 'main' ? 'bg-gray-700' : 'bg-indigo-800 ring-1 ring-indigo-400'} font-semibold`
@@ -3072,6 +3437,36 @@ export default function UltraScanPanel({ onSelectTicker }) {
             {label}
           </button>
         ))}
+      </div>
+
+      {/* ── ▽△ Bottom-Anatomy filter row (2026-09-09) — the ▽△ column was sortable but unfilterable.
+             Same verdicts as the Superchart ▽△ row; source = the shared anatomyStore latest-bar map. ── */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-white/[0.07] bg-md-surface-con/20">
+        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16" title="▽△ Bottom-Anatomy — nested 1D→1H→15m DETECTOR of the latest bar's shape (necessary, not sufficient: it says 'this looks like a bottom', not 'buy'). Verdict chips are OR'd; ≥5 ANDs on top.">▽△</span>
+        {[['durable', '🔻💪 durable', 'bg-amber-700/70 text-amber-100 border-amber-500 ring-1 ring-amber-400',
+           '🔻💪 = anatomy REVERSAL + 🏆RS-intact (close/SPY > EMA200) — the durable/tradeable subset. RS is the discriminator that separates a real bottom from a mid-range absorption pause (🧊 coil-floor logic). This is the one to start from.'],
+          ['struct', '🔻 bottom', 'bg-orange-900/70 text-orange-300 border-orange-600 ring-1 ring-orange-500',
+           '🔻 = STRUCTURAL bottom-anatomy: at a genuine floor (held tight-coil, or low-in-range with a real key level / absorption) + multi-TF Z-absorption + intraday reversal. ~1.37× enriched for real swing lows at 76% recall — but NO RS gate, so lower precision. Includes the 🔻💪 rows (pick 🔻💪 alone for just the durable ones).'],
+          ['shake', '🌀 shakeout', 'bg-violet-900/70 text-violet-200 border-violet-600 ring-1 ring-violet-500',
+           '🌀 = SPRING / terminal shakeout — bearish day at a held floor with a WEAK close, but a late hi-vol T-reversal on 1H/15m (the tell the daily bar hides). The 🔻 detector misses these by construction (low-late + weak-close). Intraday-only signal: base −1.57 → with the 1H tell −0.48 vs random −2.52 — a less-bad cell, NOT a buy.'],
+          ['cont', '🔺 markup', 'bg-green-900/70 text-green-300 border-green-600 ring-1 ring-green-500',
+           '🔺 = CONTINUATION / markup: upper-range close, momentum, higher-low, not at a floor. Context for "this is already running", the opposite pole from 🔻.'],
+          ['s5', '≥5 score', 'bg-cyan-900/60 text-cyan-200 border-cyan-600 ring-1 ring-cyan-500',
+           'anatomy score ≥5 of 8 (location 0-2 + absorption 0-3 + reversal 0-3). ANDs with the verdict chips — a deeper-evidence subset of whichever verdict you picked.']].map(([k, label, on, title]) => (
+          <button key={k}
+            onClick={() => setAnatFilter(f => { const x = new Set(f); x.has(k) ? x.delete(k) : x.add(k); return x })}
+            title={title}
+            className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+              anatFilter.has(k) ? on : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'}`}>
+            {label}
+          </button>
+        ))}
+        {anatFilter.size > 0 && (
+          <span className="ml-1 text-md-on-surface-var/70 text-xs">
+            {results.length} ticker{results.length !== 1 ? 's' : ''}
+            {!anatomyReady() && <span className="ml-1 text-amber-400">· loading ▽△…</span>}
+          </span>
+        )}
       </div>
 
       {/* ── Row 5: Profile Sweet Spot filter ── */}

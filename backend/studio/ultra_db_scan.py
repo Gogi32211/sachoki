@@ -738,8 +738,14 @@ def _enrich_buy_flags(results: list) -> None:
     try:
         from edge_replay import latest_edges_map
         _edge_fires = latest_edges_map()
+        # 🏅 RANK_V1 map (2026-09-07): same warm frame; {} when cold
+        try:
+            from rank_v1 import rank_map as _rank_map_fn
+            _rank_map = _rank_map_fn()
+        except Exception:
+            _rank_map = {}
     except Exception:
-        _edge_fires = {}
+        _edge_fires = {}; _rank_map = {}
     _seq34 = _seq34_map()
     _confm = _conf_map()
     a = get_analytics_conn()
@@ -877,6 +883,10 @@ def _enrich_buy_flags(results: list) -> None:
             r["atr_pct"] = _ap
         # ✅ EDGE fires (2026-07-20): validated Edge-board setups on the last 5 bars,
         # from the SAME edge_replay masks the backtest uses. "G3" = today, "G3·2d" = 2 bars ago.
+        # 🏅 RANK_V1 (2026-09-07): the day's fire percentile from the sealed A table (rank_v1.py)
+        _rk = _rank_map.get((tk, d0)) if _rank_map else None
+        if _rk:
+            r.update(_rk)
         _ef = _edge_fires.get(tk)
         if _ef:
             r["edges"] = [c if age == 0 else f"{c}·{age}d" for c, age in _ef]
@@ -985,7 +995,7 @@ def _enrich_pt5(results: list, include_post_cutoff: bool = False) -> None:
     maps, cutoffs = _PT5_CACHE["map"], _PT5_CACHE["cutoffs"]
 
     for r in results:
-        d = str(r.get("date", ""))[:10]
+        d = _row_date(r)
         tk = r.get("ticker")
         any_base = any_h1 = any_m15 = any_strong = False
         hit_fams = []
@@ -1016,6 +1026,151 @@ def _enrich_pt5(results: list, include_post_cutoff: bool = False) -> None:
         r["pt_any_strong"] = any_strong
         r["pt_families"] = ",".join(hit_fams)
         r["pt_n_families"] = len(hit_fams)
+
+
+_MT5_CACHE: dict = {"mtime": None, "map": None}
+
+
+def _row_date(r: dict) -> str:
+    """The scan row's 1D bar date as 'YYYY-MM-DD'. _row_to_dict renames the DB `date` column to the UI
+    key `scan_date` (see _DB_TO_UI_COL_MAP), so a parquet enrichment keyed on `date` alone never
+    matches a live scan row — PT5/MT5 were joining on an absent key until 2026-09-06."""
+    return str(r.get("scan_date") or r.get("date") or "")[:10]
+
+
+def _enrich_lbal(results: list) -> None:
+    """In-place: L-BAL — the 15m WLNBB L-label balance of the session (UDN effort line, UDN+ candle
+    line) and the five agreement marks ★ ★★ ★★★ ○○○ XXX, read from data/lbal_signals.parquet
+    (lbal_build.py). DESCRIPTIVE ONLY: INTRADAY_EFFORT_BALANCE_V1 closed 16/16 NULL, so these
+    fields are never injected into any ranking or score — they are the TradingView label, ported.
+    Every row gets the full key set (a miss reads false / '', never undefined)."""
+    if not results:
+        return
+    from studio import lbal_store as LB
+    if not LB.available():
+        for r in results:
+            r.update(LB.MISS)
+        return
+    m = LB.by_dates({_row_date(r) for r in results})
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        if hit is None:
+            r.update(LB.MISS)
+        else:
+            r.update(hit)
+
+
+def _enrich_lvx(results: list) -> None:
+    """In-place: L-VX — the daily L34 / L46 graded V · VL · VH · VX (volume > SMA20, 15m / 60m echo),
+    the "260906_WLNBB_L34_L46_VX_CHART" Pine script ported (lbal_build.py → data/lvx_signals.parquet).
+    DESCRIPTIVE ONLY, never a ranking input. Every row gets the full `lvx_*` key set; the eight
+    family×tier booleans read "at least this tier" so a chip filter is a threshold, as in the script."""
+    if not results:
+        return
+    from studio import lvx_store as LX
+    if not LX.available():
+        for r in results:
+            r.update(LX.MISS)
+        return
+    m = LX.by_dates({_row_date(r) for r in results})
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        r.update(LX.MISS if hit is None else hit)
+
+
+def _enrich_ovdmap(results: list) -> None:
+    """In-place: OVD daily map — OB/RC/CD/HO ·30/·60 + NM? tokens from the "260904_OVD_4_VOLUME_LOGICS
+    _DAILY_MAP" Pine script ported for display (ovd_map_build.py → data/ovdmap_signals.parquet).
+    DESCRIPTIVE ONLY: the sealed OVD research family closed 0 BUILD / 0 VETO; never a ranking input."""
+    if not results:
+        return
+    from studio import ovdmap_store as OV
+    if not OV.available():
+        for r in results:
+            r.update(OV.MISS)
+        return
+    m = OV.by_dates({_row_date(r) for r in results})
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        r.update(OV.MISS if hit is None else hit)
+
+
+def _enrich_vol7(results: list) -> None:
+    """In-place: VOL7 — the "260829 • 7-Level Volume MR + Sigma" Pine script ported for display
+    (vol7_build.py → data/vol7_signals.parquet): MR level M0..M6, σ level, consensus, level jump,
+    VB2, SHIFT↑/↓. DESCRIPTIVE ONLY; M5/M6 are NOT the app's WLNBB B/VB bucket. Never a ranking input."""
+    if not results:
+        return
+    from studio import vol7_store as V7
+    if not V7.available():
+        for r in results:
+            r.update(V7.MISS)
+        return
+    m = V7.by_dates({_row_date(r) for r in results})
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        r.update(V7.MISS if hit is None else hit)
+
+
+def _enrich_shapectx(results: list) -> None:
+    """In-place: SHAPE × CONTEXT — the seven body-nest shapes under the Pine display priority, the
+    ↑↓ arrow, the EFFORT grade, the 📍🧱🏆 legs, the ⛔KNIFE veto and the two cluster axes
+    🎯 diversity / 🔁 density, read from data/shapectx_signals.parquet (shape_ctx_build.py).
+
+    DESCRIPTIVE ONLY — four sealed families, k = 21, 0 BUILD; clustering measured monotonically
+    WORSE, not better. The one cell with two-window evidence is `shape_lstup_veto` (LST↑,
+    DSR_neg 0.998) and it is a VETO. Never injected into any ranking or score.
+    Every row gets the full key set (a miss reads false / 0 / '', never undefined)."""
+    if not results:
+        return
+    from studio import shapectx_store as SC
+    if not SC.available():
+        for r in results:
+            r.update(SC.MISS)
+        return
+    m = SC.by_dates({_row_date(r) for r in results})
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        r.update(SC.MISS if hit is None else hit)
+
+
+def _enrich_mt5(results: list) -> None:
+    """In-place: MT5+ — a 1D T5 whose SAME T5 also fired on 1H and 15m that session.
+
+    MT5 IS NOT PT5. PT5 is frozen token-family membership (BUY→L5, VOL_W→L46x, ...),
+    sealed and cutoff-gated. MT5 is literal same-signal echo. This function reads
+    mt5_signals.parquet only and never touches a PT artifact or the PT cache.
+
+    MT5 is a SEARCH-EXPOSED CANDIDATE, not a validated edge, and is never injected into
+    any ranking or score -- it is a marker the user asked to be able to see on a chart.
+    """
+    if not results:
+        return
+    import os as _os
+    base = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+    path = _os.path.join(base, "data", "mt5_signals.parquet")
+    try:
+        mt = _os.path.getmtime(path)
+    except OSError:
+        return
+    if _MT5_CACHE["mtime"] != mt:
+        M = pd.read_parquet(path, columns=["ticker", "date", "mt5_class", "mt5_h1",
+                                           "mt5_m15", "mt5_conf", "mt5_strong"])
+        _MT5_CACHE["map"] = {(r.ticker, r.date): r for r in M.itertuples()}
+        _MT5_CACHE["mtime"] = mt
+    m = _MT5_CACHE["map"]
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        if hit is None:
+            r["mt5"] = False
+            r["mt5_strong"] = False
+            continue
+        r["mt5"] = True
+        r["mt5_class"] = hit.mt5_class
+        r["mt5_h1"] = bool(hit.mt5_h1)
+        r["mt5_m15"] = bool(hit.mt5_m15)
+        r["mt5_conf"] = int(hit.mt5_conf)
+        r["mt5_strong"] = bool(hit.mt5_strong)
 
 
 def _enrich_seq_patterns(results: list, lookback_n: int = 10) -> None:
@@ -1235,6 +1390,23 @@ def run_ultra_db_scan(
     universes = universes or ["sp500", "nasdaq"]
     started = time.time()
 
+    # ── CURRENT operational S&P 500 overlay ────────────────────────────────────
+    # Resolved from the ORIGINAL request, because split/zone mode below rewrites
+    # `universes` to the standard set and would otherwise mask what was asked for.
+    # Membership comes from the frozen snapshot; bars.universe is left entirely alone
+    # and keeps its historical 618-name semantics for every workflow that relies on it.
+    current_members: list[str] | None = None
+    try:
+        from current_universe import (get_current_sp500_massive_tickers,
+                                      is_current_operational_sp500)
+        if is_current_operational_sp500(universes):
+            current_members = get_current_sp500_massive_tickers()
+            log.info("UltraDB scan: CURRENT sp500 overlay — %d frozen members "
+                     "(historical bars.universe untouched)", len(current_members))
+    except Exception as exc:
+        log.error("UltraDB scan: CURRENT sp500 overlay unavailable (%s)", exc)
+        raise
+
     # ── SPLIT universe: resolve to real DB universes + capture live ticker set ─
     split_meta: dict = {}   # ticker → split metadata dict (populated if split mode)
     split_mode = len(universes) == 1 and universes[0] == "split"
@@ -1286,6 +1458,17 @@ def run_ultra_db_scan(
         # (e.g. LNT/MDLZ/NWSA in both sp500 & nasdaq) would otherwise produce a
         # row per universe → duplicate entries in the screener. Prefer sp500,
         # then nasdaq, then anything else, taking the most recent bar.
+        # Membership selection happens FIRST (frozen overlay), data retrieval second.
+        # With the overlay active the gate is the ticker set, NOT universe IN (...) —
+        # requiring the historical tag would re-import the stale 618-name membership
+        # through the back door, and would also drop a current member whose only rows
+        # happen to carry a different universe tag.
+        if current_members is not None:
+            member_ph = ",".join("?" * len(current_members))
+            where_sql, params = f"ticker IN ({member_ph})", list(current_members)
+        else:
+            where_sql, params = f"universe IN ({placeholders})", list(universes)
+
         latest = conn.execute(f"""
             WITH ranked AS (
               SELECT *,
@@ -1299,10 +1482,10 @@ def run_ultra_db_scan(
                                 END
                      ) AS rn
               FROM bars
-              WHERE universe IN ({placeholders})
+              WHERE {where_sql}
             )
             SELECT * FROM ranked WHERE rn = 1
-        """, list(universes)).fetchdf()
+        """, params).fetchdf()
 
         log.info("UltraDB scan: fetched %d latest bars for %s", len(latest), universes)
 
@@ -1524,6 +1707,55 @@ def run_ultra_db_scan(
         _enrich_pt5(results)
     except Exception as exc:
         log.warning("_enrich_pt5 failed: %s", exc)
+
+    try:
+        _enrich_mt5(results)
+    except Exception as exc:
+        log.warning("_enrich_mt5 failed: %s", exc)
+
+    try:
+        _enrich_lbal(results)
+    except Exception as exc:
+        log.warning("_enrich_lbal failed: %s", exc)
+
+    try:
+        _enrich_lvx(results)
+    except Exception as exc:
+        log.warning("_enrich_lvx failed: %s", exc)
+
+    try:
+        _enrich_ovdmap(results)
+    except Exception as exc:
+        log.warning("_enrich_ovdmap failed: %s", exc)
+
+    try:
+        _enrich_vol7(results)
+    except Exception as exc:
+        log.warning("_enrich_vol7 failed: %s", exc)
+
+    try:
+        _enrich_shapectx(results)
+    except Exception as exc:
+        log.warning("_enrich_shapectx failed: %s", exc)
+
+    # ── Coverage accounting for the CURRENT overlay ───────────────────────────
+    # A frozen member with no local rows must be VISIBLE, not silently absent. The
+    # universe stays 503; how many of them could actually be evaluated is a separate
+    # number, and conflating the two is how a shrinking scan goes unnoticed.
+    if current_members is not None:
+        evaluated = {r.get("ticker") for r in results}
+        missing = sorted(set(current_members) - evaluated)
+        extra_meta = dict(extra_meta or {})
+        extra_meta.update({
+            "current_universe_size":   len(current_members),
+            "evaluated_security_count": len(evaluated & set(current_members)),
+            "current_member_local_history_missing": missing,
+            "coverage_note": "membership is the frozen 503; a listed ticker had no local "
+                             "bar rows to evaluate. This is a COVERAGE state, not a "
+                             "membership change — the security remains a current member.",
+            "universe_source": "SP500_CURRENT_MASSIVE_TICKER_MAP_V1 (frozen overlay)",
+            "historical_bars_universe": "UNTOUCHED",
+        })
 
     duration = time.time() - started
     return {

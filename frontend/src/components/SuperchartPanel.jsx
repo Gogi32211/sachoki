@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo, useReducer, Fragment } from 'react'
 import { api } from '../api'
 import CodeCandleChart from './CodeCandleChart'
+import { lbalPick } from '../lbalMode'
 import { atrForecast, computeAtr14, forecastCsvCells, FORECAST_CSV_HEADERS, fmtForecast } from '../atrForecast'
 import { requestGex, getGex, subscribeGex } from '../gexStore'
 
@@ -917,6 +918,269 @@ const ROWS = [
     },
   },
   {
+    // L-BAL — the TradingView "260906_LTF_L_COUNT" label, ported. Per 1D session, from its 26
+    // 15m bars: UDN = effort line (L34+L3 vs L46), UDN+ = labelled 15m bars by their own candle;
+    // then the agreement marks ★ divergence · ★★ conflict · ★★★ half-up · ○○○ half-down · XXX
+    // double-neutral. First chip = the two letters ("U·D+"), then one chip per mark. Values come
+    // from /api/studio/lbal-marks merged by date (barsLbal), 1d only. DESCRIPTIVE ONLY —
+    // INTRADAY_EFFORT_BALANCE_V1 closed 16/16 NULL; never a score input.
+    key: 'lbal',
+    label: 'UDN★',
+    // TWO ROWS, NOT A TOGGLE (user, 2026-09-10). The V and ALL counting modes are not two views of
+    // the same number — they DISAGREE on individual bars, and the disagreement is the reading:
+    // AMD 2026-03-30 is N·D+ ○○○ counting only volume-confirmed 15m bars, and D·D+ with no mark
+    // counting all of them. A toggle shows one and hides the other, so the Superchart renders both
+    // as independent rows (UDN★V / UDN★all) and the shared switch is left to the chart line and
+    // the Ultra chips, which have their own copies of it.
+    // The two letters print on EVERY session that has a state ("U·U+", "D·D+" included) — the
+    // TradingView label prints both lines on every bar (user, 2026-09-06).
+    getSigs: (b, _prev, mode = 'V') => {
+      const udn = lbalPick(b, 'udn', mode), udnC = lbalPick(b, 'udn_c', mode)
+      if (!udn) return []
+      const out = [`${udn}·${udnC}+`]
+      for (const m of String(lbalPick(b, 'marks', mode) || '').split(' ')) if (m) out.push(m)
+      return out
+    },
+    sigTitle: (s, b, mode = 'V') => {
+      const other = mode === 'V' ? 'ALL' : 'V'
+      const P = (k) => lbalPick(b, k, mode), O = (k) => lbalPick(b, k, other)
+      const head = (mode === 'V'
+                      ? `V mode — only 15m bars with volume > SMA20 (${b.lbal_nv_bars ?? '?'} of ${b.lbal_n_bars ?? '?'})\n`
+                      : `ALL mode — every labelled 15m bar (${b.lbal_n_bars ?? '?'} bars)\n`)
+                 + `UDN (effort · L34+L3 vs L46) ${P('udn')} ${P('n_pos')}:${P('n_neg')}\n`
+                 + `UDN+ (candle · labelled 15m bars) ${P('udn_c')} ${P('n_pos_c')}:${P('n_neg_c')}\n`
+                 + `daily candle ${b.lbal_colour}\n`
+                 + (O('text') ? `${other === 'V' ? 'V bars only' : 'all bars'}: ${O('text')}${O('marks') ? ' ' + O('marks') : ''}\n` : '')
+      const meaning = {
+        '★':   '★ divergence — UDN opposes the daily candle',
+        '★★':  '★★ conflict — D & U+ / U & D+',
+        '★★★': '★★★ half-up — U & N+ / N & U+',
+        '○○○': '○○○ half-down — D & N+ / N & D+',
+        'XXX': 'XXX double-neutral — N & N+',
+      }
+      const marks = P('marks')
+      return head + (meaning[s] || (marks ? `marks: ${marks}` : 'lines agree with the candle — no mark'))
+           + '\n\nDescriptive only (research family closed NULL).'
+    },
+    chipCls: (s) => {
+      if (s === '★')   return 'bg-yellow-900/60 text-yellow-200 font-bold'
+      if (s === '★★')  return 'bg-orange-900/60 text-orange-200 font-bold'
+      if (s === '★★★' || s === '○○○') return 'bg-sky-900/60 text-sky-200 font-bold'
+      if (s === 'XXX') return 'bg-md-surface-high text-gray-300'
+      return 'bg-md-surface-high text-md-on-surface-var'
+    },
+  },
+  {
+    // SHAPE × CONTEXT — the TradingView "260910_SHAPE_CTX" script, ported. One label per bar under
+    // the Pine display priority (MTH > CL4 > MID > EXP > CON > LST > WRP) with the ↑↓ arrow on the
+    // swallow shapes, then the context legs. Values from /api/studio/shapectx-marks merged by date
+    // (barsShape), 1d only.
+    //
+    // DESCRIPTIVE ONLY, and the evidence is unusually specific here — four sealed families,
+    // k = 21, 0 BUILD:
+    //   · MOTHER_V1        4 NULL + 1 VETO; RSI<35 was the WORST cell, not the best → ⛔KNF
+    //   · SHAPE_CLUSTER_V1 NO_CLUSTER was the BEST cell and 🎯🔁 the WORST, MONOTONE decay
+    //   · SHAPE_GATE_V1    a cluster before a book edge does NOT damage it (NOT_A_SUPPRESSOR)
+    //   · SWALLOW_DIR_V1   LST↑ = −0.63 MINE / −0.47 VERIFY, 0/4 yrs, DSR_neg 0.998 → a VETO
+    // So 🎯🔁 is NOT a strength mark: more clustering measured worse. The only chip with
+    // two-window evidence is ⛔LST↑, and it says do not buy. Never a score input.
+    key: 'shape',
+    label: 'SHAPE',
+    chipCols: 2,          // a label + up to four legs; one per line made this the tallest row
+    // The Pine prints a label ONLY on a bar where a shape fired (`show = anyShape and ...`), and the
+    // legs 📍🧱🏆🎯🔁 are part of THAT label, not standalone marks. Emitting them on every bar put
+    // 🧱🏆 on ~70% of columns (214 of 300) when any_shape is only ~16% of bars — visual noise, and a
+    // silent divergence from the chart the row is supposed to mirror. Shape bars only.
+    getSigs: (b) => {
+      if (!b.shape || !b.shape_label) return []
+      const out = [b.shape_label]
+      if (b.shape_lstup_veto) out.push('⛔LST↑')
+      if (b.shape_veto) out.push('⛔KNF')
+      if (b.shape_grade === 2) out.push('💨')
+      else if (b.shape_grade === 0) out.push('⛔dry')
+      if (b.shape_sweet) out.push('✅swt')
+      if (b.shape_floor) out.push('📍')
+      if (b.shape_key) out.push('🧱')
+      if (b.shape_rs) out.push('🏆')
+      if (b.shape_by_fam) out.push('🎯')
+      if (b.shape_by_den) out.push('🔁')
+      return out
+    },
+    sigTitle: (s, b) => {
+      const name = { MTH: 'MOTHER  b1 ⊂ q1 · b2 ⊂ q1 · close > q1 top',
+                     CL4: 'COIL4  b1 ⊂ b2 · b2 touches q1 · close > q1 top',
+                     MID: 'MIDNEST  b1 ⊂ b2 ⊃ b3', EXP: 'EXPAND  b1 ⊂ b2 ⊂ b3',
+                     CON: 'CONTRACT  b2 ⊂ b1 · b3 ⊂ b2', LST: 'LASTNEST  b1 ⊂ b3 · b2 ⊂ b3',
+                     WRP: 'WRAP  b1 ⊂ b3 (minus LASTNEST / EXPAND)' }[b.shape_code] || ''
+      const head = (b.shape_label ? `${b.shape_label} — ${name}\n` : '')
+        + (b.shape_can_dir
+             ? `${b.shape_dir_up ? '↑ closed ABOVE' : b.shape_dir_dn ? '↓ closed BELOW' : 'flat'} the engulfed body\n`
+             : '')
+        + `effort ${b.shape_grade ?? '?'}/2${b.shape_vr != null ? ` · vol ${b.shape_vr.toFixed(2)}×avg20` : ''}\n`
+        + `rsi ${b.shape_rsi != null ? Math.round(b.shape_rsi) : '?'} (${b.shape_band || '?'}) · pos ${b.shape_pos20 != null ? Math.round(b.shape_pos20 * 100) : '?'}% · touches ${b.shape_touches ?? 0}\n`
+        + `🎯 families ${b.shape_cl_fam ?? 0}/3 · 🔁 bars ${b.shape_cl_bars ?? 0}/4  (10-bar window ending here)\n\n`
+      const meaning = {
+        '⛔LST↑': '⛔ LST↑ — a GREEN bar swallowing both prior bodies. The one shape cell with\n'
+                + 'two-window evidence: −0.63 MINE / −0.47 VERIFY, 0 of 4 positive years,\n'
+                + 'worst year −3.41, DSR_neg 0.998 over 29,911 trades. This is a VETO — do not buy it.',
+        '⛔KNF': '⛔ KNIFE — MOTHER / COIL4 fired while rsi < 35. MOTHER_V1 measured this cell at\n'
+              + '−3.54 / −2.04, 0 of 4 positive years: a breakout close while still deeply\n'
+              + 'oversold is a dead cat, the opposite of the original hypothesis.',
+        '🎯': '🎯 DIVERSITY — ≥3 of the 4 shape families in the last 10 bars.\n'
+            + '⚠ NOT a strength mark here. SHAPE_CLUSTER_V1 measured the ladder MONOTONE and\n'
+            + 'DOWNWARD: NO_CLUSTER −0.13 was the BEST cell, 🎯🔁 −0.68 the WORST (0/4 yrs).',
+        '🔁': '🔁 DENSITY — ≥4 of the last 10 bars carried a shape.\n'
+            + 'Measured no different from 🎯 (−0.27 vs −0.19): the two marks read differently on a\n'
+            + 'chart but did not behave as different predictive axes.',
+        '💨': '💨 absorbed — volume ≥1.5×avg20 on a range ≤1 ATR. The only SCORED axis in the script.',
+        '⛔dry': '⛔ dry — volume <0.7×avg20.',
+        '✅swt': '✅ the 2-3× inverted-U volume band (project_volume_magnitude).',
+        '📍': '📍 FLOOR — close in the bottom 35% of the 20-bar range. CONTEXT ONLY:\n'
+            + 'corr(pos20, rsi) = +0.908, so scoring it would score rsi twice.',
+        '🧱': '🧱 KEY — ≥2 bars in the last 40 whose low sits within 0.5 ATR of the 20-bar low.',
+        '🏆': '🏆 RS intact — close/SPY above its EMA200. Cross-sectional: a badge, not a per-chart score.',
+      }
+      return head + (meaning[s] || name || 'shape reading')
+           + '\n\nDescriptive only — 4 sealed families, k = 21, 0 BUILD.'
+    },
+    chipCls: (s) => {
+      if (s === '⛔LST↑' || s === '⛔KNF') return 'bg-red-900/70 text-red-100 font-bold'
+      if (s === '🎯' || s === '🔁') return 'bg-md-surface-high text-gray-400'
+      if (s === '💨') return 'bg-emerald-900/60 text-emerald-200'
+      if (s === '⛔dry') return 'bg-md-surface-high text-red-300'
+      if (s === '✅swt') return 'bg-emerald-900/40 text-emerald-300'
+      if (/^(MTH|CL4|MID|EXP|CON|LST|WRP)/.test(s)) return 'bg-indigo-900/60 text-indigo-100 font-bold'
+      return 'bg-md-surface-high text-md-on-surface-var'
+    },
+  },
+  {
+    // L-VX — the TradingView "260906_WLNBB_L34_L46_VX_CHART" script, ported. The daily L34 / L46
+    // graded V (volume > SMA20) · VL / VH (a lower TF echoes the plain / V label) · VX (15m AND
+    // 60m both echo). Chip from tier V upward; the plain daily label is in the L row already.
+    // Values from /api/studio/lvx-marks merged by date (barsLvx), 1d only. Descriptive only.
+    key: 'lvx',
+    label: 'L-VX',
+    getSigs: (b) => (b.lvx_label && b.lvx_tier >= 1) ? [b.lvx_label] : [],
+    sigTitle: (s, b) => {
+      const lv = (n) => n === 2 ? 'H (an L·V bar inside)' : n === 1 ? 'L (a plain bar inside)' : '- (none)'
+      return `${b.lvx_label} — daily ${b.lvx_fam}, volume > SMA20: ${b.lvx_v ? 'yes' : 'no'}\n`
+           + `15m: ${lv(b.lvx_lv15)} · ${b.lvx_n15} plain / ${b.lvx_nv15} V bars of ${b.lvx_bars15}\n`
+           + `60m: ${lv(b.lvx_lv1h)} · ${b.lvx_n1h} plain / ${b.lvx_nv1h} V bars of ${b.lvx_bars1h}\n`
+           + `daily candle ${b.lvx_colour}\n\n`
+           + 'V = daily volume > SMA20 · VL = one lower TF has a plain bar · VH = one lower TF has a V bar · '
+           + 'VX = both 15m and 60m echo.\nDescriptive only (same standing as L-BAL).'
+    },
+    chipCls: (s) => {
+      if (s === 'L34VX') return 'bg-lime-800/80 text-lime-200 font-bold ring-1 ring-lime-400'
+      if (s === 'L34VH') return 'bg-green-800/80 text-green-200 font-bold'
+      if (s.startsWith('L34')) return 'bg-green-900/70 text-green-300 font-semibold'
+      if (s === 'L46VX') return 'bg-orange-800/80 text-orange-100 font-bold ring-1 ring-orange-400'
+      if (s === 'L46VH') return 'bg-orange-900/80 text-orange-200 font-bold'
+      return 'bg-red-900/70 text-red-300 font-semibold'
+    },
+  },
+  {
+    // OVD daily map — the TradingView "260904_OVD_4_VOLUME_LOGICS_DAILY_MAP" script ported for
+    // display: OB opening build · RC prior-HV reclaim · CD close dominance · HO handoff (·30/·60)
+    // · NM? near-miss proxy. From /api/studio/ovdmap-marks merged by date (barsOvd), 1d only.
+    // Descriptive only — the sealed OVD research family closed 0 BUILD / 0 VETO.
+    key: 'ovd',
+    label: 'OVD',
+    getSigs: (b) => String(b.ovdmap_tokens || '').split(' ').filter(Boolean),
+    sigTitle: (s, b) => {
+      const meaning = {
+        'OB·30': 'Logic 1 · opening build — both opening 30m windows\' same-slot RVOL rose 3 sessions in a row',
+        'OB·60': 'Logic 1 · opening build — opening-60m same-slot RVOL rose 3 sessions in a row',
+        'RC·30': 'Logic 2 · prior-HV reclaim — both opening 30m windows ≥ the nearest HV-decline event (6..30 sessions back)',
+        'RC·60': 'Logic 2 · prior-HV reclaim — opening 60m ≥ the nearest HV-decline event\'s opening 60m',
+        'CD·30': 'Logic 3 · close dominance — 5-day decline, last-30m RVOL > 1, last 30m ≥ first 30m',
+        'CD·60': 'Logic 3 · close dominance — 5-day decline, last-60m RVOL > 1, last 60m ≥ first 60m',
+        'HO·30': 'Logic 4 · handoff — yesterday\'s heavy last 30m (in a decline) carried into today\'s first 30m (0.80..1.25×)',
+        'HO·60': 'Logic 4 · handoff — yesterday\'s heavy last 60m (in a decline) carried into today\'s first 60m (0.80..1.25×)',
+        'NM?':   'near-miss proxy — reclaim60 in [0.50, 0.75) and all four opening 15m slots RVOL > 1',
+      }
+      const f = (x) => (x == null ? '—' : Number(x).toFixed(2))
+      return `${meaning[s] || s}\n\nrvO60 ${f(b.ovdmap_rv_o60)} · rvC60 ${f(b.ovdmap_rv_c60)} · `
+           + (b.ovdmap_event_k ? `reclaim60 ${f(b.ovdmap_reclaim60)} (event ${b.ovdmap_event_k}d back)` : 'no HV event 6..30d back')
+           + ` · handoff60 ${f(b.ovdmap_handoff60)}\nsame-slot RVOL = value / median of the last 20 full sessions\n\n`
+           + 'Descriptive only — the sealed OVD research family closed 0 BUILD / 0 VETO.'
+    },
+    chipCls: (s) => {
+      if (s.startsWith('OB')) return s.endsWith('60') ? 'bg-blue-900/70 text-blue-200 font-bold' : 'bg-cyan-900/70 text-cyan-200 font-semibold'
+      if (s.startsWith('RC')) return s.endsWith('60') ? 'bg-green-900/70 text-green-200 font-bold' : 'bg-lime-900/70 text-lime-200 font-semibold'
+      if (s.startsWith('CD')) return s.endsWith('60') ? 'bg-red-900/70 text-red-200 font-bold' : 'bg-orange-900/70 text-orange-200 font-semibold'
+      if (s.startsWith('HO')) return s.endsWith('60') ? 'bg-violet-900/70 text-violet-200 font-bold' : 'bg-fuchsia-900/70 text-fuchsia-200 font-semibold'
+      return 'bg-yellow-900/70 text-yellow-200 font-semibold'
+    },
+  },
+  {
+    // VOL7 — the TradingView "260829 • 7-Level Volume MR + Sigma" script ported for display. Chip 1
+    // = "M4·σ5" (median-ratio level · sigma level) on EVERY bar, coloured by the MR level; then the
+    // marks: Σ+/MR+ divergence, ▲+2 ▼−2 skips, ◆+3 ◆−3 big jumps, VB2, SHIFT↑/↓. M5/M6 are the
+    // script's B/VB, not the WLNBB bucket. From /api/studio/vol7-marks (barsVol7), 1d only. Descriptive.
+    key: 'vol7',
+    label: 'VOL7',
+    getSigs: (b) => {
+      if (!b.vol7_label) return []
+      const out = [b.vol7_label]
+      for (const m of String(b.vol7_marks || '').split(' ')) if (m) out.push(m)
+      return out
+    },
+    sigTitle: (s, b) => {
+      const meaning = {
+        'M0': 'extreme low volume — < 0.40× the 20-day median',
+        'MR+': 'median-ratio level ≥ 2 above the sigma level (spiky window inflates σ)',
+        'Σ+': 'sigma level ≥ 2 above the median-ratio level (quiet, uniform window makes σ tiny — σ-based labels over-rate this bar)',
+        '▲+2': 'volume regime skipped UP two levels vs yesterday', '▼−2': 'volume regime skipped DOWN two levels vs yesterday',
+        '◆+3': 'BIG volume jump UP (≥ 3 levels vs yesterday)', '◆−3': 'BIG volume jump DOWN (≥ 3 levels vs yesterday)',
+        'VB2': 'new extreme-volume (M6) event ≥ 6 bars after the previous VB (VBs within 2 bars = one event)',
+        'SHIFT↑': 'bullish regime shift — VB2 after a ≥ 3% 10-day decline, then a green close above the VB range within 5 bars',
+        'SHIFT↓': 'bearish regime shift — VB2 after a ≥ 3% 10-day rise, then a red close below the VB range within 5 bars',
+      }
+      const f = (x, nd = 2) => (x == null ? '—' : Number(x).toFixed(nd))
+      const head = `M${b.vol7_mr} = ${f(b.vol7_ratio)}× the 20-day median (M0 <0.4 · M1 <0.7 · M2 <1 · M3 <1.5 · M4 <2.5 · M5 <5 · M6 ≥5)\n`
+                 + `σ${b.vol7_sg} = BB(volume,20,1) level (σ5 = +1σ..+2σ, σ6 ≥ +2σ) · consensus ${b.vol7_cons || '±1'}\n`
+                 + `level vs yesterday ${b.vol7_trans > 0 ? '+' : ''}${b.vol7_trans ?? 0}` + (b.vol7_prior_move != null ? ` · prior 10d move ${f(b.vol7_prior_move, 1)}%` : '') + '\n'
+      return head + (meaning[s] ? `\n${s}: ${meaning[s]}` : (b.vol7_mr >= 5 ? `\nM${b.vol7_mr} is the script's ${b.vol7_mr === 6 ? 'VB' : 'B'} — NOT the app's WLNBB bucket` : ''))
+           + '\n\nDescriptive only; SHIFT is an unstudied setup marker.'
+    },
+    chipCls: (s, b) => {
+      if (s === b.vol7_label) {
+        const m = b.vol7_mr
+        return m === 6 ? 'bg-red-900/70 text-red-200 font-bold' : m === 5 ? 'bg-orange-900/70 text-orange-200 font-bold'
+             : m === 4 ? 'bg-yellow-900/50 text-yellow-200' : m === 0 ? 'bg-gray-800 text-gray-400' : 'bg-md-surface-high text-md-on-surface-var'
+      }
+      if (s === 'SHIFT↑') return 'bg-lime-800/80 text-lime-100 font-bold ring-1 ring-lime-400'
+      if (s === 'SHIFT↓') return 'bg-red-800/80 text-red-100 font-bold ring-1 ring-red-400'
+      if (s === 'VB2') return 'bg-purple-900/70 text-purple-200 font-bold'
+      if (s === '◆+3') return 'bg-lime-800/80 text-lime-200 font-bold'
+      if (s === '◆−3') return 'bg-red-800/80 text-red-200 font-bold'
+      if (s === '▲+2') return 'bg-lime-900/70 text-lime-300'
+      if (s === '▼−2') return 'bg-red-900/70 text-red-300'
+      if (s === 'Σ+') return 'bg-orange-900/70 text-orange-200 font-semibold'
+      if (s === 'MR+') return 'bg-cyan-900/70 text-cyan-200 font-semibold'
+      return 'bg-gray-800 text-gray-400'
+    },
+  },
+  {
+    // 🏅 RANK_V1 (2026-09-07, sealed family, user OK): per bar, the fire's expected edge from the A state table
+    // as a percentile of THAT day's fires across the universe (last 270 sessions of the warm frame). Bars with
+    // no edge fire carry nothing. Values arrive on the bar itself (api_bar_signals), no separate fetch.
+    key: 'rank',
+    label: '🏅',
+    getSigs: (b) => (b.rank_pct != null ? [String(b.rank_pct)] : []),
+    sigTitle: (s, b) => `🏅 RANK ${b.rank_pct} — expected edge ${b.rank_edge >= 0 ? '+' : ''}${b.rank_edge} pp vs that day's median · family ${b.rank_fam} · ${b.rank_n} fires that day\n`
+                      + 'Sealed RANK_V1: state table (family × RSI band × conso × RS × price) — walk-forward top-10/day +4.57 vs pool +2.04 (2025-26, 5/5 yrs); '
+                      + 'adding display layers or scores LOWERED the head, so this is the plain table on purpose.',
+    chipCls: (s) => {
+      const n = Number(s)
+      if (n >= 90) return 'bg-yellow-700 text-yellow-100 font-bold ring-1 ring-yellow-400'
+      if (n >= 75) return 'bg-green-900 text-green-200 font-semibold'
+      if (n >= 50) return 'bg-md-surface-high text-md-on-surface-var'
+      return 'bg-md-surface-high text-md-on-surface-var/50'
+    },
+  },
+  {
     key: 'score',
     label: 'SCORE',
     getSigs: (b) => {
@@ -972,12 +1236,25 @@ function ChipRow({ row, bars }) {
           <td key={i}
             className="px-0 py-px text-center border-r border-white/[0.05] align-top"
             style={{ width: CELL_W, minWidth: CELL_W }}>
-            <div className="flex flex-col gap-px items-center">
-              {sigs.map(s => (
+            {/* `chipCols: 2` packs the chips two per line instead of one (user, 2026-09-10, for the
+                SHAPE row: a label plus four legs was six lines tall and stretched the whole table,
+                while one horizontal line would have been unreadable at 64 px). Rows that do not
+                set it keep the original single column. */}
+            <div className={row.chipCols === 2
+                              ? 'grid grid-cols-2 gap-px justify-items-center'
+                              : 'flex flex-col gap-px items-center'}>
+              {sigs.map((s, si) => (
                 <span key={s}
                   title={row.sigTitle ? row.sigTitle(s, b) : undefined}
-                  className={`px-1 py-px rounded border border-white/10 font-mono leading-none ${row.chipCls(s, b)}`}
-                  style={{ fontSize: 12 }}>
+                  // A 64 px cell splits into two ~32 px columns: that fits one glyph (📍🧱🏆🎯🔁) or a
+                  // 3-character code, but not '⛔dry' / '⛔LST↑', which were being clipped. Two cases
+                  // take the full width instead: the FIRST chip, which is the identity and should sit
+                  // on its own line whether or not it carries an arrow (otherwise 'MID' and 'WRP↑'
+                  // lay out differently), and anything wider than 3 glyphs.
+                  // [...s].length, not s.length — an emoji is two UTF-16 units.
+                  className={`px-1 py-px rounded border border-white/10 font-mono leading-none
+                              ${row.chipCols === 2 && (si === 0 || [...s].length > 3) ? 'col-span-2' : ''} ${row.chipCls(s, b)}`}
+                  style={{ fontSize: row.chipCols === 2 ? 11 : 12 }}>
                   {s}
                 </span>
               ))}
@@ -1083,6 +1360,16 @@ export default function SuperchartPanel({
     } catch { /* private mode */ }
   }, [physRowMode])
   const [day1hMap, setDay1hMap]   = useState({})   // date(YYYY-MM-DD) → {up, hours[]} (with1H only)
+  // date → lbal_* fields (UDN / UDN+ / marks) from /api/studio/lbal-marks (1d only). Kept as its
+  // own map and merged like physMap: the fetch resolves independently of /api/bar_signals.
+  const [lbalMap, setLbalMap]     = useState({})
+  // No `useLbalMode()` here any more: the two UDN★ rows are FIXED to V and ALL, so this
+  // panel no longer follows the shared switch. The switch still lives on the chart line
+  // (CodeCandleChart) and on the Ultra chips, which do show one mode at a time.
+  const [lvxMap, setLvxMap]       = useState({})   // date → lvx_* (daily L34/L46 V·VL·VH·VX), 1d only
+  const [ovdMap, setOvdMap]       = useState({})   // date → ovdmap_* (OB/RC/CD/HO ·30/·60 · NM?), 1d only
+  const [vol7Map, setVol7Map]     = useState({})   // date → vol7_* (M·σ levels, jumps, VB2, SHIFT), 1d only
+  const [shapeMap, setShapeMap]   = useState({})   // date → shape_* (body-nest shape + context + cluster), 1d only
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
   const [showStats, setShowStats] = useState(false)
@@ -1117,6 +1404,21 @@ export default function SuperchartPanel({
   const barsPhys = useMemo(
     () => bars.map(b => ({ ...b, ...(physMap[String(b.date).slice(0, 10)] || {}) })),
     [bars, physMap])
+  const barsLbal = useMemo(
+    () => bars.map(b => ({ ...b, ...(lbalMap[String(b.date).slice(0, 10)] || {}) })),
+    [bars, lbalMap])
+  const barsLvx = useMemo(
+    () => bars.map(b => ({ ...b, ...(lvxMap[String(b.date).slice(0, 10)] || {}) })),
+    [bars, lvxMap])
+  const barsOvd = useMemo(
+    () => bars.map(b => ({ ...b, ...(ovdMap[String(b.date).slice(0, 10)] || {}) })),
+    [bars, ovdMap])
+  const barsVol7 = useMemo(
+    () => bars.map(b => ({ ...b, ...(vol7Map[String(b.date).slice(0, 10)] || {}) })),
+    [bars, vol7Map])
+  const barsShape = useMemo(
+    () => bars.map(b => ({ ...b, ...(shapeMap[String(b.date).slice(0, 10)] || {}) })),
+    [bars, shapeMap])
 
   const load = useCallback((t, f) => {
     setLoading(true)
@@ -1159,6 +1461,46 @@ export default function SuperchartPanel({
         .catch(() => { setV2Map({}); setPhysMap({}) })
     } else {
       setV2Map({}); setPhysMap({})
+    }
+    // L-BAL (UDN / UDN+ / ★ marks) + L-VX (graded daily L34/L46) — 1d only, merged by date.
+    if (f === '1d') {
+      api.lbalMarks(t, barsForTf(f) + 20)
+        .then(d => {
+          const m = {}
+          for (const r of (d?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r
+          setLbalMap(m)
+        })
+        .catch(() => setLbalMap({}))
+      api.lvxMarks(t, barsForTf(f) + 20)
+        .then(d => {
+          const m = {}
+          for (const r of (d?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r
+          setLvxMap(m)
+        })
+        .catch(() => setLvxMap({}))
+      api.ovdmapMarks(t, barsForTf(f) + 20)
+        .then(d => {
+          const m = {}
+          for (const r of (d?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r
+          setOvdMap(m)
+        })
+        .catch(() => setOvdMap({}))
+      api.vol7Marks(t, barsForTf(f) + 20)
+        .then(d => {
+          const m = {}
+          for (const r of (d?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r
+          setVol7Map(m)
+        })
+        .catch(() => setVol7Map({}))
+      api.shapectxMarks(t, barsForTf(f) + 20)
+        .then(d => {
+          const m = {}
+          for (const r of (d?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r
+          setShapeMap(m)
+        })
+        .catch(() => setShapeMap({}))
+    } else {
+      setLbalMap({}); setLvxMap({}); setOvdMap({}); setVol7Map({}); setShapeMap({})
     }
     // Bottom-Anatomy + (with1H) 1H-decomposition — each day → its 1H bars + anatomy
     // verdict. Fetched on EVERY daily load so the ▽△ anatomy row shows on the main
@@ -1203,10 +1545,32 @@ export default function SuperchartPanel({
     // catch and the export silently shrank back to the 300 bars on screen. It looked like
     // the wider fetch had simply not been wired up. One optional enrichment failing must
     // not discard a request that succeeded.
-    const [sigRes, physRes] = await Promise.allSettled([
+    // 2026-09-10: the five display layers shipped since 2026-09-06 (L-BAL, L-VX, OVD, VOL7,
+    // SHAPE) had Superchart ROWS but no CSV columns, so a year of them was invisible to any
+    // analysis done outside the app. They live in per-date maps sized to the screen (~400 bars),
+    // which is why they cannot simply be read off `bars` here — the export fetches its own full
+    // history for each, exactly as it already does for physics. RANK is per-bar on the signal
+    // rows themselves and needs no extra fetch. Each is independent: allSettled, and a failure
+    // blanks its own columns instead of shrinking the export.
+    const MARK_LIMIT = 5000
+    const marksFor = (fn) => (tf === '1d' ? fn(ticker, MARK_LIMIT) : Promise.resolve({ marks: [] }))
+    const [sigRes, physRes, lbalRes, lvxRes, ovdRes, vol7Res, shapeRes] = await Promise.allSettled([
       api.barSignals(ticker, tf, EXPORT_LIMIT),
       tf === '1d' ? api.studioBars(ticker, STUDIO_LIMIT) : Promise.resolve([]),
+      marksFor(api.lbalMarks), marksFor(api.lvxMarks), marksFor(api.ovdmapMarks),
+      marksFor(api.vol7Marks), marksFor(api.shapectxMarks),
     ])
+    const markMap = (res) => {
+      const m = {}
+      if (res.status !== 'fulfilled') return m
+      for (const r of (res.value?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r
+      return m
+    }
+    const mLbal = markMap(lbalRes), mLvx = markMap(lvxRes), mOvd = markMap(ovdRes)
+    const mVol7 = markMap(vol7Res), mShape = markMap(shapeRes)
+    const missing = [['L-BAL', lbalRes], ['L-VX', lvxRes], ['OVD', ovdRes], ['VOL7', vol7Res],
+                     ['SHAPE', shapeRes]].filter(([, r]) => r.status === 'rejected').map(([n]) => n)
+    if (missing.length) setError(`CSV: ${missing.join(', ')} could not be fetched; those columns will be blank`)
     const full = sigRes.status === 'fulfilled' ? sigRes.value : null
     if (full?.length) {
       const ph = {}
@@ -1375,9 +1739,35 @@ export default function SuperchartPanel({
       'PHYS_AD','PHYS_GAP_TRUE','PHYS_WYC','PHYS_LINE6',
       'PHYS_R_RAW','PHYS_M_RAW','PHYS_E_RAW','PHYS_K_X','PHYS_C_RAW','PHYS_H_RAW',
       'PHYS_E_RELEASE','PHYS_S_NET',
+      // ── The five display layers shipped 2026-09-06..10. Every one of them is DESCRIPTIVE:
+      // its research family closed NULL / 0 BUILD, and none feeds a score. They are exported so
+      // the co-occurrence work can be done on them OUTSIDE the app — which is the whole reason
+      // the gap was noticed.
+      // L-BAL — 15m L-label balance of the session (INTRADAY_EFFORT_BALANCE_V1: 16/16 NULL)
+      'LBAL_UDN','LBAL_UDN_C','LBAL_MARKS','LBAL_TEXT','LBAL_COLOUR','LBAL_NPOS','LBAL_NNEG',
+      // L-VX — daily L34/L46 graded V · VL · VH · VX
+      'LVX_LABEL','LVX_FAM','LVX_TIER','LVX_V','LVX_LV15','LVX_LV1H',
+      // OVD daily map (sealed OVD family: 0 BUILD / 0 VETO)
+      'OVD_TOKENS','OVD_RV_O60','OVD_RV_C60','OVD_RECLAIM60','OVD_HANDOFF60',
+      // VOL7 — 7-level volume regime. M5/M6 are NOT the app's WLNBB B/VB bucket.
+      'VOL7_LABEL','VOL7_MR','VOL7_SG','VOL7_RATIO','VOL7_CONS','VOL7_TRANS','VOL7_MARKS',
+      // 🏅 RANK — per-bar on the signal rows already, no extra fetch
+      'RANK_PCT','RANK_EDGE','RANK_FAM','RANK_N',
+      // SHAPE × CONTEXT — 4 sealed families, k = 21, 0 BUILD. SHAPE_LSTUP_VETO is the ONE cell
+      // with two-window evidence (LST↑ −0.63 MINE / −0.47 VERIFY, DSR_neg 0.998) and it is a
+      // VETO. SHAPE_BY_FAM / SHAPE_BY_DEN are the 🎯 / 🔁 marks — measured MONOTONICALLY WORSE
+      // with more clustering, so they are context, not strength.
+      'SHAPE_CODE','SHAPE_ARROW','SHAPE_LABEL','SHAPE_GRADE','SHAPE_VR','SHAPE_ABSORB','SHAPE_DRY',
+      'SHAPE_SWEET','SHAPE_POS20','SHAPE_FLOOR','SHAPE_TOUCHES','SHAPE_KEY','SHAPE_RS','SHAPE_RSI',
+      'SHAPE_BAND','SHAPE_KNIFE_VETO','SHAPE_LSTUP_VETO','SHAPE_DIR_UP','SHAPE_DIR_DN',
+      'SHAPE_CL_FAM','SHAPE_CL_BARS','SHAPE_BY_FAM','SHAPE_BY_DEN','SHAPE_MARK','SHAPE_LEGS',
+      'SHAPE_MID','SHAPE_EXP','SHAPE_CON','SHAPE_LAST','SHAPE_WRAP','SHAPE_COIL','SHAPE_MOTH',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
+    // display-layer cells: a miss must export as empty / 0, never as a stale neighbour's value
+    const B01 = (v) => (v ? 1 : 0)
+    const NUM = (v, d = 2) => (v == null || Number.isNaN(Number(v)) ? '' : Number(v).toFixed(d))
     const _atrArr = computeAtr14(src)
     // physics lives in a separate fetch keyed by date; srcPhys is src already merged
     const _phys = Object.fromEntries(srcPhys.map(b => [b.date, b]))
@@ -1606,7 +1996,44 @@ export default function SuperchartPanel({
                 'phys_r_raw', 'phys_m_raw', 'phys_e_raw', 'phys_k_x', 'phys_c_raw',
                 'phys_h_raw', 'phys_e_release', 'phys_s_net'].map(k => p[k] ?? '')
       })(),
+      // ── the five display layers, keyed by date from their own full-history fetches ──
+      ...(() => {
+        const d = String(b.date).slice(0, 10)
+        const L = mLbal[d] || {}, X = mLvx[d] || {}, O = mOvd[d] || {}
+        const V = mVol7[d] || {}, S = mShape[d] || {}
+        return [
+          L.lbal_udn ?? '', L.lbal_udn_c ?? '', L.lbal_marks ?? '', L.lbal_text ?? '',
+          L.lbal_colour ?? '', L.lbal_n_pos ?? '', L.lbal_n_neg ?? '',
+          X.lvx_label ?? '', X.lvx_fam ?? '', X.lvx_tier ?? '', B01(X.lvx_v),
+          X.lvx_lv15 ?? '', X.lvx_lv1h ?? '',
+          O.ovdmap_tokens ?? '', NUM(O.ovdmap_rv_o60), NUM(O.ovdmap_rv_c60),
+          NUM(O.ovdmap_reclaim60), NUM(O.ovdmap_handoff60),
+          V.vol7_label ?? '', V.vol7_mr ?? '', V.vol7_sg ?? '', NUM(V.vol7_ratio),
+          V.vol7_cons ?? '', V.vol7_trans ?? '', V.vol7_marks ?? '',
+          // 🏅 RANK rides on the signal row itself
+          b.rank_pct ?? '', NUM(b.rank_edge), b.rank_fam ?? '', b.rank_n ?? '',
+          S.shape_code ?? '', S.shape_arrow ?? '', S.shape_label ?? '',
+          S.shape_grade ?? '', NUM(S.shape_vr), B01(S.shape_absorb), B01(S.shape_dry),
+          B01(S.shape_sweet), NUM(S.shape_pos20, 3), B01(S.shape_floor),
+          S.shape_touches ?? '', B01(S.shape_key), B01(S.shape_rs), NUM(S.shape_rsi, 1),
+          S.shape_band ?? '', B01(S.shape_veto), B01(S.shape_lstup_veto),
+          B01(S.shape_dir_up), B01(S.shape_dir_dn),
+          S.shape_cl_fam ?? '', S.shape_cl_bars ?? '', B01(S.shape_by_fam), B01(S.shape_by_den),
+          S.shape_mark ?? '', S.shape_legs ?? '',
+          B01(S.shape_s_mid), B01(S.shape_s_exp), B01(S.shape_s_con), B01(S.shape_s_last),
+          B01(S.shape_s_wrap), B01(S.shape_s_coil), B01(S.shape_s_moth),
+        ]
+      })(),
     ])
+    // A header/cell count drift silently shifts every column after the break, and the CSV still
+    // opens fine — it is discovered weeks later as "the data is wrong". Fail loudly instead.
+    if (rows.length && rows[0].length !== headers.length) {
+      const msg = `CSV column mismatch: ${headers.length} headers vs ${rows[0].length} cells — export aborted`
+      console.error(msg, { headers: headers.length, cells: rows[0].length })
+      setError(msg)
+      setCsvBusy(false)
+      return
+    }
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
       .join('\n')
@@ -1811,6 +2238,39 @@ export default function SuperchartPanel({
                 <VrpRow bars={bars} ticker={ticker} />
                 <AnatRow bars={bars} hoursMap={day1hMap} />
                 {with1H && <Row1H bars={bars} hoursMap={day1hMap} />}
+                {/* UDN★ — L-BAL agreement marks, directly above SCORE (user, 2026-09-06). 1d only:
+                    the row is a per-SESSION decomposition of the daily bar into its 15m bars. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 'lbal').map(row => (
+                  // Both counting modes side by side rather than one behind a switch: they
+                  // disagree bar by bar, and seeing the disagreement is the point (user,
+                  // 2026-09-10). The shared V/all toggle still lives on the chart line and the
+                  // Ultra chips; it no longer governs these two rows, which are fixed.
+                  ['V', 'ALL'].map(m => (
+                    <ChipRow key={`${row.key}-${m}`} bars={barsLbal}
+                             row={{ ...row,
+                                    label: (
+                                      <span title={m === 'V'
+                                        ? '★ L-BAL, V count — only 15m bars whose volume > SMA20 (the TradingView setting). UDN = effort (L34+L3 vs L46), UDN+ = the labelled bars by their own candle.'
+                                        : '★ L-BAL, ALL count — every labelled 15m bar. Shown next to the V row because the two disagree on individual bars, and the disagreement is the reading.'}>
+                                        UDN★{m === 'V' ? 'V' : 'all'}
+                                      </span>
+                                    ),
+                                    getSigs: (b, prev) => row.getSigs(b, prev, m),
+                                    sigTitle: (sig, b) => row.sigTitle(sig, b, m) }} />
+                  ))
+                ))}
+                {/* SHAPE × CONTEXT — the body-nest shape + its context legs + the two cluster
+                    axes, directly under UDN★ (user, 2026-09-10). 1d only. Descriptive: 4 sealed
+                    families, k = 21, 0 BUILD; ⛔LST↑ is the one chip with two-window evidence. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 'shape').map(row => <ChipRow key={row.key} row={row} bars={barsShape} />)}
+                {/* L-VX — graded daily L34/L46, between UDN★ and SCORE (user, 2026-09-06). 1d only. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 'lvx').map(row => <ChipRow key={row.key} row={row} bars={barsLvx} />)}
+                {/* OVD daily map — opening / closing 15m volume logics, above SCORE (user, 2026-09-06). 1d only. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 'ovd').map(row => <ChipRow key={row.key} row={row} bars={barsOvd} />)}
+                {/* VOL7 — 7-level volume regime (M·σ, jumps, VB2, SHIFT), above SCORE (user, 2026-09-07). 1d only. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 'vol7').map(row => <ChipRow key={row.key} row={row} bars={barsVol7} />)}
+                {/* 🏅 RANK_V1 — percentile of that day's edge fires (sealed A table), above SCORE (user, 2026-09-07). 1d only. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 'rank').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
                 {ROWS.filter(r => r.key === 'score').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
 
                                 <tr className="border-t border-white/[0.06]">
@@ -2159,7 +2619,7 @@ export default function SuperchartPanel({
                 {/* the remaining signal families */}
                 {/* 'phys' is excluded here because it is rendered above, directly under L —
                     this catch-all is what silently drew it a second time at the bottom. */}
-                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick', 'cisd'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick', 'cisd', 'lbal', 'lvx', 'ovd', 'vol7', 'rank', 'shape'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
 
                 {/* ULTRA row — computed per-bar (independent confluence ranking) */}
 

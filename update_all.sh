@@ -90,10 +90,46 @@ if [ "${NO_INTRADAY:-0}" != "1" ]; then
       || echo "  ⚠ 15m enriched top-up failed"
     # refresh the High-Base scanner's per-day MIN-15m-RSI cache from the new enriched bars
     .venv/bin/python build_m15_dayrsi.py 2>/dev/null || echo "  (m15_dayrsi rebuild skipped)"
+    # ★ L-BAL + L-VX + OVD map + VOL7 (2026-09-06/07): the TradingView display scripts ported —
+    # per-session 15m L-label balance (UDN / UDN+ / ★ marks) → data/lbal_signals.parquet, daily
+    # L34/L46 graded V·VL·VH·VX → data/lvx_signals.parquet, OVD tokens OB/RC/CD/HO/NM? →
+    # data/ovdmap_signals.parquet, 7-level volume regime (M·σ, jumps, VB2, SHIFT) →
+    # data/vol7_signals.parquet; read by the Ultra chips, the chart lines and the Superchart rows.
+    # READ-ONLY on studio_15m / studio_1h / studio_analytics (no lock conflict once the derive
+    # above is done), full rebuild ~8 min, atomic replace so the live backend never sees a
+    # half-written file. Descriptive only — never a ranking input. Non-fatal.
+    echo "──── ★ L-BAL / L-VX / OVD rebuild  ($(date '+%T')) ────"
+    nice -n 10 .venv/bin/python lbal_build.py || echo "  ⚠ L-BAL rebuild failed"
+
+    # ▽△ BOTTOM-ANATOMY history (2026-09-11): the per-session verdict + 0-8 score that /api/day1h
+    # draws on the chart, for the whole universe and the whole history → data/anatomy_signals.parquet.
+    # The endpoint computes it live one ticker at a time, so without this there is nothing to measure
+    # the row against. 1D + 1H + 15m, read-only, ~4 min, atomic replace, non-fatal — hence INSIDE the
+    # intraday branch, after the derive.
+    #   MUST STAY IN PARITY WITH main.py::api_day1h — backend/tests/test_anatomy_parity.py. A moving
+    #   threshold in `key` once put the 0-8 score at 54.7 % agreement with the chart and voided two
+    #   sealed families. If that endpoint's definition changes, this file changes with it.
+    #   DESCRIPTIVE ONLY: a DETECTOR (1.37x lift, 76 % recall, 33 % precision). Never a ranking input.
+    echo "──── ▽△ BOTTOM-ANATOMY rebuild  ($(date '+%T')) ────"
+    nice -n 10 .venv/bin/python anatomy_build.py || echo "  ⚠ anatomy rebuild failed"
   fi
 else
   echo "  (intraday skipped — NO_INTRADAY=1)"
 fi
+
+# ── 🔷 SHAPE × CONTEXT (2026-09-10) ───────────────────────────────────────────
+# The TradingView "260910_SHAPE_CTX" script ported for display: the seven body-nest shapes under
+# the Pine display priority (MTH > CL4 > MID > EXP > CON > LST > WRP), the ↑↓ arrow on the swallow
+# shapes, the EFFORT grade 0-2, the 📍FLOOR / 🧱KEY / 🏆RS legs, the ⛔KNIFE veto and the two
+# cluster axes 🎯 diversity / 🔁 density → data/shapectx_signals.parquet. Read by the Ultra chips,
+# the Superchart SHAPE row and the Superchart CSV.
+#   1D ONLY — reads studio_analytics `bars`, so it does NOT depend on the intraday derive above and
+#   lives outside that branch. ~20 s, atomic replace, non-fatal.
+#   DESCRIPTIVE ONLY: four sealed families (MOTHER_V1, SHAPE_CLUSTER_V1, SHAPE_GATE_V1,
+#   SWALLOW_DIR_V1), k = 21, 0 BUILD — clustering measured monotonically WORSE, not better. The one
+#   cell with two-window evidence is LST↑ and it is a VETO. Never a ranking input.
+echo "──── 🔷 SHAPE × CONTEXT rebuild  ($(date '+%T')) ────"
+( cd "$ROOT/backend" && nice -n 10 .venv/bin/python shape_ctx_build.py ) || echo "  ⚠ SHAPE_CTX rebuild failed"
 
 # ── 💠 GEX edge-context forward log (2026-07-22) ──────────────────────────────
 # Options have NO historical snapshot, so GEX-confluence can only be validated by

@@ -47,7 +47,9 @@ export default function MiniChartPopup({ ticker, tf = '1d', pos, price, changePc
       )}
       {/* Chart */}
       <div style={{ width: CHART_W }}>
-        <CodeCandleChart bare codes={false} ticker={ticker} tf={tf} interactive={false} height={CHART_H} />
+        {/* lbal={false}: the hover preview stays a clean candle chart (user, 2026-09-06);
+            the ★ L-BAL line lives on the full charts and in the Superchart UDN★ row. */}
+        <CodeCandleChart bare codes={false} lbal={false} lvx={false} ovd={false} vol7={false} ticker={ticker} tf={tf} interactive={false} height={CHART_H} />
       </div>
     </div>
   )

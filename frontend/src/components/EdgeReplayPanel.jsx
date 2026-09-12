@@ -36,6 +36,32 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
     return () => { dead = true }
   }, [])
 
+  // 2026-09-03 research audit → hover text on the setup name (additive). Rows are matched by
+  // their mask column (r.col), not the label, so relabels (G3²RL → G3²RL🟡) still resolve.
+  // Numbers only — the audit's class word is deliberately not shown (its EVENT rule was too
+  // loose, 40/52, and is not trusted).
+  const [audit, setAudit] = useState(null)
+  useEffect(() => {
+    let dead = false
+    fetch('/api/edge-audit').then(r => r.json())
+      .then(d => { if (!dead && d?.by_col) setAudit(d) })
+      .catch(() => {})
+    return () => { dead = true }
+  }, [])
+  const auditHint = (rec) => {
+    if (!rec) return undefined
+    const h5 = rec.h5 || {}, h60 = rec.h60 || {}
+    const f = (v, d = 2) => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(d))
+    const thin = (h60.n_days ?? 0) < 80
+    return [
+      `${rec.audited_as || ''} · day-clustered (one obs per entry-day, minus same-day control)`,
+      `5-bar : day-edge ${f(h5.day_med)} · day-win ${f(h5.day_win, 0)}%`,
+      `60-bar: day-edge ${f(h60.day_med)} · day-win ${f(h60.day_win, 0)}% · ${h60.n_days ?? '—'} days${thin ? ' · THIN (<80 days)' : ''}`,
+      `top-2 days carry ${f(h60.top2_share, 0)}% of positive edge`,
+      `audit ${audit?.as_of || ''} · only 🔄DR 🥇G3 🥇G3A show a short-horizon event; the rest accrue with holding time`,
+    ].join('\n')
+  }
+
   const run = useCallback(() => {
     setLoading(true); setErr(''); setDrill(null)
     const p = new URLSearchParams({ setup: 'all', months, mode, trail, stop, target, maxh })
@@ -146,6 +172,13 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
               <Th cls="text-right">yrs+</Th>
               <Th k="worst_year" cls="text-right">worst yr</Th>
               <Th k="conc_top10pct" cls="text-right">conc%</Th>
+              {/* DAY-clustered view (2026-09-03 audit): one observation per entry-day, minus the
+                  same-day control. When a setup fires on many tickers the same day, those
+                  trades win/lose together — the trade columns to the left overstate evidence. */}
+              <Th k="n_days" cls="text-right" title="Entry-DAYS, not trades. This is the real sample size when fires cluster on the same day.">days</Th>
+              <Th k="day_med_edge" cls="text-right" title="Median over entry-days of (setup day-median − same-day control day-median). The number that survives day clustering.">day edge</Th>
+              <Th k="day_win_edge" cls="text-right" title="% of entry-days where the setup beat the same-day control.">day win</Th>
+              <Th k="top2_share" cls="text-right" title="Share of all positive day-edge carried by the two best days. High = a few market days made the headline.">top2%</Th>
               {overfit && <Th cls="text-right" >DSR</Th>}
             </tr>
           </thead>
@@ -153,7 +186,7 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
             {sorted.map((r, i) => (
               <tr key={r.setup} onClick={() => openDrill(r.setup)}
                   className={`border-t border-slate-800 hover:bg-slate-800/50 cursor-pointer ${i === 0 ? 'bg-emerald-900/10' : ''}`}>
-                <td className="px-2 py-1.5 font-semibold text-slate-200">{r.setup}</td>
+                <td className="px-2 py-1.5 font-semibold text-slate-200" title={auditHint(audit?.by_col?.[r.col])}>{r.setup}</td>
                 <td className="px-2 py-1.5 text-right text-slate-400">{r.n.toLocaleString()}</td>
                 <td className="px-2 py-1.5 text-right text-slate-300">{r.mean?.toFixed(2)}</td>
                 <td className="px-2 py-1.5 text-right text-slate-500">{r.median?.toFixed(2)}</td>
@@ -166,6 +199,11 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
                 <td className="px-2 py-1.5 text-right text-slate-400">{r.pos_years}/{r.total_years}</td>
                 <td className={`px-2 py-1.5 text-right ${r.worst_year < 0 ? 'text-red-400' : 'text-emerald-400'}`}>{r.worst_year?.toFixed(1)}</td>
                 <td className="px-2 py-1.5 text-right text-slate-500">{r.conc_top10pct}</td>
+                <td className={`px-2 py-1.5 text-right ${(r.n_days ?? 0) < 80 ? 'text-orange-400' : 'text-slate-400'}`}
+                    title={(r.n_days ?? 0) < 80 ? 'THIN: fewer than 80 entry-days' : undefined}>{r.n_days ?? '—'}</td>
+                <td className={`px-2 py-1.5 text-right font-semibold ${r.day_med_edge == null ? 'text-slate-600' : r.day_med_edge > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.day_med_edge == null ? '—' : (r.day_med_edge > 0 ? '+' : '') + r.day_med_edge.toFixed(2)}</td>
+                <td className={`px-2 py-1.5 text-right ${r.day_win_edge == null ? 'text-slate-600' : r.day_win_edge >= 55 ? 'text-emerald-400' : r.day_win_edge > 50 ? 'text-slate-300' : 'text-red-400'}`}>{r.day_win_edge == null ? '—' : r.day_win_edge.toFixed(1)}</td>
+                <td className={`px-2 py-1.5 text-right ${(r.top2_share ?? 0) >= 15 ? 'text-orange-400' : 'text-slate-500'}`}>{r.top2_share == null ? '—' : r.top2_share.toFixed(0)}</td>
                 {overfit && (() => {
                   const d = overfit.map[r.setup]?.dsr
                   const cls = d == null ? 'text-slate-600' : d >= 0.9 ? 'text-emerald-400 font-bold'
