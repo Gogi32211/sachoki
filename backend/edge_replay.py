@@ -14,6 +14,7 @@ setups can be compared head-to-head.
 READ-ONLY on bars.
 """
 from __future__ import annotations
+import hashlib
 import json
 import logging
 import os
@@ -24,6 +25,16 @@ import pandas as pd
 log = logging.getLogger(__name__)
 
 SLIP = 0.0015
+MIN_CTRL = 20            # control trades a session needs before its median is a benchmark
+
+
+def _ctrl_phase(ticker: str, stride: int = 40) -> int:
+    """Per-ticker offset for the day-clustered CONTROL grid — the same rule as
+    control_keys.phase(). sha256, never python hash(): that one is salted per process,
+    so a restarted backend would silently resample the control."""
+    return int(hashlib.sha256(str(ticker).encode()).hexdigest()[:8], 16) % stride
+
+
 _BULLT = ("T1", "T1G", "T2", "T2G", "T3", "T5", "T9", "T10", "T11", "T12")
 _ANCH = ("Z11", "Z3", "Z1G", "Z5")
 _CONF = ("T3", "T5")
@@ -1653,7 +1664,10 @@ DISPLAY_SETUPS = [
     ("ENG",  "E_engulfabs"),   ("EL46", "E_engulfL46"), ("ZRT", "E_zoneretest"),
     ("HB15", "E_highbase15"),  ("RTB", "E_rtb_base"), ("P55",  "E_p55"),
     ("PAR",  "E_parabola"),    ("🎯3", "E_confluence"), ("🎯4", "E_confluence_p"),
-    ("G3RL", "E_g3rl"), ("G3²", "E_g3g3"), ("G3²RL", "E_g3g3rl"),
+    # 🟡 G3²RL demoted to WATCH by the 2026-09-03 research audit: its H=60 stats are
+    # trade-level +7.80 / 67.8% but DAY-clustered +0.51 / 50.8% over 368 days — the
+    # headline was inflation from a few crowded days, not a per-day edge. Key unchanged.
+    ("G3RL", "E_g3rl"), ("G3²", "E_g3g3"), ("G3²RL🟡", "E_g3g3rl"),
     ("💠L34C", "E_l34camp_rev"),
     ("SC46", "E_ndscl46"), ("NSSC", "E_nssc"), ("G3L46", "E_g3l46"),
     ("⚔️FBT", "E_failbear"),
@@ -2294,11 +2308,66 @@ def edge_replay(setup: str = "all", months: int = 36, dv_floor: float = 3_000_00
     want = [s for s in SETUPS if setup == "all" or s[0].lower() == setup.lower()]
     if not want:
         want = SETUPS
+    # ── DAY-clustered view (2026-09-03 research audit, feedback-day-clustered-accounting) ──
+    # Every number above is per TRADE. When a setup fires on many tickers the same day those
+    # trades win or lose together, so trade counts overstate the evidence (a 99.5% "beats
+    # random" became 22% when re-counted by days). Additive fields, computed from the same
+    # `tr` and one extra control run per call: n_days, day_med_edge (median over entry-days
+    # of setup-day-median minus same-day control-day-median), day_win_edge, top2_share
+    # (share of positive day-edge carried by the two best days). Control = every 40th bar
+    # >= $21 per ticker, same universe, same exit — idempotent on the cached frame.
+    #
+    # 2026-09-10 CONTROL_V2_DEPHASED (feedback-control-density, project-control-impact-audit).
+    # The grid used to be `np.where(close >= 21)[0][::40]` — phase 0 of every ticker's own
+    # eligible sequence. Most tickers enter the frame on the same session, so those grids
+    # ALIGNED: control trades bunched onto a few sessions (median 14/day, only 31% of days
+    # reached the 20 a day-median needs) and the remaining days took their benchmark off one
+    # or two trades. Measured read-only over all 122 setups, that flattered the board
+    # systematically: mean day_med_edge +1.06 pp, 115 of 120 setups better than they should be,
+    # 11 sign flips, 13 crossings of the day-win 50 line. Same rule, same 1-in-40 RATE, same
+    # estimand — only the per-ticker grid OFFSET changes (control_keys.phase, sha256 not the
+    # salted python hash()) → median 41/day, >= 20 on 100% of days. Column renamed so a warm
+    # cached frame rebuilds the mask instead of serving the phase-0 one.
+    for _tk, _g in grp.items():
+        if "EDGE_CTRL_V2" not in _g.columns:
+            _m = np.zeros(len(_g), dtype=bool)
+            _e = np.where(_g["close"].to_numpy() >= 21)[0]
+            if len(_e):
+                _m[_e[_ctrl_phase(_tk) % len(_e)::40]] = True
+            _g["EDGE_CTRL_V2"] = _m
+    _ctr = _pathsim(grp, "EDGE_CTRL_V2", mode, stop, target, trail, maxh, slip=slip,
+                    atr_k=(atr_k or None))
+    if len(_ctr):
+        _cr = (_ctr["ret"] * 100).groupby(pd.to_datetime(_ctr["date_in"]).dt.date)
+        # MIN_CTRL guard: a day-median off < 20 control trades is noise, not a benchmark.
+        # There was no minimum at all before — days resting on 1-2 trades were scored.
+        _ctr_day = _cr.median().where(_cr.size() >= MIN_CTRL).dropna()
+    else:
+        _ctr_day = pd.Series(dtype=float)
+
+    def _day_fields(tr: pd.DataFrame) -> dict:
+        if tr is None or not len(tr) or not len(_ctr_day):
+            return {"n_days": 0, "day_med_edge": None, "day_win_edge": None, "top2_share": None}
+        sd = (tr["ret"] * 100).groupby(pd.to_datetime(tr["date_in"]).dt.date).median()
+        j = pd.concat([sd.rename("s"), _ctr_day.rename("c")], axis=1).dropna()
+        if not len(j):
+            return {"n_days": 0, "day_med_edge": None, "day_win_edge": None, "top2_share": None}
+        e = (j["s"] - j["c"]).to_numpy()
+        pos = e[e > 0].sum()
+        top2 = np.sort(e)[-2:].sum() if len(e) >= 2 else e.sum()
+        return {"n_days": int(len(e)),
+                "day_med_edge": round(float(np.median(e)), 2),
+                "day_win_edge": round(float((e > 0).mean() * 100), 1),
+                "top2_share": round(float(top2 / pos * 100), 1) if pos > 0 else None}
+
     out = []
     trades_out = None
     for name, col in want:
         tr = _pathsim(grp, col, mode, stop, target, trail, maxh, slip=slip, atr_k=(atr_k or None))
-        out.append(_stats(name, tr))
+        _s = _stats(name, tr)
+        _s.update(_day_fields(tr))
+        _s["col"] = col          # stable identity (mask column); labels get relabelled, this doesn't
+        out.append(_s)
         if with_trades and setup != "all":
             trades_out = [{"ticker": r["ticker"], "year": r["yr"], "ret_pct": round(r["ret"] * 100, 2)}
                           for _, r in tr.sort_values("ret", ascending=False).iterrows()]

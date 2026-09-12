@@ -268,7 +268,10 @@ function Replay2Panel() {
         <div className="overflow-auto max-h-[560px] rounded border border-md-outline-var">
           <table className="w-full text-[11px]">
             <thead className="sticky top-0 bg-md-surface-con text-[10px] uppercase tracking-wider text-md-on-surface-var">
-              <tr>{['setup', 'n', 'med%', 'win%', 'pf', 'worst yr', 'yrs+', 'dsr', 'claim']
+              {/* 'days' … 'top2%' = DAY-clustered view (2026-09-03 audit): one observation per
+                  entry-day minus same-day control. Trade columns overstate evidence when fires
+                  cluster on the same day; the day columns are what survives. */}
+              <tr>{['setup', 'n', 'med%', 'win%', 'pf', 'worst yr', 'yrs+', 'days', 'day edge', 'day win', 'top2%', 'dsr', 'claim']
                 .map(h => <th key={h} className="text-right px-2 py-1 font-normal first:text-left">{h}</th>)}</tr>
             </thead>
             <tbody>
@@ -283,6 +286,12 @@ function Replay2Panel() {
                   <td className={'px-2 py-0.5 text-right ' +
                     (r.worst_year < 0 ? 'text-rose-300' : 'text-emerald-300')}>{r.worst_year}</td>
                   <td className="px-2 py-0.5 text-right">{r.pos_years}/{r.total_years}</td>
+                  <td className={'px-2 py-0.5 text-right ' + ((r.n_days ?? 0) < 80 ? 'text-orange-300' : '')}>{r.n_days ?? '—'}</td>
+                  <td className={'px-2 py-0.5 text-right ' +
+                    (r.day_med_edge == null ? 'text-md-on-surface-var/50' : r.day_med_edge > 0 ? 'text-emerald-300' : 'text-rose-300')}>
+                    {r.day_med_edge == null ? '—' : (r.day_med_edge > 0 ? '+' : '') + r.day_med_edge}</td>
+                  <td className="px-2 py-0.5 text-right">{r.day_win_edge ?? '—'}</td>
+                  <td className={'px-2 py-0.5 text-right ' + ((r.top2_share ?? 0) >= 15 ? 'text-orange-300' : '')}>{r.top2_share ?? '—'}</td>
                   <td className={'px-2 py-0.5 text-right ' +
                     ((r.dsr ?? 0) <= 0 ? 'text-rose-300' : '')}>{r.dsr ?? '—'}</td>
                   <td className="px-2 py-0.5 text-right text-md-on-surface-var/60">{r.claim_hash}</td>
