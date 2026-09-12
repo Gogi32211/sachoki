@@ -134,6 +134,8 @@ def backfill_tf(db_file: str, limit_tickers: int | None = None,
     disk = assert_disk_headroom(path)
     started = time.time()
 
+    from studio.mount_guard import require_for_path
+    require_for_path(path, purpose="physics backfill write")
     conn = duckdb.connect(path, read_only=False)
     try:
         before = fingerprint(conn)

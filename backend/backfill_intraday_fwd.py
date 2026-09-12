@@ -91,4 +91,10 @@ def main(tf="1h"):
 
 
 if __name__ == "__main__":
+    # dbupdate writer path: the canonical data tree is on an external volume, so refuse
+    # to start rather than let DuckDB create an empty database on the internal disk.
+    import os as _os, sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from studio.mount_guard import require_external_volume
+    require_external_volume(purpose=_os.path.basename(__file__))
     main(sys.argv[1] if len(sys.argv) > 1 else "1h")

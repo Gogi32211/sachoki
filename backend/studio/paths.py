@@ -10,6 +10,23 @@ folder to another machine and it just works.
     2. <project-root>/data          (default — keeps data inside the repo folder)
 
 Lightweight on purpose (only stdlib) so any script can import it cheaply.
+
+THIS MODULE IS NON-MUTATING. It defines paths and nothing else: no mkdir, no touch, no
+database open, no file creation — at import time or otherwise (export_path is the one
+exception, and it creates only the exports directory, never DATA_DIR, and only when
+called). This is a rule, not an accident, and it is enforced by fixture G in
+mount_guard_conformance.py.
+
+It used to call os.makedirs(DATA_DIR, exist_ok=True) here at import. That line was
+removed. DATA_DIR is now a symlink to an external volume, and a mkdir on the canonical
+path is the one thing that can MANUFACTURE the failure it looks like it is preventing:
+with the volume absent but /Volumes/QUANT_RESEARCH present as an ordinary folder, that
+call would cheerfully create the tree on the internal disk and every subsequent write
+would land in a phantom that looks exactly like the real thing.
+
+Creating canonical directories is a writer's job, and a writer must clear the mount guard
+first. Importing a path constant is not a writer, and must stay free to happen anywhere —
+including in read-only modules and tests running with no external disk attached.
 """
 from __future__ import annotations
 import os
@@ -20,7 +37,7 @@ BACKEND_DIR = os.path.dirname(_HERE)                        # .../backend
 PROJECT_ROOT = os.path.dirname(BACKEND_DIR)                 # .../sachoki-desktop
 
 DATA_DIR = os.environ.get("SACHOKI_DATA_DIR") or os.path.join(PROJECT_ROOT, "data")
-os.makedirs(DATA_DIR, exist_ok=True)
+# NO mkdir here — see the module docstring. Writers create directories, after the guard.
 
 
 def db_path(name: str) -> str:

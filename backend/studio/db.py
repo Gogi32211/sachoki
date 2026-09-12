@@ -139,6 +139,11 @@ def _connect_rw_retry(path: str, attempts: int = 10, delay: float = 0.35) -> duc
     """Open a read-write connection, retrying through transient in-process
     ro/rw configuration conflicts (a read-only reader — e.g. a tf connection
     that ATTACHed analytics RO — is briefly open somewhere)."""
+    # The canonical data tree lives on an external volume. If it is absent, DuckDB would
+    # create an empty database instead of failing, so refuse BEFORE opening anything.
+    # Non-canonical paths (scratch, fixtures) are not affected.
+    from studio.mount_guard import require_for_path
+    require_for_path(path, purpose="read-write studio connection")
     last = None
     for _ in range(attempts):
         try:

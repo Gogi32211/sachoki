@@ -1092,6 +1092,8 @@ def _enrich_one_ticker(args: tuple) -> tuple[str, int, str | None]:
     ticker, universe, db_path = args
     try:
         import duckdb
+        from studio.mount_guard import require_for_path
+        require_for_path(db_path, purpose="enricher worker write")
         conn = duckdb.connect(db_path, read_only=False)
         try:
             df = conn.execute("""
