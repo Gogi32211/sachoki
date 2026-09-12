@@ -39,8 +39,28 @@ def list_pending() -> list:
     return _load()
 
 
+def event_id(ticker: str, edge: str, fire_date: str) -> str:
+    """Identity of the FIRE EVENT an order belongs to. One ticker fires one edge at most once on
+    a given bar, so (ticker, edge, fire_date) names the event exactly — and a later fire of the
+    same edge is a different date, so it is a different event and stays allowed."""
+    return f"{ticker}|{edge}|{str(fire_date)[:10]}"
+
+
 def place(decision: dict, fire_date: str, below: float, apply: bool = True) -> dict:
-    """Queue a pullback order from a BUY decision. Idempotent by ticker."""
+    """Queue a pullback order from a BUY decision. Idempotent by ticker.
+
+    REFUSES an order without an edge. spine.decide has exactly one BUY return and it always sets
+    `edge` from the registry (0 of 61 edge findings lack an id), so a missing one means the order
+    did not come from the decider. A sentinel would be worse than an exception: two edge-less
+    fires on one ticker and one day would collapse into a single identity and the second would be
+    silently dropped as a duplicate."""
+    if not decision.get("ticker"):
+        raise ValueError("pullback order without a ticker")
+    if not decision.get("edge"):
+        raise ValueError(f"pullback order for {decision.get('ticker')} has no edge — the fire "
+                         f"event cannot be identified, so it cannot be de-duplicated")
+    if not fire_date:
+        raise ValueError(f"pullback order for {decision['ticker']} has no fire_date")
     order = {"ticker": decision["ticker"], "edge": decision.get("edge"),
              "edge_title": decision.get("edge_title"), "tier": decision.get("tier"),
              "shares": decision.get("shares"), "stop": decision.get("stop"),
@@ -70,10 +90,22 @@ def check_fills(apply: bool = False) -> dict:
     if not orders:
         return {"applied": apply, "filled": [], "expired": [], "waiting": []}
     held = {p["ticker"] for p in journal.open_positions()}
+    # PROCESSED EVENTS — open AND closed. `held` alone only ever saw currently-open positions, so
+    # a restored pending.json re-opened a fire that had already been traded and closed: the bars
+    # are re-read from fire_date every run, and a closed ticker is no longer in `held`. Closed
+    # trades are the only evidence that an event was already acted on, so they count here.
+    # Records without a fire_date are historical direct entries that never came through this
+    # queue; they identify no event and are skipped rather than blocking anything.
+    processed = {event_id(p["ticker"], p.get("edge"), p["fire_date"])
+                 for p in (journal.open_positions() + journal.closed_trades())
+                 if p.get("fire_date") and p.get("edge")}
     con = duckdb.connect(tf_db_path("1d"), read_only=True)
     filled, expired, waiting, keep = [], [], [], []
     for o in orders:
         tk, below = o["ticker"], float(o["below"])
+        eid = event_id(tk, o.get("edge"), o.get("fire_date", ""))
+        if eid in processed:                  # already traded this fire — never act twice
+            expired.append({**o, "why": f"already processed ({eid})"});  continue
         if tk in held:                        # opened by other means — drop the order
             expired.append({**o, "why": "already open"});  continue
         # GROUP BY date: multi-universe tickers store the same bar once per universe (AAPL ×3)
