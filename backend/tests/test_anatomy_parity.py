@@ -22,12 +22,14 @@ when the parquet exists and the service is up.
 import json
 import os
 import sys
-import urllib.error
 import urllib.request
 
 import numpy as np
 import pandas as pd
 import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from external_data import require_external_artifact, require_local_service   # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -125,18 +127,17 @@ def test_short_series_is_safe():
     assert not held.any() and not key.any() and (pos == 0.5).all()
 
 
-def _service_up():
-    try:
-        with urllib.request.urlopen(f"{BASE}/api/health", timeout=3) as r:
-            return r.status == 200
-    except Exception:
-        return False
-
-
-@pytest.mark.skipif(not os.path.exists(AB.OUT), reason="anatomy_signals.parquet not built")
-@pytest.mark.skipif(not _service_up(), reason="backend not running on :8080")
+@pytest.mark.external_data
 def test_live_parity():
     """End to end: the built history vs what /api/day1h actually returns, for real tickers.
+
+    GATED AT RUNTIME, NOT IN A DECORATOR. Both dependencies used to sit in `skipif`, whose
+    arguments are evaluated at import — so collecting this file opened a socket to :8080 and
+    stat'ed an out-of-repo parquet, on every run, including a clean clone with no network. The
+    gates now live in the body and go through the one canonical helper, which keeps the
+    distinction that matters: the parquet missing or nothing listening on :8080 is ABSENT and
+    skips, while a parquet that exists but has the wrong schema, or a service that answers
+    /api/health with anything but 200, is PRESENT AND BROKEN and fails.
 
     `rs` is not compared. The endpoint seeds its EMA(2/201) at its own cutoff — days*2+45 calendar
     days back — so with the chart's days=300 it has ~445 bars of seed and disagrees with the
@@ -144,7 +145,13 @@ def test_live_parity():
     not of the definition: at days=1400 the disagreement is 0.000 % over 12,161 rows. The parquet
     holds the better-seeded value.
     """
+    require_external_artifact(AB.OUT, "anatomy_signals.parquet")
+    require_local_service(BASE)
+
     hist = pd.read_parquet(AB.OUT, columns=["ticker", "date"] + FIELDS)
+    missing = [c for c in ["ticker", "date"] + FIELDS if c not in hist.columns]
+    assert not missing, (f"anatomy_signals.parquet is present but broken: missing {missing}. "
+                         f"This is a FAILURE, not a skip.")
     pool = sorted(hist["ticker"].unique())
     sample = [t for t in ("AAPL", "NVDA", "AMD", "MSFT", "RKLB") if t in set(pool)] or pool[:5]
     by_tk = {t: g.set_index("date") for t, g in hist[hist["ticker"].isin(sample)].groupby("ticker")}

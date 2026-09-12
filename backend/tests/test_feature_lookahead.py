@@ -21,6 +21,18 @@ SCOPE. This covers the engine bundle main.compute_all_signals — the single pro
 per-bar signal columns (T/Z, WLNBB, F, FLY, G, B, combo, VABS, wick, ULTRA, TZ state). Fields
 produced elsewhere (enricher, scores, research parquets) are covered by their own audits and, where
 they failed, are excluded from modelling rather than tested here.
+
+TWO TESTS, ONE PROPERTY (test contract, 2026-09-12). Truncation invariance is a property of the
+ENGINES, not of any particular dataset, so the core check does not need the research corpus and
+must not be skipped when the corpus is absent:
+
+  test_no_future_dependence_hermetic   one deterministic in-repo 800-bar frame. Always runs, on
+                                       any clean clone. This is the CI signal.
+  test_no_future_dependence            the same property over six real tickers and twenty dates
+                                       across five regimes. @pytest.mark.external_data — a wider
+                                       net, skipped only when the dataset is genuinely absent.
+
+Turning the whole thing into a skip would have traded a permanent guarantee for an occasional one.
 """
 import os
 import sys
@@ -31,6 +43,16 @@ import pytest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from external_data import external_conn, require_external_test_data   # noqa: E402
+from synthetic_ohlcv import (CHECKSUM, MIN_MATURE_INDEX, N_BARS,      # noqa: E402
+                             assert_rich_enough, checksum, synthetic_ohlcv)
+
+# Truncation points for the hermetic frame. All above MIN_MATURE_INDEX so that ema200 — the
+# longest lookback in the bundle — is past its seed, and all below the last bar so there is a
+# future left to remove.
+HERMETIC_INDICES = [620, 638, 655, 671, 688, 704, 719, 733, 748, 762, 777, 790]
 
 # Dates chosen across regimes, not at random: 2022 bear, 2023 recovery, 2024 trend,
 # 2025 chop, 2026 the window the current research uses.
@@ -99,9 +121,13 @@ def _same(a, b) -> bool:
     return a == b
 
 
+@pytest.mark.external_data
 @pytest.mark.parametrize("ticker", TICKERS)
 def test_no_future_dependence(ticker):
-    """A truncated frame and the full frame must agree on the truncation date, bar for bar."""
+    """The same property as the hermetic test, over the real corpus: six tickers, twenty dates,
+    five regimes. Wider net, but it needs the canonical dataset — so it is skipped when that is
+    absent and FAILS when it is present and wrong."""
+    require_external_test_data("1d")
     hist = _history(ticker)
     if len(hist) < 300:
         pytest.skip(f"{ticker}: only {len(hist)} bars")
@@ -122,17 +148,57 @@ def test_no_future_dependence(ticker):
                      f"e.g. {bad[:8]}")
 
 
+@pytest.mark.external_data
 def test_the_known_leaks_are_still_leaks():
     """A canary for the two fields the audit rejected. If either ever stops depending on the
-    future, re-audit it — do not silently re-admit it."""
-    import duckdb
-    from studio.db import tf_db_path
-    con = duckdb.connect(tf_db_path("1d"), read_only=True)
-    try:
+    future, re-audit it — do not silently re-admit it.
+
+    This one cannot be made hermetic: it is an assertion about what the STORED database actually
+    contains, not about an engine's behaviour, so a synthetic frame could not express it."""
+    with external_conn("1d") as con:
         n = con.execute("""SELECT count(*) FROM bars
                            WHERE acc_exit_class IN ('BO_1','BO_2_3','BO_4_5')
                              AND acc_exit_in_n > 0""").fetchone()[0]
-    finally:
-        con.close()
     assert n > 0, ("acc_exit_class no longer carries a forward distance — the enricher changed; "
                    "re-run the leakage audit before using it")
+
+
+# ── HERMETIC — the CI signal. No dataset, no mount, no network. ─────────────
+def test_the_hermetic_fixture_is_still_deterministic_and_rich():
+    """Guards the guard. If the fixture drifts or goes smooth, the causality test below would
+    keep passing while testing less and less, so pin both properties explicitly."""
+    df = synthetic_ohlcv()
+    assert len(df) == N_BARS
+    assert checksum(df) == CHECKSUM, (
+        f"synthetic fixture drifted: {checksum(df)} != {CHECKSUM}. Either the generator changed "
+        f"or numpy broke default_rng reproducibility — do not re-pin without knowing which.")
+    assert_rich_enough(df)
+
+
+def test_no_future_dependence_hermetic():
+    """Truncation invariance on the in-repo 800-bar frame.
+
+    Identical estimand to the corpus test: compute every engine on the frame truncated at T and
+    on the full frame, and require the row at T to match. The property belongs to the engines,
+    so it holds on any well-formed OHLCV — which is exactly why this version needs no data.
+    """
+    hist = synthetic_ohlcv()
+    assert checksum(hist) == CHECKSUM
+    assert HERMETIC_INDICES[0] >= MIN_MATURE_INDEX and HERMETIC_INDICES[-1] < len(hist) - 1
+
+    tested, compared, bad = 0, 0, []
+    for i in HERMETIC_INDICES:
+        full = _bundle_row(hist, "SYNTH", i)
+        trunc = _bundle_row(hist.iloc[: i + 1].reset_index(drop=True), "SYNTH", i)
+        tested += 1
+        keys = sorted(set(full) | set(trunc))
+        compared += len(keys)
+        for k in keys:
+            if not _same(full.get(k), trunc.get(k)):
+                bad.append((hist["date"].iloc[i], k, full.get(k), trunc.get(k)))
+
+    assert tested == len(HERMETIC_INDICES)
+    # A frame that produced nothing would make the comparison vacuous — pin the surface too.
+    assert compared >= 100 * tested, f"only {compared} field comparisons over {tested} dates"
+    assert not bad, (f"{len(bad)} look-ahead differences over {tested} truncation dates, "
+                     f"e.g. {bad[:8]}")
