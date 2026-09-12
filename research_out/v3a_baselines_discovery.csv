@@ -1,0 +1,3 @@
+primitive,family,source_layer,partial_coverage,min_history,min_history_why,coverage_pct,eligible_rows,events,tickers,raw_rate,events_per_ticker,y2021_delta,y2021_n,y2022_delta,y2022_n,y2023_delta,y2023_n,precision8,matched_base8,delta_pp,lift,top5_share,pos_years,med_mfe,survivor_flag,verdict
+BL3_rsi_gt50,BASELINE,__BL3_rsi14__,False,81,BL3 = RSI14 > 50; RSI14 Wilder RMA seed -> 81,100.0,1439606,25597,2775,43.1,9.22,3.28,3808,0.35,10753,3.08,11036,10.45,8.56,1.88,1.22,0.33,3,2.004,True,RETAIN
+BL4_breakout_volexp,BASELINE,__BL4_brk20vol__,False,21,BL4 = close > rolling(20).max(high).shift(1) AND volume > 1.5*avg_vol_20d,100.0,1608759,16840,2778,1.66,6.06,0.09,3072,0.47,5651,1.31,8117,10.13,9.11,1.02,1.112,0.45,3,1.667,True,RETAIN

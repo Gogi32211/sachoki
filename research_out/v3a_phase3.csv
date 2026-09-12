@@ -1,0 +1,16 @@
+pair,fam_a,fam_b,cooccur_bars,events,precision8,matched_base8,delta_pp,lift,tickers,top5_share,pos_years,y2021,y2022,y2023,A_events,A_delta,B_events,B_delta,BL3_rsi_gt50_prec,BL3_rsi_gt50_cand_prec,BL4_breakout_volexp_prec,BL4_breakout_volexp_cand_prec,best_baseline,best_baseline_prec,cand_prec_same_universe,vs_baseline_pp,vs_baseline_x,gate_pass_discovery,synergy_pp,cd5_events,cd5_delta,cd15_events,cd15_delta
+hi20_age>p90&phys_e_raw>p90,PRICE_DERIVED,PHYS,39918,2344,12.03,9.12,2.91,1.319,1247.0,1.32,3.0,4.12,3.3,2.82,6281,2.37,5173,1.93,10.42,12.03,10.18,12.03,BL3_rsi_gt50,10.42,12.03,1.61,1.155,False,0.54,2372,2.99,2310,2.66
+hi20_age>p90&sig_cisd_cplus_minus,PRICE_DERIVED,CISD,1690,1639,12.63,6.79,5.84,1.859,1108.0,1.65,3.0,4.71,1.62,13.54,6285,2.52,6653,2.05,10.42,12.63,10.13,12.63,BL3_rsi_gt50,10.42,12.63,2.21,1.212,False,3.32,1681,5.58,1583,6.03
+hi20_age>p90&w2_spring,PRICE_DERIVED,WYCKOFF,594,473,9.3,6.64,2.66,1.4,407.0,3.17,1.0,,-0.2,7.42,5734,2.12,2444,1.81,10.35,9.3,10.23,9.3,BL3_rsi_gt50,10.35,9.3,-1.05,0.899,False,0.54,509,2.79,451,2.88
+hi20_age>p90&bar_gap_range=G3-C,PRICE_DERIVED,BAR_TAXONOMY,877,534,11.8,7.38,4.42,1.598,375.0,4.87,2.0,,1.08,8.99,6281,2.37,4486,1.63,10.42,11.8,10.18,11.8,BL3_rsi_gt50,10.42,11.8,1.38,1.132,False,2.05,615,4.45,502,4.57
+hi20_age>p90&OVD_TOKENS=OB·30 OB·60 NM?,PRICE_DERIVED,DISPLAY,242,235,15.32,7.82,7.5,1.959,204.0,6.38,1.0,,4.14,,3522,4.66,2354,1.57,9.77,15.32,9.64,15.32,BL3_rsi_gt50,9.77,15.32,5.55,1.568,False,2.84,236,7.43,232,7.7
+phys_e_raw>p90&sig_cisd_cplus_minus,PHYS,CISD,1296,1269,12.29,8.34,3.96,1.475,750.0,2.68,3.0,4.06,3.41,5.09,5211,1.93,6160,2.13,10.45,12.29,10.18,12.29,BL3_rsi_gt50,10.45,12.29,1.84,1.176,False,1.83,1287,3.94,1246,4.05
+phys_e_raw>p90&w2_spring,PHYS,WYCKOFF,387,286,12.24,7.73,4.5,1.582,241.0,5.24,2.0,,2.61,6.6,4372,2.0,2447,1.79,10.35,12.24,10.23,12.24,BL3_rsi_gt50,10.35,12.24,1.89,1.183,False,2.5,305,4.07,278,3.42
+phys_e_raw>p90&bar_gap_range=G3-C,PHYS,BAR_TAXONOMY,1375,680,18.82,9.87,8.95,1.907,373.0,4.56,2.0,,9.28,9.13,5211,1.93,4506,1.69,10.45,18.82,10.18,18.82,BL3_rsi_gt50,10.45,18.82,8.37,1.801,True,7.02,837,9.96,622,7.65
+phys_e_raw>p90&OVD_TOKENS=OB·30 OB·60 NM?,PHYS,DISPLAY,134,127,,,,,,,,,,,1980,3.43,2303,1.46,9.77,,9.56,,,,,,,,,128,,127,
+sig_cisd_cplus_minus&w2_spring,CISD,WYCKOFF,104,104,,,,,,,,,,,4895,2.5,2447,1.79,10.35,,10.23,,,,,,,,,104,,104,
+sig_cisd_cplus_minus&bar_gap_range=G3-C,CISD,BAR_TAXONOMY,54,54,,,,,,,,,,,6160,2.13,4506,1.69,10.45,,10.18,,,,,,,,,54,,54,
+sig_cisd_cplus_minus&OVD_TOKENS=OB·30 OB·60 NM?,CISD,DISPLAY,24,24,,,,,,,,,,,1579,2.21,2370,1.6,9.77,,9.64,,,,,,,,,24,,24,
+w2_spring&bar_gap_range=G3-C,WYCKOFF,BAR_TAXONOMY,0,0,,,,,,,,,,,2447,1.79,3912,1.58,10.35,,10.23,,,,,,,,,0,,0,
+w2_spring&OVD_TOKENS=OB·30 OB·60 NM?,WYCKOFF,DISPLAY,6,6,,,,,,,,,,,899,2.4,1947,0.84,9.65,,9.76,,,,,,,,,6,,6,
+bar_gap_range=G3-C&OVD_TOKENS=OB·30 OB·60 NM?,BAR_TAXONOMY,DISPLAY,2,2,,,,,,,,,,,553,-1.2,2303,1.46,9.77,,9.56,,,,,,,,,2,,2,

@@ -1,0 +1,106 @@
+pair,role,eligible_rows,events,precision8,matched_base8,delta_pp,lift,tickers,top5_share,y2021_delta,y2021_n,y2022_delta,y2022_n,y2023_delta,y2023_n,pos_years,verdict
+hi20_age>p90&phys_e_raw>p90,BL3_rsi_gt50,1432608,25534,10.42,8.56,1.87,1.218,2773.0,0.33,3.22,3768.0,0.33,10734.0,3.08,11032.0,3.0,
+hi20_age>p90&phys_e_raw>p90,cand_on_BL3_rsi_gt50_universe,1432608,2344,12.03,9.12,2.91,1.319,1247.0,1.32,4.12,126.0,3.3,1128.0,2.82,1090.0,3.0,
+hi20_age>p90&phys_e_raw>p90,BL4_breakout_volexp,1432608,15129,10.18,9.22,0.96,1.104,2734.0,0.46,-1.49,1622.0,0.41,5504.0,1.29,8003.0,2.0,
+hi20_age>p90&phys_e_raw>p90,cand_on_BL4_breakout_volexp_universe,1432608,2344,12.03,9.12,2.91,1.319,1247.0,1.32,4.12,126.0,3.3,1128.0,2.82,1090.0,3.0,
+hi20_age>p90&phys_e_raw>p90,CONJ,1432608,2344,12.03,9.12,2.91,1.319,1247.0,1.32,4.12,126.0,3.3,1128.0,2.82,1090.0,3.0,
+hi20_age>p90&phys_e_raw>p90,A_alone,1432608,6281,10.32,7.95,2.37,1.299,2527.0,0.48,4.02,501.0,0.84,2987.0,4.29,2793.0,3.0,
+hi20_age>p90&phys_e_raw>p90,B_alone,1432608,5173,11.0,9.07,1.93,1.213,1866.0,0.91,4.95,507.0,2.01,2305.0,1.74,2361.0,3.0,
+hi20_age>p90&sig_cisd_cplus_minus,BL3_rsi_gt50,1432608,25534,10.42,8.56,1.87,1.218,2773.0,0.33,3.22,3768.0,0.33,10734.0,3.08,11032.0,3.0,
+hi20_age>p90&sig_cisd_cplus_minus,cand_on_BL3_rsi_gt50_universe,1432608,1639,12.63,6.93,5.7,1.823,1108.0,1.65,3.68,137.0,1.61,932.0,13.52,570.0,3.0,
+hi20_age>p90&sig_cisd_cplus_minus,BL4_breakout_volexp,1540956,16840,10.13,9.13,1.01,1.11,2778.0,0.45,0.05,3072.0,0.44,5651.0,1.32,8117.0,3.0,
+hi20_age>p90&sig_cisd_cplus_minus,cand_on_BL4_breakout_volexp_universe,1540956,1639,12.63,6.79,5.84,1.859,1108.0,1.65,4.71,137.0,1.62,932.0,13.54,570.0,3.0,
+hi20_age>p90&sig_cisd_cplus_minus,CONJ,1540956,1639,12.63,6.79,5.84,1.859,1108.0,1.65,4.71,137.0,1.62,932.0,13.54,570.0,3.0,
+hi20_age>p90&sig_cisd_cplus_minus,A_alone,1540956,6285,10.34,7.82,2.52,1.323,2527.0,0.48,4.69,505.0,0.86,2987.0,4.31,2793.0,3.0,
+hi20_age>p90&sig_cisd_cplus_minus,B_alone,1540956,6653,9.03,6.98,2.05,1.294,2316.0,0.83,1.15,1386.0,0.74,3414.0,5.85,1853.0,3.0,
+hi20_age>p90&w2_spring,BL3_rsi_gt50,1221492,21878,10.35,8.78,1.56,1.178,2720.0,0.35,,0.0,0.33,11057.0,3.09,10821.0,2.0,
+hi20_age>p90&w2_spring,cand_on_BL3_rsi_gt50_universe,1221492,473,9.3,6.64,2.66,1.4,407.0,3.17,,0.0,-0.2,292.0,7.42,181.0,1.0,
+hi20_age>p90&w2_spring,BL4_breakout_volexp,1221492,12967,10.23,9.16,1.07,1.117,2665.0,0.49,,0.0,0.17,5112.0,1.26,7855.0,2.0,
+hi20_age>p90&w2_spring,cand_on_BL4_breakout_volexp_universe,1221492,473,9.3,6.64,2.66,1.4,407.0,3.17,,0.0,-0.2,292.0,7.42,181.0,1.0,
+hi20_age>p90&w2_spring,CONJ,1221492,473,9.3,6.64,2.66,1.4,407.0,3.17,,0.0,-0.2,292.0,7.42,181.0,1.0,
+hi20_age>p90&w2_spring,A_alone,1221492,5734,10.34,8.22,2.12,1.257,2456.0,0.44,,0.0,0.36,2983.0,4.3,2751.0,2.0,
+hi20_age>p90&w2_spring,B_alone,1221492,2444,8.67,6.86,1.81,1.264,1475.0,1.39,,0.0,0.51,1519.0,4.06,925.0,2.0,
+hi20_age>p90&bar_gap_range=G3-C,BL3_rsi_gt50,1432608,25534,10.42,8.56,1.87,1.218,2773.0,0.33,3.22,3768.0,0.33,10734.0,3.08,11032.0,3.0,
+hi20_age>p90&bar_gap_range=G3-C,cand_on_BL3_rsi_gt50_universe,1432608,534,11.8,7.38,4.42,1.598,375.0,4.87,,19.0,1.08,285.0,8.99,230.0,2.0,
+hi20_age>p90&bar_gap_range=G3-C,BL4_breakout_volexp,1432608,15129,10.18,9.22,0.96,1.104,2734.0,0.46,-1.49,1622.0,0.41,5504.0,1.29,8003.0,2.0,
+hi20_age>p90&bar_gap_range=G3-C,cand_on_BL4_breakout_volexp_universe,1432608,534,11.8,7.38,4.42,1.598,375.0,4.87,,19.0,1.08,285.0,8.99,230.0,2.0,
+hi20_age>p90&bar_gap_range=G3-C,CONJ,1432608,534,11.8,7.38,4.42,1.598,375.0,4.87,,19.0,1.08,285.0,8.99,230.0,2.0,
+hi20_age>p90&bar_gap_range=G3-C,A_alone,1432608,6281,10.32,7.95,2.37,1.299,2527.0,0.48,4.02,501.0,0.84,2987.0,4.29,2793.0,3.0,
+hi20_age>p90&bar_gap_range=G3-C,B_alone,1432608,4486,9.83,8.2,1.63,1.199,1483.0,1.94,-1.9,311.0,1.68,2147.0,1.98,2028.0,2.0,
+hi20_age>p90&OVD_TOKENS=OB·30 OB·60 NM?,BL3_rsi_gt50,367292,20342,9.77,8.76,1.02,1.116,1716.0,0.49,2.71,2787.0,-0.35,8634.0,1.7,8921.0,2.0,
+hi20_age>p90&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL3_rsi_gt50_universe,367292,235,15.32,7.87,7.45,1.947,204.0,6.38,,9.0,4.12,130.0,,96.0,1.0,
+hi20_age>p90&OVD_TOKENS=OB·30 OB·60 NM?,BL4_breakout_volexp,385807,6879,9.64,9.94,-0.3,0.97,1638.0,0.8,-2.7,1079.0,-1.06,2270.0,-0.03,3530.0,0.0,
+hi20_age>p90&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL4_breakout_volexp_universe,385807,235,15.32,7.82,7.5,1.959,204.0,6.38,,9.0,4.14,130.0,,96.0,1.0,
+hi20_age>p90&OVD_TOKENS=OB·30 OB·60 NM?,CONJ,385807,235,15.32,7.82,7.5,1.959,204.0,6.38,,9.0,4.14,130.0,,96.0,1.0,
+hi20_age>p90&OVD_TOKENS=OB·30 OB·60 NM?,A_alone,385807,3522,12.55,7.89,4.66,1.59,1517.0,0.99,7.16,248.0,1.89,1731.0,7.61,1543.0,3.0,
+hi20_age>p90&OVD_TOKENS=OB·30 OB·60 NM?,B_alone,385807,2354,10.32,8.76,1.57,1.179,1158.0,1.49,4.25,320.0,0.31,1027.0,1.69,1007.0,3.0,
+phys_e_raw>p90&sig_cisd_cplus_minus,BL3_rsi_gt50,1439606,25597,10.45,8.56,1.88,1.22,2775.0,0.33,3.28,3808.0,0.35,10753.0,3.08,11036.0,3.0,
+phys_e_raw>p90&sig_cisd_cplus_minus,cand_on_BL3_rsi_gt50_universe,1439606,1269,12.29,8.34,3.96,1.475,750.0,2.68,4.06,115.0,3.41,658.0,5.09,496.0,3.0,
+phys_e_raw>p90&sig_cisd_cplus_minus,BL4_breakout_volexp,1439606,15129,10.18,9.23,0.95,1.103,2734.0,0.46,-1.6,1622.0,0.41,5504.0,1.28,8003.0,2.0,
+phys_e_raw>p90&sig_cisd_cplus_minus,cand_on_BL4_breakout_volexp_universe,1439606,1269,12.29,8.34,3.96,1.475,750.0,2.68,4.06,115.0,3.41,658.0,5.09,496.0,3.0,
+phys_e_raw>p90&sig_cisd_cplus_minus,CONJ,1439606,1269,12.29,8.34,3.96,1.475,750.0,2.68,4.06,115.0,3.41,658.0,5.09,496.0,3.0,
+phys_e_raw>p90&sig_cisd_cplus_minus,A_alone,1439606,5211,11.0,9.07,1.93,1.212,1870.0,0.9,4.98,539.0,1.98,2311.0,1.7,2361.0,3.0,
+phys_e_raw>p90&sig_cisd_cplus_minus,B_alone,1439606,6160,9.14,7.01,2.13,1.304,2225.0,0.88,1.7,934.0,0.71,3402.0,5.94,1824.0,3.0,
+phys_e_raw>p90&w2_spring,BL3_rsi_gt50,1221991,21881,10.35,8.78,1.56,1.178,2720.0,0.35,,0.0,0.33,11060.0,3.09,10821.0,2.0,
+phys_e_raw>p90&w2_spring,cand_on_BL3_rsi_gt50_universe,1221991,286,12.24,7.73,4.5,1.582,241.0,5.24,,0.0,2.61,150.0,6.6,136.0,2.0,
+phys_e_raw>p90&w2_spring,BL4_breakout_volexp,1221991,12967,10.23,9.16,1.07,1.117,2665.0,0.49,,0.0,0.18,5112.0,1.26,7855.0,2.0,
+phys_e_raw>p90&w2_spring,cand_on_BL4_breakout_volexp_universe,1221991,286,12.24,7.73,4.5,1.582,241.0,5.24,,0.0,2.61,150.0,6.6,136.0,2.0,
+phys_e_raw>p90&w2_spring,CONJ,1221991,286,12.24,7.73,4.5,1.582,241.0,5.24,,0.0,2.61,150.0,6.6,136.0,2.0,
+phys_e_raw>p90&w2_spring,A_alone,1221991,4372,11.3,9.3,2.0,1.215,1739.0,0.94,,0.0,2.37,2126.0,1.85,2246.0,2.0,
+phys_e_raw>p90&w2_spring,B_alone,1221991,2447,8.66,6.88,1.79,1.26,1476.0,1.39,,0.0,0.48,1522.0,4.06,925.0,2.0,
+phys_e_raw>p90&bar_gap_range=G3-C,BL3_rsi_gt50,1439606,25597,10.45,8.56,1.88,1.22,2775.0,0.33,3.28,3808.0,0.35,10753.0,3.08,11036.0,3.0,
+phys_e_raw>p90&bar_gap_range=G3-C,cand_on_BL3_rsi_gt50_universe,1439606,680,18.82,9.87,8.95,1.907,373.0,4.56,,35.0,9.28,312.0,9.13,333.0,2.0,
+phys_e_raw>p90&bar_gap_range=G3-C,BL4_breakout_volexp,1439606,15129,10.18,9.23,0.95,1.103,2734.0,0.46,-1.6,1622.0,0.41,5504.0,1.28,8003.0,2.0,
+phys_e_raw>p90&bar_gap_range=G3-C,cand_on_BL4_breakout_volexp_universe,1439606,680,18.82,9.87,8.95,1.907,373.0,4.56,,35.0,9.28,312.0,9.13,333.0,2.0,
+phys_e_raw>p90&bar_gap_range=G3-C,CONJ,1439606,680,18.82,9.87,8.95,1.907,373.0,4.56,,35.0,9.28,312.0,9.13,333.0,2.0,
+phys_e_raw>p90&bar_gap_range=G3-C,A_alone,1439606,5211,11.0,9.07,1.93,1.212,1870.0,0.9,4.98,539.0,1.98,2311.0,1.7,2361.0,3.0,
+phys_e_raw>p90&bar_gap_range=G3-C,B_alone,1439606,4506,9.9,8.21,1.69,1.206,1488.0,1.93,-1.76,315.0,1.72,2158.0,2.04,2033.0,2.0,
+phys_e_raw>p90&OVD_TOKENS=OB·30 OB·60 NM?,BL3_rsi_gt50,368443,20364,9.77,8.76,1.01,1.115,1716.0,0.49,2.64,2801.0,-0.35,8642.0,1.7,8921.0,2.0,
+phys_e_raw>p90&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL3_rsi_gt50_universe,368443,127,,,,,,,,,,,,,,INSUFFICIENT
+phys_e_raw>p90&OVD_TOKENS=OB·30 OB·60 NM?,BL4_breakout_volexp,368443,6524,9.56,9.88,-0.32,0.968,1624.0,0.83,-3.92,752.0,-1.05,2262.0,-0.02,3510.0,0.0,
+phys_e_raw>p90&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL4_breakout_volexp_universe,368443,127,,,,,,,,,,,,,,INSUFFICIENT
+phys_e_raw>p90&OVD_TOKENS=OB·30 OB·60 NM?,CONJ,368443,127,,,,,,,,,,,,,,INSUFFICIENT
+phys_e_raw>p90&OVD_TOKENS=OB·30 OB·60 NM?,A_alone,368443,1980,12.88,9.44,3.43,1.364,820.0,2.32,3.52,157.0,3.98,917.0,3.33,906.0,3.0,
+phys_e_raw>p90&OVD_TOKENS=OB·30 OB·60 NM?,B_alone,368443,2303,10.12,8.66,1.46,1.168,1152.0,1.52,4.34,269.0,0.31,1028.0,1.79,1006.0,3.0,
+sig_cisd_cplus_minus&w2_spring,BL3_rsi_gt50,1221991,21881,10.35,8.78,1.56,1.178,2720.0,0.35,,0.0,0.33,11060.0,3.09,10821.0,2.0,
+sig_cisd_cplus_minus&w2_spring,cand_on_BL3_rsi_gt50_universe,1221991,104,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&w2_spring,BL4_breakout_volexp,1221991,12967,10.23,9.16,1.07,1.117,2665.0,0.49,,0.0,0.18,5112.0,1.26,7855.0,2.0,
+sig_cisd_cplus_minus&w2_spring,cand_on_BL4_breakout_volexp_universe,1221991,104,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&w2_spring,CONJ,1221991,104,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&w2_spring,A_alone,1221991,4895,9.79,7.28,2.5,1.344,2032.0,0.9,,0.0,0.67,3119.0,6.11,1776.0,2.0,
+sig_cisd_cplus_minus&w2_spring,B_alone,1221991,2447,8.66,6.88,1.79,1.26,1476.0,1.39,,0.0,0.48,1522.0,4.06,925.0,2.0,
+sig_cisd_cplus_minus&bar_gap_range=G3-C,BL3_rsi_gt50,1439606,25597,10.45,8.56,1.88,1.22,2775.0,0.33,3.28,3808.0,0.35,10753.0,3.08,11036.0,3.0,
+sig_cisd_cplus_minus&bar_gap_range=G3-C,cand_on_BL3_rsi_gt50_universe,1439606,54,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&bar_gap_range=G3-C,BL4_breakout_volexp,1439606,15129,10.18,9.23,0.95,1.103,2734.0,0.46,-1.6,1622.0,0.41,5504.0,1.28,8003.0,2.0,
+sig_cisd_cplus_minus&bar_gap_range=G3-C,cand_on_BL4_breakout_volexp_universe,1439606,54,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&bar_gap_range=G3-C,CONJ,1439606,54,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&bar_gap_range=G3-C,A_alone,1439606,6160,9.14,7.01,2.13,1.304,2225.0,0.88,1.7,934.0,0.71,3402.0,5.94,1824.0,3.0,
+sig_cisd_cplus_minus&bar_gap_range=G3-C,B_alone,1439606,4506,9.9,8.21,1.69,1.206,1488.0,1.93,-1.76,315.0,1.72,2158.0,2.04,2033.0,2.0,
+sig_cisd_cplus_minus&OVD_TOKENS=OB·30 OB·60 NM?,BL3_rsi_gt50,368443,20364,9.77,8.76,1.01,1.115,1716.0,0.49,2.64,2801.0,-0.35,8642.0,1.7,8921.0,2.0,
+sig_cisd_cplus_minus&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL3_rsi_gt50_universe,368443,24,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&OVD_TOKENS=OB·30 OB·60 NM?,BL4_breakout_volexp,391598,6879,9.64,9.95,-0.31,0.969,1638.0,0.8,-2.88,1079.0,-1.03,2270.0,-0.02,3530.0,0.0,
+sig_cisd_cplus_minus&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL4_breakout_volexp_universe,391598,24,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&OVD_TOKENS=OB·30 OB·60 NM?,CONJ,391608,24,,,,,,,,,,,,,,INSUFFICIENT
+sig_cisd_cplus_minus&OVD_TOKENS=OB·30 OB·60 NM?,A_alone,391608,1579,8.8,6.6,2.21,1.335,931.0,1.71,0.58,322.0,1.13,900.0,6.81,357.0,3.0,
+sig_cisd_cplus_minus&OVD_TOKENS=OB·30 OB·60 NM?,B_alone,391608,2370,10.34,8.74,1.6,1.183,1164.0,1.48,4.07,334.0,0.33,1028.0,1.77,1008.0,3.0,
+w2_spring&bar_gap_range=G3-C,BL3_rsi_gt50,1221991,21881,10.35,8.78,1.56,1.178,2720.0,0.35,,0.0,0.33,11060.0,3.09,10821.0,2.0,
+w2_spring&bar_gap_range=G3-C,cand_on_BL3_rsi_gt50_universe,1221991,0,,,,,,,,,,,,,,INSUFFICIENT
+w2_spring&bar_gap_range=G3-C,BL4_breakout_volexp,1221991,12967,10.23,9.16,1.07,1.117,2665.0,0.49,,0.0,0.18,5112.0,1.26,7855.0,2.0,
+w2_spring&bar_gap_range=G3-C,cand_on_BL4_breakout_volexp_universe,1221991,0,,,,,,,,,,,,,,INSUFFICIENT
+w2_spring&bar_gap_range=G3-C,CONJ,1221991,0,,,,,,,,,,,,,,INSUFFICIENT
+w2_spring&bar_gap_range=G3-C,A_alone,1221991,2447,8.66,6.88,1.79,1.26,1476.0,1.39,,0.0,0.48,1522.0,4.06,925.0,2.0,
+w2_spring&bar_gap_range=G3-C,B_alone,1221991,3912,9.76,8.18,1.58,1.193,1409.0,1.99,,0.0,1.28,1944.0,1.79,1968.0,2.0,
+w2_spring&OVD_TOKENS=OB·30 OB·60 NM?,BL3_rsi_gt50,315321,17534,9.65,9.02,0.63,1.07,1702.0,0.48,,0.0,-0.47,8686.0,1.7,8848.0,1.0,
+w2_spring&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL3_rsi_gt50_universe,315321,6,,,,,,,,,,,,,,INSUFFICIENT
+w2_spring&OVD_TOKENS=OB·30 OB·60 NM?,BL4_breakout_volexp,315321,5625,9.76,9.92,-0.16,0.984,1599.0,0.91,,0.0,-1.37,2144.0,-0.04,3481.0,0.0,
+w2_spring&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL4_breakout_volexp_universe,315321,6,,,,,,,,,,,,,,INSUFFICIENT
+w2_spring&OVD_TOKENS=OB·30 OB·60 NM?,CONJ,315321,6,,,,,,,,,,,,,,INSUFFICIENT
+w2_spring&OVD_TOKENS=OB·30 OB·60 NM?,A_alone,315321,899,9.23,6.83,2.4,1.351,666.0,2.34,,0.0,0.33,611.0,6.94,288.0,2.0,
+w2_spring&OVD_TOKENS=OB·30 OB·60 NM?,B_alone,315321,1947,9.66,8.82,0.84,1.095,1066.0,1.59,,0.0,-0.08,948.0,1.69,999.0,1.0,
+bar_gap_range=G3-C&OVD_TOKENS=OB·30 OB·60 NM?,BL3_rsi_gt50,368443,20364,9.77,8.76,1.01,1.115,1716.0,0.49,2.64,2801.0,-0.35,8642.0,1.7,8921.0,2.0,
+bar_gap_range=G3-C&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL3_rsi_gt50_universe,368443,2,,,,,,,,,,,,,,INSUFFICIENT
+bar_gap_range=G3-C&OVD_TOKENS=OB·30 OB·60 NM?,BL4_breakout_volexp,368443,6524,9.56,9.88,-0.32,0.968,1624.0,0.83,-3.92,752.0,-1.05,2262.0,-0.02,3510.0,0.0,
+bar_gap_range=G3-C&OVD_TOKENS=OB·30 OB·60 NM?,cand_on_BL4_breakout_volexp_universe,368443,2,,,,,,,,,,,,,,INSUFFICIENT
+bar_gap_range=G3-C&OVD_TOKENS=OB·30 OB·60 NM?,CONJ,368443,2,,,,,,,,,,,,,,INSUFFICIENT
+bar_gap_range=G3-C&OVD_TOKENS=OB·30 OB·60 NM?,A_alone,368443,553,6.15,7.35,-1.2,0.837,396.0,8.86,,24.0,-0.68,313.0,-1.62,216.0,0.0,
+bar_gap_range=G3-C&OVD_TOKENS=OB·30 OB·60 NM?,B_alone,368443,2303,10.12,8.66,1.46,1.168,1152.0,1.52,4.34,269.0,0.31,1028.0,1.79,1006.0,3.0,
