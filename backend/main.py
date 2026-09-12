@@ -20,6 +20,41 @@ except ImportError:
 _backend_dir = os.path.dirname(os.path.abspath(__file__))
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
+
+# ── Logging comes FIRST, before any optional-router guard ───────────────────────
+# The two try/except blocks below that import studio_api and qlib_lab call log.warning()
+# when the import fails. This block used to sit 35 lines AFTER them, so those handlers
+# raised NameError and killed the process instead of degrading — the guard could not do
+# the one thing it exists for. Moving it up also means the redaction filter is installed
+# before the heavy imports run, so their log lines are covered too.
+logging.basicConfig(level=logging.INFO)
+
+# ── Secret-redaction filter (defense-in-depth) ──────────────────────────────────
+# requests/urllib3 exceptions stringify the full request URL, which for Massive/
+# Polygon calls carries `apiKey=<secret>`. A single root-logger filter guarantees
+# NO log line (from any module, including 3rd-party) can ever emit the key, no
+# matter how the message was formatted. Redacts apiKey / api_key / token / apitoken.
+import re as _re
+_SECRET_RE = _re.compile(r"(?i)(api[_-]?key|api[_-]?token|token)=[^&\s'\")]+")
+
+
+class _RedactSecretsFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            msg = record.getMessage()
+            if "=" in msg and _SECRET_RE.search(msg):
+                record.msg = _SECRET_RE.sub(r"\1=<redacted>", msg)
+                record.args = ()
+        except Exception:
+            pass
+        return True
+
+
+for _h in logging.getLogger().handlers:
+    _h.addFilter(_RedactSecretsFilter())
+
+log = logging.getLogger(__name__)
+
 import concurrent.futures
 import threading
 from contextlib import asynccontextmanager
@@ -73,34 +108,6 @@ try:
 except Exception as _qlib_err:
     log.warning("QLIB lab not available: %s", _qlib_err)
     _QLIB_AVAILABLE = False
-
-logging.basicConfig(level=logging.INFO)
-
-# ── Secret-redaction filter (defense-in-depth) ──────────────────────────────────
-# requests/urllib3 exceptions stringify the full request URL, which for Massive/
-# Polygon calls carries `apiKey=<secret>`. A single root-logger filter guarantees
-# NO log line (from any module, including 3rd-party) can ever emit the key, no
-# matter how the message was formatted. Redacts apiKey / api_key / token / apitoken.
-import re as _re
-_SECRET_RE = _re.compile(r"(?i)(api[_-]?key|api[_-]?token|token)=[^&\s'\")]+")
-
-
-class _RedactSecretsFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        try:
-            msg = record.getMessage()
-            if "=" in msg and _SECRET_RE.search(msg):
-                record.msg = _SECRET_RE.sub(r"\1=<redacted>", msg)
-                record.args = ()
-        except Exception:
-            pass
-        return True
-
-
-for _h in logging.getLogger().handlers:
-    _h.addFilter(_RedactSecretsFilter())
-
-log = logging.getLogger(__name__)
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
