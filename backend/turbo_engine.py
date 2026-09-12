@@ -2014,17 +2014,40 @@ def run_turbo_scan(
                 _turbo_state["completed_at"] = time.time()
             return found
 
-    try:
-        tickers = get_universe_tickers(universe)
-    except Exception as exc:
-        _turbo_state.update({"running": False, "error": str(exc)})
-        log.error("Failed to fetch tickers for universe=%s: %s", universe, exc)
-        return 0
+    # ── CURRENT operational S&P 500: membership comes from the frozen snapshot ──
+    # Not from bars.universe, not from a live Wikipedia scrape, not from _FALLBACK.
+    # get_universe_tickers() is deliberately left alone: it is shared with historical
+    # engines (signal_replay, pooled_stats, ultra_pump_research, bulk_export) and the
+    # nightly writer, and changing it would move far more than this operational scan.
+    frozen_members: set[str] = set()
+    from current_universe import is_current_operational_sp500
+    if is_current_operational_sp500([universe]):
+        try:
+            from current_universe import get_current_sp500_massive_tickers
+            tickers = get_current_sp500_massive_tickers()
+            frozen_members = set(tickers)
+            log.info("Turbo: CURRENT sp500 overlay — %d frozen members (massive "
+                     "nomenclature)", len(tickers))
+        except Exception as exc:
+            # Refuse rather than silently scanning the stale 618-name set.
+            _turbo_state.update({"running": False, "error": f"current universe: {exc}"})
+            log.error("CURRENT sp500 overlay unavailable: %s", exc)
+            return 0
+    else:
+        try:
+            tickers = get_universe_tickers(universe)
+        except Exception as exc:
+            _turbo_state.update({"running": False, "error": str(exc)})
+            log.error("Failed to fetch tickers for universe=%s: %s", universe, exc)
+            return 0
 
     # ── Filter: keep only plain US common-stock primary-listing tickers ────
     # Removes "CFLT B" (space=secondary class), "BF.B" (dot=preferred), etc.
+    # A frozen member is exempt: _is_valid_stock_ticker rejects any dotted symbol as
+    # preferred stock, which would discard BRK.B and BF.B — ordinary index constituents
+    # that Massive serves under exactly those dotted strings.
     from data_polygon import _is_valid_stock_ticker
-    tickers = [t for t in tickers if _is_valid_stock_ticker(t)]
+    tickers = [t for t in tickers if t in frozen_members or _is_valid_stock_ticker(t)]
 
     # ── Fetch SPY + IWM once for RS computation ────────────────────────────
     spy_chg: float | None = None
