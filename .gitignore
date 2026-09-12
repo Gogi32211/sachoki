@@ -28,6 +28,11 @@ backend/edge_tearsheets/
 backend/analysis/*.csv
 analysis/*.csv
 
+# MTF-EMA scan cache — a 900-second TTL cache regenerated from DuckDB in 1-2 min.
+# mtf_ema_scan.py falls through on FileNotFoundError and swallows write failures;
+# main.py treats missing-or->6h-stale as "no badges, never block". Pure cache.
+/backend/mtf_ema_scan.json
+
 # research run logs (stdout captures — regenerable)
 backend/*.out
 
