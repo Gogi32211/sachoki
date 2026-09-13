@@ -1,35 +1,37 @@
-# VOL7 `M6` — data-quality audit of the −8.4 pp volume-spike rung
+# VOL7 `M6` — data-quality audit of the −11.97 pp volume-spike rung
 
 **Audit only. No setup, no veto, no build, no second outcome access.** Sealed 2026-09-13.
 
 `M6` is the top rung of the VOL7 ladder: `ratio = volume / rolling_median(volume, 20) ≥ 5.00`
-(`backend/vol7_build.py`, `MR_EDGES`). LADDER_V1 measured it as a large negative, and a number that
-size has to be shown to be market behaviour and not a split / corporate-action / bad-volume artifact
-before anything is built on it. This pass characterises the population only.
+(`backend/vol7_build.py`, `MR_EDGES`). LADDER_V1 measured it at **−11.97 MINE / −12.11 VERIFY** day-clustered over 585 / 322 days — larger
+than anything else in the book — and its own caveat said a number that size has to be shown to be
+market behaviour and not a split / corporate-action / bad-volume artifact before anything is built on
+it. This pass characterises the population only.
 
-## 1 · The sealed artifact says a smaller number than the working note did
+## 1 · Which VOL7 numbers are authoritative
 
-`/Users/sachoki/MASSIVE_DATA/LADDER_V1/runs/OUT_20260910T143238Z/results.json`, ladder `VOL7`:
+`/Users/sachoki/MASSIVE_DATA/LADDER_V1/runs/OUT_20260910T143238Z/results.json` stores
+`M6 rung_edge −8.399 / −8.487`, `span_p 0.0 / 0.0`, `rho_p 0.71 / 0.38` and `PASSES: false`.
+**Two of those stored fields are superseded and must not be quoted as the result.**
 
-| | MINE | VERIFY |
-|---|---|---|
-| `M6` rung_edge | **−8.399** | **−8.487** |
-| span (M6 − M0) | −7.575 | −5.288 |
-| span p (200 shuffles) | 0.0 | 0.0 |
-| rho (monotonicity) | −0.214 | −0.429 |
-| rho p | **0.71** | **0.38** |
-| `population_vs_control` | −0.003 | −0.096 |
-| **`PASSES`** | **false** | |
+* **`PASSES: false` is a bug, not a verdict.** `ladder_family.py:334` reads
+  `(pv.get("mine_span_p") or 1) < 0.05`. A perfect p of `0.0` is falsy, so `(0.0 or 1)` becomes `1`
+  and the test fails. With `span_p = 0.0` in both windows and `span_same_sign: true`, VOL7 **does**
+  satisfy the registered pass condition. This is the `(p or 1)` defect already recorded in
+  [[feedback-placebo-and-cell-size]]; it was found and corrected in-session, and fixed in the
+  successor family.
+* **`rho` is not part of the pass condition at all** — line 334 uses the span p-values only. A weak
+  rho was *pre-registered as expected*: VOL7's declared shape is an inverted-U, so ρ ≈ 0 confirms the
+  shape rather than failing it.
+* **`rung_edge −8.399 / −8.487` is the superseded statistic.** It is the median over TRADES; the
+  registry named the day-clustered day-edge (`ladder_family.py:245`). Recomputed correctly the
+  rung is **−11.97 MINE / −12.11 VERIFY over 585 / 322 days**, and the corrected figure is larger,
+  not smaller.
 
-So VOL7 **did not pass as a ladder**. The span is significant against its own shuffle null in both
-windows; the *monotonicity* is not. The correct description is **a significant span with an
-insignificant shape** — an M6-versus-the-rest difference, not a validated inverted-U.
-
-⚠️ The working note recorded `M6 = −11.97 MINE / −12.11 VERIFY` over `585 / 322 days` and described
-VOL7 as one of two ladders that "pass as pre-registered". **Neither figure appears anywhere** — not in
-`results.json`, not in `research_out/`, not in `ladder_family.py`. Those numbers are recorded here as
-**unsupported, source not found**. They are not overwritten silently; the sealed artifact above is the
-authority.
+So the authoritative reading is: **M6 = −11.97 / −12.11 day-clustered, span significant in both
+windows (p = 0.0), shape as pre-registered, ladder passes.** The stored `results.json` predates both
+corrections. Those corrections are recorded in [[project-ladder-v1]] and are the reason this audit
+exists: its own caveat 2 said the magnitude demanded a data check before anything is built.
 
 ## 2 · 18.75 % of the M6 population carries a data-quality flag
 
@@ -88,19 +90,21 @@ volumes of 167–8,770 shares. That is the zone [[project-fib-price-zones]] alre
 
 **DATA-QUALITY-BOUNDED FINDING — not a production veto, and not a clean behavioural result.**
 
-M6 is a real, significant span, but roughly a fifth of its population is not a volume spike in any
-useful sense, and half of it sits below $8 and below $1M a day. Under the pre-registered three-way
-rule (clean → real veto candidate · dissolves → artifact · partly survives → finding only), this is
-the third case, and it was never a production rule anyway: the ladder's own `PASSES` is false.
+M6 is a real, significant span — it passes the registered condition once the `(p or 1)` defect is
+accounted for — but roughly a fifth of its population is not a volume spike in any useful sense, and
+half of it sits below $8 and below $1M a day. Under the pre-registered three-way rule (clean → real
+veto candidate · dissolves → artifact · partly survives → finding only), this is **the third case**.
+It is a finding, not a production rule, and the reason is the contamination, not the ladder's
+statistics.
 
 ## 6 · Explicitly not done
 
 **No AMENDMENT_1 and no second outcome access.** The natural follow-up — re-measuring −8.4 with the
 flagged rows excluded — would need a second outcome run on a sealed family whose own rule is
 *"Stop: one outcome run"*, whose `OUTCOME_ACCESS_LEDGER.json` stands at 1, and which did not persist
-`direct_trades.parquet` (so `_pathsim` would have to re-run). It was judged not worth it: M6 is
-already a failed ladder with no setup or veto status, so the refinement could not change a production
-decision. Nothing in production was touched. No rung was re-cut, no threshold moved, no filter added.
+`direct_trades.parquet` (so `_pathsim` would have to re-run). It was judged not worth it: M6 has no setup or veto status and nothing is built on it, so the
+refinement could not change a production decision today. It remains the obvious next step if M6 is
+ever proposed as a real veto. Nothing in production was touched. No rung was re-cut, no threshold moved, no filter added.
 
 ## ⭐ The takeaway worth more than the finding
 
