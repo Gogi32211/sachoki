@@ -41,29 +41,64 @@ what the gate was for**: a feature that looked right and quietly wasn't.
 **(b) The benchmark itself is broken on recent dates** — see §8. The live helper's own 14-day window
 sits entirely inside that period, which is why the gate is run on clean windows instead.
 
-## §8 · Producer anomaly — reported, NOT resolved here
+## §8 · ⚠️ CORRECTION — the cause is an intraday OUTAGE, not an RSI producer bug
 
-From about **2026-06-30** the stored intraday `rsi_14` stops following a Wilder-14 over the stored
-`close` series. On ~26 sessions it diverges across essentially every ticker (59 of 60 sampled).
+**The first version of this section was wrong about the cause and is corrected here rather than
+silently replaced.** It reported that "the stored intraday `rsi_14` stops following a Wilder-14 over
+the stored close series". That statement is literally true, and the diagnosis drawn from it — an RSI
+producer anomaly — was not.
 
-| store | median bar-to-bar \|Δ\| | p99 | max | bars jumping > 20 pts |
-|---|---:|---:|---:|---:|
-| 1D | 0.80 | 14.10 | 100.0 | 0.378 % |
-| 4H | 2.50 | 17.20 | 100.0 | 0.614 % |
-| 1H | 2.40 | 17.20 | 100.0 | 0.555 % |
+**What actually happened: the 1H and 4H stores lost whole sessions.**
 
-A Wilder-14 cannot move 20 points in one bar. **AAPL 4H, 2026-08-19: stored `rsi_14` = 84.1**, while
-the previous stored bar is 23.9 and *every* reconstruction gives 51.5–59.5 — full series 51.5,
-trailing-window reseeds from 15 to 800 bars 51.5–59.5, SMA-14 variant 46.6. **No RSI over that close
-series reproduces the stored value.**
+| store | damaged sessions (since 2026-06-01) | first | lost ticker-days |
+|---|---:|---|---:|
+| **15m** | **0 / 72** | — | — |
+| **1D** | **0 / 72** | — | — |
+| **1H** | **20 / 72** | 2026-07-20 | **62,612** |
+| **4H** | **27 / 72** | 2026-06-29 | **84,321** |
 
-Ruled out: retroactive backfill (4H is a clean 2 bars per ticker-day in every recent month, and
-off-grid bars are *falling* — 89–100/month recently against 1,000–1,700 in 2025-12 … 2026-04).
+A damaged session holds **0–5 tickers instead of ~3,100**. The affected interval is
+**2026-06-29 … 2026-09-01**; every session from **2026-09-02** onward is complete again. Every one of
+1H's 20 damaged dates is inside 4H's 27 — a shared upstream failure, not independent per-timeframe
+corruption. Two independent methods agree on those counts: a comparison against the healthy 15m
+calendar, and the build's own intrinsic health rule.
 
-⚠️ **This is a live production concern, not just a research one.** `studio/ultra_db_scan.py` reads
-this column to compute the served `mtf_echo` and the `⚠️REV` veto. On affected sessions those are
-computed from values that do not follow from the price series. **Cause unknown; needs its own
-investigation.** Nothing was changed here.
+**Why the RSI looked broken.** `build_intraday_db._build_one` fetches 30-minute bars, resamples, and
+runs `enrich_ticker_df` over the **complete fetched series** — then only the rows for sessions that
+survive the write reach the database. So the stored `rsi_14` is a full-series value while the stored
+`close` series has holes. AAPL simply has no 1H/4H bars on 2026-08-14, 08-17 or 08-18, which is why
+its stored RSI reads 23.9 then 84.1, and why no reconstruction over the stored closes — full series,
+trailing reseeds from 15 to 800 bars, or an SMA-14 variant — could reproduce 84.1. The RSI was the
+symptom; the missing bars are the disease.
+
+**Production impact, unchanged by the correction.** On a damaged session `studio/ultra_db_scan.py`
+finds an empty `_rev_sets`, so `mtf_echo` is False and the `⚠️REV` veto fires. Through July and
+August that veto was measuring **absence of data**, not absence of echo. Cause of the outage not yet
+established; nothing was changed here.
+
+### What this forced in the build — the session-health guard
+
+A damaged session is **not "no REV"; it is NO DATA**, and must read UNKNOWN. The build now judges
+health at **date level, per timeframe, independently** (the 1H ⊂ 4H relationship is an observation,
+never hard-coded), and a damaged date sets `covered_* = False` → `rev_* = NULL`.
+
+Two things this cost, both worth recording:
+
+* **The calendar must come from outside the store.** A session that failed so badly it wrote no rows
+  is invisible in that store's own date list, yet it still tears a hole in every ticker's series.
+  Judging health on the store's own dates missed 14 of the 27 damaged 4H sessions. The trading
+  calendar now comes from the 1D store.
+* **The health window must be much longer than the outage it detects.** At a 21-session rolling
+  median the median itself collapsed to 2–5 in the middle of the outage, so a session holding one
+  ticker passed as healthy against its equally-broken neighbours — the rule silently inverted. At
+  251 sessions the median stays pinned to the healthy majority. `HEALTH_WIN = 251`.
+
+**Contamination reaches forward.** A gap does not damage only its own session: the Wilder recursion
+and the `m5` / `LAG` windows keep referencing pre-gap bars. A bar is decidable only when the whole
+`REV_MIN_BARS` span behind it is healthy — 44 sessions on 4H, 13 on 1H. That moves **188,549** 4H and
+**88,867** 1H ticker-days to UNKNOWN.
+
+The three parity windows are all pre-outage, so **§7 is unaffected and still passes at 100 %**.
 
 ## §5 · Eligible 1D universe — attrition, liquidity visible
 
@@ -71,31 +106,32 @@ investigation.** Nothing was changed here.
 |---|---:|---:|---:|---:|
 | all 1D ticker-days | 5,380,039 | | 5,714 | $6,111,355 |
 | `close >= 5` | 4,391,244 | 81.6 % | 5,419 | $12,005,257 |
-| + 4H covered | 3,162,936 | 58.8 % | 3,172 | $26,990,956 |
-| + 1H covered | 3,162,710 | 58.8 % | 3,172 | $26,991,892 |
-| + 4H mature | 3,036,612 | 56.4 % | 3,134 | $27,548,212 |
-| **+ 1H mature = FINAL** | **3,036,612** | **56.4 %** | **3,134** | **$27,548,212** |
+| + 4H covered | 2,990,175 | 55.6 % | 3,169 | $26,932,642 |
+| + 1H covered | 2,989,949 | 55.6 % | 3,169 | $26,933,756 |
+| + 4H mature | 2,964,028 | 55.1 % | 3,104 | $27,204,646 |
+| **+ 1H mature = FINAL** | **2,964,028** | **55.1 %** | **3,104** | **$27,204,646** |
 
-**The eligible universe is 56.4 % of 1D ticker-days and 4.5× more liquid than the whole.** That is
+**The eligible universe is 55.1 % of 1D ticker-days and 4.5× more liquid than the whole.** That is
 the declared universe for *both* arms of any future comparison — never a filter on one side.
 
 ## §6 · Feature prevalence — no outcome involved
 
 | cell | rows | share |
 |---|---:|---:|
-| 4H only | 243,035 | 6.72 % |
-| 1H only | 657,128 | 18.18 % |
-| both TRUE | 340,803 | 9.43 % |
-| **both FALSE — candidate `MTF_ZERO`** | **2,212,873** | **61.23 %** |
-| one known / one UNKNOWN | 117,740 | 3.26 % |
-| both UNKNOWN | 42,745 | 1.18 % |
+| 4H only | 237,779 | 6.58 % |
+| 1H only | 639,021 | 17.68 % |
+| both TRUE | 334,202 | 9.25 % |
+| **both FALSE — candidate `MTF_ZERO`** | **2,162,687** | **59.84 %** |
+| one known / one UNKNOWN | 138,737 | 3.84 % |
+| both UNKNOWN | 101,898 | 2.82 % |
 
-`rev_4h` TRUE on 583,867 of 3,454,105 decidable (16.90 %); `rev_1h` on 1,028,528 of 3,571,313
-(28.80 %).
+`rev_4h` TRUE on 572,010 of 3,373,955 decidable (16.95 %); `rev_1h` on 1,009,557 of 3,512,160
+(28.74 %).
 
-**`MTF_ZERO` is not a rare event — it is the majority state**, 61.23 % of ticker-days and a median
-**65.0 %** of each session's names (range 0–100 % across 1,250 sessions). Concentration is nil:
-3,171 tickers over 1,247 sessions, top ticker 0.056 %, top-10 0.56 %. A veto that fires on two
+**`MTF_ZERO` is not a rare event — it is the majority state**, 59.84 % of ticker-days and a median
+**65.0 %** of each session's names (range 9.7–94.8 % across 1,208 sessions — the old 0 % and 100 %
+extremes were the damaged sessions, and their disappearance is a sanity check on the guard).
+Concentration is nil: 3,137 tickers over 1,208 sessions, top ticker 0.056 %, top-10 0.56 %. A veto that fires on two
 thirds of the field is a very different object from a selective one, and any evaluation has to
 reckon with that.
 

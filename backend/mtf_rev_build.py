@@ -41,6 +41,21 @@ BATCH = 400                      # tickers per batch — keeps peak memory modes
 REV_MIN_BARS = RSI14 + 5 + 1     # 81 + 6 = 87 bars; ~13 sessions on 1H (7/day), ~44 on 4H (2/day)
 
 PRICE_FLOOR = 5.0                # `close >= 5` in the production condition
+
+# ── SESSION HEALTH (added 2026-09-13 after the intraday outage was found) ────────────────────
+# 1H lost 20 of 72 sessions since 2026-06-01 and 4H lost 27, between 2026-06-29 and 2026-09-01:
+# on a damaged session the store holds 0-5 tickers instead of ~3,100. 15m and 1D are unaffected.
+# A damaged session is NOT "no REV" — it is NO DATA, and must read UNKNOWN. Health is judged at
+# DATE level, per timeframe, independently: 1H's damaged days happen to be a subset of 4H's, and
+# that relationship is an observation, never something to hard-code.
+HEALTH_FRAC = 0.50               # a session is healthy if it holds >= 50 % of the rolling median
+# ⚠️ The window must be much LONGER than the outage it has to detect. At 21 sessions the median
+# itself collapsed to 2-5 in the middle of the July-August outage, so a session holding 1 ticker
+# passed as "healthy" against its equally-broken neighbours — the rule silently inverted. A year of
+# sessions keeps the median pinned to the healthy majority (15-27 damaged out of ~1,300) while still
+# tracking the universe's slow growth.
+HEALTH_WIN = 251
+BARS_PER_SESSION = {"4h": 2, "1h": 7}   # established by the alignment audit (98.9 % / 96.6 %)
 M5_MAX, RSI_LO, RSI_HI = 38.0, 30.0, 55.0
 
 
@@ -52,6 +67,35 @@ def wilder_rsi14(close: pd.Series) -> pd.Series:
     ru = up.ewm(alpha=1.0 / 14, adjust=False, min_periods=1).mean()
     rd = dn.ewm(alpha=1.0 / 14, adjust=False, min_periods=1).mean()
     return (100.0 - 100.0 / (1.0 + ru / rd.replace(0, 1e-10))).round(1)
+
+
+def session_health(con, tf: str, log=print) -> tuple[set, int]:
+    """Dates on which this timeframe's store actually holds its universe, plus the contamination
+    reach in sessions. A gap does not only damage its own session: the Wilder recursion and the
+    m5 / LAG windows keep referencing pre-gap bars, so a bar is only trustworthy when the whole
+    REV_MIN_BARS span behind it is healthy too."""
+    # The calendar must come from OUTSIDE this store. A session that failed so badly it wrote no
+    # rows at all is invisible in the store's own date list, yet it still tears a hole in every
+    # ticker's series — judging health on the store's own dates missed 14 of 27 damaged 4H days.
+    cal = duckdb.connect(os.path.join(ROOT, "data", "studio_analytics.duckdb"), read_only=True)
+    days = cal.execute("""SELECT DISTINCT CAST(date AS DATE) AS d FROM bars
+                          WHERE universe <> 'index' ORDER BY 1""").fetchdf()
+    cal.close()
+    have = con.execute("""SELECT CAST(date AS DATE) AS d, COUNT(DISTINCT ticker) AS t
+                          FROM bars GROUP BY 1""").fetchdf()
+    d = days.merge(have, on="d", how="left")
+    d["t"] = d["t"].fillna(0).astype(int)
+    d = d[d["d"] >= have["d"].min()].reset_index(drop=True)      # before the store starts is not a gap
+    med = d["t"].rolling(HEALTH_WIN, center=True, min_periods=1).median()
+    ok = d["t"] >= HEALTH_FRAC * med
+    reach = int(np.ceil(REV_MIN_BARS / BARS_PER_SESSION[tf]))
+    # a session is USABLE only if it and the `reach` sessions before it are all healthy
+    usable = ok.rolling(reach, min_periods=reach).min().fillna(0).astype(bool)
+    bad = d.loc[~ok, "d"]
+    log(f"  {tf}: {len(d):,} sessions · damaged {int((~ok).sum())} · "
+        f"usable after the {reach}-session contamination reach {int(usable.sum()):,}"
+        + (f" · first damaged {bad.min()}" if len(bad) else ""))
+    return set(d.loc[usable, "d"]), reach
 
 
 def _one_ticker(g: pd.DataFrame) -> pd.DataFrame:
@@ -96,6 +140,7 @@ def _one_ticker(g: pd.DataFrame) -> pd.DataFrame:
 
 def build_tf(tf: str, log=print) -> pd.DataFrame:
     con = duckdb.connect(os.path.join(ROOT, "data", f"studio_{tf}.duckdb"), read_only=True)
+    usable, _ = session_health(con, tf, log)
     tickers = [r[0] for r in con.execute("SELECT DISTINCT ticker FROM bars ORDER BY 1").fetchall()]
     log(f"  {tf}: {len(tickers):,} tickers")
     parts, t0 = [], time.time()
@@ -114,7 +159,11 @@ def build_tf(tf: str, log=print) -> pd.DataFrame:
     con.close()
     out = pd.concat(parts, ignore_index=True)
     out = out.rename(columns={"rev": f"rev_{tf}", "mature": f"mature_{tf}"})
-    out[f"covered_{tf}"] = True                      # a row exists here iff a bar existed
+    # A bar existing is not the same as the session being trustworthy: on a damaged session the
+    # store holds a handful of tickers whose series are full of holes. Those rows are NOT covered.
+    out[f"covered_{tf}"] = out["day"].isin(usable)
+    n_drop = int((~out[f"covered_{tf}"]).sum())
+    log(f"  {tf}: {n_drop:,} ticker-days fall on damaged or contaminated sessions -> UNKNOWN")
     log(f"  {tf}: {len(out):,} ticker-days")
     return out
 
