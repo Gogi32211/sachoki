@@ -16,6 +16,23 @@ the trade out at bar 12, then mtm_20, mtm_30 and mtm_60 all equal that realised 
 
 So mtm_N is: exit at min(N, the bar the rule fired), with the same slippage on both sides.
 
+⚠️ THE RIGHT EDGE — repaired 2026-09-13. The fill loop used to carry the last available mark
+forward unconditionally, so a trade that had only 14 bars of data left still got a number in
+`mtm_60`, indistinguishable from a real 60-bar outcome. Measured on the 2026-08-09 build: for
+signals in 2026-07, 96.6 % of rows were censored that way and 99.9 % had mtm_60 == mtm_50 ==
+mtm_40 — `mtm_60` was, in truth, a 14-bar return. A ranking study read those as resolved
+outcomes and reported a "recent breakdown" that was the censoring, not the market.
+
+Carry-forward is CORRECT when the trade has already exited: closing later cannot change a
+realised exit, which is the whole point above. It is WRONG when the series simply ran out while
+the position was still open. The two are now separated:
+
+    mtm_N is resolved  iff  the exit fired at or before bar N,  OR  N real bars exist.
+    otherwise mtm_N is NaN — an unreached horizon is not an outcome.
+
+`bars_priced` (real marks available) and `mtm_exit_bar` (NaN when never stopped) are stored so
+any consumer can re-derive the resolution of any horizon instead of trusting this file.
+
 Grid is denser early because that is where replacement decisions actually happen — a swap on
 day 3 is common, a swap on day 55 is not.
 
@@ -41,85 +58,120 @@ OPP = os.path.join(ROOT, "data", "opportunities.parquet")
 GRID = [1, 2, 3, 5, 7, 10, 15, 20, 25, 30, 40, 50, 60]
 SLIP, MAXH = er.SLIP, 60
 
-t0 = time.time()
-O = pd.read_parquet(OPP)
-print(f"opportunities {len(O):,}", flush=True)
-if any(f"mtm_{g}" in O.columns for g in GRID):
-    print("mtm columns already present — nothing to do"); sys.exit(0)
 
-print("loading unfiltered paths...", flush=True)
-con = duckdb.connect(DB, read_only=True)
-raw = con.execute("""SELECT DISTINCT ticker, date, open, high, low, close FROM bars
-                     WHERE universe <> 'index' AND close > 0 ORDER BY ticker, date""").fetchdf()
-con.close()
-PATH = {tk: (g["date"].astype(str).to_numpy(), g["open"].to_numpy(float),
-             g["high"].to_numpy(float), g["low"].to_numpy(float), g["close"].to_numpy(float))
-        for tk, g in raw.groupby("ticker", sort=False)}
-del raw
-print(f"  {len(PATH):,} tickers · {time.time()-t0:.0f}s", flush=True)
+def price_trade(o, hi, lo, cl, j0: int, risk: float, maxh: int = MAXH, slip: float = None):
+    """Price one trade bar by bar. Returns (mtm, bars_priced, exit_bar).
 
-# unique (ticker, entry) — several setups share one trade, so price it once
-U = O[["ticker", "date_in", "risk"]].drop_duplicates(subset=["ticker", "date_in"])
-U = U.reset_index(drop=True)
-print(f"unique trades to price: {len(U):,}", flush=True)
-
-M = np.full((len(U), len(GRID)), np.nan, dtype=np.float32)
-for i, (tk, din, risk) in enumerate(zip(U.ticker.to_numpy(), U.date_in.astype(str).to_numpy(),
-                                        U.risk.to_numpy(float))):
-    p = PATH.get(tk)
-    if p is None:
-        continue
-    d, o, hi, lo, cl = p
-    j0 = int(np.searchsorted(d, din[:10]))
-    if j0 >= len(d) - 2:
-        continue
-    entry = o[j0] * (1 + SLIP)
+    mtm[b] is the return from closing at the end of bar b, or the realised exit if the trailing
+    rule already fired. Carry-forward applies ONLY after a realised exit — past the end of the
+    series with the position still open, mtm[b] is NaN, because that horizon was never reached.
+    exit_bar is None when the trade never stopped.
+    """
+    slip = SLIP if slip is None else slip
+    n = len(cl)
+    entry = o[j0] * (1 + slip)
     if not np.isfinite(entry) or entry <= 0:
-        continue
+        return None
     trail = float(risk) if np.isfinite(risk) and risk > 0 else 0.25
-    end = min(j0 + 1 + MAXH, len(d))
+    end = min(j0 + 1 + maxh, n)
     pk = entry
     exit_bar, exit_ret = None, None
-    mtm = np.full(MAXH + 1, np.nan)
+    mtm = np.full(maxh + 1, np.nan)
     for j in range(j0 + 1, end):
-        b = j - j0                                   # bar number since entry
+        b = j - j0
         if exit_bar is None:
-            if o[j] <= pk * (1 - trail):             # gapped through overnight
-                exit_bar, exit_ret = b, o[j] / entry - 1 - SLIP
+            if o[j] <= pk * (1 - trail):
+                exit_bar, exit_ret = b, o[j] / entry - 1 - slip
             else:
                 pk = max(pk, hi[j])
                 if lo[j] <= pk * (1 - trail):
-                    exit_bar, exit_ret = b, pk * (1 - trail) / entry - 1 - SLIP
-        # closing HERE gives the realised exit if the rule already fired, else the close
-        mtm[b] = exit_ret if exit_bar is not None else (cl[j] / entry - 1 - SLIP)
+                    exit_bar, exit_ret = b, pk * (1 - trail) / entry - 1 - slip
+        mtm[b] = exit_ret if exit_bar is not None else (cl[j] / entry - 1 - slip)
+    # Carry forward ONLY past a realised exit. Past the series end with the position still
+    # open the horizon was never reached, and NaN is the only honest answer.
+    bars_priced = end - (j0 + 1)
     last = np.nan
-    for b in range(1, MAXH + 1):                     # carry forward past the series end
+    for b in range(1, maxh + 1):
         if np.isfinite(mtm[b]):
             last = mtm[b]
-        else:
+        elif exit_bar is not None and b > exit_bar:
             mtm[b] = last
-    M[i] = [mtm[g] for g in GRID]
-    if i % 100_000 == 0 and i:
-        print(f"  {i:,}/{len(U):,} · {time.time()-t0:.0f}s", flush=True)
+        else:
+            mtm[b] = np.nan
+    return mtm, bars_priced, exit_bar
 
-U2 = pd.DataFrame(M, columns=[f"mtm_{g}" for g in GRID])
-U2["ticker"] = U.ticker.to_numpy()
-U2["date_in"] = U.date_in.to_numpy()
-print(f"\npriced {np.isfinite(M[:, -1]).sum():,} of {len(U):,} trades · "
-      f"{time.time()-t0:.0f}s", flush=True)
 
-O = O.merge(U2, on=["ticker", "date_in"], how="left", validate="m:1")
-O.to_parquet(OPP, index=False, compression="zstd")
-print(f"\nwrote {OPP} · {os.path.getsize(OPP)/1e6:.0f} MB", flush=True)
+if __name__ == "__main__":
+    t0 = time.time()
+    O = pd.read_parquet(OPP)
+    print(f"opportunities {len(O):,}", flush=True)
+    if any(f"mtm_{g}" in O.columns for g in GRID):
+        print("mtm columns already present — nothing to do"); sys.exit(0)
 
-print(f"\n  sanity — median mark-to-market by horizon:", flush=True)
-for g in GRID:
-    s = O[f"mtm_{g}"].astype(float)
-    print(f"    bar {g:>2d}: median {s.median()*100:>+7.2f}%  "
-          f"(finite {s.notna().mean()*100:.1f}%)", flush=True)
-r = O["ret"].astype(float)
-m60 = O["mtm_60"].astype(float)
-gap = (m60 - r).abs()
-print(f"\n  mtm_60 vs the stored ret: median |gap| {gap.median()*100:.3f}pp "
-      f"(they differ because ret uses the FILTERED path, mtm the unfiltered one)", flush=True)
-print("\nDONE", flush=True)
+    print("loading unfiltered paths...", flush=True)
+    con = duckdb.connect(DB, read_only=True)
+    raw = con.execute("""SELECT DISTINCT ticker, date, open, high, low, close FROM bars
+                         WHERE universe <> 'index' AND close > 0 ORDER BY ticker, date""").fetchdf()
+    con.close()
+    PATH = {tk: (g["date"].astype(str).to_numpy(), g["open"].to_numpy(float),
+                 g["high"].to_numpy(float), g["low"].to_numpy(float), g["close"].to_numpy(float))
+            for tk, g in raw.groupby("ticker", sort=False)}
+    del raw
+    print(f"  {len(PATH):,} tickers · {time.time()-t0:.0f}s", flush=True)
+
+    # unique (ticker, entry) — several setups share one trade, so price it once
+    U = O[["ticker", "date_in", "risk"]].drop_duplicates(subset=["ticker", "date_in"])
+    U = U.reset_index(drop=True)
+    print(f"unique trades to price: {len(U):,}", flush=True)
+
+    M = np.full((len(U), len(GRID)), np.nan, dtype=np.float32)
+    NB = np.zeros(len(U), dtype=np.int16)     # real bars priced
+    XB = np.full(len(U), -1, dtype=np.int16)  # exit bar, -1 = never stopped
+    for i, (tk, din, risk) in enumerate(zip(U.ticker.to_numpy(), U.date_in.astype(str).to_numpy(),
+                                            U.risk.to_numpy(float))):
+        p = PATH.get(tk)
+        if p is None:
+            continue
+        d, o, hi, lo, cl = p
+        j0 = int(np.searchsorted(d, din[:10]))
+        if j0 >= len(d) - 2:
+            continue
+        res = price_trade(o, hi, lo, cl, j0, risk)
+        if res is None:
+            continue
+        mtm, n_marks, exit_bar = res
+        M[i] = [mtm[g] for g in GRID]
+        NB[i] = n_marks
+        XB[i] = exit_bar if exit_bar is not None else -1
+        if i % 100_000 == 0 and i:
+            print(f"  {i:,}/{len(U):,} · {time.time()-t0:.0f}s", flush=True)
+
+    U2 = pd.DataFrame(M, columns=[f"mtm_{g}" for g in GRID])
+    U2["bars_priced"] = NB
+    U2["mtm_exit_bar"] = np.where(XB >= 0, XB, np.nan)
+    U2["ticker"] = U.ticker.to_numpy()
+    U2["date_in"] = U.date_in.to_numpy()
+    print(f"\npriced {np.isfinite(M[:, -1]).sum():,} of {len(U):,} trades · "
+          f"{time.time()-t0:.0f}s", flush=True)
+
+    O = O.merge(U2, on=["ticker", "date_in"], how="left", validate="m:1")
+    O.to_parquet(OPP, index=False, compression="zstd")
+    print(f"\nwrote {OPP} · {os.path.getsize(OPP)/1e6:.0f} MB", flush=True)
+
+    print(f"\n  sanity — median mark-to-market by horizon:", flush=True)
+    for g in GRID:
+        s = O[f"mtm_{g}"].astype(float)
+        print(f"    bar {g:>2d}: median {s.median()*100:>+7.2f}%  "
+              f"(RESOLVED {s.notna().mean()*100:5.1f}%)", flush=True)
+    print("\n  unresolved rows are the right edge: a horizon the data has not reached yet.", flush=True)
+    if "sig_date" in O.columns:
+        late = O[O["sig_date"] >= O["sig_date"].max()[:7] + "-01"]
+        if len(late):
+            print(f"    newest month {late['sig_date'].max()[:7]}: "
+                  f"mtm_60 resolved {late['mtm_60'].notna().mean()*100:.1f}% of {len(late):,}", flush=True)
+    r = O["ret"].astype(float)
+    m60 = O["mtm_60"].astype(float)
+    gap = (m60 - r).abs()
+    print(f"\n  mtm_60 vs the stored ret: median |gap| {gap.median()*100:.3f}pp "
+          f"(they differ because ret uses the FILTERED path, mtm the unfiltered one)", flush=True)
+    print("\nDONE", flush=True)
