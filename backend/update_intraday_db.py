@@ -25,6 +25,28 @@ sys.path.insert(0, os.path.dirname(__file__))
 FETCH_DAYS = 15   # bars to fetch per ticker (short warm-up is fine for last 3 days)
 OVERLAP    = 3    # re-fetch/re-insert last N days to capture corrections
 
+# ── THE OVERLAP INVARIANT ─────────────────────────────────────────────────────────────────────
+# The range DELETE removes must be EXACTLY the range INSERT puts back. Until 2026-09-13 it was not:
+# the INSERT filter compared a date NORMALISED to midnight (`_dt_key > cutoff`) while the DELETE
+# compared the raw TIMESTAMP (`date > 'YYYY-MM-DD'`). A bar at 2026-08-24 13:30 is > 2026-08-24
+# 00:00, so it was deleted; its normalised key is NOT > 2026-08-24, so it was never put back.
+# The cutoff day was destroyed on every run and silently never restored — the script still printed
+# "✅ DONE: +87,000 new rows" and exited 0, so update_all.sh's `|| echo ... failed` never fired.
+#
+# With OVERLAP = 3 and the Tue-Sat schedule, the cutoff lands on Tue (Tue run), Fri (Wed run) and
+# Mon (Sat run); on Thu and Fri runs it lands on Sat/Sun, which are not trading days. That is
+# exactly the damage found in the stores: Mon 10/10, Tue 9/10, Fri 8/9 destroyed, Wed and Thu 0/10.
+#
+# The contract here is a CALENDAR-DAY overlap, not a timestamp overlap, so both sides are now
+# date-level INCLUSIVE (`>=`). Pinned by backend/tests/test_intraday_update_overlap.py.
+DELETE_PREDICATE = "date >= ?"
+
+
+def overlap_cutoff(old_max, overlap: int = OVERLAP):
+    """First calendar day of the re-write window: everything from here on is deleted and re-inserted."""
+    import pandas as _pd
+    return (_pd.to_datetime(old_max) - _pd.Timedelta(days=overlap)).normalize()
+
 _TF      = "1h"   # overridden by __main__
 _DB      = ""
 _WEEKLY  = False
@@ -108,6 +130,7 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
     print(f"tickers in DB: {len(tickers)}  fetch_days={FETCH_DAYS}  overlap={OVERLAP}  workers={workers}")
     t0 = time.time()
     built = ins = errs = skipped = 0
+    rows_deleted = rows_reinserted = 0        # the overlap invariant, see the note above
 
     build_fn = _build_one_weekly if is_weekly else _build_one_intraday
     todo = [(tk, universe_map[tk], FETCH_DAYS) for tk in tickers]
@@ -131,8 +154,8 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
                 # cutoff: re-insert from (old_max - OVERLAP days)
                 import pandas as _pd
                 en["_dt_key"] = _pd.to_datetime(en["date"]).dt.normalize()
-                cutoff = (_pd.to_datetime(old_max) - _pd.Timedelta(days=OVERLAP)).normalize()
-                fresh = en[en["_dt_key"] > cutoff].drop(columns=["_dt_key"])
+                cutoff = overlap_cutoff(old_max, OVERLAP)
+                fresh = en[en["_dt_key"] >= cutoff].drop(columns=["_dt_key"])
 
                 if fresh.empty:
                     skipped += 1
@@ -140,10 +163,16 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
                     # DELETE bars in overlap window then INSERT fresh
                     cutoff_str = cutoff.strftime("%Y-%m-%d")
                     try:
+                        _before = con.execute(
+                            "SELECT count(*) FROM bars WHERE ticker=? AND universe=?",
+                            [tk, universe]).fetchone()[0]
                         con.execute(
-                            "DELETE FROM bars WHERE ticker=? AND universe=? AND date > ?",
+                            f"DELETE FROM bars WHERE ticker=? AND universe=? AND {DELETE_PREDICATE}",
                             [tk, universe, cutoff_str]
                         )
+                        rows_deleted += _before - con.execute(
+                            "SELECT count(*) FROM bars WHERE ticker=? AND universe=?",
+                            [tk, universe]).fetchone()[0]
                         # Assign new IDs
                         next_id = (con.execute("SELECT coalesce(max(id),0) FROM bars").fetchone()[0]) + 1
                         fresh = fresh.copy()
@@ -165,6 +194,7 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
                         con.execute(f"INSERT INTO bars ({q}) SELECT {q} FROM tmp_ins")
                         con.unregister("tmp_ins")
                         ins += len(fresh)
+                        rows_reinserted += len(fresh)
                     except Exception as e:
                         print(f"  ✗ {tk} (insert): {e}")
                         errs += 1
@@ -178,6 +208,15 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
     con.close()
     elapsed = time.time() - t0
     print(f"\n✅ DONE: +{ins:,} new rows · {built-errs-skipped} updated · {skipped} unchanged · {errs} errors · {elapsed/60:.1f}min")
+    # THE OVERLAP INVARIANT. rows_deleted must equal rows_reinserted whenever the vendor returned a
+    # complete payload: the DELETE range and the INSERT range are the same calendar window. A
+    # negative difference means sessions were destroyed and not restored — the 2026 defect. A
+    # positive one means the fetch brought back MORE than was there, which is normal on the first
+    # run after a gap. Either way it must never be silently ignored again.
+    _diff = rows_reinserted - rows_deleted
+    print(f"   overlap invariant: deleted {rows_deleted:,} · re-inserted {rows_reinserted:,} · "
+          f"key_difference {_diff:+,}"
+          + ("" if _diff >= 0 else "   ⛔ ROWS LOST — sessions were destroyed and not restored"))
     print(f"DB: {db_path}")
 
 
