@@ -52,6 +52,19 @@ unmounted. The first version of this document claimed the snapshot had been comm
 **If it passes**, the writer is safe to backfill into. **If it fails**, the backfill does not start
 and the writer goes back for another pass.
 
+Three exit codes, because "the run never happened" is not a failure and is certainly not a pass:
+
+| exit | meaning |
+|---:|---|
+| `0` | **PASS** — all seven hold; the writer is safe to backfill into |
+| `1` | **FAIL** — a named criterion was breached; do not backfill |
+| `2` | **NOT TESTED** — no timeframe advanced past the baseline, so the nightly run did not happen. A scheduler / runtime finding, not an acceptance result. Re-run after a real night. |
+
+Both guards are in code rather than in this document, which is the point: `--snapshot` refuses to
+overwrite an existing baseline without `--force` (overwriting it would make `--verify` compare the
+post-run state against itself and report a meaningless PASS), and `--verify` refuses to call an
+untested gate a pass. Pinned by `backend/tests/test_intraday_acceptance_guard.py`.
+
 ## Sequence after a PASS
 
 one live-night acceptance → **Massive backfill authorization** → staging 1H/4H rebuild → completeness

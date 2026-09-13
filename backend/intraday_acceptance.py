@@ -31,10 +31,27 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # The baseline lives in the REPO, not under data/. `data/` is a symlink to the external
 # QUANT_RESEARCH SSD, so nothing there is tracked and nothing there is readable when the volume is
 # unmounted — the one thing this gate cannot afford to lose between the snapshot and the verify.
-SNAP = os.path.join(ROOT, "research_out", "intraday_acceptance_snapshot.json")
+SNAP = os.environ.get("INTRADAY_ACCEPTANCE_SNAPSHOT",
+                      os.path.join(ROOT, "research_out", "intraday_acceptance_snapshot.json"))
 TFS = ("1h", "4h")
 RECENT = 10                      # sessions whose key set is captured in full
 OVERLAP = 3                      # must match update_intraday_db.OVERLAP
+
+
+def assert_baseline_writable(path: str = SNAP, force: bool = False) -> None:
+    """FAIL CLOSED. An existing baseline is the only link between the pre-run and post-run states;
+    overwriting it with post-run data would leave the gate reporting PASS while comparing a state
+    against itself. Three written warnings not to re-snapshot are not a control — this is.
+
+    Must be called BEFORE capture(), so a refusal costs nothing and touches no store.
+    """
+    if os.path.exists(path) and not force:
+        raise SystemExit(
+            f"REFUSED: a baseline already exists at {path}\n"
+            "  Overwriting it VOIDS THE ACCEPTANCE: --verify would then compare the post-run state\n"
+            "  against itself and report PASS while proving nothing. The baseline is the pre-run\n"
+            "  state and must not move.\n"
+            "  If you genuinely mean to start a new acceptance cycle, pass --force.")
 
 
 def _db(tf):
@@ -75,6 +92,18 @@ def verify(before: dict) -> int:
     print("═" * 78)
     print("INTRADAY WRITER ACCEPTANCE — post-run verification")
     print("═" * 78)
+
+    # FAIL CLOSED on an untested gate. If no store advanced, the nightly run never happened and this
+    # is comparing the snapshot's own state against itself — every check passes and nothing is
+    # proven. That is NOT a PASS; it is a scheduler/runtime finding, and the gate is still untested.
+    if all(now["tf"][tf]["max_date"] == before["tf"][tf]["max_date"] for tf in TFS):
+        _stuck = ", ".join(f"{tf} still {before['tf'][tf]['max_date']}" for tf in TFS)
+        print(f"\n⛔ NOT TESTED — no timeframe advanced past the baseline ({_stuck}).")
+        print("   The nightly run did not happen, so there is nothing to verify. This is a")
+        print("   SCHEDULER / RUNTIME finding, not an acceptance result — and it is NOT a PASS.")
+        print("   Do NOT backfill. Re-run --verify after a real scheduled night.")
+        print("═" * 78)
+        return 2
     for tf in TFS:
         b, a = before["tf"][tf], now["tf"][tf]
         print(f"\n── {tf.upper()} ──")
@@ -122,8 +151,11 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--snapshot", action="store_true")
     ap.add_argument("--verify", action="store_true")
+    ap.add_argument("--force", action="store_true",
+                    help="overwrite an existing baseline — only when starting a NEW acceptance cycle")
     a = ap.parse_args()
     if a.snapshot:
+        assert_baseline_writable(SNAP, a.force)      # before any store is read
         s = capture()
         json.dump(s, open(SNAP, "w"), indent=1)
         print(f"snapshot -> {SNAP}")
