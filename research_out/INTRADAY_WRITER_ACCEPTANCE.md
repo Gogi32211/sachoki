@@ -32,7 +32,7 @@ day**, so this is precisely the case the old code destroyed. A natural test, wit
 backend/.venv/bin/python backend/intraday_acceptance.py --verify
 ```
 
-The **pre-run snapshot was taken 2026-09-13** and is at `data/intraday_acceptance_snapshot.json`:
+The **pre-run snapshot was taken 2026-09-13** and is at `research_out/intraday_acceptance_snapshot.json`:
 
 | | 1H | 4H |
 |---|---|---|
@@ -43,6 +43,11 @@ The **pre-run snapshot was taken 2026-09-13** and is at `data/intraday_acceptanc
 
 `--verify` compares against it and prints **PASS** or **FAIL** with the specific breach. Do not
 re-snapshot before the run — the snapshot *is* the baseline.
+
+⚠️ The baseline is kept **in the repo**, not under `data/`. `data/` is a symlink to the external
+QUANT_RESEARCH SSD: nothing there is tracked, and nothing there is readable when the volume is
+unmounted. The first version of this document claimed the snapshot had been committed under
+`data/`; it had not, and could not be. Corrected rather than quietly moved.
 
 **If it passes**, the writer is safe to backfill into. **If it fails**, the backfill does not start
 and the writer goes back for another pass.

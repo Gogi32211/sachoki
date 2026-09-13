@@ -28,7 +28,10 @@ import sys
 import duckdb
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SNAP = os.path.join(ROOT, "data", "intraday_acceptance_snapshot.json")
+# The baseline lives in the REPO, not under data/. `data/` is a symlink to the external
+# QUANT_RESEARCH SSD, so nothing there is tracked and nothing there is readable when the volume is
+# unmounted — the one thing this gate cannot afford to lose between the snapshot and the verify.
+SNAP = os.path.join(ROOT, "research_out", "intraday_acceptance_snapshot.json")
 TFS = ("1h", "4h")
 RECENT = 10                      # sessions whose key set is captured in full
 OVERLAP = 3                      # must match update_intraday_db.OVERLAP
