@@ -7,13 +7,30 @@ pass before any Massive backfill is authorised.**
 Fix under test: `797faaf`. Root cause and history: `MTF_ZERO_RECONSTRUCTION.md` §8,
 `backend/tests/test_intraday_update_overlap.py`.
 
-## The run to watch
+## Cycle 2 — the run to watch
 
-The next scheduled `com.sachoki.dbupdate` is **Tuesday 2026-09-15, 03:00** (launchd runs Tue–Sat),
-covering the Monday 2026-09-14 session.
+**Cycle 1 FAILED on 2026-09-16 and was right to.** The `797faaf` overlap fix held — the cutoff
+session 2026-09-08 survived 3,104 → 3,104, no session went newly missing, and complete sessions rose
+— but the gate's own per-ticker instrumentation caught a second, different defect: the delete window
+was derived from `old_max` while the restore window was bounded by `FETCH_DAYS`, so **stale tickers**
+lost days nothing could give back (APGE and HLX lost 2026-08-31). Fixed by clamping the cutoff to
+the fetched frame's minimum date (`f75aaee`). Two gate bugs were fixed alongside it: the invariant
+was a net sum that hid per-ticker losses, and `capture()` slid its key-set window forward so intact
+sessions read as total losses.
 
-Its cutoff is `old_max 2026-09-11 (Fri) − OVERLAP 3d = **2026-09-08 (Tue)**` — **a real trading
-day**, so this is precisely the case the old code destroyed. A natural test, with nothing to stage.
+The clamp has **not yet been exercised by a live run**, so cycle 2 begins with a fresh baseline
+(taken 2026-09-16 with `--force`): 1H max 2026-09-15, 1,297 sessions, 20 missing; 4H 1,295 / 27.
+
+**Verify after Saturday 2026-09-19**, not before, because the two defects surface on different runs:
+
+| run | `old_max` | cutoff | exercises |
+|---|---|---|---|
+| Thu 09-17 | 09-15 Tue | 09-12 **Sat** | the **clamp** only — APGE/HLX run every night |
+| Fri 09-18 | 09-16 Wed | 09-13 **Sun** | the clamp only |
+| **Sat 09-19** | 09-17 Thu | **09-14 Mon** | **both** — the first trading-day cutoff since the fix |
+
+A cutoff that lands on a weekend puts nothing at risk, so only 09-19 re-tests the original
+destruction case.
 
 ## Frozen acceptance — all seven, no partial credit
 
@@ -32,12 +49,12 @@ day**, so this is precisely the case the old code destroyed. A natural test, wit
 backend/.venv/bin/python backend/intraday_acceptance.py --verify
 ```
 
-The **pre-run snapshot was taken 2026-09-13** and is at `research_out/intraday_acceptance_snapshot.json`:
+The **cycle-2 baseline was taken 2026-09-16** and is at `research_out/intraday_acceptance_snapshot.json`:
 
 | | 1H | 4H |
 |---|---|---|
-| max date | 2026-09-11 | 2026-09-11 |
-| sessions | 1,295 | 1,293 |
+| max date | 2026-09-15 | 2026-09-15 |
+| sessions | 1,297 | 1,295 |
 | missing sessions | 20 | 27 |
 | key sets captured | 10 | 10 |
 
