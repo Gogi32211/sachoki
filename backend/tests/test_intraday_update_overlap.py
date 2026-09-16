@@ -65,7 +65,7 @@ def _run_update(c, fetched_days: list[str], old_max: str) -> tuple[int, int]:
     """One ticker's slice of the nightly re-write. Returns (deleted, re-inserted)."""
     en = _bars(fetched_days)
     en["_dt_key"] = pd.to_datetime(en["date"]).dt.normalize()
-    cutoff = overlap_cutoff(old_max, OVERLAP)
+    cutoff = overlap_cutoff(old_max, OVERLAP, fetch_min=en["_dt_key"].min())
     fresh = en[en["_dt_key"] >= cutoff].drop(columns=["_dt_key"])
     before = c.execute("SELECT count(*) FROM bars").fetchone()[0]
     c.execute(f"DELETE FROM bars WHERE ticker=? AND universe=? AND {DELETE_PREDICATE}",
@@ -146,3 +146,34 @@ def test_the_three_weekdays_the_bug_actually_destroyed(run_day, old_max, cutoff_
     _run_update(c, days, old_max=old_max)
     assert cutoff_day in _sessions(c), (
         f"the {run_day} run destroyed its {weekday} cutoff session — the exact production failure")
+
+
+# ── the stale-ticker regression, found by the gate on 2026-09-16 ─────────────
+def test_a_stale_ticker_is_not_eaten_by_a_cutoff_outside_the_fetch():
+    """THE SECOND REGRESSION. A ticker that stopped updating has an old `old_max`, so
+    `old_max - OVERLAP` can fall before the fetched window even begins. The DELETE would then
+    remove days the fetch cannot restore — and do it again every night, one day deeper each time.
+
+    Real case: APGE (max_date 2026-09-02) and HLX (2026-09-01) against a fetch starting ~2026-09-01
+    lost their 2026-08-31 bars. Caught by the run's own per-ticker invariant.
+    """
+    stored = ["2026-08-27", "2026-08-28", "2026-08-31", "2026-09-01", "2026-09-02"]
+    fetched = ["2026-09-01", "2026-09-02"]          # the vendor no longer returns the earlier days
+    c = _con(stored)
+    before = _sessions(c)
+    deleted, reinserted = _run_update(c, fetched, old_max="2026-09-02")   # cutoff would be 08-30
+    after = _sessions(c)
+    assert "2026-08-31" in after, (
+        "a session the fetch cannot restore was deleted anyway — the delete range must be clamped "
+        f"to what came back. before={before} after={after}")
+    assert deleted == reinserted, f"deleted {deleted}, restored {reinserted}"
+    assert after == before, f"{before} -> {after}"
+
+
+def test_the_clamp_only_moves_the_cutoff_forward():
+    """The clamp must never widen the window — a complete payload behaves exactly as before."""
+    full = pd.Timestamp("2026-08-01")
+    assert overlap_cutoff("2026-08-20", OVERLAP, fetch_min=full) == pd.Timestamp("2026-08-17")
+    late = pd.Timestamp("2026-08-19")
+    assert overlap_cutoff("2026-08-20", OVERLAP, fetch_min=late) == late
+    assert overlap_cutoff("2026-08-20", OVERLAP) == pd.Timestamp("2026-08-17")

@@ -66,14 +66,19 @@ def _calendar() -> list[str]:
     return d
 
 
-def capture() -> dict:
+def capture(want_dates: list | None = None) -> dict:
     cal = _calendar()
     out = {"calendar_max": cal[-1], "tf": {}}
     for tf in TFS:
         c = _db(tf)
         per = {str(r[0]): int(r[1]) for r in c.execute(
             "SELECT CAST(date AS DATE), COUNT(DISTINCT ticker) FROM bars GROUP BY 1").fetchall()}
-        recent = sorted(per)[-RECENT:]
+        # ⚠️ The key-set window must be pinned to DATES, not "the last N sessions present". The
+        # first version took sorted(per)[-RECENT:] in BOTH capture calls, so once the run added new
+        # sessions the window slid forward, older dates fell out of the post-run capture, and
+        # `.get(d, [])` read as "every ticker lost" — two false FAILs on 2026-09-16 for sessions
+        # that were entirely intact. The verify now asks for exactly the baseline's own dates.
+        recent = sorted(per)[-RECENT:] if want_dates is None else [d for d in want_dates if d in per]
         keys = {}
         for d in recent:
             keys[d] = sorted(r[0] for r in c.execute(
@@ -86,7 +91,9 @@ def capture() -> dict:
 
 
 def verify(before: dict) -> int:
-    now = capture()
+    # Ask for the baseline's own dates back, so like is compared with like.
+    want = sorted({d for tf in TFS for d in before["tf"][tf]["recent_keys"]})
+    now = capture(want_dates=want)
     cal = _calendar()
     bad = 0
     print("═" * 78)
@@ -135,7 +142,12 @@ def verify(before: dict) -> int:
         # 7 · key-set comparison, not just counts
         print("  key sets on the sessions that existed before:")
         for d in sorted(b["recent_keys"]):
-            kb, ka = set(b["recent_keys"][d]), set(a["recent_keys"].get(d, []))
+            kb = set(b["recent_keys"][d])
+            if d not in a["recent_keys"]:
+                print(f"    {d}  ⛔ SESSION GONE — {len(kb):,} tickers, no rows at all after the run")
+                bad += 1
+                continue
+            ka = set(a["recent_keys"][d])
             lost, gained = kb - ka, ka - kb
             flag = "OK" if not lost else "⛔ TICKERS LOST"
             print(f"    {d}  before {len(kb):,} · after {len(ka):,} · lost {len(lost):,} · "

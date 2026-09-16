@@ -42,10 +42,23 @@ OVERLAP    = 3    # re-fetch/re-insert last N days to capture corrections
 DELETE_PREDICATE = "date >= ?"
 
 
-def overlap_cutoff(old_max, overlap: int = OVERLAP):
-    """First calendar day of the re-write window: everything from here on is deleted and re-inserted."""
+def overlap_cutoff(old_max, overlap: int = OVERLAP, fetch_min=None):
+    """First calendar day of the re-write window: everything from here on is deleted and re-inserted.
+
+    ⚠️ CLAMPED TO THE FETCH. The delete range is derived from `old_max`, but the restore range is
+    bounded by FETCH_DAYS. For a ticker that has stopped updating — delisted, or the vendor stopped
+    returning it — `old_max - OVERLAP` can fall BEFORE the fetched window even starts, and then the
+    DELETE removes days the fetch cannot give back. Found 2026-09-16 by the gate's own invariant:
+    APGE (max_date 2026-09-02) and HLX (2026-09-01) had cutoffs of 08-30 and 08-29 against a fetch
+    beginning ~09-01, and lost their 2026-08-31 bars. It is PROGRESSIVE — one more day every night.
+
+    Never delete outside what can be put back: the window starts at the later of the two.
+    """
     import pandas as _pd
-    return (_pd.to_datetime(old_max) - _pd.Timedelta(days=overlap)).normalize()
+    cut = (_pd.to_datetime(old_max) - _pd.Timedelta(days=overlap)).normalize()
+    if fetch_min is not None:
+        cut = max(cut, _pd.to_datetime(fetch_min).normalize())
+    return cut
 
 _TF      = "1h"   # overridden by __main__
 _DB      = ""
@@ -131,6 +144,7 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
     t0 = time.time()
     built = ins = errs = skipped = 0
     rows_deleted = rows_reinserted = 0        # the overlap invariant, see the note above
+    lossy_tickers: list[tuple] = []           # per-ticker losses — a NET sum hides them
 
     build_fn = _build_one_weekly if is_weekly else _build_one_intraday
     todo = [(tk, universe_map[tk], FETCH_DAYS) for tk in tickers]
@@ -154,7 +168,7 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
                 # cutoff: re-insert from (old_max - OVERLAP days)
                 import pandas as _pd
                 en["_dt_key"] = _pd.to_datetime(en["date"]).dt.normalize()
-                cutoff = overlap_cutoff(old_max, OVERLAP)
+                cutoff = overlap_cutoff(old_max, OVERLAP, fetch_min=en["_dt_key"].min())
                 fresh = en[en["_dt_key"] >= cutoff].drop(columns=["_dt_key"])
 
                 if fresh.empty:
@@ -170,9 +184,15 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
                             f"DELETE FROM bars WHERE ticker=? AND universe=? AND {DELETE_PREDICATE}",
                             [tk, universe, cutoff_str]
                         )
-                        rows_deleted += _before - con.execute(
+                        _del = _before - con.execute(
                             "SELECT count(*) FROM bars WHERE ticker=? AND universe=?",
                             [tk, universe]).fetchone()[0]
+                        rows_deleted += _del
+                        # A net difference across 3,200 tickers hides a per-ticker loss inside other
+                        # tickers' gains — exactly how the APGE/HLX loss stayed invisible on 1h
+                        # (+6,200) while surfacing on 4h (-2). Judge each ticker on its own.
+                        if _del > len(fresh):
+                            lossy_tickers.append((tk, _del, len(fresh)))
                         # Assign new IDs
                         next_id = (con.execute("SELECT coalesce(max(id),0) FROM bars").fetchone()[0]) + 1
                         fresh = fresh.copy()
@@ -217,6 +237,12 @@ def run(db_path: str, tf: str, is_weekly: bool, workers: int,
     print(f"   overlap invariant: deleted {rows_deleted:,} · re-inserted {rows_reinserted:,} · "
           f"key_difference {_diff:+,}"
           + ("" if _diff >= 0 else "   ⛔ ROWS LOST — sessions were destroyed and not restored"))
+    if lossy_tickers:
+        print(f"   ⛔ {len(lossy_tickers)} ticker(s) lost rows — per-ticker, which the net sum above hides:")
+        for _tk, _d, _r in sorted(lossy_tickers, key=lambda x: x[1] - x[2], reverse=True)[:20]:
+            print(f"        {_tk}: deleted {_d:,} · restored {_r:,} · net {_r - _d:+,}")
+    else:
+        print("   per-ticker check: no ticker lost rows")
     print(f"DB: {db_path}")
 
 
