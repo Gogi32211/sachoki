@@ -91,15 +91,41 @@ against the 15m/1D calendar + parity on healthy overlap → canonical replacemen
 Pre-roll for the backfill: enough history before the earliest damage (2026-06-29) for RSI maturity —
 ~44 sessions on 4H, so a fetch starting mid-April.
 
-## ⚠️ Two open anomalies — findings, NOT closed
+## The two anomalies, audited 2026-09-16
 
-Neither blocks the backfill if the corrected writer's live invariant comes back clean, and neither
-may be written off as explained.
+### 1 · Saturday's 0.12 ratio — **RESOLVED, and it was my error**
 
-1. **Why does the historical damage only start 2026-06-29?** The overlap bug is structural and would
-   have been destroying the cutoff day for as long as this code path has run. Something used to
-   repair those sessions, or the schedule changed. The plist was last modified 2026-08-01, which
-   does not explain the date. Unresolved.
-2. **Why is the Saturday 4H/1H row ratio 0.12?** Every other night it is 0.29, which is exactly the
-   2-bars-to-7-bars grid. Saturday runs write less than half the 4H rows they should:
-   2026-08-15, 08-22, 08-29, 09-05 and 09-12 all read 0.12. Unresolved.
+There is no Saturday anomaly. `update_all.sh:59` adds a **third** block on Saturdays — `1w`, the
+weekly store — and my log parser tracked only `(1h|4h)` without resetting its current-timeframe
+variable, so the **weekly run's numbers overwrote the 4H ones**. What I reported as "4H writes half
+what it should" was the 1w run all along; 5,190 tickers should have given it away immediately, since
+the intraday universe is 3,203 while 5,190 is the weekly one.
+
+The real Saturday 2026-09-12 run:
+
+```
+1h  +86,849 · 3,108 tickers
+4h  +24,837 · 3,108 tickers   ← ratio 0.286, identical to every other night
+1w  +10,166 · 5,190 tickers   ← what I was misreading as 4H
+```
+
+This matters for cycle 2: **the Sat 2026-09-19 run is entirely ordinary**, and nothing about it
+should be treated as suspect.
+
+### 2 · Why the damage starts 2026-06-29 — **NARROWED, not proven**
+
+**Established.** Across the stores' full history — 1,306 sessions from 2021-07-02 — there are
+**zero** damaged sessions before each store's onset. And the onsets **differ per store**: 4H
+2026-06-29, 1H 2026-07-20 (both Mondays). A single global cause — a code change, a schedule change,
+a vendor change — would have hit both stores on the same date. This is a **per-store** event.
+
+**Strongly indicated, not proven.** Each onset is that store's last **full rebuild**
+(`build_intraday_db --all`): the rebuild rewrote all prior history correctly, and from then on the
+nightly incremental was the only writer, eating one cutoff day at a time. That is the only mechanism
+consistent with both "no damage at all before date X" and "a different date X per store".
+
+**Why it cannot be settled.** A full rebuild is run by hand, not from `update_all.sh`, so it never
+reaches `~/Library/Logs/sachoki_update.log`; the shell history holds no `build_intraday_db` command.
+Left as a narrowed finding rather than an explained one. It does not block the backfill — the writer
+is fixed either way, and the backfill will itself rewrite the affected span.
+
