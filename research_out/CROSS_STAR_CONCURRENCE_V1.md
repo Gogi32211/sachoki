@@ -514,11 +514,46 @@ addition.
 
 Read plainly: **the BOTTOM (AD) star acts as a negative conditioner on an upper-script signal.**
 
-⚠️ That is a **finding, not a licence.** An inverse veto ("skip an upper-script signal when the AD
-star is present") is a *different* claim with its own search burden, and it is not registered here.
-Nothing about it may be built without its own pre-registration.
+### Three claims, and only two of them are supported
 
-## 16 · Production
+| # | claim | status |
+|---|---|---|
+| 1 | Do **not** add BOTTOM as a confirmation | **supported by this study** |
+| 2 | BOTTOM presence **marks a weaker subset** of an upper signal | **strong finding** — replicated on two independent upper layers |
+| 3 | Therefore **veto** the upper signal in production when BOTTOM is present | **NOT established** |
+
+⚠️ Claim 3 does not follow from claim 2, and it must not be tested here. This outcome has already
+been read and BOTTOM's negative direction is now known, so building a veto threshold on the same
+2021–2025 data would be **discovery on exposed data**. The right vehicle is a separate
+pre-registered study — `AD_CONDITIONER_V1` — asking, before seeing anything:
+
+> Among otherwise eligible TOP / CD signals, does *excluding* BOTTOM-star rows improve realized
+> outcome enough to justify a production veto?
+
+and fixing in advance: which upper family the veto is evaluated on; same-day only or ±1d; the primary
+outcome; the **exact cost** in good signals forgone; the precision/coverage trade-off; liquidity
+robustness; and a **fresh OOS period**, because 2021–2025 is now exposed to this finding.
+
+**2026 stays closed.** It was never opened here and should not be opened for this. When enough new
+out-of-sample accumulates, a BOTTOM veto can be tested as a genuinely prospective hypothesis.
+
+### A methodological result worth carrying forward
+
+`CD30` and `CD60` are **not two confirmations**. `phi = +0.854`, Jaccard `0.789`, `P(CD30|CD60) =
+0.913` — one CD family rendered through two near-adjacent windows. Counting them as independent
+votes anywhere downstream would double-count a single signal.
+
+## 16 · Research conclusion
+
+**Cross-script visual concurrence does not imply additive confirmation.** In both pre-registered
+upper-layer families, conditioning on the BOTTOM/AD star selected a *weaker* subset of the upper
+signal rather than a stronger one. The effect is robust for TOP × BOTTOM and directionally
+reproduced for CD_BOTH × BOTTOM. **This study therefore rejects the confirmation hypothesis.** It
+does **not** establish a production veto; testing the exclusion of BOTTOM-conditioned signals is a
+separate model-selection question requiring its own pre-registration and future out-of-sample
+evidence.
+
+## 17 · Production
 
 **No production change in this study.** No composite star signal is added, neither script is
 altered, nothing is wired in. Evidence collection only.
