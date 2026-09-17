@@ -16,6 +16,26 @@ Code: `backend/cross_star_concurrence_v1.py` · feature table `data/cross_star_f
 | status | **SAFE / DESCRIPTIVE** — the module says outright "Nothing here is an edge, a score input or a filter with claimed lift" | **SAFE** — "NO LOOKAHEAD ANYWHERE. Every window is backward-looking and every groupby is per ticker" (`bar_physics.py:24`) |
 | covered ⇔ | `udn IS NOT NULL` (`nv_lab > 0`) | `phys_ad IS NOT NULL` |
 
+### CD family — `backend/ovd_map_build.py:140-141` → `data/ovdmap_signals.parquet`
+
+Logic 3, "close dominance under a 5-day decline":
+
+```
+decline = close < close[5]
+cd60 = decline ∧ rvC60  > 1 ∧ c60  / o60  >= 1      (last 60m volume & range vs the first 60m)
+cd30 = decline ∧ rvC30B > 1 ∧ c30b / o30a >= 1      (last 30m vs the first 30m)
+```
+
+**SAFE** — every input is a same-session intraday aggregate plus a 5-day-back close; nothing forward.
+This is a **different upper layer from TOP**: TOP is LBAL/UDN balance, CD is the OVD map. Both are
+produced in the same `lbal_build.py` pass from the 15m store.
+
+⚠️ **Coverage trap.** `ovd_map_build.py:181` keeps only rows where *some* OVD token fired
+(`any_tok`), so an absent row is ambiguous on its own — "no token" or "not processed". Resolved
+empirically rather than assumed: **ovdmap ⊆ lbal with ZERO rows outside it** (0 of 1,353,225). So
+LBAL presence defines CD coverage, and an absent ovd row *inside* that coverage means "no token
+fired" = False, not UNKNOWN.
+
 **Two corrections to the brief, both material.**
 
 1. **The BOTTOM family is one column, not three flags.** `phys_ad` is
@@ -165,7 +185,86 @@ semantics to 0.304 %.
 outcome and its estimand (per 4), the MINE/VERIFY boundary, **k**, and the matched-control
 construction (same date + liquidity bucket + price bucket + universe, no future-derived quantity).
 
-## 9 · Production
+## 9 · CD family — census
+
+`cd_covered ≡ top_covered` exactly, so **`coverage_all_required` = 3,533,764 — the identical
+eligible universe as the primary family.** One population serves both.
+
+| | rows | share |
+|---|---:|---:|
+| CD30 | 726,406 | 20.556 % |
+| CD60 | 679,330 | 19.224 % |
+| CD30 ∧ CD60 | 620,070 | 17.547 % |
+| CD30 only | 106,336 | 3.009 % |
+| CD60 only | 59,260 | 1.677 % |
+| BOTTOM × CD30 | 54,159 | 1.533 % |
+| BOTTOM × CD60 | 50,842 | 1.439 % |
+| **BOTTOM × CD_BOTH** | **46,300** | **1.310 %** |
+| CD_BOTH without BOTTOM | 573,770 | 16.237 % |
+
+### ⚠️ CD30 and CD60 are very nearly the SAME signal
+
+| | |
+|---|---:|
+| P(CD60 \| CD30) | 0.8536 |
+| P(CD30 \| CD60) | 0.9128 |
+| **Jaccard** | **0.7892** |
+| **phi** | **+0.8537** |
+
+They share the `decline` gate and differ only in the window (last 30m vs last 60m). `CD_BOTH` is
+85 % of CD30 and 91 % of CD60. **The brief's secondary groups 2, 3 and 4 — "CD30 alone", "CD60
+alone", "CD30+CD60" — are therefore effectively ONE group, not three**, and reporting them as three
+hypotheses would triple-count a single signal. Reported as one family with two near-duplicate
+renderings.
+
+### CD vs BOTTOM — the same near-independence as the primary
+
+| | P(cd) | P(BOTTOM\|cd) | lift | phi | Jaccard |
+|---|---:|---:|---:|---:|---:|
+| CD30 | 0.2056 | 0.0746 | 1.040 | +0.0057 | 0.0585 |
+| CD60 | 0.1922 | 0.0748 | 1.044 | +0.0060 | 0.0577 |
+| CD_BOTH | 0.1755 | 0.0747 | 1.042 | +0.0054 | 0.0560 |
+
+Base P(BOTTOM) = 0.0717. **Lift 1.040–1.044 — indistinguishable from the TOP × BOTTOM 1.042.** Both
+upper layers are near-independent of the lower one to the same degree.
+
+### CD vs TOP — mildly NEGATIVE
+
+| | P(TOP\|cd) | lift | phi |
+|---|---:|---:|---:|
+| CD30 | 0.3589 | 0.910 | −0.0368 |
+| CD60 | 0.3590 | 0.910 | −0.0352 |
+| CD_BOTH | 0.3563 | 0.904 | −0.0359 |
+
+Base P(TOP) = 0.3943. The two upper-script layers weakly **avoid** each other — worth knowing,
+because it means TOP and CD are not interchangeable stand-ins.
+
+### Concentration of BOTTOM × CD_BOTH
+
+46,300 rows · 3,086 tickers · 1,272 sessions. Ticker concentration is nil (top 0.09 %, top-10
+0.8 %, top-50 3.5 %) and it is *less* microcap than the universe (12.4 % under \$8 vs 14.3 %).
+
+⚠️ **But day concentration is materially higher than the primary's:** busiest day 2025-04-09 carries
+746 rows (**1.61 %**) and the top-10 days 8.6 %, against 0.57 % / 4.3 % for the same-day cross. That
+is structural, not accidental — CD requires a 5-day decline, so it batches onto market-wide selloff
+days. **Consequence: day-clustered inference is mandatory for the CD family, and "result after
+removing the largest mover days" is a required robustness column, not an optional one.**
+
+## 10 · Frozen estimands
+
+**PRIMARY — one, and it does not move.** Same-day `top_star_any ∧ bottom_star_any`, compared with
+TOP-only and BOTTOM-only inside the declared eligible universe, matched on date + liquidity bucket +
+price bucket + universe. The verdict of this study is the primary's verdict.
+
+**SECONDARY — pre-declared, diagnostic only.** ±1 and ±2 day windows; both orderings; the CD family
+in full (BOTTOM alone, CD, CD+BOTTOM, and the triple); and the strength subgroups.
+
+⚠️ **`CD30+CD60 + BOTTOM` is SECONDARY and stays secondary.** It is registered here, before any
+outcome, precisely so that a strong result cannot be promoted over the primary afterwards. If it
+comes out well, that is a pre-declared secondary finding and must be reported as one — it does not
+overwrite or replace the primary verdict, and it would need its own registration to become a claim.
+
+## 11 · Production
 
 **No production change in this study.** No composite star signal is added, neither script is
 altered, nothing is wired in. Evidence collection only.

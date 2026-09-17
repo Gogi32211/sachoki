@@ -14,6 +14,16 @@ THE TWO FAMILIES, traced to their producers rather than to their display glyphs:
       setting); `*_all` is the alternate mode kept for a toggle. udn IS NULL  <=>  unlabelled
       session: the producer states outright that "no data" is not "double neutral".
 
+  CD FAMILY — backend/ovd_map_build.py:140-141 -> data/ovdmap_signals.parquet
+      Logic 3, "close dominance under a 5-day decline":
+        decline = close < close[5]
+        cd60 = decline ∧ rvC60  > 1 ∧ c60  / o60  >= 1        (last 60m vs first 60m)
+        cd30 = decline ∧ rvC30B > 1 ∧ c30b / o30a >= 1        (last 30m vs first 30m)
+      ⚠️ COVERAGE TRAP: ovd_map_build.py:181 keeps only rows where SOME OVD token fired, so an
+      absent row is ambiguous on its own. Resolved empirically: ovdmap ⊆ lbal with ZERO rows
+      outside it, and both are produced by the same lbal_build.py pass — so LBAL presence defines
+      CD coverage, and an absent ovd row inside it means "no token fired" = False, not UNKNOWN.
+
   BOTTOM STAR — backend/studio/bar_physics.py -> bars.phys_ad
       bar_physics.py:293, ONE mutually-exclusive categorical, not three flags:
         np.select([cluster, ad_fresh & absorbed, ad_fresh], ["★★", "★A", "★"], default="")
@@ -152,10 +162,56 @@ def main():
     print(f"  phi (binary correlation)   {(pab - pa*pb)/phi_den if phi_den else float('nan'):+.4f}")
     print(f"  Jaccard                    {pab/((a|b).mean()):.4f}")
 
+    X = add_cd(X)
     X.to_parquet(OUT, index=False)
     print(f"\nfeature table -> {OUT}  ({len(X):,} rows)")
     con.close()
     part2(X)
+    part3(X)
+
+
+def add_cd(X):
+    """CD30 / CD60 from the OVD map. Coverage rides on LBAL — see the note in the module docstring."""
+    import duckdb as _d
+    O = _d.connect().execute(
+        "SELECT ticker, CAST(date AS DATE) AS date, cd30, cd60 "
+        f"FROM read_parquet('{os.path.join(ROOT, 'data', 'ovdmap_signals.parquet')}')").fetchdf()
+    X["date"] = pd.to_datetime(X["date"]).dt.date
+    O["date"] = pd.to_datetime(O["date"]).dt.date
+    X = X.merge(O, on=["ticker", "date"], how="left")
+    X["cd_covered"] = X["top_covered"]
+    for k in ("cd30", "cd60"):
+        X[k] = X[k].fillna(False).infer_objects(copy=False).astype(bool) & X["cd_covered"]
+    X["cd_both"] = X.cd30 & X.cd60
+    X["coverage_all_required"] = X.top_covered & X.bot_covered & X.cd_covered
+    return X
+
+
+def part3(X):
+    """CD census and dependence. Still NO outcome access."""
+    import math
+    E = X[X.coverage_all_required]
+    B, T = E.bottom_star_any, E.top_star_any
+    L("═"); print("§11 · CD FAMILY — prevalence on the eligible universe"); L("═")
+    for lab, m in (("CD30", E.cd30), ("CD60", E.cd60), ("CD30 ∧ CD60", E.cd_both),
+                   ("CD30 only", E.cd30 & ~E.cd60), ("CD60 only", E.cd60 & ~E.cd30),
+                   ("BOTTOM × CD30", B & E.cd30), ("BOTTOM × CD60", B & E.cd60),
+                   ("BOTTOM × CD_BOTH", B & E.cd_both),
+                   ("CD_BOTH without BOTTOM", E.cd_both & ~B)):
+        print(f"  {lab:24s} {m.sum():>9,}  ({100*m.mean():6.3f} %)")
+
+    L("═"); print("§12 · CD30 vs CD60 — one signal or two?"); L("═")
+    a, b = E.cd30.mean(), E.cd60.mean(); ab = E.cd_both.mean()
+    print(f"  P(CD60|CD30) {ab/a:.4f} · P(CD30|CD60) {ab/b:.4f} · Jaccard {ab/(a+b-ab):.4f} · "
+          f"phi {(ab-a*b)/math.sqrt(a*(1-a)*b*(1-b)):+.4f}")
+
+    L("═"); print("§13 · CD vs BOTTOM, and CD vs TOP"); L("═")
+    for base, bl in ((B, "BOTTOM"), (T, "TOP")):
+        pb = base.mean()
+        for lab, m in (("CD30", E.cd30), ("CD60", E.cd60), ("CD_BOTH", E.cd_both)):
+            pa, pab = m.mean(), (m & base).mean()
+            print(f"  {lab:8s} P({bl}|cd) {pab/pa:.4f} vs base {pb:.4f} · lift {pab/(pa*pb):.3f} · "
+                  f"phi {(pab-pa*pb)/math.sqrt(pa*(1-pa)*pb*(1-pb)):+.4f}")
 
 
 def part2(X):
