@@ -1,6 +1,15 @@
-# CROSS_STAR_CONCURRENCE_V1 — PRE-OUTCOME FEATURE AUDIT
+# CROSS_STAR_CONCURRENCE_V1
 
-**No outcome has been opened and none may be until this section is accepted.** Sealed 2026-09-17.
+## VERDICT
+
+| family | verdict |
+|---|---|
+| **PRIMARY — TOP × BOTTOM same-day** | **NO INCREMENTAL CONFIRMATION** |
+| **SECONDARY — BOTTOM + CD_BOTH** | **NO INCREMENTAL CD CONFIRMATION** |
+
+In both families the composite fails to beat the stronger of its two components, and in both it is
+**significantly worse** than that component in MINE *and* VERIFY, robust to every declared check.
+**No production change.** Sealed 2026-09-17; spec frozen at `786b76f` before any outcome was read.
 Code: `backend/cross_star_concurrence_v1.py` · feature table `data/cross_star_features.parquet`.
 
 ## 1 · Provenance — traced to producers, not to glyphs
@@ -394,7 +403,122 @@ dates; ≥ $1M/day slice; ≥ $5 slice; top-50-ticker removal. The CD family's d
 
 CD family: the same four, worded for CD.
 
-## 12 · Production
+## 12 · Execution integrity
+
+| | |
+|---|---|
+| `_pathsim` digest | **`0e74668f554910de`** — matched the bound value; `assert_no_local_pathsim` passed |
+| canonical 1D authority | `bc022aed824016a6`, spans 2021-09-07 … 2026-09-03 |
+| **2026 rows accessed** | **0** — excluded from the frame before anything ran |
+| usable start | **2021-09-07** (canonical), recorded; MINE's boundary was *not* moved |
+| unique keys sent to the engine | 934,014 · trades 905,028 at each horizon |
+| **COOLDOWN SUPPRESSED** | **0 across all five mod-5 masks** — the registered construction did what it was registered to do |
+| conservation | keys_in 905,035 → selected 905,028; the 7 lost are all `NO_NEXT_SESSION`, none `NO_ENTRY_OPEN` |
+| right-censoring | maxh 60 → 339 (0.04 %) · maxh 20 → 108 (0.01 %); excluded, never carried forward |
+
+Arms by window, and matched-k:
+
+| | MINE | VERIFY |
+|---|---:|---:|
+| treated CROSS | 49,112 | 39,484 |
+| TOP-only pool | 580,190 | 509,768 |
+| BOTTOM-only pool | 69,499 | 57,829 |
+| TOP controls used (unique rows) | 150,439 | 131,390 |
+| BOTTOM controls used (unique rows) | 52,184 | 43,894 |
+
+* **TOP** — 87,289 of 88,596 treated matched (98.5 %); k=5 on 81,489, unmatched 1,307.
+* **BOTTOM** — 76,162 matched (86.0 %); k=5 on 41,315, k=1 on 10,877, unmatched 12,434. The thinner
+  pool is expected: BOTTOM-only is a 4 % population against TOP-only's 36 %.
+
+Engine drop by arm (canonical-frame boundary): treated CROSS 4.58 %, BOTTOM-only 4.10 %, BOTTOM ×
+CD_BOTH 1.84 %. *(An earlier print of mine labelled 63.9 % of the TOP-only **pool** as "dropped" —
+that was a mislabel: only the ~394k rows actually used as matched controls were ever sent to the
+engine. Corrected here.)*
+
+## 13 · PRIMARY — TOP × BOTTOM
+
+Sacred `_pathsim` realized `ret`, `maxh = 60`. Per treated row, Δ = its own return minus the **mean of
+its matched controls**; the day series is the per-date median of Δ; the CI is a **date-clustered**
+bootstrap on that day series.
+
+### MINE 2021-01-01 … 2023-12-31
+
+| contrast | n | days | day-median Δ | days > 0 | 95 % CI (by date) | |
+|---|---:|---:|---:|---:|---|---|
+| **CROSS − TOP-only** | 44,497 | 583 | **−0.423** | 46.3 % | **[−1.045, −0.100]** | **excludes 0** |
+| CROSS − BOTTOM-only | 38,757 | 577 | +0.191 | 51.6 % | [−0.993, +0.944] | includes 0 |
+
+`min(Δ_TOP, Δ_BOTTOM) = −0.423` *(summary only)*. Yearly Δ vs TOP-only: 2021 −1.40 · 2022 −0.60 ·
+2023 −0.28 — negative every year.
+
+### VERIFY 2024-01-01 … 2025-12-31
+
+| contrast | n | days | day-median Δ | days > 0 | 95 % CI (by date) | |
+|---|---:|---:|---:|---:|---|---|
+| **CROSS − TOP-only** | 38,793 | 502 | **−1.894** | 35.9 % | **[−2.195, −1.198]** | **excludes 0** |
+| CROSS − BOTTOM-only | 33,996 | 501 | −0.379 | 46.5 % | [−0.606, +0.641] | includes 0 |
+
+`min = −1.894`. Yearly: 2024 −0.82 · 2025 −1.54. Raw medians: CROSS +1.558, TOP-only controls
+**+2.995**, BOTTOM-only controls +2.350.
+
+### Robustness — VERIFY, `CROSS − TOP-only`
+
+| cut | days | day-median Δ | 95 % CI |
+|---|---:|---:|---|
+| full VERIFY | 502 | −1.894 | [−2.204, −1.203] |
+| minus top-3 mover dates | 499 | −1.897 | [−2.262, −1.343] |
+| ≥ $1M/day | 502 | −1.449 | [−1.998, −1.016] |
+| ≥ $5 price | 502 | −1.611 | [−1.944, −0.954] |
+| ≥ $1M **and** ≥ $5 | 502 | −1.497 | [−1.860, −0.874] |
+| minus top-50 tickers | 502 | −1.543 | [−2.010, −1.024] |
+
+**Every cut stays negative and every CI excludes zero.** Concentration is nil — 2,971 tickers, top
+ticker 0.08 %, top-10 0.8 %, busiest day 1.52 %. The `CROSS − BOTTOM-only` contrast stays mildly
+negative (−0.11 to −0.53) with every CI including zero.
+
+### Verdict — PRIMARY: **NO INCREMENTAL CONFIRMATION**
+
+The composite does not beat the stronger component. It is **significantly worse than TOP-only** in
+both windows, directionally consistent, and robust to liquidity, price, mover-date and ticker cuts.
+Against BOTTOM-only it is statistically indistinguishable.
+
+**The composite inherits the weaker component.** Requiring a BOTTOM (AD) star *in addition to* a TOP
+star does not add information — it removes it, leaving something that behaves like BOTTOM-only rather
+than like the stronger TOP-only.
+
+## 14 · SECONDARY — BOTTOM + CD_BOTH
+
+Pre-declared at `786b76f`; **it stays secondary whatever it shows.** One decision, not three, because
+`phi = +0.853` between CD30 and CD60 forbids treating them as independent. CD universe 2,938,409:
+treated 39,222 · BOTTOM-only 172,451 · CD_BOTH-only 481,447.
+
+| window | contrast | n | days | day-median Δ | days > 0 | 95 % CI | |
+|---|---|---:|---:|---:|---:|---|---|
+| MINE | TRIPLE − BOTTOM-only | 18,678 | 557 | +0.085 | 51.3 % | [−1.056, +0.670] | includes 0 |
+| MINE | **TRIPLE − CD_BOTH-only** | 19,727 | 572 | **−0.729** | 44.2 % | **[−1.501, −0.073]** | **excludes 0** |
+| VERIFY | TRIPLE − BOTTOM-only | 16,684 | 493 | −0.285 | 47.7 % | [−1.258, +0.560] | includes 0 |
+| VERIFY | **TRIPLE − CD_BOTH-only** | 17,579 | 496 | **−1.289** | 43.3 % | **[−1.622, −0.211]** | **excludes 0** |
+
+### Verdict — CD: **NO INCREMENTAL CD CONFIRMATION**
+
+The triple fails to beat CD_BOTH-only and is significantly worse than it in both windows;
+against BOTTOM-only it is indistinguishable. Same shape as the primary.
+
+## 15 · What the two families say together
+
+The pattern **replicates across two independent upper layers**. `CROSS − TOP-only < 0` means
+`TOP ∧ BOTTOM` underperforms `TOP ∧ ¬BOTTOM`; `TRIPLE − CD_BOTH-only < 0` means `CD ∧ BOTTOM`
+underperforms `CD ∧ ¬BOTTOM`. TOP (LBAL/UDN) and CD (OVD) are different producers, weakly
+*anti*-correlated with each other (phi −0.036), and both are degraded the same way by the same
+addition.
+
+Read plainly: **the BOTTOM (AD) star acts as a negative conditioner on an upper-script signal.**
+
+⚠️ That is a **finding, not a licence.** An inverse veto ("skip an upper-script signal when the AD
+star is present") is a *different* claim with its own search burden, and it is not registered here.
+Nothing about it may be built without its own pre-registration.
+
+## 16 · Production
 
 **No production change in this study.** No composite star signal is added, neither script is
 altered, nothing is wired in. Evidence collection only.
