@@ -1,9 +1,60 @@
-# LIQUID_CONCURRENCE_V1 — PRE-REGISTRATION
+# LIQUID_CONCURRENCE_V1
 
-**Written 2026-09-18, before any outcome in the registered window has been read.**
-No result appears in this document. Nothing here may be changed once the first outcome is read.
+Pre-registered 2026-09-18 (`0af6c02`, corrected `164fe2c`) **before any outcome in the registered
+window was read**. Read once on 2026 H1, 2026-09-18. Nothing above the results line was changed.
 
-## Why this exists
+## VERDICT — **NOT CONFIRMED**
+
+| | |
+|---|---|
+| **relative criterion** — `median(diff_d) > 0`, CI excluding 0 | ❌ **−0.166 pp**, CI [−0.946, +0.244] **includes 0** |
+| **absolute directional** — `P(RET20 > 0 \| CROSS) > 50 %` | ✅ **56.2 %** |
+
+The frozen rule reads *"NOT CONFIRMED — primary ≤ 0"*. `median(diff_d) = −0.166 ≤ 0`. **NOT
+CONFIRMED.** Per the pre-registration, **the reserved 2026-07-01+ window was NOT opened**, and the
+secondary segment cannot substitute.
+
+⭐ **The two endpoints disagree, and that is the whole point of having registered both.** Price *did*
+rise after a concurrence — 20-day median **+1.44 %**, **56.2 %** positive. It just did not rise more
+than the day's ordinary eligible liquid name. The absolute move is the market of 2026 H1; the signal
+added nothing to it.
+
+## Results — 2026 H1, primary segment `close ≥ $21`, 6,940 events (0 without a canonical price)
+
+### Endpoint 1 — descriptive (no controls, no matching, no market adjustment)
+
+| Horizon | N resolved | mean | median | % > 0 | P25 | P75 |
+|---|---:|---:|---:|---:|---:|---:|
+| 1d | 6,940 | −0.02 % | −0.00 % | 49.6 % | −1.39 % | +1.30 % |
+| 3d | 6,938 | −0.10 % | −0.11 % | 48.6 % | −2.70 % | +2.40 % |
+| 5d | 6,938 | +0.26 % | +0.13 % | 51.1 % | −3.06 % | +3.41 % |
+| 10d | 6,937 | +0.52 % | +0.51 % | 53.2 % | −4.36 % | +5.15 % |
+| **20d** | 6,932 | **+1.56 %** | **+1.44 %** | **56.2 %** | −5.51 % | +8.32 % |
+
+`open(t+1) → close(t+20)`: mean +1.61 %, median +1.60 %, 56.4 % positive — so nothing here depends
+on a same-close fill. Note that **mean ≈ median** at every horizon, unlike the 2021–2025 read where
+the mean was fourteen times the median: this is a broad shift, not a tail.
+
+### Endpoint 2 — relative (the registered test)
+
+| | |
+|---|---:|
+| sessions used | 123 |
+| **median(diff_d)** | **−0.166 pp** |
+| mean(diff_d) | −0.328 pp |
+| **date-clustered 95 % CI** | **[−0.946, +0.244] pp — includes 0** |
+| days with diff_d > 0 | 46.3 % |
+| minus 3 largest movers | −0.134 pp, CI [−0.471, +0.468] — includes 0 |
+
+### Secondary — `russell2k · $2-21 · ≥$10M`, 820 events *(cannot substitute for the primary)*
+
+Descriptive 20d: mean +0.07 %, median −0.06 %, 49.4 % positive — flat. Relative: median(diff_d)
++0.951 pp, CI **[−1.167, +2.028] includes 0**, 53.4 % of days positive, minus movers +0.714 pp, CI
+includes 0. Underpowered by design at 118 sessions and, as registered, **not a verdict**.
+
+## What this settles
+
+## Why this existed
 
 `CROSS_STAR_CONCURRENCE_V1` (`1118aa2`) closed with NO INCREMENTAL CONFIRMATION: the TOP×BOTTOM
 composite is *worse* than TOP-only. But it also measured the **raw** post-signal response and, on a
