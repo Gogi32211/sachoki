@@ -27,7 +27,28 @@ no longer test it.
 > Among same-day TOP×BOTTOM concurrences, does the **liquid** subset outperform a same-day,
 > same-bucket baseline of eligible names over the following 20 trading days?
 
-## Primary — one, frozen
+## Two endpoints — kept separate, never conflated
+
+They answer different questions and both are reported. Neither substitutes for the other.
+
+### ENDPOINT 1 — DESCRIPTIVE (the original question)
+
+> *"After concurrence, did price usually rise or fall, and by how much?"*
+
+Among TOP×BOTTOM events in the frozen primary segment, report **RET1 · RET3 · RET5 · RET10 ·
+RET20**, and for each: **N · mean · median · % > 0 · P25 · P75**.
+
+**No controls. No matching. No market adjustment.** `RET_N = Close[t+N]/Close[t] − 1`, plus the
+`open(t+1) → close(t+N)` variant reported beside it. This endpoint is descriptive: it states what
+happened, and it cannot by itself separate the signal from the market.
+
+### ENDPOINT 2 — RELATIVE (the pre-registered test)
+
+> *"Did a concurrence beat the day's ordinary name in the same segment?"*
+
+This is the one the decision rule is written against.
+
+## Primary — the relative test, frozen
 
 **Segment (PRIMARY): `close ≥ $21`.** Chosen over the narrower russell2k cell deliberately: it has
 prior support in the book's own laws ([[feedback-price-bucket-always]],
@@ -48,8 +69,10 @@ horizons NaN and never carried forward. Days with < 20 eligible rows in the segm
 This is **not** the incremental-vs-TOP-only comparison already settled — the comparator is the day's
 typical eligible name, not the other signal family.
 
-**Required disclosure alongside it (not gates):** raw median RET20, raw % up, and the
-`open(t+1) → close(t+20)` variant.
+**There is no matched-control `k` in this study.** The comparator is the **entire** same-day
+eligible non-cross pool inside the segment — every such row that day, not a sampled or nearest-matched
+subset. (The `k = 5` of `CROSS_STAR_CONCURRENCE_V1` was a matching parameter and has no counterpart
+here; the letter is not reused for that meaning.)
 
 ## Registered window — and what it costs
 
@@ -72,13 +95,18 @@ in the `≥ $21` primary segment**, 820 in the secondary cell.
 cannot be promoted afterwards. Same statistic, same window. **It stays secondary whatever it shows**,
 and with 820 events it is underpowered by design; it is registered for honesty, not for a verdict.
 
-**k = 2.** Declared here.
+**Multiplicity budget: 2 registered claims** (one primary segment, one secondary). This is a count of
+hypotheses, not an estimator parameter — nothing in the statistic depends on it.
 
 ## Decision rule — frozen
 
 **LIQUID CONCURRENCE CONFIRMED** requires *all* of:
-1. primary day-median `diff_d` **> 0** with the date-clustered 95 % CI **excluding 0**;
-2. raw **% up > 50 %** in the segment;
+1. **relative criterion** — primary day-median `diff_d` **> 0** with the date-clustered 95 % CI
+   **excluding 0**;
+2. **absolute directional criterion** — `P(RET20 > 0 | CROSS)` **> 50 %** in the segment. This is
+   Endpoint 1's own statistic and is deliberately a *different kind* of claim from `diff_d`: one says
+   price rose, the other says it rose more than the day's ordinary name. Both are required; they are
+   never merged;
 3. survives removing the **3 largest absolute-mover dates**;
 4. not driven by concentration — no single ticker > 2 % and no single day > 3 % of events.
 
