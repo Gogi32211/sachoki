@@ -179,11 +179,21 @@ def add_cd(X):
     X["date"] = pd.to_datetime(X["date"]).dt.date
     O["date"] = pd.to_datetime(O["date"]).dt.date
     X = X.merge(O, on=["ticker", "date"], how="left")
-    X["cd_covered"] = X["top_covered"]
+    # ⚠️ CD coverage is NOT simply top_covered. The OVD store begins 2021-08-02 while LBAL begins
+    # 2021-07-02, and OVD carries its own warm-up (the HV-event lookback reaches up to 30 sessions
+    # back). Before its first session an absent ovd row means NOT BUILT, not "no token fired" —
+    # 46,817 eligible rows would otherwise carry a false cd30/cd60 = False.
+    ovd_start = O["date"].min()
+    X["cd_covered"] = X["top_covered"] & (X["date"] >= ovd_start)
     for k in ("cd30", "cd60"):
         X[k] = X[k].fillna(False).infer_objects(copy=False).astype(bool) & X["cd_covered"]
     X["cd_both"] = X.cd30 & X.cd60
+    # The PRIMARY family uses `both_covered` and must NOT be shrunk by a secondary family's
+    # warm-up; `coverage_all_required` is the CD family's universe only.
     X["coverage_all_required"] = X.top_covered & X.bot_covered & X.cd_covered
+    print(f"  CD coverage starts {ovd_start} · primary eligible {int(X.both_covered.sum()):,} · "
+          f"CD-family eligible {int(X.coverage_all_required.sum()):,} "
+          f"(-{int(X.both_covered.sum() - X.coverage_all_required.sum()):,} to OVD warm-up)")
     return X
 
 

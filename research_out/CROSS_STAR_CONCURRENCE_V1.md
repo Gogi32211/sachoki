@@ -187,19 +187,26 @@ construction (same date + liquidity bucket + price bucket + universe, no future-
 
 ## 9 · CD family — census
 
-`cd_covered ≡ top_covered` exactly, so **`coverage_all_required` = 3,533,764 — the identical
-eligible universe as the primary family.** One population serves both.
+⚠️ **`cd_covered` is NOT simply `top_covered`.** The OVD store begins **2021-08-02** while LBAL
+begins 2021-07-02, and OVD carries its own warm-up (the HV-event lookback reaches up to 30 sessions
+back). Before its first session an absent ovd row means **NOT BUILT**, not "no token fired" —
+**46,817 eligible rows would otherwise have carried a false `cd30/cd60 = False`.** Caught and fixed.
+
+* **primary family universe** (`both_covered`) = **3,533,764** — unchanged
+* **CD family universe** (`coverage_all_required`) = **3,486,947** (−46,817 to the OVD warm-up)
+
+The primary universe is deliberately **not** shrunk by a secondary family's warm-up.
 
 | | rows | share |
 |---|---:|---:|
 | CD30 | 726,406 | 20.556 % |
 | CD60 | 679,330 | 19.224 % |
-| CD30 ∧ CD60 | 620,070 | 17.547 % |
+| CD30 ∧ CD60 | 620,070 | 17.783 % |
 | CD30 only | 106,336 | 3.009 % |
 | CD60 only | 59,260 | 1.677 % |
 | BOTTOM × CD30 | 54,159 | 1.533 % |
 | BOTTOM × CD60 | 50,842 | 1.439 % |
-| **BOTTOM × CD_BOTH** | **46,300** | **1.310 %** |
+| **BOTTOM × CD_BOTH** | **46,300** | **1.328 %** |
 | CD_BOTH without BOTTOM | 573,770 | 16.237 % |
 
 ### ⚠️ CD30 and CD60 are very nearly the SAME signal
@@ -264,7 +271,130 @@ outcome, precisely so that a strong result cannot be promoted over the primary a
 comes out well, that is a pre-declared secondary finding and must be reported as one — it does not
 overwrite or replace the primary verdict, and it would need its own registration to become a claim.
 
-## 11 · Production
+## 11 · FROZEN OUTCOME SPEC — registered before any outcome access
+
+### 11.1 The authoritative outcome — and why the obvious one was rejected
+
+**`mtm_20` from `opportunities.parquet` is DISQUALIFIED for the primary.** It exists, it is
+censor-aware (`bars_priced`, `mtm_exit_bar` — the `072ff0b` contract), but it only holds rows where a
+**book edge fired**, and the three arms enter it at *different rates*:
+
+| arm | treated rows | present in `opportunities` | |
+|---|---:|---:|---:|
+| same-day CROSS | 104,034 | 21,675 | **20.83 %** |
+| TOP-only | 1,289,221 | 205,512 | **15.94 %** |
+| BOTTOM-only | 149,244 | 35,913 | **24.06 %** |
+
+Comparing arms through a filter that is itself correlated with the treatment is a selection bias, not
+an outcome. `MFE20_ATR ≥ 3/5/8` is separately disqualified as a decision metric by
+[[feedback-pathsim-not-mfe-proxy]] (+3.4 → −2.4 on a measured case). Both remain **secondary
+diagnostics**.
+
+**AUTHORITATIVE: the sacred `edge_replay._pathsim`** via `ovd_outcome_direct_v1.direct_trades(ps,
+frames, keys, maxh)`, digest-pinned `PATHSIM_SRC_SHA = 0e74668f554910de` with
+`assert_no_local_pathsim` forbidding any local copy. It takes an arbitrary `(ticker, session)`
+selection — exactly this design — and is the estimand every sealed family in this book used.
+
+* **PRIMARY: realized `ret` at `maxh = 60`** — the default of every sealed family and the horizon
+  production's own ATR×12 exit law runs on.
+* **SECONDARY (pre-declared): the same engine at `maxh = 20`** — the 20-bar view asked for, at no
+  extra risk: same engine, same rows, one parameter, declared here rather than chosen later.
+
+### 11.2 ⛔ The cooldown, and the registration it requires
+
+`_pathsim` carries a stateful 5-bar same-ticker cooldown (`i - last < 5 → skip`). Measured on these
+arms it does **not** thin them comparably:
+
+| arm | n | within 5 sessions of the previous fire |
+|---|---:|---:|
+| same-day CROSS | 104,034 | **25.9 %** |
+| **TOP-only** | 1,289,221 | **89.3 %** |
+| BOTTOM-only | 149,244 | 33.5 % |
+| BOTTOM × CD_BOTH | 46,300 | 13.7 % |
+
+TOP fires on 39 % of ticker-days, so its rows are dense and the cooldown eats nearly all of them.
+**Running each arm as a direct mask would compare the 10.7 % of TOP-only fires that happen to be
+isolated against the 74.1 % of CROSS fires that are — different populations, and the difference is a
+function of the treatment itself.** That is fatal, and it is why this is settled *before* outcomes.
+
+[[feedback-pathsim-cooldown-estimand]] gives the rule and its one licensed exception: *"if
+per-observation outcomes are scientifically wanted, register that estimand (and the cooldown
+neutralisation) BEFORE any outcome access."* A k-nearest matched-control design is inherently
+observation-level, so:
+
+> **REGISTERED HERE, PRE-OUTCOME:** every eligible row is evaluated exactly once by calling the
+> **UNMODIFIED** engine over **five disjoint bar-index-mod-5 masks**, so consecutive taken signals in
+> one mask are ≥ 5 bars apart and the cooldown never suppresses a row. Engine, fills, trail, slip and
+> horizon untouched. This is the same construction `ovd_outcome_v1.py:8-15` registered for the OVD
+> family. For reconciliation the cooldown-thinned direct-mask trade count is reported alongside, as
+> descriptive. Row counts are reconciled **by the engine's own drop reasons** — `NO_NEXT_SESSION`
+> (`i+1>=n`), `NO_ENTRY_OPEN` (`ep<=0`), `COOLDOWN` (`i-last<5`) — never by interpretation.
+
+### 11.3 Primary estimand and decision quantity
+
+```
+Δ_TOP    = CROSS − matched TOP-only
+Δ_BOTTOM = CROSS − matched BOTTOM-only
+Δ_incremental = min(Δ_TOP, Δ_BOTTOM)
+```
+
+The composite counts as confirmation only if it beats **both** components.
+
+### 11.4 Matching — frozen
+
+Control pools, per treated `(ticker, date)`: **same session**, both systems covered, **same
+universe/exchange**, **same price bucket**, **same dollar-volume bucket**; TOP-only pool requires
+`top_star_any ∧ ¬bottom_star_any`, BOTTOM-only the mirror. Within an admissible pool, the **k = 5
+nearest** by
+
+```
+distance = |log(dvol_t) − log(dvol_c)| + 0.5 · |log(px_t) − log(px_c)|
+```
+
+— deterministic, so no sampling variance. Fewer than 5 admissible: take what exists, minimum 1, and
+**report coverage by matched-k**; buckets are never widened or narrowed post hoc. **No RSI,
+volatility or decline variable enters the matching** — each is part of the signals' own causal
+mechanism and matching on it would match the effect away. No future-derived quantity anywhere.
+
+### 11.5 Time split — frozen
+
+```
+MINE    2021-01-01 → 2023-12-31     usable from 2021-07-02 (LBAL store start)
+VERIFY  2024-01-01 → 2025-12-31
+2026    LOCKED — not opened
+```
+
+The boundaries are fixed; only the *usable start* is recorded, and it is not moved for any result.
+The CD family's usable start is **2021-08-02** (OVD store).
+
+### 11.6 Secondary decision family — one, not three
+
+`phi = +0.853` and `Jaccard = 0.789` between CD30 and CD60 forbid treating them as independent
+hypotheses. **One secondary decision: `BOTTOM + CD_BOTH` vs `BOTTOM-only` and vs `CD_BOTH-only`**,
+with the same `min(Δ, Δ)` rule. CD30 and CD60 individually are supporting diagnostics.
+**It stays secondary whatever it shows** — registered now precisely so a strong result cannot be
+promoted over the primary afterwards.
+
+### 11.7 Inference and robustness — frozen
+
+Matched treated−control mean and median difference; **day-aggregated difference; date-clustered
+bootstrap 95 % CI**; yearly sign; MINE and VERIFY reported separately, pooled descriptive only.
+**No iid row-level bootstrap.** Robustness columns, all required: exclude the top-3 absolute-mover
+dates; ≥ $1M/day slice; ≥ $5 slice; top-50-ticker removal. The CD family's day concentration
+(top day 1.61 %, top-10 8.6 %) makes the mover-date column mandatory there, not optional.
+
+### 11.8 Decision rule — frozen
+
+* **INCREMENTAL CONFIRMATION DEMONSTRATED** — in VERIFY both `Δ_TOP > 0` and `Δ_BOTTOM > 0`, both
+  directionally consistent with MINE, day-clustered uncertainty not contradicting the effect, and the
+  effect not driven by illiquidity, one-day concentration or a few extreme movers.
+* **DIRECTIONAL, NOT REPLICATED** — both point estimates positive, uncertainty too wide.
+* **NO INCREMENTAL CONFIRMATION** — fails to beat either component.
+* **DATA-QUALITY-BOUNDED** · **NOT EVALUABLE** — as defined in the brief.
+
+CD family: the same four, worded for CD.
+
+## 12 · Production
 
 **No production change in this study.** No composite star signal is added, neither script is
 altered, nothing is wired in. Evidence collection only.
