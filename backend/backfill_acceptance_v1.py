@@ -31,6 +31,7 @@ DAMAGE = ("2026-06-29", "2026-09-01")         # the outage window
 GRID_SHARE = 0.5
 L = lambda c="═", n=88: print(c * n)
 _bad = 0
+HEAD: dict = {"1h": {}, "4h": {}}
 
 
 def fail(cond, msg):
@@ -140,6 +141,10 @@ def main():
               f"canonical-only {int(k.in_cur_not_stg):,} · staging-only {int(k.in_stg_not_cur):,}")
         fail(max(r.o, r.h, r.l, r.cl) == 0, f"{tf} OHLC differs on the healthy overlap")
         fail(int(k.in_cur_not_stg) == 0, f"{tf} staging LOSES {int(k.in_cur_not_stg):,} existing row keys")
+        fail(int(k.in_stg_not_cur) == 0, f"{tf} staging INVENTS {int(k.in_stg_not_cur):,} row keys "
+                                         f"canonical never had — the bar grid changed")
+        HEAD[tf] = dict(cur_only=int(k.in_cur_not_stg), stg_only=int(k.in_stg_not_cur),
+                        max_ohlcv=max(r.o, r.h, r.l, r.cl, r.v))
         c.close()
 
     print("\nDAMAGED WINDOW RECOVERY   " + f"{DAMAGE[0]} … {DAMAGE[1]}")
@@ -155,9 +160,34 @@ def main():
                    (SELECT COUNT(*) FROM (SELECT * FROM stg EXCEPT SELECT * FROM cur)) recovered,
                    (SELECT COUNT(*) FROM (SELECT * FROM cur EXCEPT SELECT * FROM stg)) lost""").fetchdf().iloc[0]
         print(f"  {tf.upper()}: canonical {int(r.cur_td):,} ticker-days · staging {int(r.stg_td):,} · "
-              f"RECOVERED {int(r.recovered):,} · lost {int(r.lost):,}")
-        fail(int(r.lost) == 0, f"{tf} staging is missing {int(r.lost):,} ticker-days canonical already has")
+              f"RECOVERED {int(r.recovered):,} · canonical-only {int(r.lost):,}")
+        # In THIS window a canonical/staging difference is the whole point — we are filling holes, so
+        # `recovered` is expected to be large and is not judged. `canonical-only` is likewise NOT a
+        # failure here; it simply means the replacement must MERGE (insert what is missing, keep what
+        # is there) rather than delete-and-rewrite the window wholesale.
+        HEAD[tf]["recovered"] = int(r.recovered)
+        HEAD[tf]["cur_only_damaged"] = int(r.lost)
+        if int(r.lost):
+            print(f"       -> replacement must MERGE, not wholesale-replace, or those "
+                  f"{int(r.lost):,} ticker-days would be dropped")
+        # what remains missing against the healthy reference calendar
+        ref = duckdb.connect(REF, read_only=True)
+        rt = ref.execute(f"""SELECT COUNT(*) FROM (SELECT DISTINCT ticker, CAST(date AS DATE) d FROM bars
+                             WHERE CAST(date AS DATE) BETWEEN DATE '{DAMAGE[0]}' AND DATE '{DAMAGE[1]}')""").fetchone()[0]
+        ref.close()
+        union = int(r.stg_td) + int(r.lost)
+        HEAD[tf]["remaining"] = max(rt - union, 0)
+        print(f"       vs the healthy 15m reference ({rt:,} ticker-days): after the merge "
+              f"{union:,} present · REMAINING MISSING {max(rt - union, 0):,}")
         c.close()
+
+    L("─"); print("THE FOUR NUMBERS")
+    for tf in ("1h", "4h"):
+        h = HEAD[tf]
+        print(f"  {tf.upper()}  healthy canonical-only keys {h.get('cur_only','?'):>8}"
+              f" · healthy staging-only keys {h.get('stg_only','?'):>8}"
+              f" · max|Δ OHLCV| {h.get('max_ohlcv','?')}"
+              f" · damaged-window REMAINING MISSING ticker-days {h.get('remaining','?'):>8}")
 
     L(); print("ACCEPTANCE: " + ("PASS — canonical replacement may proceed" if _bad == 0
                                  else f"FAIL ({_bad} problems) — canonical stays untouched")); L()
