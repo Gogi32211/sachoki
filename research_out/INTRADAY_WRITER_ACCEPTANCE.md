@@ -7,7 +7,41 @@ pass before any Massive backfill is authorised.**
 Fix under test: `797faaf`. Root cause and history: `MTF_ZERO_RECONSTRUCTION.md` §8,
 `backend/tests/test_intraday_update_overlap.py`.
 
-## Cycle 2 — the run to watch
+## ✅ CYCLE 2 — PASS (2026-09-20)
+
+**7/7, exit 0. The writer is safe to backfill into.**
+
+The run that mattered was **Sat 2026-09-19**: `old_max 2026-09-17 (Thu) − OVERLAP 3d = **2026-09-14
+(Mon)**`, a real trading day and exactly the case the old code destroyed. Monday **survived intact —
+3,104 tickers in both 1H and 4H**, unchanged. Thu 09-17 and Fri 09-18 had weekend cutoffs and put
+nothing at risk, as predicted.
+
+| check | result |
+|---|---|
+| both timeframes exit 0 | ✅ |
+| invariant printed each run | ✅ +6,206 · +21,697 · +6,208 · +21,686 · +6,207 · +4,984 |
+| `key_difference` negative on neither | ✅ none negative |
+| **per-ticker check** | ✅ **"no ticker lost rows" on every run** — the guard added after APGE/HLX |
+| cutoff session survived | ✅ 2026-09-14 3,104 → 3,104 |
+| completeness vs the reference calendar | ✅ 1H 1,286 → 1,289 · 4H 1,279 → 1,282 |
+| zero new missing sessions | ✅ none |
+| `(ticker, date)` key sets | ✅ 10/10 sessions, zero tickers lost |
+
+Both fixes held in production: `797faaf` (the overlap off-by-one) and `f75aaee` (the clamp that
+stopped stale tickers being eaten).
+
+⚠️ **A defect in this gate was found and fixed while reading the result** (`bugfix in this commit`).
+`--verify` derived ONE cutoff from the *baseline's* max_date — the cutoff of a run that may never
+have happened — and so reported "2026-09-12 is not a trading day, nothing at risk" while the
+genuinely at-risk session, Mon 09-14, was covered only incidentally by the key-set table. It now
+walks **every** cutoff between the baseline and the current max. The PASS was correct; the reasoning
+line was not, and it would have missed a destroyed session falling outside the last-10 key-set window.
+
+**Next: the Massive backfill is unblocked and awaits its own authorization** (vendor calls).
+
+---
+
+## Cycle 2 — the run to watch (as registered)
 
 **Cycle 1 FAILED on 2026-09-16 and was right to.** The `797faaf` overlap fix held — the cutoff
 session 2026-09-08 survived 3,104 → 3,104, no session went newly missing, and complete sessions rose

@@ -116,16 +116,26 @@ def verify(before: dict) -> int:
         print(f"\n── {tf.upper()} ──")
         print(f"  max date            {b['max_date']}  ->  {a['max_date']}")
 
-        # 4 · the cutoff day of this run must have survived
+        # 4 · EVERY cutoff put at risk since the baseline must have survived.
+        # The first version derived ONE cutoff from the baseline's max_date, which is the cutoff of
+        # a run that may never have happened. Each nightly run has its own old_max, and its cutoff
+        # is old_max - OVERLAP; on 2026-09-20 that meant the check reported "nothing at risk" while
+        # the genuinely at-risk session (Mon 09-14, cutoff of the Sat 09-19 run) was only covered
+        # incidentally by the key-set table. Walk them all.
         import datetime as _dt
-        cutoff = (_dt.date.fromisoformat(b["max_date"]) - _dt.timedelta(days=OVERLAP)).isoformat()
-        if cutoff in cal:
-            n_b, n_a = b["per_session"].get(cutoff, 0), a["per_session"].get(cutoff, 0)
-            ok = n_a >= max(1000, int(0.95 * n_b))
-            print(f"  cutoff session      {cutoff}: {n_b:,} -> {n_a:,}   {'OK' if ok else '⛔ DESTROYED'}")
+        b_max, a_max = _dt.date.fromisoformat(b["max_date"]), _dt.date.fromisoformat(a["max_date"])
+        old_maxes = [d for d in cal if b_max <= _dt.date.fromisoformat(d) < a_max]
+        cutoffs = sorted({(_dt.date.fromisoformat(om) - _dt.timedelta(days=OVERLAP)).isoformat()
+                          for om in old_maxes})
+        at_risk = [c for c in cutoffs if c in cal]
+        if not at_risk:
+            print(f"  cutoff sessions     none of {len(cutoffs)} cutoffs fell on a trading day — "
+                  f"this window did not exercise the overlap")
+        for c in at_risk:
+            n_b, n_a = b["per_session"].get(c, 0), a["per_session"].get(c, 0)
+            ok = n_a >= max(1000, int(0.95 * n_b)) if n_b else n_a >= 1000
+            print(f"  cutoff session      {c}: {n_b:,} -> {n_a:,}   {'OK' if ok else '⛔ DESTROYED'}")
             bad += 0 if ok else 1
-        else:
-            print(f"  cutoff session      {cutoff} is not a trading day — nothing at risk this run")
 
         # 6 · no NEW missing session
         new_missing = sorted(set(a["missing"]) - set(b["missing"]))
