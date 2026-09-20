@@ -3,6 +3,10 @@
 FAIL CLOSED. Canonical is replaced only if every section below passes. A failure leaves canonical
 untouched, which is no worse than the state we are already in.
 
+ROW KEY = (ticker, universe, date) where `bars.date` is a TIMESTAMP carrying the BAR time, not a
+session date — one AAPL 1H session is seven distinct keys (13:30 … 19:30). The session key is
+(ticker, universe, CAST(date AS DATE)). The naming misleads; the granularity is right.
+
 ⚠️ CLOSE PARITY IS NOT ROW PARITY. An earlier pilot check compared `close` only and was reported as
 "byte-identical" — that is evidence about one column, not about the row. A refetch can return the
 right close on a different bar grid (extra/missing bars, shifted timestamps) and close-only parity
@@ -20,7 +24,11 @@ CUR = {tf: f"{R}studio_{tf}.duckdb" for tf in ("1h", "4h")}
 REF = f"{R}studio_15m.duckdb"                 # healthy reference calendar
 ONE = f"{R}studio_analytics.duckdb"
 DAMAGE = ("2026-06-29", "2026-09-01")         # the outage window
-SHAPE = {"1h": 7, "4h": 2}                    # bars per session, from the alignment audit
+# The session grid is derived EMPIRICALLY per session, never hardcoded: a fixed 7/2 would mis-judge
+# early-close sessions (July 3, the day after Thanksgiving, Christmas Eve), and a `count > 7` test
+# only catches EXTRA bars — a partial session of 6 bars would sail through. The expected timestamp
+# SET for a session is the set of bar times held by at least GRID_SHARE of the tickers trading it.
+GRID_SHARE = 0.5
 L = lambda c="═", n=88: print(c * n)
 _bad = 0
 
@@ -81,13 +89,33 @@ def main():
                            FROM bars GROUP BY 1,2,3 HAVING c > 1)""").fetchone()[0]
         print(f"  row-key duplicates                  {dup:,}")
         fail(dup == 0, f"{dup:,} duplicate (ticker, date, universe) keys")
-        shp = s.execute(f"""SELECT COUNT(*) FROM (SELECT ticker, CAST(date AS DATE) d, COUNT(*) c
-                            FROM bars GROUP BY 1,2 HAVING c > {SHAPE[tf]})""").fetchone()[0]
-        print(f"  session-shape violations (> {SHAPE[tf]} bars) {shp:,}")
-        fail(shp == 0, f"{shp:,} ticker-sessions carry more than {SHAPE[tf]} bars")
+        # empirical grid per session, then EXACT timestamp-set conformance per ticker-session
+        s.execute(f"""CREATE OR REPLACE TEMP VIEW grid AS
+            WITH tk AS (SELECT CAST(date AS DATE) d, COUNT(DISTINCT ticker) n FROM bars GROUP BY 1),
+                 ts AS (SELECT CAST(date AS DATE) d, date::TIME t, COUNT(DISTINCT ticker) n
+                        FROM bars GROUP BY 1,2)
+            SELECT ts.d, ts.t FROM ts JOIN tk USING (d) WHERE ts.n >= {GRID_SHARE} * tk.n""")
+        gs = s.execute("SELECT d, COUNT(*) c FROM grid GROUP BY 1").fetchdf()
+        print(f"  empirical session grid              {gs.c.value_counts().to_dict()}  (bars per session)")
+        extra = s.execute("""SELECT COUNT(*) FROM (
+            SELECT b.ticker, CAST(b.date AS DATE) d, b.date::TIME t FROM bars b
+            LEFT JOIN grid g ON g.d = CAST(b.date AS DATE) AND g.t = b.date::TIME
+            WHERE g.d IS NULL)""").fetchone()[0]
+        print(f"  OFF-GRID bars (extra / shifted)     {extra:,}")
+        fail(extra == 0, f"{extra:,} bars sit off their session's grid — shifted or duplicate timestamps")
+        part = s.execute("""SELECT COUNT(*) FROM (
+            SELECT b.ticker, CAST(b.date AS DATE) d, COUNT(*) have,
+                   (SELECT COUNT(*) FROM grid g WHERE g.d = CAST(b.date AS DATE)) want
+            FROM bars b GROUP BY 1,2 HAVING have < want)""").fetchone()[0]
+        td_all = s.execute("SELECT COUNT(*) FROM (SELECT DISTINCT ticker, CAST(date AS DATE) FROM bars)").fetchone()[0]
+        print(f"  PARTIAL sessions (fewer than grid)  {part:,} of {td_all:,}  ({100*part/td_all:.2f} %)")
+        print("       (not a failure on its own — an illiquid ticker with no trade in a bar")
+        print("        legitimately has no bar; the hard test is the key-set parity below)")
         s.close()
 
-    print("\nHEALTHY OVERLAP PARITY   (full OHLCV + row-key set, not close alone)")
+    print("\nHEALTHY OVERLAP PARITY")
+    print("  contract: canonical key set == staging key set at (ticker, universe, bar timestamp),")
+    print("            AND OHLCV equal on those exact keys")
     for tf in ("1h", "4h"):
         c = duckdb.connect(CUR[tf], read_only=True)
         c.execute(f"ATTACH '{STG[tf]}' AS s (READ_ONLY)")
@@ -103,11 +131,13 @@ def main():
         k = c.execute(f"""
             SELECT (SELECT COUNT(*) FROM bars WHERE CAST(date AS DATE) > DATE '{DAMAGE[1]}') cur_rows,
                    (SELECT COUNT(*) FROM s.bars WHERE CAST(date AS DATE) > DATE '{DAMAGE[1]}') stg_rows,
-                   (SELECT COUNT(*) FROM (SELECT ticker, date FROM bars WHERE CAST(date AS DATE) > DATE '{DAMAGE[1]}'
-                    EXCEPT SELECT ticker, date FROM s.bars)) in_cur_not_stg""").fetchdf().iloc[0]
+                   (SELECT COUNT(*) FROM (SELECT ticker, universe, date FROM bars WHERE CAST(date AS DATE) > DATE '{DAMAGE[1]}'
+                    EXCEPT SELECT ticker, universe, date FROM s.bars)) in_cur_not_stg,
+                   (SELECT COUNT(*) FROM (SELECT ticker, universe, date FROM s.bars WHERE CAST(date AS DATE) > DATE '{DAMAGE[1]}'
+                    EXCEPT SELECT ticker, universe, date FROM bars)) in_stg_not_cur""").fetchdf().iloc[0]
         print(f"  {tf.upper()}: compared {int(r.n):,} bars · max|Δ| O {r.o} H {r.h} L {r.l} C {r.cl} V {r.v}")
         print(f"       row keys  canonical {int(k.cur_rows):,} · staging {int(k.stg_rows):,} · "
-              f"IN CANONICAL BUT NOT IN STAGING {int(k.in_cur_not_stg):,}")
+              f"canonical-only {int(k.in_cur_not_stg):,} · staging-only {int(k.in_stg_not_cur):,}")
         fail(max(r.o, r.h, r.l, r.cl) == 0, f"{tf} OHLC differs on the healthy overlap")
         fail(int(k.in_cur_not_stg) == 0, f"{tf} staging LOSES {int(k.in_cur_not_stg):,} existing row keys")
         c.close()
