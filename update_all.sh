@@ -57,11 +57,17 @@ if [ "${NO_INTRADAY:-0}" != "1" ]; then
   # = week done → run 1w only then. Override any day with FORCE_1W=1.
   # NIGHTLY INTRADAY V2 (2026-09-21): ONE 30m fetch per ticker at 90 days builds BOTH 1h and 4h.
   # The old loop ran update_intraday_db once per timeframe and each run did its own fetch, so it
-  # made 6,406 vendor calls a night at FETCH_DAYS = 15 — a window far too short for a Wilder-14
+  # made 6,406 ticker FETCHES a night at FETCH_DAYS = 15 — a window far too short for a Wilder-14
   # (4H got ~22 bars against the ~81 the seed needs, leaving stored rsi_14 off by a median of 9.6
-  # points). --dual satisfies both timeframes with one 90-day window and HALVES the call count to
-  # 3,203. The old per-TF invocations are REMOVED, not left alongside: running both paths would
-  # re-fetch and re-write the same rows twice. Halved vendor calls in the log is the sanity check.
+  # points). --dual satisfies both timeframes with one 90-day window and HALVES the ticker fetches
+  # to 3,203. The old per-TF invocations are REMOVED, not left alongside: running both paths would
+  # re-fetch and re-write the same rows twice.
+  #   ⚠️ HTTP REQUESTS DO NOT HALVE, and a night that shows ~6,400 of them is NOT a regression.
+  #   Measured on AAPL: 30m at 15d = 294 rows in ONE cursor page, at 90d = 1,990 rows in TWO. So
+  #   the old path made 2 fetches x 1 page and --dual makes 1 fetch x 2 pages — the same ~2 HTTP
+  #   requests per ticker. Bytes RISE ~3.4x (64k -> 218k per ticker): that is the warm-up's price,
+  #   paid on purpose. The sanity check that the old path is really gone is TICKER FETCHES ~3,203
+  #   and ONE dual block in this log instead of two per-TF ones.
   echo "──── [2/2] 1h+4h dual update  ($(date '+%T')) ────"
   .venv/bin/python update_intraday_db.py --dual --workers 8 || echo "  ⚠ dual 1h/4h update failed"
   for tf in 1h 4h; do

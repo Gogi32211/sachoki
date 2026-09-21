@@ -229,9 +229,13 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
     """NIGHTLY INTRADAY UPDATE V2 — one 30m vendor fetch per ticker, both timeframes built from it.
 
     Satisfies both warm-up requirements (1H 30d, 4H 90d) with a single 90-day window, and HALVES
-    the vendor call count: 3,203/night instead of 6,406, because the old path ran once per
-    timeframe and each run did its own fetch. The overlap semantics are not re-implemented — both
-    timeframes go through the same write_ticker as the single-TF path.
+    the TICKER FETCHES: 3,203/night instead of 6,406, because the old path ran once per timeframe
+    and each run did its own fetch. The overlap semantics are not re-implemented — both timeframes
+    go through the same write_ticker as the single-TF path.
+
+    ⚠️ HTTP requests do NOT halve. A 30m frame is one cursor page at 15 days and two at 90 (AAPL:
+    294 rows vs 1,990), so both paths cost ~2 requests per ticker; bytes rise ~3.4x. Read "halved"
+    on the FETCH line, never on the request count.
 
     Returns True only on a PASS run (see dual_verdict). The caller exits non-zero otherwise, so a
     bad night is visible in the nightly log instead of ending in "✅ DONE".
@@ -256,7 +260,7 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
         return False
     print(f"DUAL 1h+4h · one 30m fetch per ticker · fetch_days={days} overlap={OVERLAP}")
     print(f"  db1h={dbs['1h']}\n  db4h={dbs['4h']}")
-    print(f"  tickers {len(tickers):,} · workers {workers} · vendor calls {len(tickers):,} "
+    print(f"  tickers {len(tickers):,} · workers {workers} · ticker fetches {len(tickers):,} "
           f"(single-TF mode would make {2*len(tickers):,})")
     t0 = time.time()
     acc = {tf: dict(deleted=0, reinserted=0, ins=0, lossy=[]) for tf in dbs}
@@ -330,10 +334,13 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
           + ("   ⛔ NOT WRITTEN" if fetch["partial"] else ""))
     print(f"   vendor errors               {fetch['vendor_errors']:,} "
           f"(retries {fetch['retries']:,} · HTTP 429 {fetch['http_429']:,})")
-    print(f"   total vendor calls          {fetch['calls']:,} HTTP requests for "
-          f"{fetch['succeeded'] + fetch['failed']:,} ticker fetches "
-          f"(single-TF path would make ~{2*fetch['calls']:,} — ONE 30m window now serves both TFs;"
-          f" a 90-day 30m frame is ~2 cursor pages, hence >1 request per ticker)")
+    _tk_fetches = fetch["succeeded"] + fetch["failed"]
+    print(f"   total vendor calls          {fetch['calls']:,} HTTP requests")
+    print(f"   ticker fetches              {_tk_fetches:,} "
+          f"(single-TF path would make {2*_tk_fetches:,} — THIS is the number that halves)")
+    print(f"   ⚠ HTTP requests do NOT halve: a 30m frame is 1 cursor page at 15d and 2 at 90d,")
+    print(f"     so both paths cost ~2 requests per ticker. ~{2*_tk_fetches:,} requests is EXPECTED,")
+    print(f"     not a regression; bytes rise ~3.4x as the warm-up's price.")
     print(f"   total rows fetched          {fetch['rows']:,} raw 30m bars")
     print(f"   total bytes fetched         {fetch['bytes']:,} bytes ({fetch['bytes']/1e6:.1f} MB)")
     print(f"   rows enriched from fetch    {rows_enriched:,}")

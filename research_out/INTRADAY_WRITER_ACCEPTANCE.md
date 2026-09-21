@@ -215,7 +215,7 @@ sample after write.
 
 ```
 tickers requested 3 · succeeded 3 · failed 0 · partial 0 · vendor errors 0
-vendor calls 6 HTTP requests for 3 ticker fetches (single-TF path: ~12)
+vendor calls 6 HTTP requests · 3 ticker fetches (single-TF path: 6 ticker fetches)
 rows fetched 5,952 raw 30m bars · 652,941 bytes · runtime 5s
 1H +84 · 4H +24        key_difference +0 on BOTH · no ticker lost rows
 RSI parity 1h  median 0.000 · p95 0.000 · max 0.000
@@ -236,5 +236,17 @@ six orders of magnitude below the quantum, so it cannot swallow a real disagreem
 
 `--dual` is in `update_all.sh` now. **The first live run is an acceptance run, not yet the trusted
 default**: read its telemetry block and its verdict in `~/Library/Logs/sachoki_update.log` before
-treating the path as routine. Halved ticker-fetches in that log is the sanity check that the old
-per-TF path really is gone rather than running alongside.
+treating the path as routine. Halved **ticker fetches** in that log is the sanity check that the
+old per-TF path really is gone rather than running alongside.
+
+⚠️ **HTTP requests do not halve, and ~6,400 of them tomorrow is not a regression.** Measured on
+AAPL: a 30m frame is 294 rows in ONE cursor page at 15 days and 1,990 rows in TWO at 90, so the old
+path (2 fetches × 1 page) and `--dual` (1 fetch × 2 pages) both cost ~2 requests per ticker. Bytes
+rise ~3.4× (64k → 218k per ticker) — the warm-up's price, paid on purpose. Read tomorrow's log as:
+
+| check | expected |
+|---|---|
+| ticker fetches | **≈ 3,203** — if ~6,400, the old path is still alive |
+| HTTP requests | ≈ 6,400 — unchanged **by design** |
+| bytes fetched | ~3–4× the old nights |
+| log structure | **one** `1h+4h dual update` block, **no** per-TF headers |
