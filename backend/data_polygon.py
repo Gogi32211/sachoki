@@ -55,6 +55,24 @@ _RATE_DELAY = 0.08   # ~12 req/s across workers
 _MAX_PAGES  = 80     # next_url cursor pages per fetch (≈160k bars cap; 5yr 30m ≈ 20)
 
 
+# ── FETCH TELEMETRY (2026-09-21) ──────────────────────────────────────────────────────────────
+# NIGHTLY INTRADAY V2's acceptance run has to report what it actually asked the vendor for: calls,
+# rows, bytes — and above all whether any response came back PARTIAL. A truncated cursor walk
+# returns a short frame that is indistinguishable from a complete one, and a short frame inside the
+# updater's overlap window means the DELETE removes days the INSERT cannot put back. That is the
+# shape of the 2026 outage, so "partial" has to be observable at the call site, not inferred later.
+#
+# Per-PROCESS state, reset at the top of every fetch_bars: the caller reads LAST_FETCH immediately
+# after the call returns (or raises) and carries the numbers back to the parent itself.
+LAST_FETCH: dict = {}
+
+
+def _reset_fetch_stats(ticker: str, interval: str) -> None:
+    LAST_FETCH.clear()
+    LAST_FETCH.update(ticker=ticker, interval=interval, calls=0, pages=0, rows=0,
+                      bytes=0, retries=0, http_429=0, partial=False, error=None)
+
+
 def _key() -> str:
     # check both env var names
     k = (os.environ.get("MASSIVE_API_KEY") or
@@ -95,20 +113,27 @@ def fetch_bars(
     nxt_params: dict | None = params
     completed = False                    # did we walk the cursor to its end?
     _ATTEMPTS = 6
+    _reset_fetch_stats(ticker, interval)
     for _page in range(_MAX_PAGES):
         for attempt in range(_ATTEMPTS):
             try:
                 # generous timeouts: intraday crawls run many concurrent workers and
                 # Massive can be slow to first-byte under burst — (connect, read).
+                LAST_FETCH["calls"] += 1
                 r = requests.get(nxt, params=nxt_params, timeout=(10, 45))
+                LAST_FETCH["bytes"] += len(r.content or b"")
                 if r.status_code == 429:
+                    LAST_FETCH["http_429"] += 1
+                    LAST_FETCH["retries"] += 1
                     time.sleep(min(2 * (attempt + 1), 20))  # 2,4,6,… capped 20s
                     continue
                 r.raise_for_status()
                 data = r.json()
                 break
-            except requests.RequestException:
+            except requests.RequestException as exc:
+                LAST_FETCH["retries"] += 1
                 if attempt == _ATTEMPTS - 1:
+                    LAST_FETCH["error"] = f"{type(exc).__name__}: {exc}"[:160]
                     raise
                 time.sleep(min(2 ** attempt, 20))          # 1,2,4,8,16,20 — ride out timeouts
         else:
@@ -116,10 +141,15 @@ def fetch_bars(
             # pages, return them as a partial rather than discarding everything;
             # only hard-fail when we have nothing at all.
             if results:
+                LAST_FETCH["partial"] = True
+                LAST_FETCH["error"] = "rate-limited (429) mid-cursor — frame is PARTIAL"
                 break
+            LAST_FETCH["error"] = "rate-limited (429) with no data"
             raise RuntimeError(f"Polygon: rate-limited (429) for {ticker} with no data")
         page = data.get("results") or []
         results.extend(page)
+        LAST_FETCH["pages"] += 1
+        LAST_FETCH["rows"] += len(page)
         nxt = data.get("next_url")
         if not nxt:
             completed = True
@@ -131,12 +161,15 @@ def fetch_bars(
         # is silently truncated. Surface it loudly instead of returning a partial
         # window that downstream backtests would treat as complete history.
         if not completed:
+            LAST_FETCH["partial"] = True
+            LAST_FETCH["error"] = f"hit _MAX_PAGES={_MAX_PAGES} with pages pending"
             raise RuntimeError(
                 f"Polygon: hit _MAX_PAGES={_MAX_PAGES} for {ticker} ({interval}) "
                 f"with more pages pending — increase _MAX_PAGES or narrow the window"
             )
 
     if not results:
+        LAST_FETCH["error"] = "no data"
         raise ValueError(f"Polygon: no data for {ticker} ({interval})")
 
     df = pd.DataFrame(results)

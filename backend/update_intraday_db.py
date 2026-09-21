@@ -112,25 +112,129 @@ def _build_one_intraday(args):
         return tk, universe, None, str(e)
 
 
+def _fetch_stats() -> dict:
+    """The vendor counters for the call this worker just made (data_polygon.LAST_FETCH)."""
+    try:
+        import data_polygon
+        return dict(data_polygon.LAST_FETCH)
+    except Exception:
+        return {}
+
+
 def _build_both_intraday(args):
     """ONE 30m fetch -> session-anchored 1h AND 4h. Delegates to build_intraday_db._build_both, the
-    same function the 2026 backfill used, so nothing on the fetch side is new code."""
+    same function the 2026 backfill used, so nothing on the fetch side is new code.
+
+    Returns (tk, universe, out, err, fetch_stats). LAST_FETCH is per-PROCESS state, so the stats are
+    read HERE, in the worker, and carried back explicitly — the parent cannot see a child's module
+    globals. Read on the error path too: a fetch that raised is precisely the one whose counters
+    decide whether the run is acceptable.
+    """
     tk, universe, days = args
     try:
         import build_intraday_db as bidb
-        return bidb._build_both((tk, universe, days))
+        return (*bidb._build_both((tk, universe, days)), _fetch_stats())
     except Exception as e:
-        return (tk, universe, None, str(e)[:140])
+        return (tk, universe, None, str(e)[:140], _fetch_stats())
+
+
+# ── ACCEPTANCE GATE for a --dual run (registered 2026-09-21, before the first live run) ───────
+# PRIMARY parity gate is the one WARMUP_PARITY_V1 froze: p95 |Δ| <= 0.1 AND max |Δ| <= 0.5 between
+# the stored rsi_14 and a full-history Wilder-14. Stored rsi_14 is a DOUBLE rounded to 1 dp, so
+# 0.1 IS the storage quantum — "exact" cannot be asked for below it.
+PARITY_GATE_P95 = 0.1
+PARITY_GATE_MAX = 0.5
+# …compared with a tolerance, because the quantum IS the gate. |round(wilder,1) - stored| on a 4H
+# bar one storage unit apart comes out as 0.10000000000000142, and a bare `> 0.1` turned the very
+# first rehearsal into NOT PASS over binary floating-point residue. The tolerance is far below the
+# quantum, so it cannot hide a real disagreement — the next representable difference is 0.1 away.
+PARITY_EPS = 1e-6
+
+
+def dual_verdict(acc: dict, fetch: dict, parity: dict) -> tuple[bool, list[str]]:
+    """PASS / NOT PASS for one --dual run. Pure, so backend/tests can pin every branch.
+
+    A run is NOT PASS if, on EITHER timeframe:
+      · key_difference < 0            — the overlap window deleted more than it put back
+      · any ticker lost rows          — a net sum hides a per-ticker loss inside other tickers' gains
+      · any vendor response was PARTIAL — a short frame is indistinguishable from a complete one
+      · the RSI parity sample was not measured, or missed the pre-registered gate
+    The last clause is deliberate: an unmeasured check is not a passed check. A missing verification
+    that reads as success is how the acceptance baseline went uncommitted for a week.
+    """
+    bad: list[str] = []
+    for tf in sorted(acc):
+        a = acc[tf]
+        diff = a["reinserted"] - a["deleted"]
+        if diff < 0:
+            bad.append(f"{tf}: key_difference {diff:+,} — sessions destroyed and not restored")
+        if a["lossy"]:
+            bad.append(f"{tf}: {len(a['lossy'])} ticker(s) lost rows")
+    if fetch.get("partial"):
+        bad.append(f"{fetch['partial']} partial vendor response(s) — not written, but the run is incomplete")
+    for tf in sorted(parity):
+        r = parity[tf]
+        if r is None:
+            bad.append(f"{tf}: RSI parity NOT TESTED")
+        elif r["p95"] > PARITY_GATE_P95 + PARITY_EPS or r["mx"] > PARITY_GATE_MAX + PARITY_EPS:
+            bad.append(f"{tf}: RSI parity p95 {r['p95']:.3f} / max {r['mx']:.3f} "
+                       f"(gate {PARITY_GATE_P95} / {PARITY_GATE_MAX})")
+    return (not bad), bad
+
+
+def rsi_parity_after_write(con, tickers, n_tickers: int = 25, n_bars: int = 8):
+    """Does the rsi_14 we JUST WROTE match a Wilder-14 computed over the ticker's full history?
+
+    This is the check the old 15-day path would have failed every night for three months: the RMA is
+    seeded from the first bar of the fetched frame, so too short a window leaves the seed undecayed
+    and the stored value wrong — silently, with every row present and every count correct. Coverage
+    checks cannot see it; only recomputation can. Sampled on the last `n_bars` bars, which are
+    inside the window this run rewrote. Returns None when it could not be measured at all.
+    """
+    try:
+        import numpy as _np, pandas as _pd
+        from mtf_rev_build import wilder_rsi14
+    except Exception as e:
+        print(f"   ⚠ RSI parity: cannot import the reference implementation ({e})")
+        return None
+    tks = sorted(str(t) for t in tickers)
+    if not tks:
+        return None
+    rng = _np.random.default_rng(20260921)
+    pick = [str(t) for t in rng.choice(tks, size=min(n_tickers, len(tks)), replace=False)]
+    d: list[float] = []
+    for tk in pick:
+        try:
+            g = con.execute(
+                "SELECT date, close, rsi_14 FROM bars WHERE ticker=? ORDER BY date", [tk]).fetchdf()
+        except Exception:
+            continue
+        if len(g) < 200:
+            continue
+        full = wilder_rsi14(g["close"]).to_numpy()
+        st = _pd.to_numeric(g["rsi_14"], errors="coerce").to_numpy()
+        for i in range(max(0, len(g) - n_bars), len(g)):
+            if _np.isfinite(full[i]) and _np.isfinite(st[i]):
+                d.append(round(abs(round(float(full[i]), 1) - float(st[i])), 6))
+    if not d:
+        return None
+    a = _np.asarray(d)
+    return dict(n=int(a.size), tickers=len(pick), median=float(_np.median(a)),
+                p95=float(_np.percentile(a, 95)), mx=float(a.max()),
+                within_quantum=float((a <= 0.1 + 1e-9).mean()))
 
 
 def run_dual(workers: int, tickers_filter: list[str] | None = None,
-             dbs: dict | None = None, days: int = None):
+             dbs: dict | None = None, days: int = None) -> bool:
     """NIGHTLY INTRADAY UPDATE V2 — one 30m vendor fetch per ticker, both timeframes built from it.
 
     Satisfies both warm-up requirements (1H 30d, 4H 90d) with a single 90-day window, and HALVES
     the vendor call count: 3,203/night instead of 6,406, because the old path ran once per
     timeframe and each run did its own fetch. The overlap semantics are not re-implemented — both
     timeframes go through the same write_ticker as the single-TF path.
+
+    Returns True only on a PASS run (see dual_verdict). The caller exits non-zero otherwise, so a
+    bad night is visible in the nightly log instead of ending in "✅ DONE".
     """
     import duckdb
     from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -149,7 +253,7 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
         for c in cons.values():
             c.close()
         print("No tickers present in BOTH DBs — run build_intraday_db first.")
-        return
+        return False
     print(f"DUAL 1h+4h · one 30m fetch per ticker · fetch_days={days} overlap={OVERLAP}")
     print(f"  db1h={dbs['1h']}\n  db4h={dbs['4h']}")
     print(f"  tickers {len(tickers):,} · workers {workers} · vendor calls {len(tickers):,} "
@@ -158,18 +262,39 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
     acc = {tf: dict(deleted=0, reinserted=0, ins=0, lossy=[]) for tf in dbs}
     built = errs = skipped = 0
     rows_enriched = 0
+    # vendor-side telemetry, aggregated from each worker's own data_polygon.LAST_FETCH
+    fetch = dict(requested=len(tickers), succeeded=0, failed=0, partial=0, vendor_errors=0,
+                 calls=0, rows=0, bytes=0, retries=0, http_429=0,
+                 partial_tickers=[], failed_tickers=[])
+    written = {tf: set() for tf in dbs}
     todo = [(tk, uni.get(tk, "sp500"), days) for tk in tickers]
     with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker,
                              initargs=(db_cols["1h"], "1h", False)) as ex:
         futs = {ex.submit(_build_both_intraday, it): it for it in todo}
         for fut in as_completed(futs):
-            tk, universe, out, err = fut.result()
+            tk, universe, out, err, st = fut.result()
             built += 1
+            for k in ("calls", "rows", "bytes", "retries", "http_429"):
+                fetch[k] += int(st.get(k) or 0)
+            if st.get("error"):
+                fetch["vendor_errors"] += 1
             if err or not out:
                 errs += 1
+                fetch["failed"] += 1
+                fetch["failed_tickers"].append((tk, str(err)[:70]))
                 if err and "empty" not in str(err).lower():
                     print(f"  ✗ {tk}: {err}")
+            elif st.get("partial"):
+                # FAIL-CLOSED. A partial frame is short, and a short frame inside the overlap window
+                # means the DELETE removes days the INSERT cannot put back — the exact mechanism of
+                # the 2026 outage. Rows already in the store are better than rows half-replaced, so
+                # the ticker is left alone this run and the whole run is marked NOT PASS.
+                fetch["partial"] += 1
+                fetch["partial_tickers"].append(tk)
+                skipped += 1
+                print(f"  ⛔ {tk}: PARTIAL vendor response — NOT written ({st.get('error')})")
             else:
+                fetch["succeeded"] += 1
                 for tf, en in out.items():
                     if en is None or not len(en) or tf not in cons:
                         continue
@@ -179,6 +304,8 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
                         skipped += 1
                     elif r == "error":
                         errs += 1
+                    else:
+                        written[tf].add(tk)
             if built % 100 == 0 or built == len(todo):
                 el = time.time() - t0
                 rate = built / el if el else 0
@@ -187,11 +314,65 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
     el = time.time() - t0
     print(f"\n✅ DUAL DONE: 1h +{acc['1h']['ins']:,} · 4h +{acc['4h']['ins']:,} rows · "
           f"{built-errs} tickers · {errs} errors · {el/60:.1f}min")
-    print(f"   rows enriched from the fetch {rows_enriched:,} · vendor calls {len(todo):,}")
-    for tf in ("1h", "4h"):
+
+    # ── FIRST-RUN TELEMETRY ───────────────────────────────────────────────────────────────────
+    # Registered before the first live run, and printed on every run since: a nightly job that
+    # reports only "+N rows" cannot be audited. Vendor calls HALVING against the old path is the
+    # sanity check that --dual really replaced both single-TF invocations rather than joining them.
+    print("\n" + "─" * 92)
+    print("NIGHTLY INTRADAY V2 · RUN TELEMETRY")
+    print("─" * 92)
+    print(f"   runtime                     {el/60:.1f} min ({el:.0f}s)")
+    print(f"   tickers requested           {fetch['requested']:,}")
+    print(f"   tickers succeeded           {fetch['succeeded']:,}")
+    print(f"   tickers failed              {fetch['failed']:,}")
+    print(f"   partial responses           {fetch['partial']:,}"
+          + ("   ⛔ NOT WRITTEN" if fetch["partial"] else ""))
+    print(f"   vendor errors               {fetch['vendor_errors']:,} "
+          f"(retries {fetch['retries']:,} · HTTP 429 {fetch['http_429']:,})")
+    print(f"   total vendor calls          {fetch['calls']:,} HTTP requests for "
+          f"{fetch['succeeded'] + fetch['failed']:,} ticker fetches "
+          f"(single-TF path would make ~{2*fetch['calls']:,} — ONE 30m window now serves both TFs;"
+          f" a 90-day 30m frame is ~2 cursor pages, hence >1 request per ticker)")
+    print(f"   total rows fetched          {fetch['rows']:,} raw 30m bars")
+    print(f"   total bytes fetched         {fetch['bytes']:,} bytes ({fetch['bytes']/1e6:.1f} MB)")
+    print(f"   rows enriched from fetch    {rows_enriched:,}")
+    print(f"   1H rows inserted            {acc['1h']['ins']:,}")
+    print(f"   4H rows inserted            {acc['4h']['ins']:,}")
+    if fetch["partial_tickers"]:
+        print(f"   partial tickers: {', '.join(fetch['partial_tickers'][:20])}")
+    if fetch["failed_tickers"]:
+        print("   failed tickers (first 10): "
+              + "; ".join(f"{t} — {e}" for t, e in fetch["failed_tickers"][:10]))
+    for tf in sorted(acc):
         report_invariant(acc[tf], f" [{tf}]")
+
+    # ── RSI PARITY AFTER WRITE ────────────────────────────────────────────────────────────────
+    parity = {}
+    print("\n   RSI parity after write (stored rsi_14 vs full-history Wilder-14, |Δ|):")
+    for tf in sorted(cons):
+        r = rsi_parity_after_write(cons[tf], written[tf])
+        parity[tf] = r
+        if r is None:
+            print(f"     {tf}   ⚠ NOT TESTED — no measurable sample")
+        else:
+            print(f"     {tf}   n={r['n']:,} over {r['tickers']} tickers · median {r['median']:.3f}"
+                  f" · p95 {r['p95']:.3f} · max {r['mx']:.3f}"
+                  f" · within one storage unit {r['within_quantum']*100:.1f}%")
+
+    ok, bad = dual_verdict(acc, fetch, parity)
+    print("\n" + "═" * 92)
+    if ok:
+        print("VERDICT: PASS — key_difference >= 0 on both TFs, no ticker lost rows, "
+              "no partial responses, RSI parity within gate")
+    else:
+        print("VERDICT: NOT PASS")
+        for b in bad:
+            print(f"   ⛔ {b}")
+    print("═" * 92)
     for c in cons.values():
         c.close()
+    return ok
 
 
 def _build_one_weekly(args):
@@ -384,6 +565,9 @@ if __name__ == "__main__":
 
     tickers_filter = [t.strip().upper() for t in a.tickers.split(",") if t.strip()] or None
     if a.dual:
-        run_dual(a.workers, tickers_filter)
+        # Exit 2 on NOT PASS. A nightly that writes a damaged store and still exits 0 is how the
+        # overlap bug survived three months — update_all.sh's `|| echo ... failed` never fired.
+        ok = run_dual(a.workers, tickers_filter)
+        sys.exit(0 if ok else 2)
     else:
         run(_DB, a.tf, _WEEKLY, a.workers, tickers_filter)

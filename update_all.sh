@@ -55,19 +55,28 @@ if [ "${NO_INTRADAY:-0}" != "1" ]; then
   # 1w refresh just re-fetches a still-forming bar (~30-67min, the slowest step, for no gain).
   # The launchd job runs Tue-Sat local (after each US close); the Sat-local run = Fri US close
   # = week done → run 1w only then. Override any day with FORCE_1W=1.
-  TFS="1h 4h"
-  if [ "$(date +%u)" = "6" ] || [ "${FORCE_1W:-0}" = "1" ]; then
-    TFS="$TFS 1w"
-  else
-    echo "  (1w skipped — weekly bar completes Fri; 1w runs on the Sat-local run or with FORCE_1W=1)"
-  fi
-  for tf in $TFS; do
-    echo "──── [2/2] $tf update  ($(date '+%T')) ────"
-    .venv/bin/python update_intraday_db.py --tf "$tf" --workers 8 || echo "  ⚠ $tf update failed"
+  # NIGHTLY INTRADAY V2 (2026-09-21): ONE 30m fetch per ticker at 90 days builds BOTH 1h and 4h.
+  # The old loop ran update_intraday_db once per timeframe and each run did its own fetch, so it
+  # made 6,406 vendor calls a night at FETCH_DAYS = 15 — a window far too short for a Wilder-14
+  # (4H got ~22 bars against the ~81 the seed needs, leaving stored rsi_14 off by a median of 9.6
+  # points). --dual satisfies both timeframes with one 90-day window and HALVES the call count to
+  # 3,203. The old per-TF invocations are REMOVED, not left alongside: running both paths would
+  # re-fetch and re-write the same rows twice. Halved vendor calls in the log is the sanity check.
+  echo "──── [2/2] 1h+4h dual update  ($(date '+%T')) ────"
+  .venv/bin/python update_intraday_db.py --dual --workers 8 || echo "  ⚠ dual 1h/4h update failed"
+  for tf in 1h 4h; do
     # forward labels (fwd/mfe/mae = N BARS ahead) for Studio analytics — idempotent,
     # fills only rows where fwd_5d IS NULL (new bars from the update above)
     .venv/bin/python backfill_intraday_fwd.py "$tf" || echo "  ⚠ $tf fwd backfill failed"
   done
+  # 1w still runs on its own path — the weekly bar only COMPLETES at the Fri US close, so a
+  # mid-week refresh just re-fetches a still-forming bar. Sat-local run = Fri close = week done.
+  if [ "$(date +%u)" = "6" ] || [ "${FORCE_1W:-0}" = "1" ]; then
+    echo "──── [2/2] 1w update  ($(date '+%T')) ────"
+    .venv/bin/python update_intraday_db.py --tf 1w --workers 8 || echo "  ⚠ 1w update failed"
+  else
+    echo "  (1w skipped — weekly bar completes Fri; 1w runs on the Sat-local run or with FORCE_1W=1)"
+  fi
   # 15m base delta top-up (source layer for derive_intraday full rebuilds; PK dedups).
   # LOCK-GUARD (2026-07-04): skip if a full derive_intraday is running — it holds a READ lock
   # on studio_15m_base.duckdb while this delta needs a WRITE lock → DuckDB conflict drops the

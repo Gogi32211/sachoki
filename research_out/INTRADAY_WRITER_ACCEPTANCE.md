@@ -163,3 +163,78 @@ reaches `~/Library/Logs/sachoki_update.log`; the shell history holds no `build_i
 Left as a narrowed finding rather than an explained one. It does not block the backfill — the writer
 is fixed either way, and the backfill will itself rewrite the affected span.
 
+
+---
+
+# NIGHTLY INTRADAY V2 — the nightly path switched to `--dual` (2026-09-21)
+
+The overlap bug was one of **two** independent defects in the same writer. The second one destroyed
+nothing and lost no rows; it wrote **wrong numbers** into rows that were all present and all
+counted. `FETCH_DAYS = 15` gives a 4H frame ~22 bars, and a Wilder-14 RMA is seeded from the first
+bar it is handed, so the seed had not decayed by the time the enriched rows were written:
+`INTRADAY_RSI_WARMUP_PARITY_V1` measured stored `rsi_14` a **median 9.6 RSI points** from a
+full-history Wilder on 4H (p95 18.5, max 27.8) and 0.8 on 1H. No coverage check can see this. Only
+recomputation can.
+
+`--dual` fixes it and costs less: **one 30m fetch per ticker at 90 days**, resampled into both
+timeframes, satisfies the measured warm-up requirement for each (1H needs 30 days, 4H needs 90) and
+**halves the vendor ticker-fetches** — the old loop ran the updater once per timeframe and each run
+did its own fetch.
+
+## What changed in `update_all.sh`
+
+The two per-timeframe invocations are **removed, not disabled alongside** `--dual`: running both
+paths would re-fetch and re-write the same rows twice a night. `1w` keeps its own Saturday-gated
+invocation, and `backfill_intraday_fwd.py` still runs per timeframe.
+
+## The run is now judged, not just counted
+
+A nightly that prints `✅ DONE: +87,000 new rows` and exits 0 is exactly how the overlap bug
+survived three months. Every `--dual` run now ends with telemetry and a **verdict**, and the process
+**exits 2 on NOT PASS** so `update_all.sh`'s `|| echo … failed` finally fires.
+
+Registered before the first live run — a run is **NOT PASS** if, on either timeframe:
+
+| rule | why it is in the list |
+|---|---|
+| `key_difference < 0` | the overlap window deleted more than it restored |
+| any ticker lost rows | a net sum hides a per-ticker loss inside other tickers' gains (APGE/HLX) |
+| any **partial** vendor response | a short frame is indistinguishable from a complete one |
+| RSI parity unmeasured or off gate | an unmeasured check is not a passed check |
+
+A ticker whose fetch came back partial is **not written at all** — rows already in the store are
+better than rows half-replaced — and the run is still marked NOT PASS. Parity gate is the one
+`WARMUP_PARITY_V1` froze: p95 |Δ| ≤ 0.1 **and** max |Δ| ≤ 0.5, against a full-history Wilder.
+
+Telemetry printed every run: runtime · tickers requested/succeeded/failed · partial responses ·
+vendor errors (retries, HTTP 429) · total vendor calls · total rows fetched · total bytes fetched ·
+rows enriched · 1H and 4H rows inserted · key_difference per TF · per-ticker loss check · RSI parity
+sample after write.
+
+## Rehearsal, 2026-09-21 — isolated 3-ticker copies, live vendor
+
+```
+tickers requested 3 · succeeded 3 · failed 0 · partial 0 · vendor errors 0
+vendor calls 6 HTTP requests for 3 ticker fetches (single-TF path: ~12)
+rows fetched 5,952 raw 30m bars · 652,941 bytes · runtime 5s
+1H +84 · 4H +24        key_difference +0 on BOTH · no ticker lost rows
+RSI parity 1h  median 0.000 · p95 0.000 · max 0.000
+RSI parity 4h  median 0.000 · p95 0.100 · max 0.100   (100% within one storage unit)
+VERDICT: PASS
+```
+
+The 4H residual is **exactly one storage unit**: `rsi_14` is a DOUBLE rounded to 1 dp, so 0.1 is the
+quantum and parity below it cannot be asked for.
+
+**The rehearsal caught a defect in the gate itself.** Its first run returned NOT PASS with every
+measured value at the quantum and none above it: `|round(wilder,1) − stored|` comes back as
+`0.10000000000000142`, and a bare `> 0.1` rejects it. The comparison now carries a 1e-6 tolerance —
+six orders of magnitude below the quantum, so it cannot swallow a real disagreement — pinned by
+`tests/test_dual_telemetry_verdict.py`, which also pins that 0.2 still fails.
+
+## Status
+
+`--dual` is in `update_all.sh` now. **The first live run is an acceptance run, not yet the trusted
+default**: read its telemetry block and its verdict in `~/Library/Logs/sachoki_update.log` before
+treating the path as routine. Halved ticker-fetches in that log is the sanity check that the old
+per-TF path really is gone rather than running alongside.
