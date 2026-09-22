@@ -38,6 +38,29 @@ for i in $(seq 1 30); do
 done
 if [ "$up" != "1" ]; then echo "❌ backend :$PORT not responding — aborting"; exit 1; fi
 
+# ── PIPELINE STATUS MODEL (2026-09-22) ────────────────────────────────────────────────────────
+# The 09-22 run showed the cost of `critical_command || echo "⚠ failed"`: the dual writer's trust
+# gate returned NOT PASS and exited 2, the `||` turned that into one line of text, and EIGHT
+# downstream stages then built a derived layer on a store the gate had just refused to certify.
+# That night the NOT PASS was a false alarm, so nothing was actually corrupted — but on a real
+# key_difference < 0 the same path would have propagated the damage everywhere.
+#
+# "Stop everything" is the wrong fix too. The options snapshot has NO history API, so killing the
+# run on an unrelated 1H/4H fault would turn one failure into two, and the second one permanent.
+#
+# So: DEPENDENCY-AWARE FAIL-CLOSED. Stages that READ the 1H/4H canonical are skipped when the
+# writer's gate fails; stages that do not are unaffected and still run. The dependency list is
+# MEASURED, not assumed — lbal_build ATTACHes studio_1h for its L-VX 60m counts and anatomy_build
+# opens it for the 1H session shape, so both are dependents even though they look like 15m jobs.
+#
+#   PASS      everything required ran
+#   DEGRADED  the 1H/4H trust gate failed, its dependents were skipped, independents all ran
+#   FAILED    orchestration itself broke, or a time-critical independent capture failed
+INTRADAY_TRUSTED=1        # until the dual writer's gate says otherwise
+DEGRADED=0
+FAILED=0
+SKIPPED=""
+
 # ── [1/2] 1D bars + ULTRA screener rescan (all 3 universes) ────────────────────
 echo "──── [1/2] 1D + ULTRA  (update_db.sh) ────"
 BACKEND_PORT="$PORT" ./update_db.sh || echo "  ⚠ update_db.sh returned non-zero"
@@ -72,12 +95,27 @@ if [ "${NO_INTRADAY:-0}" != "1" ]; then
   #   The sanity check that the old path is really gone stays TICKER FETCHES ~3,203 and ONE dual
   #   block in this log instead of two per-TF ones.
   echo "──── [2/2] 1h+4h dual update  ($(date '+%T')) ────"
-  .venv/bin/python update_intraday_db.py --dual --workers 8 || echo "  ⚠ dual 1h/4h update failed"
-  for tf in 1h 4h; do
-    # forward labels (fwd/mfe/mae = N BARS ahead) for Studio analytics — idempotent,
-    # fills only rows where fwd_5d IS NULL (new bars from the update above)
-    .venv/bin/python backfill_intraday_fwd.py "$tf" || echo "  ⚠ $tf fwd backfill failed"
-  done
+  # THE TRUST GATE. `if` instead of `||` on purpose: the writer's exit code has to be able to
+  # change what happens next, not merely leave a sentence in the log.
+  if .venv/bin/python update_intraday_db.py --dual --workers 8; then
+    INTRADAY_TRUSTED=1
+  else
+    rc=$?
+    INTRADAY_TRUSTED=0
+    DEGRADED=1
+    echo "  ⛔ 1H/4H TRUST GATE FAILED (exit $rc) — every stage that READS the 1H/4H canonical is"
+    echo "     SKIPPED this run. Independent and time-critical stages continue below."
+  fi
+  if [ "$INTRADAY_TRUSTED" = "1" ]; then
+    for tf in 1h 4h; do
+      # forward labels (fwd/mfe/mae = N BARS ahead) for Studio analytics — idempotent,
+      # fills only rows where fwd_5d IS NULL (new bars from the update above)
+      .venv/bin/python backfill_intraday_fwd.py "$tf" || echo "  ⚠ $tf fwd backfill failed"
+    done
+  else
+    echo "  ⏭  skipping 1H/4H forward labels — they read the untrusted canonical"
+    SKIPPED="$SKIPPED fwd-labels"
+  fi
   # 1w still runs on its own path — the weekly bar only COMPLETES at the Fri US close, so a
   # mid-week refresh just re-fetches a still-forming bar. Sat-local run = Fri close = week done.
   if [ "$(date +%u)" = "6" ] || [ "${FORCE_1W:-0}" = "1" ]; then
@@ -116,8 +154,16 @@ if [ "${NO_INTRADAY:-0}" != "1" ]; then
     # READ-ONLY on studio_15m / studio_1h / studio_analytics (no lock conflict once the derive
     # above is done), full rebuild ~8 min, atomic replace so the live backend never sees a
     # half-written file. Descriptive only — never a ranking input. Non-fatal.
-    echo "──── ★ L-BAL / L-VX / OVD rebuild  ($(date '+%T')) ────"
-    nice -n 10 .venv/bin/python lbal_build.py || echo "  ⚠ L-BAL rebuild failed"
+    #   ⚠️ 1H DEPENDENT (verified 2026-09-22): lbal_build ATTACHes studio_1h READ_ONLY for the
+    #   L-VX 60m family counts. It reads as a 15m job and is not one. VOL7 inside it is daily-only
+    #   and could in principle still be built — splitting the module is a separate change.
+    if [ "$INTRADAY_TRUSTED" = "1" ]; then
+      echo "──── ★ L-BAL / L-VX / OVD rebuild  ($(date '+%T')) ────"
+      nice -n 10 .venv/bin/python lbal_build.py || echo "  ⚠ L-BAL rebuild failed"
+    else
+      echo "  ⏭  skipping ★ L-BAL / L-VX / OVD — lbal_build reads studio_1h"
+      SKIPPED="$SKIPPED lbal"
+    fi
 
     # ▽△ BOTTOM-ANATOMY history (2026-09-11): the per-session verdict + 0-8 score that /api/day1h
     # draws on the chart, for the whole universe and the whole history → data/anatomy_signals.parquet.
@@ -128,8 +174,15 @@ if [ "${NO_INTRADAY:-0}" != "1" ]; then
     #   threshold in `key` once put the 0-8 score at 54.7 % agreement with the chart and voided two
     #   sealed families. If that endpoint's definition changes, this file changes with it.
     #   DESCRIPTIVE ONLY: a DETECTOR (1.37x lift, 76 % recall, 33 % precision). Never a ranking input.
-    echo "──── ▽△ BOTTOM-ANATOMY rebuild  ($(date '+%T')) ────"
-    nice -n 10 .venv/bin/python anatomy_build.py || echo "  ⚠ anatomy rebuild failed"
+    #   ⚠️ 1H DEPENDENT (verified 2026-09-22): anatomy_build opens studio_1h for the 1H session
+    #   shape (low_early, z_first/t_last, the late hi-vol T-reversal).
+    if [ "$INTRADAY_TRUSTED" = "1" ]; then
+      echo "──── ▽△ BOTTOM-ANATOMY rebuild  ($(date '+%T')) ────"
+      nice -n 10 .venv/bin/python anatomy_build.py || echo "  ⚠ anatomy rebuild failed"
+    else
+      echo "  ⏭  skipping ▽△ BOTTOM-ANATOMY — anatomy_build reads studio_1h"
+      SKIPPED="$SKIPPED anatomy"
+    fi
   fi
 else
   echo "  (intraday skipped — NO_INTRADAY=1)"
@@ -146,15 +199,25 @@ fi
 #   DESCRIPTIVE ONLY: four sealed families (MOTHER_V1, SHAPE_CLUSTER_V1, SHAPE_GATE_V1,
 #   SWALLOW_DIR_V1), k = 21, 0 BUILD — clustering measured monotonically WORSE, not better. The one
 #   cell with two-window evidence is LST↑ and it is a VETO. Never a ranking input.
+#   INDEPENDENT of the 1H/4H trust gate (verified 2026-09-22: no studio_1h / studio_4h reference).
 echo "──── 🔷 SHAPE × CONTEXT rebuild  ($(date '+%T')) ────"
-( cd "$ROOT/backend" && nice -n 10 .venv/bin/python shape_ctx_build.py ) || echo "  ⚠ SHAPE_CTX rebuild failed"
+( cd "$ROOT/backend" && nice -n 10 .venv/bin/python shape_ctx_build.py ) || { echo "  ⚠ SHAPE_CTX rebuild failed"; DEGRADED=1; }
 
 # ── 💠 GEX edge-context forward log (2026-07-22) ──────────────────────────────
 # Options have NO historical snapshot, so GEX-confluence can only be validated by
 # capturing the LIVE GEX context at each edge-fire day and joining forward returns
 # months later. Runs at nightly (post-close) = EOD gamma levels. Non-fatal, isolated.
+#   TIME-CRITICAL AND INDEPENDENT. There is no history API: a day missed here is gone forever, and
+#   that is not hypothetical — 2026-07-27 was lost to a hang, and 2026-09-22 to an aborted run.
+#   It must NEVER be gated on the 1H/4H writer (it reads neither), and its own failure is the one
+#   independent failure that makes the whole night FAILED rather than merely DEGRADED.
 echo "──── 💠 GEX edge-context log  ($(date '+%T')) ────"
-( cd "$ROOT/backend" && .venv/bin/python gex_edge_logger.py ) || echo "  ⚠ GEX log skipped (options plan off?)"
+if ( cd "$ROOT/backend" && .venv/bin/python gex_edge_logger.py ); then
+  :
+else
+  echo "  ⛔ GEX log FAILED — today's options context cannot be recaptured (options plan off?)"
+  FAILED=1
+fi
 
 # ── [2/2] intraday + weekly DBs ────────────────────────────────────────────────
 # NOTE (2026-07-24): evaluated deriving 1h/4h from the 15m base (single source) instead of the
@@ -163,4 +226,19 @@ echo "──── 💠 GEX edge-context log  ($(date '+%T')) ────"
 # differs from MASSIVE's native intraday volume on a minority of bars (~9% on some 1h bars).
 # Since the VSA/WLNBB/VABS signals are volume-classified, that would subtly shift them app-wide,
 # so 1h/4h stay FETCHED (native volume authoritative). Revisit only if the volume source is
-echo "════════════════ $(date '+%F %T %Z') DONE ════════════════"
+# ── FINAL STATUS ──────────────────────────────────────────────────────────────────────────────
+# One unambiguous word, because "DONE" next to a skipped critical branch is how 2026-09-22 read.
+if [ "$FAILED" = "1" ]; then
+  STATUS="FAILED"; CODE=1
+elif [ "$DEGRADED" = "1" ]; then
+  STATUS="DEGRADED"; CODE=3
+else
+  STATUS="PASS"; CODE=0
+fi
+echo "════════════════ $(date '+%F %T %Z') DONE — STATUS: $STATUS ════════════════"
+if [ "$INTRADAY_TRUSTED" != "1" ]; then
+  echo "   1H/4H trust gate FAILED; skipped:${SKIPPED:- (none)}"
+  echo "   The 1H/4H canonical and everything derived from it are LAST NIGHT'S. Independent"
+  echo "   stages (15m chain, SHAPE_CTX, GEX) ran normally and are current."
+fi
+exit $CODE
