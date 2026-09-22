@@ -169,3 +169,97 @@ def test_429_with_no_data_raises_and_records_the_error(monkeypatch):
     with pytest.raises(RuntimeError):
         dp.fetch_bars("AAPL", interval="30m", days=90)
     assert "429" in (dp.LAST_FETCH["error"] or "")
+
+
+# ── the 2026-09-22 lessons: what the writer's gate may and may not be blamed for ───────────────
+def test_live_vendor_failure_fails_the_run(uid):
+    """A ticker that is still trading and returns nothing is a real failure."""
+    ok, bad = uid.dual_verdict(_clean_acc(), _clean_fetch(failed=1, live_failed=1,
+                                                          live_failed_tickers=["AAPL"]), _clean_parity())
+    assert not ok
+    assert any("KNOWN_INACTIVE" in b and "AAPL" in b for b in bad)
+
+
+def test_known_inactive_failures_do_not_fail_the_run(uid):
+    """ATVI, PXD, WRK, SQ… were acquired or renamed. 52 dead tickers are not 52 vendor failures,
+    and failing every night for a reason nobody can act on teaches the log to be ignored."""
+    ok, bad = uid.dual_verdict(_clean_acc(), _clean_fetch(failed=52, known_inactive=52, live_failed=0),
+                               _clean_parity())
+    assert ok, bad
+
+
+def test_store_history_parity_does_not_vote(uid):
+    """The verdict reads ONLY the fresh-frame parity. The whole-store comparison asserts the stored
+    close series is basis-consistent back to 2021 — a claim about corporate actions, not about
+    tonight's write. Letting it vote made 2026-09-22 NOT PASS over a x10 split step in NXXT."""
+    ok, bad = uid.dual_verdict(_clean_acc(), _clean_fetch(), _clean_parity())
+    assert ok and bad == []      # dual_verdict takes no store-history argument at all
+    import inspect
+    assert "parity" in inspect.signature(uid.dual_verdict).parameters
+    assert len(inspect.signature(uid.dual_verdict).parameters) == 3
+
+
+def test_parity_sample_is_deterministic_and_not_python_hash(uid):
+    """python hash() is salted per process, so the 'same tickers every night' promise would break
+    across runs — the control-density defect all over again."""
+    import hashlib
+    a = [t for t in ("AAPL", "NVDA", "MSFT", "TSLA", "AMD", "INTC", "F", "T", "KO", "PEP")
+         if uid.parity_sampled(t)]
+    b = [t for t in ("AAPL", "NVDA", "MSFT", "TSLA", "AMD", "INTC", "F", "T", "KO", "PEP")
+         if uid.parity_sampled(t)]
+    assert a == b
+    tk = "AAPL"
+    expect = int(hashlib.sha256(tk.encode()).hexdigest()[:8], 16) % uid.PARITY_SAMPLE_MOD == 0
+    assert uid.parity_sampled(tk) is expect
+
+
+def _mem_db(rows):
+    import duckdb
+    con = duckdb.connect()
+    con.execute("CREATE TABLE bars (ticker VARCHAR, date TIMESTAMP, close DOUBLE, rsi_14 DOUBLE)")
+    con.executemany("INSERT INTO bars VALUES (?, ?, ?, ?)", rows)
+    return con
+
+
+def test_basis_seam_ticker_is_not_measurable_not_a_failure(uid):
+    """NXXT fell x10 on 2026-09-02 and came back x10 on 09-08. A Wilder recomputed across that step
+    is meaningless, so the ticker is reported NOT MEASURABLE and counted — never silently dropped,
+    and never charged to the writer."""
+    import pandas as pd
+    from mtf_rev_build import wilder_rsi14
+    n = 300
+    base = pd.Series([10 + (i % 7) * 0.5 for i in range(n)])
+    seam = base.copy(); seam.iloc[200:] = seam.iloc[200:] / 10.0      # the split step
+    days = pd.date_range("2025-01-01", periods=n, freq="D")
+    rows = []
+    for tk, ser in (("CLEAN", base), ("SEAM", seam)):
+        r = wilder_rsi14(ser)
+        rows += [(tk, d, float(c), float(v)) for d, c, v in zip(days, ser, r)]
+    con = _mem_db(rows)
+    out = uid.store_history_parity(con, ["CLEAN", "SEAM"], n_tickers=2)
+    assert out["not_measurable"] == 1 and out["seam_tickers"] == ["SEAM"]
+    assert out["tickers"] == 1 and out["mx"] == 0.0
+
+
+def test_fresh_frame_parity_reads_the_row_back_out_of_the_database(uid):
+    """The gate must prove the enriched value ARRIVED, not merely that it was computed."""
+    import pandas as pd
+    from mtf_rev_build import wilder_rsi14
+    n = 150
+    ser = pd.Series([20 + (i % 11) * 0.3 for i in range(n)])
+    days = pd.date_range("2026-05-01", periods=n, freq="D")
+    r = wilder_rsi14(ser)
+    con = _mem_db([("XYZ", d, float(c), float(v)) for d, c, v in zip(days, ser, r)])
+    en = pd.DataFrame(dict(date=days, close=ser.to_numpy(), rsi_14=r.to_numpy()))
+    good = uid.fresh_frame_parity(con, {"XYZ": en})
+    assert good["n"] == uid.PARITY_TAIL_BARS and good["mx"] == 0.0 and good["tickers"] == 1
+    con.execute("UPDATE bars SET rsi_14 = rsi_14 + 9.6 WHERE date >= ?", [days[-3]])
+    bad = uid.fresh_frame_parity(con, {"XYZ": en})
+    assert bad["mx"] >= 9.5, bad          # the 15-day warm-up defect's own magnitude
+
+
+def test_missing_inactive_list_is_fail_closed(uid, monkeypatch, tmp_path):
+    """No frozen list -> no ticker is excused. An absent artifact must never widen what passes."""
+    monkeypatch.setattr(uid, "INACTIVE_PATH", str(tmp_path / "nope.json"))
+    s, man = uid.load_inactive()
+    assert s == set() and man == {}

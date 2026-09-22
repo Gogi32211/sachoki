@@ -17,7 +17,7 @@ Usage:
     python update_intraday_db.py --tf 1h --tickers AAPL,TSLA  (test subset)
 """
 from __future__ import annotations
-import argparse, os, sys, time, importlib
+import argparse, hashlib, json, os, sys, time, importlib
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -144,6 +144,76 @@ def _build_both_intraday(args):
 # 0.1 IS the storage quantum — "exact" cannot be asked for below it.
 PARITY_GATE_P95 = 0.1
 PARITY_GATE_MAX = 0.5
+# Deterministic per-ticker sample for the authoritative parity check: sha256, never python hash(),
+# which is salted per process. ~1 in 100 gives ~32 tickers a night, the same ones every night.
+PARITY_SAMPLE_MOD = 100
+PARITY_TAIL_BARS = 8
+# A bar-to-bar close ratio outside this band is a corporate-action BASIS SEAM, not a price move.
+SEAM_LO, SEAM_HI = 0.625, 1.6
+
+# ── KNOWN-INACTIVE TICKERS ────────────────────────────────────────────────────────────────────
+# 52 tickers failed the 2026-09-22 run with "no data": ATVI, PXD, WRK, SQ, DFS, HES, MRO, CTLT —
+# acquired, merged or renamed. A dead ticker is not a vendor failure, and counting it as one makes
+# every night fail for a reason nobody can act on. But the reverse error is worse: excusing a
+# failure BECAUSE it failed is circular, and it would hide the first night a LIVE name goes dark.
+#
+# So the classification is frozen in a version-controlled artifact, built by an explicit command,
+# from evidence OUTSIDE the intraday pipeline: the 1D store — a different writer, a different feed —
+# must show that ticker's last daily bar at least INACTIVE_GAP_SESSIONS sessions ago. A run never
+# adds to the list; it only reads it, and reports how old it is. A ticker missing from the list
+# fails the run, which is the safe direction.
+INACTIVE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "intraday_inactive_tickers.json")
+INACTIVE_GAP_SESSIONS = 30
+
+
+def classify_inactive(log=print) -> dict:
+    """Freeze the KNOWN_INACTIVE list from the 1D store. Run deliberately, never from the nightly."""
+    import duckdb
+    from studio.paths import db_path
+    d1 = duckdb.connect(db_path("studio_analytics.duckdb"), read_only=True)
+    cal = [r[0] for r in d1.execute(
+        "SELECT DISTINCT CAST(date AS DATE)::VARCHAR d FROM bars ORDER BY d").fetchall()]
+    last = dict(d1.execute(
+        "SELECT ticker, max(CAST(date AS DATE))::VARCHAR FROM bars GROUP BY 1").fetchall())
+    d1.close()
+    pos = {d: i for i, d in enumerate(cal)}
+    newest = len(cal) - 1
+    entries, absent = {}, []
+    intr = set()
+    for tf in ("1h", "4h"):
+        c = duckdb.connect(db_path(tf), read_only=True)
+        intr |= {r[0] for r in c.execute("SELECT DISTINCT ticker FROM bars").fetchall()}
+        c.close()
+    for tk in sorted(intr):
+        ld = last.get(tk)
+        if ld is None:
+            absent.append(tk)                     # no evidence either way -> NOT excused
+            continue
+        gap = newest - pos.get(ld, newest)
+        if gap >= INACTIVE_GAP_SESSIONS:
+            entries[tk] = dict(last_1d_session=ld, sessions_since=int(gap))
+    man = dict(version="INTRADAY_INACTIVE_V1", built_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+               rule=dict(source="1D store (studio_analytics `bars`) — a different writer and feed",
+                         gap_sessions_ge=INACTIVE_GAP_SESSIONS,
+                         note="evidence-based and frozen; the nightly reads this and never adds to it"),
+               calendar_newest=cal[-1], intraday_tickers=len(intr), known_inactive=len(entries),
+               absent_from_1d=len(absent), absent_sample=absent[:20], tickers=entries)
+    tmp = INACTIVE_PATH + ".tmp"
+    json.dump(man, open(tmp, "w"), indent=1)
+    os.replace(tmp, INACTIVE_PATH)
+    log(f"KNOWN_INACTIVE: {len(entries):,} of {len(intr):,} intraday tickers "
+        f"(>= {INACTIVE_GAP_SESSIONS} sessions since their last 1D bar, newest {cal[-1]}) · "
+        f"{len(absent):,} absent from 1D and NOT excused")
+    return man
+
+
+def load_inactive() -> tuple[set, dict]:
+    """The frozen list. Absent artifact -> empty set, so every failure counts as live. Fail-closed."""
+    try:
+        m = json.load(open(INACTIVE_PATH))
+        return set(m.get("tickers", {})), m
+    except Exception:
+        return set(), {}
 # …compared with a tolerance, because the quantum IS the gate. |round(wilder,1) - stored| on a 4H
 # bar one storage unit apart comes out as 0.10000000000000142, and a bare `> 0.1` turned the very
 # first rehearsal into NOT PASS over binary floating-point residue. The tolerance is far below the
@@ -158,9 +228,15 @@ def dual_verdict(acc: dict, fetch: dict, parity: dict) -> tuple[bool, list[str]]
       · key_difference < 0            — the overlap window deleted more than it put back
       · any ticker lost rows          — a net sum hides a per-ticker loss inside other tickers' gains
       · any vendor response was PARTIAL — a short frame is indistinguishable from a complete one
-      · the RSI parity sample was not measured, or missed the pre-registered gate
+      · the FRESH-FRAME RSI parity sample was not measured, or missed the pre-registered gate
     The last clause is deliberate: an unmeasured check is not a passed check. A missing verification
     that reads as success is how the acceptance baseline went uncommitted for a week.
+
+    The parity that decides is the one recomputed from the writer's OWN 90-day frame. The
+    whole-store-history parity is reported alongside as a diagnostic and does NOT vote: it asserts
+    that the stored close series is internally consistent back to 2021, which is a claim about
+    corporate-action bases and not about tonight's write. Letting it vote made the 2026-09-22 run
+    NOT PASS over a x10 split step in NXXT that the writer neither caused nor could repair.
     """
     bad: list[str] = []
     for tf in sorted(acc):
@@ -172,6 +248,11 @@ def dual_verdict(acc: dict, fetch: dict, parity: dict) -> tuple[bool, list[str]]
             bad.append(f"{tf}: {len(a['lossy'])} ticker(s) lost rows")
     if fetch.get("partial"):
         bad.append(f"{fetch['partial']} partial vendor response(s) — not written, but the run is incomplete")
+    # A dead ticker is not a vendor failure; a LIVE one going dark is. The split is read from the
+    # frozen evidence list, never inferred from tonight's own failures.
+    if fetch.get("live_failed"):
+        bad.append(f"{fetch['live_failed']} ticker(s) returned no data and are NOT on the frozen "
+                   f"KNOWN_INACTIVE list: {', '.join(fetch.get('live_failed_tickers', [])[:10])}")
     for tf in sorted(parity):
         r = parity[tf]
         if r is None:
@@ -182,20 +263,78 @@ def dual_verdict(acc: dict, fetch: dict, parity: dict) -> tuple[bool, list[str]]
     return (not bad), bad
 
 
-def rsi_parity_after_write(con, tickers, n_tickers: int = 25, n_bars: int = 8):
-    """Does the rsi_14 we JUST WROTE match a Wilder-14 computed over the ticker's full history?
+def parity_sampled(tk: str) -> bool:
+    """Same tickers every night, chosen without reference to the run's own results."""
+    return int(hashlib.sha256(str(tk).encode()).hexdigest()[:8], 16) % PARITY_SAMPLE_MOD == 0
 
-    This is the check the old 15-day path would have failed every night for three months: the RMA is
-    seeded from the first bar of the fetched frame, so too short a window leaves the seed undecayed
-    and the stored value wrong — silently, with every row present and every count correct. Coverage
-    checks cannot see it; only recomputation can. Sampled on the last `n_bars` bars, which are
-    inside the window this run rewrote. Returns None when it could not be measured at all.
+
+def fresh_frame_parity(con, frames: dict):
+    """THE WRITER'S PARITY CHECK: does the row we wrote carry the rsi_14 its own fetched frame implies?
+
+    The reference is recomputed from the SAME 90-day frame the writer enriched — one vendor call, one
+    corporate-action basis, ~129 4H bars against the ~81 a Wilder-14 seed needs. That is the only
+    question a writer gate can answer: "given this frame, did the enrichment land correctly in the
+    store?" It is read back FROM THE DATABASE, so it also proves the row actually arrived.
+
+    It replaces a full-history reference, which cannot answer that question at all. `adjusted=true`
+    returns TODAY's basis, so every historical bar is frozen at the basis of its own write date, and
+    a later split leaves a STEP in the stored series: NXXT fell x10 on 2026-09-02 and came back x10
+    on 09-08. A Wilder recomputed across that step is meaningless — on 2026-09-22 it made the writer
+    NOT PASS while the writer had done nothing wrong. See store_history_parity() below, which keeps
+    that measurement as a DIAGNOSTIC with an explicit NOT MEASURABLE arm.
+    """
+    import numpy as _np, pandas as _pd
+    try:
+        from mtf_rev_build import wilder_rsi14                # the enricher's own formula, verbatim
+    except Exception as e:
+        print(f"   ⚠ fresh-frame parity: cannot import the reference implementation ({e})")
+        return None
+    d, tested = [], 0
+    for tk, en in frames.items():
+        if en is None or "close" not in en.columns or "rsi_14" not in en.columns or len(en) < 20:
+            continue
+        g = en.sort_values("date")
+        ref = wilder_rsi14(g["close"].astype(float).reset_index(drop=True)).to_numpy()
+        tail = g.iloc[-PARITY_TAIL_BARS:]
+        keys = [str(x) for x in tail["date"]]
+        try:
+            got = con.execute(
+                "SELECT date::VARCHAR d, rsi_14 FROM bars WHERE ticker = ? AND date::VARCHAR IN "
+                + "(" + ",".join(["?"] * len(keys)) + ")", [tk] + keys).fetchdf()
+        except Exception:
+            continue
+        stored = dict(zip(got["d"], _pd.to_numeric(got["rsi_14"], errors="coerce")))
+        tested += 1
+        for i in range(len(g) - len(tail), len(g)):
+            v = stored.get(str(g["date"].iloc[i]))
+            if v is None or not _np.isfinite(v) or not _np.isfinite(ref[i]):
+                continue
+            d.append(round(abs(float(ref[i]) - float(v)), 6))
+    if not d:
+        return None
+    a = _np.asarray(d)
+    return dict(n=int(a.size), tickers=tested, median=float(_np.median(a)),
+                p95=float(_np.percentile(a, 95)), mx=float(a.max()),
+                within_quantum=float((a <= 0.1 + 1e-9).mean()))
+
+
+def store_history_parity(con, tickers, n_tickers: int = 25, n_bars: int = 8):
+    """DIAGNOSTIC ONLY — no longer a gate input. Stored rsi_14 vs a Wilder over the ticker's WHOLE
+    stored history, which is a different and much stronger claim: it asserts the store's own close
+    series is internally consistent all the way back.
+
+    It is not, for every ticker. Measured 2026-09-22: 1H 490/3,203 tickers (15.3%) and 4H 511/3,203
+    (16.0%) carry at least one >=1.6x bar-to-bar close step, with the largest single-day cluster on
+    2026-06-29 — the backfill window's first day. Those are corporate-action basis seams. A ticker
+    that has one is reported NOT MEASURABLE here rather than counted as a failure, and the count of
+    such tickers is itself reported: an unmeasurable check must be visible, never silently dropped.
+    Reclassifying them properly is INTRADAY_CORPACTION_BASIS_V1's job, not this gate's.
     """
     try:
         import numpy as _np, pandas as _pd
         from mtf_rev_build import wilder_rsi14
     except Exception as e:
-        print(f"   ⚠ RSI parity: cannot import the reference implementation ({e})")
+        print(f"   ⚠ store-history parity: cannot import the reference implementation ({e})")
         return None
     tks = sorted(str(t) for t in tickers)
     if not tks:
@@ -203,6 +342,7 @@ def rsi_parity_after_write(con, tickers, n_tickers: int = 25, n_bars: int = 8):
     rng = _np.random.default_rng(20260921)
     pick = [str(t) for t in rng.choice(tks, size=min(n_tickers, len(tks)), replace=False)]
     d: list[float] = []
+    measured, seam = 0, []
     for tk in pick:
         try:
             g = con.execute(
@@ -211,16 +351,25 @@ def rsi_parity_after_write(con, tickers, n_tickers: int = 25, n_bars: int = 8):
             continue
         if len(g) < 200:
             continue
+        c = g["close"].to_numpy(float)
+        with _np.errstate(divide="ignore", invalid="ignore"):
+            r = c[1:] / _np.where(c[:-1] == 0, _np.nan, c[:-1])
+        if _np.nanmax(_np.where(_np.isfinite(r), r, 1.0)) > SEAM_HI or \
+           _np.nanmin(_np.where(_np.isfinite(r), r, 1.0)) < SEAM_LO:
+            seam.append(tk)          # NOT MEASURABLE: the reference would cross a basis step
+            continue
+        measured += 1
         full = wilder_rsi14(g["close"]).to_numpy()
         st = _pd.to_numeric(g["rsi_14"], errors="coerce").to_numpy()
         for i in range(max(0, len(g) - n_bars), len(g)):
             if _np.isfinite(full[i]) and _np.isfinite(st[i]):
                 d.append(round(abs(round(float(full[i]), 1) - float(st[i])), 6))
     if not d:
-        return None
+        return dict(n=0, tickers=measured, not_measurable=len(seam), seam_tickers=seam[:20],
+                    median=None, p95=None, mx=None, within_quantum=None)
     a = _np.asarray(d)
-    return dict(n=int(a.size), tickers=len(pick), median=float(_np.median(a)),
-                p95=float(_np.percentile(a, 95)), mx=float(a.max()),
+    return dict(n=int(a.size), tickers=measured, not_measurable=len(seam), seam_tickers=seam[:20],
+                median=float(_np.median(a)), p95=float(_np.percentile(a, 95)), mx=float(a.max()),
                 within_quantum=float((a <= 0.1 + 1e-9).mean()))
 
 
@@ -268,9 +417,11 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
     rows_enriched = 0
     # vendor-side telemetry, aggregated from each worker's own data_polygon.LAST_FETCH
     fetch = dict(requested=len(tickers), succeeded=0, failed=0, partial=0, vendor_errors=0,
-                 calls=0, rows=0, bytes=0, retries=0, http_429=0,
-                 partial_tickers=[], failed_tickers=[])
+                 calls=0, rows=0, bytes=0, retries=0, http_429=0, known_inactive=0, live_failed=0,
+                 partial_tickers=[], failed_tickers=[], live_failed_tickers=[])
+    inactive, inactive_man = load_inactive()
     written = {tf: set() for tf in dbs}
+    psample = {tf: {} for tf in dbs}          # the fetched frames the parity check recomputes from
     todo = [(tk, uni.get(tk, "sp500"), days) for tk in tickers]
     with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker,
                              initargs=(db_cols["1h"], "1h", False)) as ex:
@@ -286,8 +437,13 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
                 errs += 1
                 fetch["failed"] += 1
                 fetch["failed_tickers"].append((tk, str(err)[:70]))
-                if err and "empty" not in str(err).lower():
-                    print(f"  ✗ {tk}: {err}")
+                if tk in inactive:
+                    fetch["known_inactive"] += 1
+                else:
+                    fetch["live_failed"] += 1
+                    fetch["live_failed_tickers"].append(tk)
+                    if err and "empty" not in str(err).lower():
+                        print(f"  ✗ {tk}: {err}   ⛔ NOT on the frozen KNOWN_INACTIVE list")
             elif st.get("partial"):
                 # FAIL-CLOSED. A partial frame is short, and a short frame inside the overlap window
                 # means the DELETE removes days the INSERT cannot put back — the exact mechanism of
@@ -310,6 +466,9 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
                         errs += 1
                     else:
                         written[tf].add(tk)
+                        if parity_sampled(tk):
+                            psample[tf][tk] = en[["date", "close", "rsi_14"]].copy() \
+                                if {"date", "close", "rsi_14"} <= set(en.columns) else None
             if built % 100 == 0 or built == len(todo):
                 el = time.time() - t0
                 rate = built / el if el else 0
@@ -329,7 +488,13 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
     print(f"   runtime                     {el/60:.1f} min ({el:.0f}s)")
     print(f"   tickers requested           {fetch['requested']:,}")
     print(f"   tickers succeeded           {fetch['succeeded']:,}")
-    print(f"   tickers failed              {fetch['failed']:,}")
+    print(f"   tickers failed              {fetch['failed']:,} "
+          f"({fetch['known_inactive']:,} known-inactive · {fetch['live_failed']:,} LIVE)"
+          + ("   ⛔" if fetch["live_failed"] else ""))
+    print(f"   known-inactive list         "
+          + (f"{inactive_man.get('known_inactive', len(inactive)):,} tickers, frozen "
+             f"{inactive_man.get('built_at', '?')}" if inactive else
+             "⛔ MISSING — every failure counts as live; run `--classify-inactive`"))
     print(f"   partial responses           {fetch['partial']:,}"
           + ("   ⛔ NOT WRITTEN" if fetch["partial"] else ""))
     print(f"   vendor errors               {fetch['vendor_errors']:,} "
@@ -353,11 +518,13 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
     for tf in sorted(acc):
         report_invariant(acc[tf], f" [{tf}]")
 
-    # ── RSI PARITY AFTER WRITE ────────────────────────────────────────────────────────────────
+    # ── RSI PARITY ────────────────────────────────────────────────────────────────────────────
+    # THE GATE: the row we wrote vs a Wilder recomputed from the writer's OWN 90-day frame, read
+    # back out of the database. One vendor call, one corporate-action basis, warm-up satisfied.
     parity = {}
-    print("\n   RSI parity after write (stored rsi_14 vs full-history Wilder-14, |Δ|):")
+    print("\n   RSI parity · FRESH FRAME (DB read-back vs Wilder over the same 90-day fetch) — THE GATE:")
     for tf in sorted(cons):
-        r = rsi_parity_after_write(cons[tf], written[tf])
+        r = fresh_frame_parity(cons[tf], {k: v for k, v in psample[tf].items() if v is not None})
         parity[tf] = r
         if r is None:
             print(f"     {tf}   ⚠ NOT TESTED — no measurable sample")
@@ -365,6 +532,19 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
             print(f"     {tf}   n={r['n']:,} over {r['tickers']} tickers · median {r['median']:.3f}"
                   f" · p95 {r['p95']:.3f} · max {r['mx']:.3f}"
                   f" · within one storage unit {r['within_quantum']*100:.1f}%")
+    # THE DIAGNOSTIC: the same comparison against the ticker's whole stored history. Does NOT vote —
+    # it asserts the store is basis-consistent back to 2021, which is a different question.
+    print("   RSI parity · STORE HISTORY (diagnostic only, does not decide the verdict):")
+    for tf in sorted(cons):
+        r = store_history_parity(cons[tf], written[tf])
+        if r is None or not r["n"]:
+            print(f"     {tf}   ⚠ nothing measurable"
+                  + (f" · {r['not_measurable']} ticker(s) skipped as basis seams" if r else ""))
+        else:
+            print(f"     {tf}   n={r['n']:,} over {r['tickers']} measurable tickers · "
+                  f"median {r['median']:.3f} · p95 {r['p95']:.3f} · max {r['mx']:.3f} · "
+                  f"NOT MEASURABLE {r['not_measurable']} ticker(s) carrying a corporate-action seam"
+                  + (f": {', '.join(r['seam_tickers'][:8])}" if r["seam_tickers"] else ""))
 
     ok, bad = dual_verdict(acc, fetch, parity)
     print("\n" + "═" * 92)
@@ -555,6 +735,8 @@ if __name__ == "__main__":
                     help="NIGHTLY V2: one 30m fetch per ticker at FETCH_DAYS_DUAL, build 1h AND 4h")
     ap.add_argument("--workers", type=int, default=max(2, (os.cpu_count() or 4) - 1))
     ap.add_argument("--tickers", default="", help="comma-separated subset for testing")
+    ap.add_argument("--classify-inactive", action="store_true",
+                    help="rebuild the frozen KNOWN_INACTIVE list from the 1D store, then exit")
     a = ap.parse_args()
 
     _TF      = a.tf
@@ -569,6 +751,9 @@ if __name__ == "__main__":
         os.environ["INTRADAY_DB"]      = _DB
     os.environ["STUDIO_DB_PATH"] = _DB
 
+    if a.classify_inactive:
+        classify_inactive()
+        sys.exit(0)
     tickers_filter = [t.strip().upper() for t in a.tickers.split(",") if t.strip()] or None
     if a.dual:
         # Exit 2 on NOT PASS. A nightly that writes a damaged store and still exits 0 is how the
