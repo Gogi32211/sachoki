@@ -1284,8 +1284,16 @@ const BETA_ZONE_SHORT = {
 function barsForTf(tf) {
   // Per-bar signal-matrix history depth. Bumped so the matrix shows ~300 bars of
   // history instead of ~150 (it used to stop ~7 months back on the daily view).
+  //
+  // 1d → 750 (2026-09-22, ~3 years). Measured before changing it rather than guessed: the
+  // SERVER cost is flat, because /api/bar_signals runs its vectorised engines over the whole
+  // series either way so the rolling context stays correct — `bars` only trims the response
+  // (300 → 3.69s, 750 → 3.58s, full → 4.76s). What actually grows is the payload (1.71 → 4.28 MB)
+  // and the DOM: 44 rows × N columns, so 13,244 cells today and ~33,000 at 750, with a one-off
+  // layout of ~325ms measured at 4× width. 1d is explicit rather than folded into the trailing
+  // default so the other timeframes keep their own depth untouched.
   return tf === '15m' ? 500 : ['30m', '1h'].includes(tf) ? 400 : tf === '4h' ? 300
-       : tf === '1w' ? 260 : 300   // 1d → 300 (~14 months); 1w → 260 (~5 years)
+       : tf === '1w' ? 260 : tf === '1d' ? 750 : 300   // 1w → 260 (~5 years)
 }
 
 function fmtDate(d, isIntraday) {
