@@ -62,12 +62,15 @@ if [ "${NO_INTRADAY:-0}" != "1" ]; then
   # points). --dual satisfies both timeframes with one 90-day window and HALVES the ticker fetches
   # to 3,203. The old per-TF invocations are REMOVED, not left alongside: running both paths would
   # re-fetch and re-write the same rows twice.
-  #   ⚠️ HTTP REQUESTS DO NOT HALVE, and a night that shows ~6,400 of them is NOT a regression.
-  #   Measured on AAPL: 30m at 15d = 294 rows in ONE cursor page, at 90d = 1,990 rows in TWO. So
-  #   the old path made 2 fetches x 1 page and --dual makes 1 fetch x 2 pages — the same ~2 HTTP
-  #   requests per ticker. Bytes RISE ~3.4x (64k -> 218k per ticker): that is the warm-up's price,
-  #   paid on purpose. The sanity check that the old path is really gone is TICKER FETCHES ~3,203
-  #   and ONE dual block in this log instead of two per-TF ones.
+  #   MEASURED ON THE FIRST LIVE RUN (2026-09-22): 3,203 ticker fetches -> 3,227 HTTP requests and
+  #   346.8 MB. Only ~24 tickers needed a second cursor page, so HTTP requests track ticker fetches
+  #   almost exactly and they halve too (the old path's ~6,406 one-page fetches -> 3,227).
+  #   An earlier note here predicted ~6,400 requests. That was extrapolated from AAPL alone, which
+  #   is atypical: its extended-hours activity gives 1,990 rows over 90 days and needs two pages,
+  #   while most tickers stay under the page cap. n = 1 is not a fleet measurement.
+  #   Bytes DO rise (~64k -> ~108k per ticker): that is the 90-day warm-up's price, paid on purpose.
+  #   The sanity check that the old path is really gone stays TICKER FETCHES ~3,203 and ONE dual
+  #   block in this log instead of two per-TF ones.
   echo "──── [2/2] 1h+4h dual update  ($(date '+%T')) ────"
   .venv/bin/python update_intraday_db.py --dual --workers 8 || echo "  ⚠ dual 1h/4h update failed"
   for tf in 1h 4h; do

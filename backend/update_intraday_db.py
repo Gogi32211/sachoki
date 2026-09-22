@@ -233,9 +233,9 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
     and each run did its own fetch. The overlap semantics are not re-implemented — both timeframes
     go through the same write_ticker as the single-TF path.
 
-    ⚠️ HTTP requests do NOT halve. A 30m frame is one cursor page at 15 days and two at 90 (AAPL:
-    294 rows vs 1,990), so both paths cost ~2 requests per ticker; bytes rise ~3.4x. Read "halved"
-    on the FETCH line, never on the request count.
+    Measured on the first live run: 3,203 ticker fetches -> 3,227 HTTP requests, i.e. only ~24
+    tickers needed a second cursor page, so the request count halves along with the fetch count.
+    Bytes still rise (~64k -> ~108k per ticker) — the 90-day warm-up's price.
 
     Returns True only on a PASS run (see dual_verdict). The caller exits non-zero otherwise, so a
     bad night is visible in the nightly log instead of ending in "✅ DONE".
@@ -338,9 +338,8 @@ def run_dual(workers: int, tickers_filter: list[str] | None = None,
     print(f"   total vendor calls          {fetch['calls']:,} HTTP requests")
     print(f"   ticker fetches              {_tk_fetches:,} "
           f"(single-TF path would make {2*_tk_fetches:,} — THIS is the number that halves)")
-    print(f"   ⚠ HTTP requests do NOT halve: a 30m frame is 1 cursor page at 15d and 2 at 90d,")
-    print(f"     so both paths cost ~2 requests per ticker. ~{2*_tk_fetches:,} requests is EXPECTED,")
-    print(f"     not a regression; bytes rise ~3.4x as the warm-up's price.")
+    print(f"     most 90-day 30m frames fit in ONE cursor page, so requests track fetches: "
+          f"{fetch['calls'] - _tk_fetches:+,} vs the fetch count")
     print(f"   total rows fetched          {fetch['rows']:,} raw 30m bars")
     print(f"   total bytes fetched         {fetch['bytes']:,} bytes ({fetch['bytes']/1e6:.1f} MB)")
     print(f"   rows enriched from fetch    {rows_enriched:,}")

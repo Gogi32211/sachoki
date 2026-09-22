@@ -239,14 +239,17 @@ default**: read its telemetry block and its verdict in `~/Library/Logs/sachoki_u
 treating the path as routine. Halved **ticker fetches** in that log is the sanity check that the
 old per-TF path really is gone rather than running alongside.
 
-⚠️ **HTTP requests do not halve, and ~6,400 of them tomorrow is not a regression.** Measured on
-AAPL: a 30m frame is 294 rows in ONE cursor page at 15 days and 1,990 rows in TWO at 90, so the old
-path (2 fetches × 1 page) and `--dual` (1 fetch × 2 pages) both cost ~2 requests per ticker. Bytes
-rise ~3.4× (64k → 218k per ticker) — the warm-up's price, paid on purpose. Read tomorrow's log as:
+**What the first live run actually cost** (2026-09-22, corrected against the measurement):
 
-| check | expected |
-|---|---|
-| ticker fetches | **≈ 3,203** — if ~6,400, the old path is still alive |
-| HTTP requests | ≈ 6,400 — unchanged **by design** |
-| bytes fetched | ~3–4× the old nights |
-| log structure | **one** `1h+4h dual update` block, **no** per-TF headers |
+| check | expected | first live run |
+|---|---|---|
+| ticker fetches | **≈ 3,203** — if ~6,400, the old path is still alive | **3,203** ✅ |
+| HTTP requests | ≈ 3,200, tracking the fetch count | **3,227** (~24 second pages) |
+| bytes fetched | up, the warm-up's price | **346.8 MB**, ~108k per ticker |
+| log structure | **one** `1h+4h dual update` block, **no** per-TF headers | one block ✅ |
+
+⚠️ **An earlier version of this section predicted ~6,400 HTTP requests and called that "unchanged by
+design". It was wrong**, and it was wrong because it extrapolated from AAPL alone: AAPL's
+extended-hours activity gives 1,990 rows over 90 days and needs two cursor pages, while most tickers
+stay under the page cap on one. **n = 1 is not a fleet measurement** — the mistake that produced the
+original "halved vendor calls" claim, repeated in the opposite direction while correcting it.
