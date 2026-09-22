@@ -96,8 +96,20 @@ tickers, whether to store an unadjusted series plus a split table instead of fro
 and whether the ~20–26 boundary tickers should be repaired on their own. None of that is a research
 question, and none of it was authorised.
 
-## Status
+## Status — CLOSED as a validated infrastructure finding
 
-Finding recorded. **No outcome opened. Nothing changed in production.** The writer's acceptance gate
-no longer depends on a full-history reference (`6f9abf7`), so this condition can no longer make a
-healthy nightly run report NOT PASS — which was the only part of it that was blocking anything.
+No outcome opened, nothing changed in production. The writer's acceptance gate no longer depends on a
+full-history reference (`6f9abf7`), so this condition can no longer make a healthy nightly report
+NOT PASS — which was the only part of it that was blocking anything operational.
+
+Standing decisions (2026-09-22):
+
+1. **Production behaviour does not change on this finding alone.**
+2. **`MTF_ZERO`'s outcome stays BLOCKED.** `mtf_rev_build` recomputes a Wilder over the store's full
+   history; on a series that changes basis mid-history that measures the store, not the market. The
+   block lifts when rebasing is settled, not when the writer is.
+3. The next technical study, if opened, is **`CORPACTION_REBASE_STRATEGY_V1`** — deliberately *not*
+   an edge study: how to move historical intraday series onto one basis **deterministically**, so
+   canonical history stays reproducible. Re-fetching full history, or storing unadjusted prices plus
+   a split table, are candidates *inside* that study rather than actions to take now.
+4. **1D gets its own detector before any verdict** — corporate-action-aware, not a gap threshold.
