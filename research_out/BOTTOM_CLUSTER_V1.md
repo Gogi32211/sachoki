@@ -45,3 +45,19 @@
   - No re-tuning in between.
 
 Artifacts (session scratchpad `v4hist/`): `botclu_plan.txt`, `botclu.py`, `botclu.log`, `botclu_result.json`. Repo: `backend/bottom_cluster_forward.py`. No UI or score change.
+
+## AMENDMENT_2 (2026-09-28, before any forward data) — two more forward rules from TZ_X_BOTTOM_V1
+- **B3 = 🔻💪 + T9 on the same bar.** It must also beat 🔻💪 alone (anchor A_RS) in the forward read.
+- **B4 = 🕐DR + Z2G on the same bar.** It must also beat 🕐DR alone (anchor A_DR).
+- **Forward k is now 4.**
+- **Evaluator.** Same script, `backend/bottom_cluster_forward.py`. The seen-window check on 2024 gives:
+
+| rule | 2024 same-day Δ |
+|---|---|
+| A_RS (🔻💪 alone) | +1.47 |
+| A_DR (🕐DR alone) | +1.66 |
+| B3 | +1.65 |
+| B4 | +3.49 |
+
+- **Ultra chips** `🔻💪+T9` and `🕐DR+Z2G` were added in the "EDGE today" section.
+  - Z2G rows are hidden while Direction = bull (the Ultra default). Set Direction = all to see them.

@@ -113,3 +113,11 @@ Artifacts (session scratchpad `v4hist/`):
   - AAPL Ultra store vs the live Superchart: 10/10 sessions.
   - Ultra filter: 317 → 53 (ROW●≥2) → 28 (+MTF●).
 - **Not in Preview mode.** The hybrid live-bar scan (`preview_scan.py`) reads no nightly store, the same as VOL ECHO, PV and the rest.
+
+## ⚠️ CORRECTION (2026-09-28, TZL_BOTTOM_SEQ_V1 audit)
+The turn-zone target spans t-3..t+3, so it leaks the recent low. Adding a "10-bar low in t-3..t" stratum to the location × ATR% adjustment removes most of the identification lifts above.
+- **⟲ROW rows** fall to ≈ 1.0-1.1. ◆V∧M keeps 1.15.
+- **TOP·58** mostly falls to ≈ 1.0. The survivors are 🕐DR (1.21), gG3+🕐DR (1.33) and FLP↑+🕐DR (1.20).
+- **TURN·58** falls to ≈ 1.0.
+
+Return-based results are unaffected. Full table: `research_out/TZL_BOTTOM_SEQ_V1.md`.

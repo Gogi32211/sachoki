@@ -94,3 +94,11 @@ Artifacts: `build_rows_sp33.py`, `fired_sp33.ndjson`, `lps_prep_all.py`, `rowseq
   - Nightly store vs the research matrix: 99.994 % over 81,217 rows.
   - AAPL Superchart vs Ultra store: 15/15 sessions.
   - Ultra filter on S&P: 317 → 27 (TOP pair) → 7 (◆🕐DR pair).
+
+## ⚠️ CORRECTION (2026-09-28, TZL_BOTTOM_SEQ_V1 audit)
+The turn-zone target spans t-3..t+3, so it leaks the recent low. Adding a "10-bar low in t-3..t" stratum to the location × ATR% adjustment removes most of the identification lifts above.
+- **⟲ROW rows** fall to ≈ 1.0-1.1. ◆V∧M keeps 1.15.
+- **TOP·58** mostly falls to ≈ 1.0. The survivors are 🕐DR (1.21), gG3+🕐DR (1.33) and FLP↑+🕐DR (1.20).
+- **TURN·58** falls to ≈ 1.0.
+
+Return-based results are unaffected. Full table: `research_out/TZL_BOTTOM_SEQ_V1.md`.
