@@ -440,6 +440,56 @@ export const SIG_GROUPS = [
     hint: 'Δ row turn sequence CONFIRMED (top 5 % of MINE scores; FLP↑ ΔΔ↑ Δ↑ NS …). Turn-zone lift 1.4 after removing price-location × ATR% effects (2024-26). Identification only.' },
   { key: 'rs_delta_e', label: 'Δ○+', cls: 'text-slate-300',
     hint: 'Δ row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  // ── TOP·58 — the 10 best singles / 10 best pairs of the 58 turn keys (research_out/TURN58_TOP_V1.md,
+  //   user 2026-09-28). A key is "on" if it fired on any of the last 3 bars (t-2..t) — so the ·3b single
+  //   chips differ from the same-day catalog chips above. All 20 passed on VERIFY as turn-zone IDENTIFIERS
+  //   (lift vs same price location × ATR%); only the 🕐DR pairs showed a positive same-day return
+  //   (descriptive, not path-sim-tested). Never a ranking input. Same nightly store as TURN · ⟲ROW.
+  { divider: true, label: 'TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal' },
+  { key: 'top_dr_pair', label: '◆🕐DR pair', cls: 'text-amber-100',
+    hint: 'gG3+🕐DR or FLP↑+🕐DR on in the last 3 bars — the only TOP items with a positive same-day return (+3.00 / +3.21 pp vs the day\'s other bars, VERIFY 2024-26, descriptive). Turn-zone lift 2.69 / 2.36. Not path-sim-tested as a setup.' },
+  { key: 'top_pair_any', label: 'TOP pair', cls: 'text-amber-200',
+    hint: 'Any of the 10 TOP pairs on in the last 3 bars. Pairs: turn-zone lift 2.0-2.7 vs a bar with the same price location and ATR% (each beats both of its members).' },
+  { key: 'top_p_gg3_dr', label: 'gG3+🕐DR', cls: 'text-amber-100',
+    hint: 'TOP pair gG3+🕐DR — both on in the last 3 bars. Turn-zone lift 2.69 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars +3.00 pp (descriptive).' },
+  { key: 'top_p_flp_dr', label: 'FLP↑+🕐DR', cls: 'text-amber-100',
+    hint: 'TOP pair FLP↑+🕐DR — both on in the last 3 bars. Turn-zone lift 2.36 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars +3.21 pp (descriptive).' },
+  { key: 'top_p_rtv_gg3', label: 'RTV+gG3', cls: 'text-amber-200',
+    hint: 'TOP pair RTV+gG3 — both on in the last 3 bars. Turn-zone lift 2.38 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars −1.17 pp (descriptive).' },
+  { key: 'top_p_fbo_p', label: 'FBO↑+P', cls: 'text-amber-200',
+    hint: 'TOP pair FBO↑+P — both on in the last 3 bars. Turn-zone lift 2.36 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars +0.07 pp (descriptive).' },
+  { key: 'top_p_gg3_fbo', label: 'gG3+FBO↑', cls: 'text-amber-200',
+    hint: 'TOP pair gG3+FBO↑ — both on in the last 3 bars. Turn-zone lift 2.28 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars +0.56 pp (descriptive).' },
+  { key: 'top_p_v_fbo', label: 'V+FBO↑', cls: 'text-amber-200',
+    hint: 'TOP pair V+FBO↑ — both on in the last 3 bars. Turn-zone lift 2.19 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars −0.71 pp (descriptive).' },
+  { key: 'top_p_svs_fbo', label: 'SVS+FBO↑', cls: 'text-amber-200',
+    hint: 'TOP pair SVS+FBO↑ — both on in the last 3 bars. Turn-zone lift 2.14 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars −1.34 pp (descriptive).' },
+  { key: 'top_p_hilo_gg3', label: 'HILO↑+gG3', cls: 'text-amber-200',
+    hint: 'TOP pair HILO↑+gG3 — both on in the last 3 bars. Turn-zone lift 2.07 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars −0.96 pp (descriptive).' },
+  { key: 'top_p_gg3_zrt', label: 'gG3+ZRT', cls: 'text-amber-200',
+    hint: 'TOP pair gG3+ZRT — both on in the last 3 bars. Turn-zone lift 2.04 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars +0.28 pp (descriptive).' },
+  { key: 'top_p_g3_fbo', label: 'G3+FBO↑', cls: 'text-amber-200',
+    hint: 'TOP pair G3+FBO↑ — both on in the last 3 bars. Turn-zone lift 1.97 (VERIFY 2024-26, same price location × ATR%). Same-day return vs the day\'s other bars +0.10 pp (descriptive).' },
+  { key: 'top_s_dr', label: '🕐DR·3b', cls: 'text-slate-300',
+    hint: 'TOP single 🕐DR on in the last 3 bars. Turn-zone lift 1.96 (VERIFY 2024-26, same price location × ATR%). Same-day return +2.39 pp (descriptive).' },
+  { key: 'top_s_fbo', label: 'FBO↑·3b', cls: 'text-slate-300',
+    hint: 'TOP single FBO↑ on in the last 3 bars. Turn-zone lift 1.7 (VERIFY 2024-26, same price location × ATR%). Same-day return −0.66 pp (descriptive).' },
+  { key: 'top_s_rtv', label: 'RTV·3b', cls: 'text-slate-300',
+    hint: 'TOP single RTV on in the last 3 bars. Turn-zone lift 1.65 (VERIFY 2024-26, same price location × ATR%). Same-day return −0.87 pp (descriptive).' },
+  { key: 'top_s_c3', label: '🎯3·3b', cls: 'text-slate-300',
+    hint: 'TOP single 🎯3 on in the last 3 bars. Turn-zone lift 1.5 (VERIFY 2024-26, same price location × ATR%). Same-day return +0.11 pp (descriptive).' },
+  { key: 'top_s_gg3', label: 'gG3·3b', cls: 'text-slate-300',
+    hint: 'TOP single gG3 on in the last 3 bars. Turn-zone lift 1.48 (VERIFY 2024-26, same price location × ATR%). Same-day return −0.36 pp (descriptive).' },
+  { key: 'top_s_hilo', label: 'HILO↑·3b', cls: 'text-slate-300',
+    hint: 'TOP single HILO↑ on in the last 3 bars. Turn-zone lift 1.41 (VERIFY 2024-26, same price location × ATR%). Same-day return −0.28 pp (descriptive).' },
+  { key: 'top_s_zrt', label: 'ZRT·3b', cls: 'text-slate-300',
+    hint: 'TOP single ZRT on in the last 3 bars. Turn-zone lift 1.39 (VERIFY 2024-26, same price location × ATR%). Same-day return −0.33 pp (descriptive).' },
+  { key: 'top_s_m4s6', label: 'M4·σ6·3b', cls: 'text-slate-300',
+    hint: 'TOP single M4·σ6 on in the last 3 bars. Turn-zone lift 1.37 (VERIFY 2024-26, same price location × ATR%). Same-day return +0.43 pp (descriptive).' },
+  { key: 'top_s_svs', label: 'SVS·3b', cls: 'text-slate-300',
+    hint: 'TOP single SVS on in the last 3 bars. Turn-zone lift 1.37 (VERIFY 2024-26, same price location × ATR%). Same-day return −0.00 pp (descriptive).' },
+  { key: 'top_s_g3', label: 'G3·3b', cls: 'text-slate-300',
+    hint: 'TOP single G3 on in the last 3 bars. Turn-zone lift 1.28 (VERIFY 2024-26, same price location × ATR%). Same-day return +0.35 pp (descriptive).' },
   { divider: true },
   // ── F / G signals ─────────────────────────────────────────────────────
   { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
@@ -1429,7 +1479,7 @@ const KEEP_ALWAYS = new Set([
   've_echo_gap','ve_echo_nmatch','ve_echo_hits','ve_qn','ve_rn','ve_rel_n','ve_rel_q','ve_bo_age',
   've_zone_pos','ve_echo_vr','ve_bov_x','ve_zone_top','ve_zone_bot',
   // TURN·58 + ⟲ROW (2026-09-28) — booleans + ints; without this the chips stop filtering after a cache reload.
-  'turn58_cand','turn58_n','turn_ge15','turn_ge20','turn_ge26','turn_ge30','rs_pair','rs_nconf','rs_nearly','rs_text','rs_c2','rs_c3','rs_fly','rs_fly_c','rs_fly_e','rs_gr','rs_gr_c','rs_gr_e','rs_mtf','rs_mtf_c','rs_mtf_e','rs_phys','rs_phys_c','rs_phys_e','rs_vol7','rs_vol7_c','rs_vol7_e','rs_pv','rs_pv_c','rs_pv_e','rs_break','rs_break_c','rs_break_e','rs_ovd','rs_ovd_c','rs_ovd_e','rs_delta','rs_delta_c','rs_delta_e',
+  'top_pair_any','top_dr_pair','top_ns','top_text','top_p_gg3_dr','top_p_flp_dr','top_p_rtv_gg3','top_p_fbo_p','top_p_gg3_fbo','top_p_v_fbo','top_p_svs_fbo','top_p_hilo_gg3','top_p_gg3_zrt','top_p_g3_fbo','top_s_dr','top_s_fbo','top_s_rtv','top_s_c3','top_s_gg3','top_s_hilo','top_s_zrt','top_s_m4s6','top_s_svs','top_s_g3','turn58_cand','turn58_n','turn_ge15','turn_ge20','turn_ge26','turn_ge30','rs_pair','rs_nconf','rs_nearly','rs_text','rs_c2','rs_c3','rs_fly','rs_fly_c','rs_fly_e','rs_gr','rs_gr_c','rs_gr_e','rs_mtf','rs_mtf_c','rs_mtf_e','rs_phys','rs_phys_c','rs_phys_e','rs_vol7','rs_vol7_c','rs_vol7_e','rs_pv','rs_pv_c','rs_pv_e','rs_break','rs_break_c','rs_break_e','rs_ovd','rs_ovd_c','rs_ovd_e','rs_delta','rs_delta_c','rs_delta_e',
 ])
 function _slimRow(r) {
   const out = {}
@@ -2680,6 +2730,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.rs_text    = r.rs_text ?? ''
       flat.rs_nconf   = r.rs_nconf ?? ''
       flat.rs_pair    = r.rs_pair ? 1 : 0
+      flat.top58      = r.top_text ?? ''
+      flat.top_dr_pair = r.top_dr_pair ? 1 : 0
       flat.seq34 = r.seq34 ? r.seq34.seq : ''
       flat.seq34_win = r.seq34?.win ?? ''
       flat.seq34_ps_med = r.seq34?.ps_med ?? ''

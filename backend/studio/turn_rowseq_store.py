@@ -34,6 +34,18 @@ for _r in ROWS:
     MISS.update({f"rs_{_r}": 0, f"rs_{_r}_c": False, f"rs_{_r}_e": False})
 MISS.update({"rs_c2": False, "rs_c3": False})
 
+# TOP·58 (research_out/TURN58_TOP_V1.md): the 10 best singles / 10 best pairs of the 58 turn keys, on in
+# t-2..t. Labels mirror frontend/src/lib/topPairs.js. The 🕐DR pairs are the only items with a positive
+# same-day return (descriptive) → top_dr_pair.
+TOP_S = {"dr": "🕐DR", "fbo": "FBO↑", "rtv": "RTV", "c3": "🎯3", "gg3": "gG3", "hilo": "HILO↑",
+         "zrt": "ZRT", "m4s6": "M4·σ6", "svs": "SVS", "g3": "G3"}
+TOP_P = {"gg3_dr": "gG3+🕐DR", "rtv_gg3": "RTV+gG3", "flp_dr": "FLP↑+🕐DR", "fbo_p": "FBO↑+P",
+         "gg3_fbo": "gG3+FBO↑", "v_fbo": "V+FBO↑", "svs_fbo": "SVS+FBO↑", "hilo_gg3": "HILO↑+gG3",
+         "gg3_zrt": "gG3+ZRT", "g3_fbo": "G3+FBO↑"}
+MISS.update({f"top_s_{c}": False for c in TOP_S})
+MISS.update({f"top_p_{c}": False for c in TOP_P})
+MISS.update({"top_pair_any": False, "top_dr_pair": False, "top_ns": 0, "top_text": ""})
+
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _CACHE: dict = {"mtime": None, "key": None, "map": None}
 
@@ -71,6 +83,16 @@ def _to_ui(rec: dict) -> dict:
     out["rs_c2"] = len(conf) >= 2
     out["rs_c3"] = len(conf) >= 3
     out["rs_text"] = " ".join((["◆V∧M"] if out["rs_pair"] else []) + [f"{s}●" for s in conf] + [f"{s}○" for s in early])
+    ps = [c for c in TOP_P if bool(rec.get(f"top_p_{c}"))]
+    ss = [c for c in TOP_S if bool(rec.get(f"top_s_{c}"))]
+    for c in TOP_P:
+        out[f"top_p_{c}"] = c in ps
+    for c in TOP_S:
+        out[f"top_s_{c}"] = c in ss
+    out["top_pair_any"] = bool(ps)
+    out["top_dr_pair"] = "gg3_dr" in ps or "flp_dr" in ps
+    out["top_ns"] = len(ss)
+    out["top_text"] = " ".join([TOP_P[c] for c in ps] + [TOP_S[c] for c in ss])
     return out
 
 

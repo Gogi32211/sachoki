@@ -38,3 +38,12 @@ def test_row_tiers_and_counts():
     assert ui["rs_mtf_c"] and ui["rs_mtf_e"] and ui["rs_gr_e"] and not ui["rs_gr_c"]
     assert ui["rs_nconf"] == 2 and ui["rs_c2"] and not ui["rs_c3"] and ui["rs_nearly"] == 3
     assert ui["rs_text"].startswith("◆V∧M") and "MTF●" in ui["rs_text"] and "GR○" in ui["rs_text"]
+
+
+def test_top58_flags():
+    ui = T._to_ui(_rec(top_p_flp_dr=True, top_s_dr=True, top_s_fbo=True))
+    assert ui["top_pair_any"] and ui["top_dr_pair"] and ui["top_p_flp_dr"] and not ui["top_p_gg3_fbo"]
+    assert ui["top_ns"] == 2 and ui["top_text"].startswith("FLP↑+🕐DR")
+    ui = T._to_ui(_rec(top_p_gg3_fbo=True))
+    assert ui["top_pair_any"] and not ui["top_dr_pair"]
+    assert not T._to_ui(_rec())["top_pair_any"]

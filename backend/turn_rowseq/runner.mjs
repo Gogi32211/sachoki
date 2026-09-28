@@ -1,7 +1,7 @@
 // Node side of turn_rowseq_build.py.
 //   node runner.mjs <bundle> deps                         → {key: [fields…]} for every catalog key
 //   node runner.mjs <bundle> compute <keep> < rows.ndjson → per ticker, the last <keep> sessions:
-//        {t, d, turn_cand, turn_n, rs: {FLY:0|1|2, …, pair}}
+//        {t, d, turn_cand, turn_n, rs: {FLY:0|1|2, …, pair}, top: {s: [codes], p: [codes]}}
 // rows.ndjson must be sorted by ticker, date (oldest→newest) — the same bar order the Superchart feeds.
 globalThis.window = globalThis.window || globalThis
 globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem() {}, removeItem() {} }
@@ -10,7 +10,7 @@ globalThis.document = globalThis.document || { addEventListener() {}, createElem
 globalThis.navigator = globalThis.navigator || { userAgent: 'node' }
 const { pathToFileURL } = await import('node:url')
 const [bundle, mode, keepArg] = process.argv.slice(2)
-const { V4_ALL_GROUPS, v4Fired, withTurnCount, withRowSeq, ROW_ORDER } = await import(pathToFileURL(bundle).href)
+const { V4_ALL_GROUPS, v4Fired, withTurnCount, withRowSeq, ROW_ORDER, withTopPairs } = await import(pathToFileURL(bundle).href)
 const catalog = V4_ALL_GROUPS.filter(s => !s.divider && s.key)
 if (mode === 'deps') {
   const out = {}
@@ -41,12 +41,13 @@ if (mode === 'deps') {
   const flush = () => {
     if (!bars.length) return
     const withKeys = bars.map(b => ({ ...b, _v4keys: v4Fired(V4_ALL_GROUPS, b, 1).map(s => s.key) }))
-    const t = withRowSeq(withTurnCount(withKeys))
+    const t = withTopPairs(withRowSeq(withTurnCount(withKeys)))
     const out = []
     for (const b of t.slice(-keep)) {
       const rs = {}; for (const r of ROW_ORDER) rs[r] = b.rs_tiers[r]
       rs.pair = b.rs_tiers.pair
-      out.push(JSON.stringify({ t: b.ticker, d: b.date, turn_cand: !!b.turn_cand, turn_n: b.turn_n, rs }))
+      out.push(JSON.stringify({ t: b.ticker, d: b.date, turn_cand: !!b.turn_cand, turn_n: b.turn_n, rs,
+                                top: { s: b.top58.singles, p: b.top58.pairs } }))
     }
     process.stdout.write(out.join('\n') + '\n')
   }

@@ -13,7 +13,8 @@ Per session row (same sources as the research builder):
   + ▲4H/△1H REV days from studio_4h/studio_1h with the live rule the Superchart and Ultra use
   + EDGE codes with Ultra's semantics (same-day and CODE·Nd for 1..5 calendar days).
 
-Output: data/turn_rowseq_signals.parquet — ticker, date, turn_cand, turn_n, rs_<row> (0/1/2), rs_pair —
+Output: data/turn_rowseq_signals.parquet — ticker, date, turn_cand, turn_n, rs_<row> (0/1/2), rs_pair,
+top_s_<code> / top_p_<code> (TOP·58, research_out/TURN58_TOP_V1.md) —
 plus data/TURN_ROWSEQ_SIGNALS_V1.json (build meta). Read by studio/turn_rowseq_store.py.
 
 DESCRIPTIVE ONLY. Both gauges identify turn zones (replicated out of sample); neither picks a better
@@ -42,6 +43,8 @@ TR = os.path.join(HERE, "turn_rowseq")
 OUT = os.path.join(DATA_DIR, "turn_rowseq_signals.parquet")
 META = os.path.join(DATA_DIR, "TURN_ROWSEQ_SIGNALS_V1.json")
 ROWS = ["FLY", "GR", "MTF", "PHYS", "VOL7", "PV", "BREAK", "OVD", "DELTA"]
+TOP_S = ["dr", "fbo", "rtv", "c3", "gg3", "hilo", "zrt", "m4s6", "svs", "g3"]          # lib/topPairs.js codes
+TOP_P = ["gg3_dr", "rtv_gg3", "flp_dr", "fbo_p", "gg3_fbo", "v_fbo", "svs_fbo", "hilo_gg3", "gg3_zrt", "g3_fbo"]
 t0 = time.time()
 log = lambda *a: print(f"[{time.time()-t0:6.0f}s]", *a, flush=True)
 
@@ -216,6 +219,11 @@ def main() -> None:
     for row in ROWS:
         out[f"rs_{row.lower()}"] = np.array([r["rs"][row] for r in results], dtype=np.int8)
     out["rs_pair"] = [bool(r["rs"]["pair"]) for r in results]
+    # TOP·58 (TURN58_TOP_V1): the 10 best singles / 10 best pairs of the 58 turn keys, on in t-2..t
+    for c in TOP_S:
+        out[f"top_s_{c}"] = [c in r["top"]["s"] for r in results]
+    for c in TOP_P:
+        out[f"top_p_{c}"] = [c in r["top"]["p"] for r in results]
     out = out.sort_values(["ticker", "date"]).reset_index(drop=True)
     tmp_out = OUT + ".tmp"
     out.to_parquet(tmp_out, index=False)

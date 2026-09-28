@@ -8,6 +8,7 @@ import { V4_ALL_GROUPS } from './UltraScanPanel'
 import { v4Score, v4FiredLabels, v4Fired } from '../lib/v4Score'
 import { withTurnCount, TURN_LIFT } from '../lib/turnCount'
 import { withRowSeq, ROW_ORDER, ROW_SHORT, ROW_LIFT, PAIR_LIFT } from '../lib/rowSeq'
+import { withTopPairs, TOP_SINGLES, TOP_PAIRS } from '../lib/topPairs'
 import { V4_WEIGHTS } from '../lib/v4Weights'
 
 const TF_OPTIONS = ['1w', '1d', '4h', '1h', '30m', '15m']
@@ -1363,6 +1364,32 @@ const ROWS = [
       : 'bg-md-surface-high text-md-on-surface-var font-mono opacity-80'),
   },
   {
+    // TOP·58 — the best turn identifiers among the 58 TURN keys (research_out/TURN58_TOP_V1.md, user
+    // "damimate eseni oriveshi" 2026-09-28). Pairs first (both keys on in t-2..t), then singles. All 20
+    // passed on VERIFY as turn-zone IDENTIFIERS; only the 🕐DR pairs also showed a positive same-day
+    // return (descriptive, not path-sim-tested) — they get the brighter chip. Never a score input.
+    key: 'top58',
+    label: 'TOP·58',
+    getSigs: (b) => {
+      const t = b.top58; if (!t) return []
+      return [...TOP_PAIRS.filter(p => t.pairs.includes(p.code)).map(p => p.label),
+              ...TOP_SINGLES.filter(x => t.singles.includes(x.code)).map(x => x.label)]
+    },
+    sigTitle: (sig) => {
+      const p = TOP_PAIRS.find(x => x.label === sig); const x = TOP_SINGLES.find(y => y.label === sig)
+      const it = p || x; if (!it) return undefined
+      return `${p ? 'TOP pair' : 'TOP single'} ${sig} — on in the last 3 bars. Turn-zone lift ${it.lift} vs a bar with the same price location and ATR% (VERIFY 2024-26, all US tickers in the DB). `
+           + `Same-day return vs the day's other bars: ${it.sd >= 0 ? '+' : ''}${it.sd.toFixed(2)} pp (descriptive).\n\n`
+           + 'DESCRIPTIVE turn-zone identification (TURN58_TOP_V1). Not path-sim-tested as a setup; not a buy signal, never a score input.'
+    },
+    chipCls: (sig) => {
+      const p = TOP_PAIRS.find(x => x.label === sig)
+      if (p && p.sd > 1) return 'bg-amber-700/80 text-amber-50 font-mono font-bold ring-1 ring-amber-300/60'
+      if (p) return 'bg-amber-950/60 text-amber-200 font-mono font-semibold'
+      return 'bg-md-surface-high text-md-on-surface-var font-mono opacity-80'
+    },
+  },
+  {
     // 🏅 RANK_V1 (2026-09-07, sealed family, user OK): per bar, the fire's expected edge from the A state table
     // as a percentile of THAT day's fires across the universe (last 270 sessions of the warm frame). Bars with
     // no edge fire carry nothing. Values arrive on the bar itself (api_bar_signals), no separate fetch.
@@ -1673,6 +1700,8 @@ export default function SuperchartPanel({
   const barsTurn = useMemo(() => withTurnCount(barsV4), [barsV4])
   // ⟲ROW-TURN (2026-09-28, research_out/ROWSEQ_V1.md) — per-row turn-zone tiers; rides on barsV4 for _v4keys + phys_*.
   const barsRowSeq = useMemo(() => withRowSeq(barsV4), [barsV4])
+  // TOP·58 (2026-09-28, research_out/TURN58_TOP_V1.md) — best singles/pairs of the 58 turn keys, t-2..t.
+  const barsTop58 = useMemo(() => withTopPairs(barsV4), [barsV4])
 
   const load = useCallback((t, f) => {
     setLoading(true)
@@ -2594,6 +2623,7 @@ export default function SuperchartPanel({
                 {tf === '1d' && ROWS.filter(r => r.key === 'v4').map(row => <ChipRow key={row.key} row={row} bars={barsV4} />)}
                 {tf === '1d' && ROWS.filter(r => r.key === 'turn').map(row => <ChipRow key={row.key} row={row} bars={barsTurn} />)}
                 {tf === '1d' && ROWS.filter(r => r.key === 'rowseq').map(row => <ChipRow key={row.key} row={row} bars={barsRowSeq} />)}
+                {tf === '1d' && ROWS.filter(r => r.key === 'top58').map(row => <ChipRow key={row.key} row={row} bars={barsTop58} />)}
                 {/* 🏅 RANK_V1 — percentile of that day's edge fires (sealed A table), above SCORE (user, 2026-09-07). 1d only. */}
                 {tf === '1d' && ROWS.filter(r => r.key === 'rank').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
                 {ROWS.filter(r => r.key === 'score').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
@@ -2947,7 +2977,7 @@ export default function SuperchartPanel({
                     that once for 'phys'. Caught again 2026-09-23: 'pv' (2026-09-22) and 'v4'
                     (2026-09-23) were both added with their own dedicated render line and BOTH
                     were missing from this list, so PV·C/PV·O and V4 were each rendering twice. */}
-                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick', 'cisd', 'lbal', 'lvx', 'ovd', 'vol7', 'rank', 'shape', 'pv', 've', 'v4', 'turn', 'rowseq'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick', 'cisd', 'lbal', 'lvx', 'ovd', 'vol7', 'rank', 'shape', 'pv', 've', 'v4', 'turn', 'rowseq', 'top58'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
 
                 {/* ULTRA row — computed per-bar (independent confluence ranking) */}
 
