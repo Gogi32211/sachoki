@@ -49,6 +49,18 @@ const DIR_OPTS = [
 // custom: fn(row)→bool for computed filters
 // Exported (2026-09-23) so V4 (src/lib/v4Score.js) can reuse this EXACT catalog on the
 // Superchart side too, instead of a second hand-maintained signal list that would drift.
+// Per-code EDGE fired TODAY (2026-09-28, user "samive daamate") — built straight from the catalog's own
+// x_edge_* predicates (lib/v4ExtraGroups.js: `edges.includes('<code>')`, the same-day code only; aged
+// `CODE·Nd` entries do not match), so the Ultra chips, the V4 catalog and the research (EDGE_IN_TURNZONE_V1)
+// all read one definition. New `uf_edge_*` keys — never the x_edge_* keys themselves, so nothing is
+// counted twice in V4_ALL_GROUPS (uf_* carry no weight).
+const EDGE_TODAY_CHIPS = V4_EXTRA_GROUPS
+  .filter(sg => sg.key && sg.key.startsWith('x_edge_') && sg.custom)
+  .map(sg => ({ key: 'uf_' + sg.key.slice(2), label: sg.label.split(' ')[0], cls: 'text-yellow-200',
+                hint: `${sg.label} — fired TODAY (same-day EDGE code). Book-validated edge; see the Edge / Edge Replay tabs.`,
+                custom: (r) => !!sg.custom(r) }))
+const edgeToday = (r) => EDGE_TODAY_CHIPS.some(ch => ch.custom(r))
+
 export const SIG_GROUPS = [
   // ── ★ COMPOSITE setups (backtested edge, 8M-bar fwd-return analysis) ──────
   //   Vol-Bull   = bias_up + volume spike (V×5/V×10)            → ~66-69% fwd_10d win
@@ -490,6 +502,19 @@ export const SIG_GROUPS = [
     hint: 'TOP single SVS on in the last 3 bars. Turn-zone lift 1.37 (VERIFY 2024-26, same price location × ATR%). Same-day return −0.00 pp (descriptive).' },
   { key: 'top_s_g3', label: 'G3·3b', cls: 'text-slate-300',
     hint: 'TOP single G3 on in the last 3 bars. Turn-zone lift 1.28 (VERIFY 2024-26, same price location × ATR%). Same-day return +0.35 pp (descriptive).' },
+  // ── EDGE today + the EDGE_IN_TURNZONE_V1 filter ─────────────────────────────
+  //   EDGE ⟲ROW = an EDGE fired today AND ⟲ROW ≥ 2 rows confirmed. research_out/DR_PAIRS_EDGE_TURNZONE_V1.md:
+  //   PASS both windows — edges in the zone earned +1.69 pp (2021-23) / +0.97 pp (2024-26) more per trade,
+  //   every year positive. Audit: on the SAME day zone edges do not beat other edges → it is a TIMING
+  //   filter (zones cluster on market-wide turning days), not cross-sectional selection.
+  { divider: true, label: 'EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone' },
+  { key: 'uf_edge_rowzone', label: 'EDGE ⟲ROW', cls: 'text-amber-100',
+    hint: 'An EDGE fired today AND ≥2 ⟲ROW rows are CONFIRMED. EDGE_IN_TURNZONE_V1: edge fires in the zone averaged +1.69 pp (2021-23) and +0.97 pp (2024-26) more per trade than edge fires outside it, every year positive. Timing filter: on the same day, zone edges did not beat other edges.',
+    custom: (r) => edgeToday(r) && !!r.rs_c2 },
+  { key: 'uf_edge_any', label: 'EDGE any', cls: 'text-yellow-200',
+    hint: 'Any per-code EDGE fired TODAY (same-day code; aged ·Nd entries excluded).',
+    custom: (r) => edgeToday(r) },
+  ...EDGE_TODAY_CHIPS,
   { divider: true },
   // ── F / G signals ─────────────────────────────────────────────────────
   { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
