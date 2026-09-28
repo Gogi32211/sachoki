@@ -2,9 +2,11 @@
 (built nightly by backend/turn_rowseq_build.py with the Superchart's own JS; evidence in
 research_out/TURN_SET_V1.md and research_out/ROWSEQ_V1.md).
 
-DESCRIPTIVE ONLY — turn-zone identification. Both replicated as IDENTIFIERS out of sample, neither
-picks a better trade (same-day Δ ≈ 0) and ≥ +30 % big-move prediction was NULL. Never a ranking
-or score input.
+DESCRIPTIVE ONLY. ⚠️ CORRECTED 2026-09-28 (research_out/TZL_BOTTOM_SEQ_V1.md): once price location, ATR%
+AND a 10-bar low in t-3..t are controlled, the identification lifts are ≈ 1.0 (TURN·58, most ⟲ROW rows and
+TOP items) — they mostly re-state that a low was just printed. Real increments remain only for the 🕐DR
+family (1.2-1.33) and ◆V∧M (1.15). Return-based: EDGE fires inside a ⟲ROW≥2 zone earn more per trade
+(timing, EDGE_IN_TURNZONE_V1). Never a ranking or score input.
 
 Same access pattern as vol_echo_store — DuckDB `read_parquet` on a fresh connection per call:
   by_dates(dates) → {(ticker, 'YYYY-MM-DD'): ui_row}   Ultra enrichment

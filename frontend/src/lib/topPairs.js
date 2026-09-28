@@ -4,37 +4,39 @@
 // A key counts as "on" if it fired on any of the last 3 bars (t-2..t), exactly as in the study.
 //
 // What the evidence says (read before reading a chip):
-//   · `lift` = turn-zone likelihood vs a bar with the same price location (distance above the
-//     10-bar low) and the same ATR% — i.e. what the signal adds beyond "price is near its low".
+//   · `lift` = turn-zone likelihood vs a bar with the same price location, ATR% AND recent-low status
+//     (10-bar low in t-3..t) — CORRECTED 2026-09-28 (TZL_BOTTOM_SEQ_V1): the first-published lifts
+//     (1.3-2.7) leaked the recent low. After the correction only the 🕐DR family (1.2-1.33) keeps a real
+//     increment; the rest ≈ 1.0 — they mostly re-state that a low was just printed.
 //   · most items IDENTIFY turn zones but do not out-earn the day's other bars (same-day Δ ≈ 0 or
 //     negative). Only the 🕐DR family shows a positive same-day return (`sd`, pp, ATR×12 trail) —
 //     and that is descriptive: none of these has been path-sim-tested as a setup.
 //   → DESCRIPTIVE turn-zone gauge, never a buy signal, never a score input.
 
 export const TOP_SINGLES = [
-  { code: 'dr',   key: 'x_edge_h1dr',   label: '🕐DR', lift: 1.96, sd: +2.39 },
-  { code: 'fbo',  key: 'fbo_bull',      label: 'FBO↑', lift: 1.70, sd: -0.66 },
-  { code: 'rtv',  key: 'rtv',           label: 'RTV',  lift: 1.65, sd: -0.87 },
-  { code: 'c3',   key: 'x_edge_conf3',  label: '🎯3',  lift: 1.50, sd: +0.11 },
-  { code: 'gg3',  key: '_ph_gg3',       label: 'gG3',  lift: 1.48, sd: -0.36 },
-  { code: 'hilo', key: 'hilo_buy',      label: 'HILO↑', lift: 1.41, sd: -0.28 },
-  { code: 'zrt',  key: 'x_edge_zrt',    label: 'ZRT',  lift: 1.39, sd: -0.33 },
-  { code: 'm4s6', key: 'x_vol7_m4_sg6', label: 'M4·σ6', lift: 1.37, sd: +0.43 },
-  { code: 'svs',  key: 'svs_2809',      label: 'SVS',  lift: 1.37, sd: -0.00 },
-  { code: 'g3',   key: '_gr_g3',        label: 'G3',   lift: 1.28, sd: +0.35 },
+  { code: 'dr',   key: 'x_edge_h1dr',   label: '🕐DR', lift: 1.21, sd: +2.39 },
+  { code: 'fbo',  key: 'fbo_bull',      label: 'FBO↑', lift: 1.01, sd: -0.66 },
+  { code: 'rtv',  key: 'rtv',           label: 'RTV',  lift: 0.97, sd: -0.87 },
+  { code: 'c3',   key: 'x_edge_conf3',  label: '🎯3',  lift: 1.11, sd: +0.11 },
+  { code: 'gg3',  key: '_ph_gg3',       label: 'gG3',  lift: 1.05, sd: -0.36 },
+  { code: 'hilo', key: 'hilo_buy',      label: 'HILO↑', lift: 1.01, sd: -0.28 },
+  { code: 'zrt',  key: 'x_edge_zrt',    label: 'ZRT',  lift: 1.01, sd: -0.33 },
+  { code: 'm4s6', key: 'x_vol7_m4_sg6', label: 'M4·σ6', lift: 1.11, sd: +0.43 },
+  { code: 'svs',  key: 'svs_2809',      label: 'SVS',  lift: 1.06, sd: -0.00 },
+  { code: 'g3',   key: '_gr_g3',        label: 'G3',   lift: 1.04, sd: +0.35 },
 ]
 
 export const TOP_PAIRS = [
-  { code: 'gg3_dr',   a: '_ph_gg3',     b: 'x_edge_h1dr', label: 'gG3+🕐DR',  lift: 2.69, sd: +3.00 },
-  { code: 'rtv_gg3',  a: 'rtv',         b: '_ph_gg3',     label: 'RTV+gG3',   lift: 2.38, sd: -1.17 },
-  { code: 'flp_dr',   a: 'd_flip_bull', b: 'x_edge_h1dr', label: 'FLP↑+🕐DR', lift: 2.36, sd: +3.21 },
-  { code: 'fbo_p',    a: 'fbo_bull',    b: '_any_p',      label: 'FBO↑+P',    lift: 2.36, sd: +0.07 },
-  { code: 'gg3_fbo',  a: '_ph_gg3',     b: 'fbo_bull',    label: 'gG3+FBO↑',  lift: 2.28, sd: +0.56 },
-  { code: 'v_fbo',    a: '_gr_v',       b: 'fbo_bull',    label: 'V+FBO↑',    lift: 2.19, sd: -0.71 },
-  { code: 'svs_fbo',  a: 'svs_2809',    b: 'fbo_bull',    label: 'SVS+FBO↑',  lift: 2.14, sd: -1.34 },
-  { code: 'hilo_gg3', a: 'hilo_buy',    b: '_ph_gg3',     label: 'HILO↑+gG3', lift: 2.07, sd: -0.96 },
-  { code: 'gg3_zrt',  a: '_ph_gg3',     b: 'x_edge_zrt',  label: 'gG3+ZRT',   lift: 2.04, sd: +0.28 },
-  { code: 'g3_fbo',   a: '_gr_g3',      b: 'fbo_bull',    label: 'G3+FBO↑',   lift: 1.97, sd: +0.10 },
+  { code: 'gg3_dr',   a: '_ph_gg3',     b: 'x_edge_h1dr', label: 'gG3+🕐DR',  lift: 1.33, sd: +3.00 },
+  { code: 'rtv_gg3',  a: 'rtv',         b: '_ph_gg3',     label: 'RTV+gG3',   lift: 0.99, sd: -1.17 },
+  { code: 'flp_dr',   a: 'd_flip_bull', b: 'x_edge_h1dr', label: 'FLP↑+🕐DR', lift: 1.20, sd: +3.21 },
+  { code: 'fbo_p',    a: 'fbo_bull',    b: '_any_p',      label: 'FBO↑+P',    lift: 1.04, sd: +0.07 },
+  { code: 'gg3_fbo',  a: '_ph_gg3',     b: 'fbo_bull',    label: 'gG3+FBO↑',  lift: 1.06, sd: +0.56 },
+  { code: 'v_fbo',    a: '_gr_v',       b: 'fbo_bull',    label: 'V+FBO↑',    lift: 1.03, sd: -0.71 },
+  { code: 'svs_fbo',  a: 'svs_2809',    b: 'fbo_bull',    label: 'SVS+FBO↑',  lift: 1.03, sd: -1.34 },
+  { code: 'hilo_gg3', a: 'hilo_buy',    b: '_ph_gg3',     label: 'HILO↑+gG3', lift: 1.03, sd: -0.96 },
+  { code: 'gg3_zrt',  a: '_ph_gg3',     b: 'x_edge_zrt',  label: 'gG3+ZRT',   lift: 1.05, sd: +0.28 },
+  { code: 'g3_fbo',   a: '_gr_g3',      b: 'fbo_bull',    label: 'G3+FBO↑',   lift: 1.02, sd: +0.10 },
 ]
 
 /** Per bar: which of the 10 singles / 10 pairs are on over t-2..t.

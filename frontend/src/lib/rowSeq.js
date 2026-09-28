@@ -19,8 +19,14 @@ import SPEC from './rowSeqSpec.json'
 export const ROW_ORDER = ['FLY', 'GR', 'MTF', 'PHYS', 'VOL7', 'PV', 'BREAK', 'OVD', 'DELTA']
 export const ROW_SHORT = { FLY: 'FLY', GR: 'GR', MTF: 'MTF', PHYS: '⚛', VOL7: 'VOL7', PV: 'PV', BREAK: 'BRK', OVD: 'OVD', DELTA: 'Δ' }
 // adjusted turn-zone lift of the CONFIRMED tier (location × ATR% strata, VERIFY 2024-26)
-export const ROW_LIFT = { FLY: 1.63, GR: 1.60, MTF: 1.52, PHYS: 1.45, VOL7: 1.43, PV: 1.42, BREAK: 1.41, OVD: 1.41, DELTA: 1.40 }
-export const PAIR_LIFT = 1.88
+// ⚠️ CORRECTED 2026-09-28 (research_out/TZL_BOTTOM_SEQ_V1.md): the turn-zone label spans t-3..t+3 and leaks
+// the recent low. Controlling for price location × ATR% × "10-bar low in t-3..t", the CONFIRMED-tier lifts are
+// ≈ 1.0-1.1 — the rows mostly re-state that a low was just printed. Only ◆V∧M (1.15) and VOL7 (1.11) keep a
+// small increment. First-published values (location × ATR% only) kept in ROW_LIFT_OLD for the record.
+export const ROW_LIFT = { FLY: 1.00, GR: 1.11, MTF: 1.04, PHYS: 0.98, VOL7: 1.11, PV: 1.06, BREAK: 1.05, OVD: 0.99, DELTA: 1.01 }
+export const ROW_LIFT_OLD = { FLY: 1.63, GR: 1.60, MTF: 1.52, PHYS: 1.45, VOL7: 1.43, PV: 1.42, BREAK: 1.41, OVD: 1.41, DELTA: 1.40 }
+export const PAIR_LIFT = 1.15
+export const PAIR_LIFT_OLD = 1.88
 
 // compile once: per row → lag map (key → Set of lags), rep keys, pairs (k2 → [k1…])
 const COMPILED = Object.fromEntries(ROW_ORDER.map(r => {

@@ -8,7 +8,11 @@ x_anat_rev_rs / x_anat_rev_norm / x_anat_shake in frontend/src/lib/v4ExtraGroups
   bottom(t)  = anat_v == 'rev'  or  anat_v == 'shake'
   B1 CLUSTER = bottom(t) and ≥1 other bottom bar in t-4..t-1                (the frozen rule)
   B2 CL·🔻💪 = B1 and anat_v(t) == 'rev' and anat_rs(t)                      (AMENDMENT_1, declared
-               2026-09-28 before any forward data, from the seen-data decomposition; k = 2)
+               2026-09-28 before any forward data, from the seen-data decomposition)
+  B3 🔻💪+T9 = 🔻💪 (anat_v 'rev' and anat_rs) on t AND T/Z state T9 on t      (AMENDMENT_2, 2026-09-28,
+  B4 🕐DR+Z2G = 🕐DR edge (edge_replay h1dr_chip) on t AND T/Z state Z2G on t    TZ_X_BOTTOM_V1 — the 2 cells
+               that passed MINE→VERIFY; declared before any forward data. Forward k = 4.)
+  B3/B4 additionally need Δ ≥ their anchor's forward Δ (🔻💪 alone / 🕐DR alone) — the state must add.
 Eligible: close ≥ $5, 20-day mean $volume ≥ $5M. Entry open[t+1], book _pathsim ATR×12 trail, maxh 60,
 slip .0015, 5-bar cooldown. Control: every eligible bar on the stride-10 control_keys.phase grid.
 Only trades whose full 60-session horizon lies inside the data are scored (right-edge censoring).
@@ -57,6 +61,20 @@ def run(d0: str, d1: str | None) -> dict:
     dv = (df["close"] * df["volume"]).groupby(df.ticker).transform(lambda s: s.rolling(20, min_periods=20).mean())
     el = ((df["close"] >= 5) & (dv >= 5e6) & df["atr_14"].notna()).to_numpy()
     v = df["v"].fillna("").to_numpy(); rs = df["rs"].fillna(False).astype(bool).to_numpy()
+    tzq = duckdb.connect(db_path("studio_analytics.duckdb"), read_only=True).execute(f"""WITH r AS (SELECT ticker,
+            cast(date as varchar)[:10] date, t_sig, z_sig, row_number() OVER (PARTITION BY ticker, date ORDER BY universe) rn
+            FROM bars WHERE universe <> 'index' AND date >= '{load_from}') SELECT ticker, date, t_sig, z_sig FROM r WHERE rn = 1""").fetchdf()
+    df = df.merge(tzq, on=["ticker", "date"], how="left")
+    tzs = df["t_sig"].fillna("").astype(str).where(df["t_sig"].fillna("").astype(str) != "", df["z_sig"].fillna("").astype(str)).to_numpy()
+    import edge_replay
+    grp_e, _ = edge_replay._frame(64, 3_000_000)
+    dr_set = set()
+    for t_, g_ in grp_e.items():
+        if "h1dr_chip" in g_:
+            for d_ in g_["date"].astype(str).str[:10].to_numpy()[g_["h1dr_chip"].to_numpy(bool)]:
+                if d_ >= load_from: dr_set.add((t_, d_))
+    del grp_e
+    dr = np.array([k in dr_set for k in zip(df.ticker, df.date)])
     tk = df.ticker.to_numpy(); n = len(df)
     bot = (v == "rev") | (v == "shake")
     prev = np.zeros(n, np.int16)
@@ -64,12 +82,15 @@ def run(d0: str, d1: str | None) -> dict:
         s = np.zeros(n, bool); s[j:] = bot[:-j]; s[np.r_[np.zeros(j, bool), tk[j:] != tk[:-j]]] = False; prev += s
     df["B1"] = bot & (prev >= 1) & el
     df["B2"] = df["B1"].to_numpy() & (v == "rev") & rs
+    rsb = (v == "rev") & rs & el
+    df["A_RS"] = rsb; df["B3"] = rsb & (tzs == "T9")
+    df["A_DR"] = dr & el; df["B4"] = dr & el & (tzs == "Z2G")
     starts = np.r_[0, np.flatnonzero(tk[1:] != tk[:-1]) + 1]; ends = np.r_[starts[1:], n]
     pos = np.arange(n) - np.repeat(starts, ends - starts)
     ph = pd.Series(tk).map(lambda t: phase(t, 10)).to_numpy()
     df["CTRL"] = el & ((pos - ph) % 10 == 0)
     grp = {t: x.reset_index(drop=True) for t, x in df[["ticker", "date", "open", "high", "low", "close", "atr_14",
-                                                        "B1", "B2", "CTRL"]].groupby("ticker", sort=False)}
+                                                        "B1", "B2", "B3", "B4", "A_RS", "A_DR", "CTRL"]].groupby("ticker", sort=False)}
     cal = sorted(df.date.unique())
     last_ok = cal[-(HORIZON + 2)] if len(cal) > HORIZON + 2 else cal[0]     # entry must have 60 sessions after it
     hi = min(d1, last_ok) if d1 else last_ok
@@ -79,7 +100,7 @@ def run(d0: str, d1: str | None) -> dict:
     cd = ctrl.groupby("date_in").ret.agg(["mean", "size"])
     rng = np.random.default_rng(20260928)
     out = {"window": [d0, hi], "control_trades": len(ctrl)}
-    for rule in ("B1", "B2"):
+    for rule in ("A_RS", "A_DR", "B1", "B2", "B3", "B4"):
         t = keep(sim(rule))
         dm = t.groupby("date_in").ret.mean().to_frame("s").join(cd, how="inner"); dm = dm[dm["size"] >= 20]
         x = ((dm.s - dm["mean"]) * 100).to_numpy()
@@ -89,6 +110,11 @@ def run(d0: str, d1: str | None) -> dict:
         out[rule] = {"n": len(t), "days": len(x), "mean_ret_pct": round(100 * t.ret.mean(), 2),
                      "same_day_delta_pp": round(float(x.mean()), 2), "ci95": [round(lo, 2), round(hi_, 2)],
                      "PASS": bool(x.mean() > 0 and lo > 0)}
+    for rule, anchor in (("B3", "A_RS"), ("B4", "A_DR")):         # the state must add over its anchor
+        if isinstance(out.get(rule), dict) and "PASS" in out[rule] and "same_day_delta_pp" in out.get(anchor, {}):
+            out[rule]["PASS"] = bool(out[rule]["PASS"] and out[rule]["same_day_delta_pp"] >= out[anchor]["same_day_delta_pp"])
+    for anchor in ("A_RS", "A_DR"):
+        if isinstance(out.get(anchor), dict): out[anchor].pop("PASS", None); out[anchor]["role"] = "anchor (reference, not a test)"
     return out
 
 

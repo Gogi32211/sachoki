@@ -7,7 +7,7 @@ import { requestGex, getGex, subscribeGex } from '../gexStore'
 import { V4_ALL_GROUPS } from './UltraScanPanel'
 import { v4Score, v4FiredLabels, v4Fired } from '../lib/v4Score'
 import { withTurnCount, TURN_LIFT } from '../lib/turnCount'
-import { withRowSeq, ROW_ORDER, ROW_SHORT, ROW_LIFT, PAIR_LIFT } from '../lib/rowSeq'
+import { withRowSeq, ROW_ORDER, ROW_SHORT, ROW_LIFT, ROW_LIFT_OLD, PAIR_LIFT, PAIR_LIFT_OLD } from '../lib/rowSeq'
 import { withTopPairs, TOP_SINGLES, TOP_PAIRS } from '../lib/topPairs'
 import { V4_WEIGHTS } from '../lib/v4Weights'
 
@@ -1323,8 +1323,8 @@ const ROWS = [
            + (band ? `2024-26: lows with ≥${band[0]} turned ${band[1]}× as often as an average 10-bar low\n`
                    : 'below 20: turn likelihood close to an average 10-bar low\n')
            + `\nmatched: ${(b.turn_keys || []).join(' · ') || '—'}\n\n`
-           + 'DESCRIPTIVE: turn likelihood replicated out of sample, but as a trade (ATR×12 trail) these '
-           + 'lows did not beat other 10-bar lows. Not a buy signal, never a score input.'
+           + '⚠️ Mostly re-states that a low was just printed: controlling for price location, ATR% AND a 10-bar low in t-3..t, TURN·58 ≈ 1.0 at every band (TZL_BOTTOM_SEQ_V1) — the lift above was measured without that control. '
+           + 'As a trade these lows did not beat other 10-bar lows. Not a buy signal, never a score input.'
     },
     chipCls: (sig, b) => {
       const n = b?.turn_n ?? 0
@@ -1351,13 +1351,13 @@ const ROWS = [
     },
     sigTitle: (sig, b) => {
       const head = sig === '◆V∧M'
-        ? `◆ VOL7 ∧ MTF both CONFIRMED — the one row pair that added beyond the best single row: turn-zone lift ${PAIR_LIFT} (after removing price-location × ATR% effects, 2024-26), ~0.4 % of bars.`
+        ? `◆ VOL7 ∧ MTF both CONFIRMED — turn-zone lift ${PAIR_LIFT} (2024-26) after controlling for price location, ATR% and a recent 10-bar low (first published ${PAIR_LIFT_OLD} without the recent-low control). ~0.4 % of bars.`
         : (() => {
             const r = ROW_ORDER.find(x => sig.startsWith(ROW_SHORT[x]))
-            return `${r} row turn sequence — ${sig.endsWith('●') ? 'CONFIRMED (top 5 % of MINE scores)' : 'EARLY (top 20 %)'}; confirmed-tier turn-zone lift ${ROW_LIFT[r]} after removing price-location × ATR% effects (2024-26).`
+            return `${r} row turn sequence — ${sig.endsWith('●') ? 'CONFIRMED (top 5 % of MINE scores)' : 'EARLY (top 20 %)'}; confirmed-tier turn-zone lift ${ROW_LIFT[r]} (2024-26) after controlling for price location, ATR% and a recent 10-bar low (first published ${ROW_LIFT_OLD[r]}).`
           })()
-      return head + '\n\nDESCRIPTIVE: identifies turn zones (21-bar pivot within ±3 bars, then +3 ATR). Many rows together add nothing over the best one; '
-           + 'predicting ≥ +30 % moves was NULL (volatility only) and the same-day trade return ≈ 0. Not a buy signal, never a score input.'
+      return head + '\n\n⚠️ Mostly re-states that a low was just printed: controlling for price location, ATR% AND a 10-bar low in t-3..t, these rows add ≈ nothing (lift ≈ 1.0-1.1; TZL_BOTTOM_SEQ_V1). '
+           + 'Big-move prediction NULL, same-day return ≈ 0. Use: EDGE fires inside a ⟲ROW≥2 zone earned more per trade (timing, EDGE_IN_TURNZONE_V1). Not a buy signal, never a score input.'
     },
     chipCls: (sig) => (sig === '◆V∧M' ? 'bg-amber-800/80 text-amber-50 font-mono font-bold ring-1 ring-amber-400/60'
       : sig.endsWith('●') ? 'bg-amber-950/60 text-amber-200 font-mono font-semibold'
@@ -1378,9 +1378,9 @@ const ROWS = [
     sigTitle: (sig) => {
       const p = TOP_PAIRS.find(x => x.label === sig); const x = TOP_SINGLES.find(y => y.label === sig)
       const it = p || x; if (!it) return undefined
-      return `${p ? 'TOP pair' : 'TOP single'} ${sig} — on in the last 3 bars. Turn-zone lift ${it.lift} vs a bar with the same price location and ATR% (VERIFY 2024-26, all US tickers in the DB). `
+      return `${p ? 'TOP pair' : 'TOP single'} ${sig} — on in the last 3 bars. Turn-zone lift ${it.lift} vs a bar with the same price location, ATR% and recent-low status (VERIFY 2024-26, corrected; first published 1.3-2.7 without the recent-low control). `
            + `Same-day return vs the day's other bars: ${it.sd >= 0 ? '+' : ''}${it.sd.toFixed(2)} pp (descriptive).\n\n`
-           + 'DESCRIPTIVE turn-zone identification (TURN58_TOP_V1). Not path-sim-tested as a setup; not a buy signal, never a score input.'
+           + '⚠️ Mostly re-states that a low was just printed: controlling for price location, ATR% AND a 10-bar low in t-3..t, only the 🕐DR family keeps a real increment (1.2-1.33); the rest ≈ 1.0 (TZL_BOTTOM_SEQ_V1). Not path-sim-tested as a setup; not a buy signal, never a score input.'
     },
     chipCls: (sig) => {
       const p = TOP_PAIRS.find(x => x.label === sig)
