@@ -27,7 +27,9 @@ def test_miss_has_every_ui_key():
 def test_turn_bands_need_a_candidate():
     assert T._to_ui(_rec(turn_cand=False, turn_n=40))["turn_ge20"] is False
     ui = T._to_ui(_rec(turn_cand=True, turn_n=27))
-    assert (ui["turn_ge20"], ui["turn_ge26"], ui["turn_ge30"]) == (True, True, False)
+    assert (ui["turn_ge15"], ui["turn_ge20"], ui["turn_ge26"], ui["turn_ge30"]) == (True, True, True, False)
+    assert T._to_ui(_rec(turn_cand=True, turn_n=17))["turn_ge15"] is True
+    assert T._to_ui(_rec(turn_cand=True, turn_n=17))["turn_ge20"] is False
     assert ui["turn58_n"] == 27
 
 

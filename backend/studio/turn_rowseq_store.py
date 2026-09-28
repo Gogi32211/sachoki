@@ -25,7 +25,7 @@ META = os.path.join(DATA_DIR, "TURN_ROWSEQ_SIGNALS_V1.json")
 ROWS = ["fly", "gr", "mtf", "phys", "vol7", "pv", "break", "ovd", "delta"]
 SHORT = {"fly": "FLY", "gr": "GR", "mtf": "MTF", "phys": "⚛", "vol7": "VOL7", "pv": "PV",
          "break": "BRK", "ovd": "OVD", "delta": "Δ"}
-TURN_BANDS = (20, 26, 30)
+TURN_BANDS = (15, 20, 26, 30)
 
 # Every UI field a MISS must still carry, so a chip filter reads false — never undefined.
 MISS = {"turn58_cand": False, "turn58_n": None, "rs_pair": False, "rs_nconf": 0, "rs_nearly": 0, "rs_text": ""}

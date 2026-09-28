@@ -390,6 +390,8 @@ export const SIG_GROUPS = [
   //   neither picks a better trade (same-day Δ ≈ 0) and ≥ +30 % big-move prediction was NULL — a
   //   watchlist filter, never a ranking input. Daily bars only.
   { divider: true, label: 'TURN · ⟲ROW — turn-zone identification; not a buy signal' },
+  { key: 'turn_ge15', label: 'TURN≥15', cls: 'text-slate-300',
+    hint: 'TURN·58 ≥ 15 — 10-bar low with ≥15 of the 58 turn-enriched signals in the last 3 bars. NASDAQ (out of sample, 2021-26): turned 1.33× as often as an average 10-bar low [1.28, 1.39], ~27 % of lows. Wider and weaker than ≥20. Identification only.' },
   { key: 'turn_ge20', label: 'TURN≥20', cls: 'text-amber-200',
     hint: 'TURN·58 ≥ 20 — 10-bar low with ≥20 of the 58 turn-enriched signals in the last 3 bars. 2024-26: turned 1.34× as often as an average 10-bar low (NASDAQ out of sample 1.42). As a trade: not better than the day\'s other lows.' },
   { key: 'turn_ge26', label: 'TURN≥26', cls: 'text-amber-200',
@@ -1427,7 +1429,7 @@ const KEEP_ALWAYS = new Set([
   've_echo_gap','ve_echo_nmatch','ve_echo_hits','ve_qn','ve_rn','ve_rel_n','ve_rel_q','ve_bo_age',
   've_zone_pos','ve_echo_vr','ve_bov_x','ve_zone_top','ve_zone_bot',
   // TURN·58 + ⟲ROW (2026-09-28) — booleans + ints; without this the chips stop filtering after a cache reload.
-  'turn58_cand','turn58_n','turn_ge20','turn_ge26','turn_ge30','rs_pair','rs_nconf','rs_nearly','rs_text','rs_c2','rs_c3','rs_fly','rs_fly_c','rs_fly_e','rs_gr','rs_gr_c','rs_gr_e','rs_mtf','rs_mtf_c','rs_mtf_e','rs_phys','rs_phys_c','rs_phys_e','rs_vol7','rs_vol7_c','rs_vol7_e','rs_pv','rs_pv_c','rs_pv_e','rs_break','rs_break_c','rs_break_e','rs_ovd','rs_ovd_c','rs_ovd_e','rs_delta','rs_delta_c','rs_delta_e',
+  'turn58_cand','turn58_n','turn_ge15','turn_ge20','turn_ge26','turn_ge30','rs_pair','rs_nconf','rs_nearly','rs_text','rs_c2','rs_c3','rs_fly','rs_fly_c','rs_fly_e','rs_gr','rs_gr_c','rs_gr_e','rs_mtf','rs_mtf_c','rs_mtf_e','rs_phys','rs_phys_c','rs_phys_e','rs_vol7','rs_vol7_c','rs_vol7_e','rs_pv','rs_pv_c','rs_pv_e','rs_break','rs_break_c','rs_break_e','rs_ovd','rs_ovd_c','rs_ovd_e','rs_delta','rs_delta_c','rs_delta_e',
 ])
 function _slimRow(r) {
   const out = {}
