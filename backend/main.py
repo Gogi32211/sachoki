@@ -5572,6 +5572,29 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "sig_d_up_red":    int(_b(_delta_df, "surge_bull_red")),
             "sig_d_dn_green":  int(_b(_delta_df, "surge_bear_grn")),
             "sig_dd_dn_green": int(_b(_delta_df, "blast_bear_grn")),
+            # ── Delta extras, part 2 (2026-09-24) — compute_delta() (delta_engine.py) computes
+            # 23 columns; only the 6 above were ever read out. The other 17 — including
+            # absorb_bull, which is the "ABSORB" +15 bonus in ultra_score_v3's earn component
+            # and V4's d_absorb_bull(5) — were silently always 0/missing on every Superchart bar.
+            # Found chasing a UV3 mismatch on GIS (user: "ratoma sxvaoba RSI shi" — RSI itself
+            # turned out fine, this was the real gap). UI names are a straight "d_" + delta_
+            # engine's own column name (confirmed passthrough in ultra_db_scan.py's
+            # _PASSTHROUGH_SIGNAL_COLS), so no alias table needed — just extract them.
+            "d_strong_bull":  int(_b(_delta_df, "strong_bull")),
+            "d_strong_bear":  int(_b(_delta_df, "strong_bear")),
+            "d_absorb_bull":  int(_b(_delta_df, "absorb_bull")),
+            "d_absorb_bear":  int(_b(_delta_df, "absorb_bear")),
+            "d_div_bull":     int(_b(_delta_df, "div_bull")),
+            "d_div_bear":     int(_b(_delta_df, "div_bear")),
+            "d_cd_bull":      int(_b(_delta_df, "cd_bull")),
+            "d_cd_bear":      int(_b(_delta_df, "cd_bear")),
+            "d_surge_bull":   int(_b(_delta_df, "surge_bull")),
+            "d_surge_bear":   int(_b(_delta_df, "surge_bear")),
+            "d_blast_bull":   int(_b(_delta_df, "blast_bull")),
+            "d_blast_bear":   int(_b(_delta_df, "blast_bear")),
+            "d_spring":       int(_b(_delta_df, "spring")),
+            "d_upthrust":     int(_b(_delta_df, "upthrust")),
+            "d_flip_bear":    int(_b(_delta_df, "flip_bear")),
             # ── NS/ND Delta (combo vs vabs disambiguation) ────────────────────
             "sig_ns_delta": int("NS" in combo_list and "NS" not in vabs_list),
             "sig_nd_delta": int("ND" in combo_list and "ND" not in vabs_list),
@@ -5648,6 +5671,26 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             # ── Diagnostics ────────────────────────────────────────────────────
             "already_extended": int(_b(sig_df, "already_extended") if not sig_df.empty and "already_extended" in sig_df.columns else False),
         })
+
+        # Canonical combo / VABS / WLNBB / Wyckoff booleans (2026-09-24). `sig_row` above already
+        # holds every one of these under the exact SIG_GROUPS key (vbo_up, hilo_buy, bx_up, …) —
+        # it was built for the turbo score and then discarded, while the output dict only carried
+        # raw_* / sig_* spellings. Ultra's DB path promotes raw_atr_brk → atr_brk etc. at import
+        # (incremental_delta.py) and stores these as passthrough columns, so on Ultra they fire and
+        # here they never did: ICE 160 vs 100 traced to exactly VBO↑/HILO↑/BX↑/BE↑ (+20) and tLPS
+        # (+5) among others. setdefault — never overwrite a key the dict already carries.
+        _b_last = result[-1]
+        for _k in ("vbo_up", "bo_up", "bx_up", "be_up", "rocket", "rtv", "hilo_buy", "atr_brk",
+                   "bb_brk", "um_2809", "bf_buy", "sq", "load_sig", "abs_sig", "climb_sig", "ns",
+                   "sc", "svs_2809", "conso_2809", "fbo_bull", "eb_bull", "ultra_3up", "buy_2809",
+                   "sig3g", "va", "cd", "ca", "cw", "seq_bcont"):
+            _b_last.setdefault(_k, int(bool(sig_row.get(_k))))
+        for _k, _arr in (("w2_sc", _w2_sc), ("w2_ar", _w2_ar), ("w2_st", _w2_st),
+                         ("w2_spring", _w2_spr), ("w2_sos", _w2_sos2), ("w2_jac", _w2_jac),
+                         ("w2_lps", _w2_lps), ("w2_evr", _w2_evr),
+                         ("wt_spring", _wt_spr), ("wt_sos", _wt_sos), ("wt_lps", _wt_lps),
+                         ("wt_evr", _wt_evr)):
+            _b_last.setdefault(_k, int(bool(_arr[i])) if i < len(_arr) else 0)
 
         # Track ultra_score for next bar's DECAY MEMORY BONUS (rolling_score_max_5d).
         # Also expose ultra_score / ultra_score_band on the per-bar dict so
@@ -6122,6 +6165,99 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
                 _b.pop("_zt", None); _b.pop("_ly", None)
         except Exception:
             log.debug("seq_ctx annotate skipped", exc_info=True)
+
+    # UI-key alias mirror (2026-09-24): this function writes the DB storage-convention keys
+    # (sig_best, sig_bias_up, sig_vol_5x, g1p, …) into each bar dict — the SAME convention the
+    # nightly-built studio DB uses. Ultra's DB-instant scan (studio/ultra_db_scan.py) renames
+    # those into the SIG_GROUPS/V4 UI-key convention (best_sig, bias_up, vol_spike_5x, gog_g1p,
+    # …) via _UI_KEY_TO_DB_COL before handing rows to the frontend — but THIS endpoint never
+    # did, so every V4 custom fn reading `row.best_sig` etc. silently read undefined on every
+    # Superchart bar. Confirmed 2026-09-24 (user: ICE showed V4=160 on Ultra vs 45 on Superchart
+    # for the same day) — this was the exact, long-documented "base signal families under-fire
+    # on Superchart" gap (see the caveat next to barsV4 in SuperchartPanel.jsx), not a rounding
+    # or display issue. Mirroring both names onto every bar, reusing Ultra's OWN alias table so
+    # the two surfaces can never drift apart again, closes it for every family that table covers
+    # (VABS, Wyckoff VABS, combo/2809, F/G, WLNBB/TZ_WLNBB L-flags, wick X, ULTRA v2, delta/CISD/
+    # PARA, PREUP/PREDN, GOG context, B/F-family, …). SHAPE/PV/LBAL/LVX/OVD/VOL7/RANK/EDGE/SEQ
+    # were never affected — they already share one backend store across both surfaces.
+    try:
+        from studio.ultra_db_scan import _UI_KEY_TO_DB_COL
+        for _b in result:
+            for _ui_key, _db_col in _UI_KEY_TO_DB_COL.items():
+                if _ui_key not in _b and _db_col in _b:
+                    _b[_ui_key] = _b[_db_col]
+    except Exception:
+        log.debug("UI-key alias mirror skipped", exc_info=True)
+
+    # T/Z + L-code derived flags (2026-09-24, found while re-checking the ICE gap after the
+    # mirror above: user still saw 115 on Ultra vs 90 on Superchart). _UI_KEY_TO_DB_COL has no
+    # entries for these because the DB stores them as one-hot booleans per state (sig_t1 …
+    # sig_t12, sig_t1g, sig_t2g, sig_z1 … sig_z12, sig_z1g, sig_z2g), computed at nightly-build
+    # time from the SAME single state string this endpoint already carries as `tz` (e.g. "T1",
+    # "T1G", "Z11"). ultra_db_scan.py's own `_filter_key()` documents the exact naming
+    # (sig_t2g → tz_t2g, bare "sig_t"/"sig_z" → tz_any_t/tz_any_z) — ported here as a direct
+    # derivation instead of a rename, since Superchart never had one-hot columns to rename FROM.
+    # `tz_wlnbb_l_signal` (the L-code family: _wl_l1…l6/_wl_l34/_wl_l46) is a straight alias of
+    # the `l_sig` field this endpoint already computes (confirmed at main.py:5733 etc.) — same
+    # value, just read under Ultra's field name.
+    _TZ_T_STATES = ["T1", "T2", "T3", "T4", "T5", "T6", "T9", "T10", "T11", "T12", "T1G", "T2G"]
+    _TZ_Z_STATES = ["Z1", "Z2", "Z3", "Z4", "Z5", "Z6", "Z7", "Z9", "Z10", "Z11", "Z12", "Z1G", "Z2G"]
+    for _b in result:
+        _tz_s = str(_b.get("tz") or "")
+        if _tz_s.startswith("T"):
+            _b["tz_any_t"] = 1
+            if _tz_s in _TZ_T_STATES:
+                _b["tz_t" + _tz_s[1:].lower()] = 1
+        elif _tz_s.startswith("Z"):
+            _b["tz_any_z"] = 1
+            if _tz_s in _TZ_Z_STATES:
+                _b["tz_z" + _tz_s[1:].lower()] = 1
+        if "l_sig" in _b and "tz_wlnbb_l_signal" not in _b:
+            _b["tz_wlnbb_l_signal"] = _b["l_sig"]
+
+    # Studio-DB fields Ultra reads but this endpoint never carried (2026-09-27, found by the
+    # TURN·58 parity check: UBER 2026-09-10 counted 23 here vs 28 on the same rows in history).
+    # Ultra's latest-bar row takes these straight from `bars` (ultra_db_scan._row_to_dict:
+    # composite_full_suffix → tz_wlnbb_full_suffix, bar_gap_range → tz_wlnbb_bar_gap_range, and the
+    # l34/l43/l22 chart flags). Without them the _gr_* / _cl_* / _pen_* / l34 / _l_any chips never
+    # fired on Superchart. setdefault only — a value this endpoint already computed wins.
+    if tf == "1d" and result:
+        try:
+            import duckdb as _dk2
+            _ac2 = _dk2.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                             "data", "studio_analytics.duckdb"), read_only=True)
+            _fx = _ac2.execute("""WITH r AS (SELECT date, bar_gap_range, composite_full_suffix, full_suffix,
+                    l34, l43, l22, be_dn, bf_sell, bo_dn, bx_dn, row_number() OVER (PARTITION BY ticker, date ORDER BY universe) rn
+                    FROM bars WHERE ticker = ?)
+                SELECT * EXCLUDE rn FROM r WHERE rn = 1""", [ticker.upper()]).fetchall()
+            _ac2.close()
+            _fmap = {str(r[0])[:10]: r[1:] for r in _fx}
+            for _b in result:
+                _v = _fmap.get(str(_b.get("date"))[:10])
+                if not _v:
+                    continue
+                _gr, _cfs, _fs, _l34, _l43, _l22, _bedn, _bfs, _bodn, _bxdn = _v
+                if _gr:
+                    _b.setdefault("tz_wlnbb_bar_gap_range", str(_gr))
+                if _cfs or _fs:
+                    _b.setdefault("tz_wlnbb_full_suffix", str(_cfs or _fs))
+                for _k, _x in (("l34", _l34), ("l43", _l43), ("l22", _l22)):
+                    if _x is not None:
+                        _b.setdefault(_k, int(bool(_x)))
+                # ⟲ROW parity (2026-09-28, ROWSEQ_V1): this endpoint sends bf_sell as None, so 4BF↓
+                # never fired in the Superchart catalog while history (and Ultra) read it from `bars`.
+                # Filled only when absent/None — never overrides a computed value.
+                if _bfs is not None and _b.get("bf_sell") is None:
+                    _b["bf_sell"] = int(bool(_bfs))
+                # Studio-DB copies of BO↓/BX↓/BE↓ for ⟲ROW (lib/rowSeq.js), whose frozen BREAK features
+                # were learned on `bars`. Until 2026-09-28 the live bo_dn/bx_dn/be_dn were all VBO↓ (the
+                # _UI_KEY_TO_DB_COL alias bug, fixed in studio/ultra_db_scan.py); they now match `bars`
+                # and these copies are redundant but harmless.
+                for _k, _x in (("_db_bo_dn", _bodn), ("_db_bx_dn", _bxdn), ("_db_be_dn", _bedn)):
+                    if _x is not None:
+                        _b[_k] = int(bool(_x))
+        except Exception:
+            log.debug("studio-DB field merge skipped", exc_info=True)
 
     return result
 

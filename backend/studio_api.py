@@ -924,14 +924,41 @@ def ultra_from_db(req: UltraDBScanRequest):
 @router.post("/ultra-preview")
 def ultra_preview(req: UltraDBScanRequest):
     """Hybrid Preview scan — DB history + today's LIVE forming bar (Massive),
-    full signal suite recomputed. Falls back to the DB scan off-hours."""
+    full signal suite recomputed. Falls back to the DB scan off-hours.
+
+    SINGLE-FLIGHT + short TTL (2026-09-23). preview_scan.py's own docstring measures this at
+    ~36s for S&P 500, all 10 cores, via a ProcessPoolExecutor — the single most expensive call
+    in the backend. React StrictMode remounts, a tab left on Preview mode through a page reload,
+    and more than one browser tab open on the same universe all fire this identically, and
+    without dedup each one spins up its OWN 10-core process pool — several together can pin the
+    whole machine for minutes (diagnosed 2026-09-23: `ultra_db_scan`/preview churn at 200-380%
+    CPU for a sustained stretch, load average ~12-13 on a 10-core box, backend unresponsive to
+    even trivial requests for tens of seconds at a time).
+
+    `scan_cache.cached` is the same single-flight TTL memo already used for Edge board scans
+    (identical rationale there: "React StrictMode/remount fires each 2-3x on load"). A concurrent
+    duplicate call BLOCKS on the same per-key lock and reuses the first call's result instead of
+    starting its own process pool — the first request that arrives always runs to completion (no
+    cancel-and-restart, which would starve under repeated rapid triggers and might never finish).
+    TTL 45s: longer than the scan's own ~36s cost, so a burst of near-simultaneous triggers
+    collapses to one; short enough that "today's live forming bar" stays meaningfully fresh
+    during the market-close window this feature exists for."""
     try:
         from studio.preview_scan import run_preview_scan
-        result = run_preview_scan(
-            universes    = req.universes,
-            min_price    = req.min_price,
-            min_volume   = req.min_volume,
-            age_lookback = req.age_lookback,
+        from scan_cache import cached as _scan_cached
+        key = "ultra-preview:" + ":".join([
+            ",".join(sorted(req.universes)), str(req.min_price), str(req.min_volume),
+            str(req.age_lookback),
+        ])
+        result = _scan_cached(
+            key,
+            lambda: run_preview_scan(
+                universes    = req.universes,
+                min_price    = req.min_price,
+                min_volume   = req.min_volume,
+                age_lookback = req.age_lookback,
+            ),
+            ttl=45,
         )
         return _sanitize_for_json(result)
     except Exception as exc:
@@ -1311,6 +1338,49 @@ def shapectx_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
         return {"marks": [], "meta": None,
                 "note": "shapectx_signals.parquet not built — run backend/shape_ctx_build.py"}
     return {"marks": SC.by_ticker(ticker, limit),
+            "meta": {"spec_id": sp.get("spec_id"), "built_at": sp.get("built_at"),
+                     "status": sp.get("status"), "params": sp.get("params")}}
+
+
+@router.get("/pv-multi-marks/{ticker}")
+def pv_multi_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
+    """PRICE × VOLUME per-bar readings (1D): the nine ordinal shapes of the "260921_PV_MULTI" Pine
+    script — DIV UPP UPR REV RUP VUP TURN UP4 RE2 — computed on BOTH price sources, `pv_c` on close
+    and `pv_o` on ohlc4 (the Pine default), because the two disagree on 47% of hits
+    (data/pv_multi_signals.parquet, pv_multi_build.py).
+
+    DESCRIPTIVE ONLY. PV_MULTI_V1, sealed 2026-09-21, k = 9 → 0 BUILD / 4 VETO_CANDIDATE / 5 NULL,
+    with EVERY cell negative in MINE: REV −0.909/−0.686 (negative in all four MINE years, dsr_neg
+    1.000), RE2 −0.689/−0.320, UPP −0.618/−0.573, RUP −0.350/−0.316. Those four VETO candidates are
+    RECORDED, NOT APPLIED — they cover ~13.6% of bars and applying them is an interaction question
+    with its own k. Never a ranking or score input."""
+    from studio import pv_multi_store as PV
+    sp = PV.spec() or {}
+    if not PV.available():
+        return {"marks": [], "meta": None,
+                "note": "pv_multi_signals.parquet not built — run backend/pv_multi_build.py"}
+    return {"marks": PV.by_ticker(ticker, limit),
+            "meta": {"spec_id": sp.get("spec_id"), "built_at": sp.get("built_at"),
+                     "status": sp.get("status"), "price_sources": sp.get("price_sources"),
+                     "codes": sp.get("codes")}}
+
+
+@router.get("/vol-echo-marks/{ticker}")
+def vol_echo_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
+    """VOL ECHO per-bar marks (1D): the "260925_VOL_ECHO" Pine script ported at its defaults —
+    SPIKE, SPK (hindsight), VE echo, Q quiet, R after breakdown, ▲/▼ release, BO▲ BD▼ BOV▲ BDV▼
+    (data/vol_echo_signals.parquet, vol_echo_build.py).
+
+    DESCRIPTIVE ONLY. Long studies NULL (VOL_ECHO_LONG_V1 0/274, LONG_2326 0/286, TRADE_V1 0/9).
+    QR_REL_V1 VETO CONFIRMED — yesterday Q∧R, today the first ▲ release: −1.40 pp vs a random buy in
+    VERIFY, negative in all 6 years — carried as `ve_qr_rel_veto`, RECORDED, NOT APPLIED.
+    Never a ranking or score input."""
+    from studio import vol_echo_store as VE
+    sp = VE.spec() or {}
+    if not VE.available():
+        return {"marks": [], "meta": None,
+                "note": "vol_echo_signals.parquet not built — run backend/vol_echo_build.py"}
+    return {"marks": VE.by_ticker(ticker, limit),
             "meta": {"spec_id": sp.get("spec_id"), "built_at": sp.get("built_at"),
                      "status": sp.get("status"), "params": sp.get("params")}}
 

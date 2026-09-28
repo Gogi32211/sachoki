@@ -4,6 +4,11 @@ import CodeCandleChart from './CodeCandleChart'
 import { lbalPick } from '../lbalMode'
 import { atrForecast, computeAtr14, forecastCsvCells, FORECAST_CSV_HEADERS, fmtForecast } from '../atrForecast'
 import { requestGex, getGex, subscribeGex } from '../gexStore'
+import { V4_ALL_GROUPS } from './UltraScanPanel'
+import { v4Score, v4FiredLabels, v4Fired } from '../lib/v4Score'
+import { withTurnCount, TURN_LIFT } from '../lib/turnCount'
+import { withRowSeq, ROW_ORDER, ROW_SHORT, ROW_LIFT, PAIR_LIFT } from '../lib/rowSeq'
+import { V4_WEIGHTS } from '../lib/v4Weights'
 
 const TF_OPTIONS = ['1w', '1d', '4h', '1h', '30m', '15m']
 const CELL_W  = 64   // px per bar column
@@ -918,6 +923,117 @@ const ROWS = [
     },
   },
   {
+    // PRICE × VOLUME — the TradingView "260921_PV_MULTI" script, ported. Nine ordinal shapes read
+    // off the last 3-5 daily bars: DIV UPP UPR REV RUP VUP TURN UP4 RE2. Values from
+    // /api/studio/pv-multi-marks merged by date (barsPv), 1d only.
+    //
+    // TWO ROWS, NOT A TOGGLE, for the same reason UDN★ has two: the script offers `close` and
+    // `ohlc4` as the price source and they DISAGREE — measured over 2.15M firing sessions, the two
+    // agree on only 52.7% of them. A toggle would hide exactly the half that is interesting.
+    //
+    // DESCRIPTIVE ONLY, and the evidence is specific: PV_MULTI_V1, sealed 2026-09-21, k = 9 →
+    // 0 BUILD / 4 VETO_CANDIDATE / 5 NULL, with EVERY cell negative in MINE:
+    //   REV −0.909/−0.686 (negative in all four MINE years, dsr_neg 1.000) · RE2 −0.689/−0.320 ·
+    //   UPP −0.618/−0.573 (4/4 negative years) · RUP −0.350/−0.316 · the rest NULL.
+    // The four VETOes are RECORDED, NOT APPLIED — they cover ~13.6% of bars and applying them is
+    // an interaction question with its own k. Never a score input. The chip colour says so: the
+    // four VETO codes are rose, the five NULL codes are neutral grey, and nothing here is green.
+    key: 'pv',
+    label: 'PV',
+    getSigs: (b, _prev, src = 'o') => {
+      const code = src === 'c' ? b.pv_c : b.pv_o
+      return code ? [code] : []
+    },
+    sigTitle: (sig, b, src = 'o') => {
+      const MEAN = {
+        DIV:  'price fell 3 bars while volume rose 3 bars',
+        UPP:  'price rose 3 bars while volume rose 3 bars',
+        UPR:  'volume rose 3 bars and price is above its level 2 bars ago (clean UPP excluded)',
+        REV:  'price and volume both fell 3 bars, then both turned up',
+        RUP:  'volume contracted 3 bars with day-3 price above day-1, then price and volume turned up',
+        VUP:  'volume fell 3 bars while price stayed above its level 2 bars ago',
+        TURN: 'price declined then recovered 2 bars, with the script\'s volume turn structure',
+        UP4:  'price rose 4 bars while volume expanded, rested, then re-expanded above the prior peak',
+        RE2:  'price down-down-up while volume went up-down-up',
+      }
+      const VERDICT = {
+        REV: 'VETO_CANDIDATE — −0.909 MINE / −0.686 VERIFY, negative in all 4 MINE years, dsr_neg 1.000',
+        RE2: 'VETO_CANDIDATE — −0.689 MINE / −0.320 VERIFY, dsr_neg 1.000',
+        UPP: 'VETO_CANDIDATE — −0.618 MINE / −0.573 VERIFY, negative in all 4 MINE years, dsr_neg 1.000',
+        RUP: 'VETO_CANDIDATE — −0.350 MINE / −0.316 VERIFY, negative in all 4 MINE years, dsr_neg 0.996',
+      }
+      const other = src === 'c' ? b.pv_o : b.pv_c
+      const otherName = src === 'c' ? 'ohlc4' : 'close'
+      return `${sig} (price = ${src === 'c' ? 'close' : 'ohlc4'}) — ${MEAN[sig] || ''}\n`
+           + `${otherName}: ${other || 'no shape'}${other && other !== sig ? '  ← the two sources disagree on this bar' : ''}\n\n`
+           + `sealed verdict: ${VERDICT[sig] || 'NULL — no effect that replicated'}\n`
+           + 'PV_MULTI_V1, k = 9: 0 BUILD / 4 VETO_CANDIDATE / 5 NULL, every cell negative in MINE.\n'
+           + 'Descriptive only — recorded, not applied. Never a ranking input.'
+    },
+    // No green anywhere: the best of these nine was NULL and four are VETO candidates, so a colour
+    // that reads as strength would contradict the evidence printed in the tooltip.
+    chipCls: (s) => (['REV', 'RE2', 'UPP', 'RUP'].includes(s)
+      ? 'bg-rose-900/60 text-rose-200 font-bold'
+      : 'bg-md-surface-high text-md-on-surface-var'),
+  },
+  {
+    // VOL ECHO — the TradingView "260925_VOL_ECHO" script ported at its defaults (vol_echo_build.py
+    // → data/vol_echo_signals.parquet, /api/studio/vol-echo-marks merged by date as barsVe), 1d only.
+    // VE echo · Q quiet in the zone · R low volume after a breakdown · ▲/▼ release (1-3) ·
+    // BO▲/BOV▲ BD▼/BDV▼ breakout · ● spike · SPK an origin that was echoed LATER (hindsight: it is
+    // drawn back onto the spike bar, exactly as the Pine draws it) · ⛔QR▲ the QR_REL_V1 veto shape.
+    // DESCRIPTIVE ONLY: every long study NULL (LONG_V1 0/274, LONG_2326 0/286, TRADE_V1 0/9);
+    // QR_REL_V1 veto CONFIRMED (−1.40 pp VERIFY vs a random buy, 6/6 years) — recorded, not applied.
+    key: 've',
+    label: 'ECHO',
+    chipCols: 2,
+    getSigs: (b) => {
+      const out = []
+      if (b.ve_echo) out.push('VE')
+      if (b.ve_q) out.push('Q')
+      if (b.ve_r) out.push('R')
+      if (b.ve_rel_up) out.push(`▲${b.ve_rel_n ?? ''}`)
+      if (b.ve_rel_dn) out.push(`▼${b.ve_rel_n ?? ''}`)
+      if (b.ve_bov) out.push('BOV▲'); else if (b.ve_bo) out.push('BO▲')
+      if (b.ve_bdv) out.push('BDV▼'); else if (b.ve_bd) out.push('BD▼')
+      if (b.ve_qr_rel_veto) out.push('⛔QR▲')
+      if (b.ve_spk) out.push('SPK')
+      else if (b.ve_spike && !b.ve_echo) out.push('●')
+      return out
+    },
+    sigTitle: (sig, b) => {
+      const base = b.ve_text ? `${b.ve_text}\n\n` : ''
+      const T = {
+        VE: `ECHO — volume within ±40% of an earlier spike, in the same price zone, ${b.ve_echo_gap ?? '?'} bars later (${b.ve_echo_col || ''}, ×${b.ve_echo_vr ?? '?'} of the spike's volume).`,
+        Q: 'QUIET — closes inside the armed echo zone on volume ≤ 0.8 × the 20-bar median.',
+        R: 'R — volume ≤ 0.8 × median within 20 bars after BD▼ / BDV▼.',
+        SPK: 'SPK — this spike was echoed LATER. Hindsight: the mark is drawn back onto the spike bar, so it was not knowable on this day.',
+        '●': 'Spike — volume ≥ 1.5 × the 20-bar median (the origin the script remembers).',
+        '⛔QR▲': 'QR_REL_V1 VETO — yesterday Q∧R, today the first ▲ release. −1.82 pp MINE / −1.40 pp VERIFY vs a random buy, negative in all 6 years. Recorded, NOT applied.',
+      }
+      const t = T[sig]
+        || (sig.startsWith('▲') ? `RELEASE ▲${b.ve_rel_n} — green bar with volume > SMA20 after ${b.ve_rel_q} quiet bar(s).`
+        : sig.startsWith('▼') ? `RELEASE ▼${b.ve_rel_n} — red bar with volume > SMA20 after ${b.ve_rel_q} quiet bar(s).`
+        : sig.startsWith('BO') ? `${sig} — first green candle that opens AND closes above the zone, ${b.ve_bo_age} bars after the echo${sig === 'BOV▲' ? `, volume ×${b.ve_bov_x ?? '?'} of SMA20` : ''}.`
+        : sig.startsWith('BD') ? `${sig} — first red candle that opens AND closes below the zone, ${b.ve_bo_age} bars after the echo${sig === 'BDV▼' ? `, volume ×${b.ve_bov_x ?? '?'} of SMA20` : ''}.`
+        : '')
+      return `${base}${t}\n\nDescriptive only — VOL_ECHO long studies NULL; the one confirmed result is the ⛔QR▲ veto. Never a ranking input.`
+    },
+    chipCls: (s) => (
+      s === 'VE' ? 'bg-cyan-900/60 text-cyan-200'
+      : s === 'Q' ? 'bg-purple-900/60 text-purple-200'
+      : s === 'R' ? 'bg-orange-900/60 text-orange-200'
+      : s.startsWith('▲') ? 'bg-green-900/60 text-green-200'
+      : s.startsWith('▼') ? 'bg-red-900/60 text-red-200'
+      : s === 'BOV▲' ? 'bg-blue-950/80 text-blue-200 font-bold'
+      : s === 'BO▲' ? 'bg-blue-900/60 text-blue-200'
+      : s === 'BDV▼' ? 'bg-purple-950/80 text-fuchsia-200 font-bold'
+      : s === 'BD▼' ? 'bg-fuchsia-900/60 text-fuchsia-200'
+      : s === '⛔QR▲' ? 'bg-rose-900/70 text-rose-200 font-bold'
+      : s === 'SPK' ? 'bg-amber-900/60 text-amber-200'
+      : 'bg-md-surface-high text-md-on-surface-var'),
+  },
+  {
     // L-BAL — the TradingView "260906_LTF_L_COUNT" label, ported. Per 1D session, from its 26
     // 15m bars: UDN = effort line (L34+L3 vs L46), UDN+ = labelled 15m bars by their own candle;
     // then the agreement marks ★ divergence · ★★ conflict · ★★★ half-up · ○○○ half-down · XXX
@@ -1163,6 +1279,90 @@ const ROWS = [
     },
   },
   {
+    // V4 — flat baseline (user-directed FIRST PASS, 2026-09-23): 5 points per SIG_GROUPS entry
+    // that fires on this bar, no weighting, no correlation control, UNMEASURED. Same catalog and
+    // evaluator as the Ultra screener's V4 column (src/lib/v4Score.js) — not a second definition.
+    // Placed directly after VOL7 (user's own placement).
+    //
+    // ⚠️ Not yet verified numerically identical to the Ultra screener for the same ticker/day —
+    // see the caveat on barsV4 above. >45 = green is the user's OWN threshold for their OWN
+    // all-5 weight map (restored 2026-09-24 after a one-day book-verdict trial —
+    // research_out/V4_BOOK_WEIGHTS_V1.md). V4_HISTORY_V1 measured this map as a signal counter
+    // with no forward-return ordering, so the colour is a preference, not an empirical zone.
+    // Same cut as the Ultra screener's V4 column (ScannerDataGrid.jsx).
+    key: 'v4',
+    label: 'V4',
+    // v4_score is often exactly 0 right now (every weight starts at 0) — a plain truthy
+    // check would hide the chip on every such bar. Show it whenever a signal fired at all,
+    // so the tooltip's fired-list stays visible while the user is still assigning weights.
+    getSigs: (b) => (b.v4_fired_labels?.length ? [String(b.v4_score)] : []),
+    sigTitle: (sig, b) => {
+      const labels = (b.v4_fired_labels || []).join(' \u00b7 ')
+      return `V4 = ${sig} (sum of per-signal weights, ${b.v4_fired_labels?.length ?? 0} signals fired today)\n`
+           + (labels ? `fired: ${labels}\n\n` : '\n')
+           + 'Every signal starts at 0 (src/lib/v4Weights.js); the user is assigning weights one '
+           + 'at a time. Each fired signal above shows its label and current weight, e.g. "T2G(0)".'
+    },
+    chipCls: (sig, b) => (b?.v4_score > 45
+      ? 'bg-green-900 text-green-300 font-mono font-bold ring-1 ring-green-500/60'
+      : 'bg-md-surface-high text-md-on-surface-var font-mono'),
+  },
+  {
+    // TURN·58 — descriptive turn-likelihood gauge (research_out/TURN_SET_V1.md, user "gaakete"
+    // 2026-09-27). Only on a 10-bar low. Shown as "n/58": how many of the 58 keys that were
+    // enriched at turns in MINE 2021-23 fired in the last 3 bars. Turn likelihood rises with n and
+    // replicated in 2024-26, but as a TRADE it did not beat other 10-bar lows — so the colour
+    // grades likelihood in neutral tones, never green, and it is never a score input.
+    key: 'turn',
+    label: 'TURN·58',
+    getSigs: (b) => (b.turn_cand ? [`${b.turn_n}/58`] : []),
+    sigTitle: (sig, b) => {
+      const band = TURN_LIFT.find(([m]) => (b.turn_n ?? 0) >= m)
+      return `TURN·58 = ${b.turn_n} of 58 turn-enriched signals in the last 3 bars (this bar is a 10-bar low)\n`
+           + (band ? `2024-26: lows with ≥${band[0]} turned ${band[1]}× as often as an average 10-bar low\n`
+                   : 'below 20: turn likelihood close to an average 10-bar low\n')
+           + `\nmatched: ${(b.turn_keys || []).join(' · ') || '—'}\n\n`
+           + 'DESCRIPTIVE: turn likelihood replicated out of sample, but as a trade (ATR×12 trail) these '
+           + 'lows did not beat other 10-bar lows. Not a buy signal, never a score input.'
+    },
+    chipCls: (sig, b) => {
+      const n = b?.turn_n ?? 0
+      return n >= 28 ? 'bg-amber-900/70 text-amber-100 font-mono font-bold'
+           : n >= 20 ? 'bg-amber-950/60 text-amber-200 font-mono'
+           : n >= 10 ? 'bg-md-surface-high text-md-on-surface font-mono'
+           : 'bg-md-surface-high text-md-on-surface-var font-mono opacity-70'
+    },
+  },
+  {
+    // ⟲ROW-TURN — per-row turn-zone tiers (research_out/ROWSEQ_V1.md, user "ki gaakete" 2026-09-28).
+    // Each shown row's OWN 5-bar sequence scored with its MINE-selected features; ● = CONFIRMED
+    // (MINE q95), ○ = EARLY (q80). ◆V∧M = VOL7 and MTF both confirmed. Turn-zone IDENTIFICATION
+    // only: big-move prediction was NULL and same-day return ≈ 0 — neutral colours, never green,
+    // never a score input. Frozen spec in lib/rowSeqSpec.json (JS↔research tier parity 100 %).
+    key: 'rowseq',
+    label: '⟲ROW',
+    getSigs: (b) => {
+      const t = b.rs_tiers; if (!t) return []
+      const out = t.pair ? ['◆V∧M'] : []
+      for (const r of ROW_ORDER) if (t[r] === 2) out.push(`${ROW_SHORT[r]}●`)
+      for (const r of ROW_ORDER) if (t[r] === 1) out.push(`${ROW_SHORT[r]}○`)
+      return out
+    },
+    sigTitle: (sig, b) => {
+      const head = sig === '◆V∧M'
+        ? `◆ VOL7 ∧ MTF both CONFIRMED — the one row pair that added beyond the best single row: turn-zone lift ${PAIR_LIFT} (after removing price-location × ATR% effects, 2024-26), ~0.4 % of bars.`
+        : (() => {
+            const r = ROW_ORDER.find(x => sig.startsWith(ROW_SHORT[x]))
+            return `${r} row turn sequence — ${sig.endsWith('●') ? 'CONFIRMED (top 5 % of MINE scores)' : 'EARLY (top 20 %)'}; confirmed-tier turn-zone lift ${ROW_LIFT[r]} after removing price-location × ATR% effects (2024-26).`
+          })()
+      return head + '\n\nDESCRIPTIVE: identifies turn zones (21-bar pivot within ±3 bars, then +3 ATR). Many rows together add nothing over the best one; '
+           + 'predicting ≥ +30 % moves was NULL (volatility only) and the same-day trade return ≈ 0. Not a buy signal, never a score input.'
+    },
+    chipCls: (sig) => (sig === '◆V∧M' ? 'bg-amber-800/80 text-amber-50 font-mono font-bold ring-1 ring-amber-400/60'
+      : sig.endsWith('●') ? 'bg-amber-950/60 text-amber-200 font-mono font-semibold'
+      : 'bg-md-surface-high text-md-on-surface-var font-mono opacity-80'),
+  },
+  {
     // 🏅 RANK_V1 (2026-09-07, sealed family, user OK): per bar, the fire's expected edge from the A state table
     // as a percentile of THAT day's fires across the universe (last 270 sessions of the warm frame). Bars with
     // no edge fire carry nothing. Values arrive on the bar itself (api_bar_signals), no separate fetch.
@@ -1285,15 +1485,14 @@ function barsForTf(tf) {
   // Per-bar signal-matrix history depth. Bumped so the matrix shows ~300 bars of
   // history instead of ~150 (it used to stop ~7 months back on the daily view).
   //
-  // 1d → 750 (2026-09-22, ~3 years). Measured before changing it rather than guessed: the
-  // SERVER cost is flat, because /api/bar_signals runs its vectorised engines over the whole
-  // series either way so the rolling context stays correct — `bars` only trims the response
-  // (300 → 3.69s, 750 → 3.58s, full → 4.76s). What actually grows is the payload (1.71 → 4.28 MB)
-  // and the DOM: 44 rows × N columns, so 13,244 cells today and ~33,000 at 750, with a one-off
-  // layout of ~325ms measured at 4× width. 1d is explicit rather than folded into the trailing
-  // default so the other timeframes keep their own depth untouched.
+  // 1d: 750 (2026-09-22) reverted back to 300 (2026-09-23, user: page loads too slowly). The
+  // isolated /api/bar_signals timing was flat either way (300 -> 3.69s, 750 -> 3.58s — it always
+  // recomputes over the full series), but barsForTf(f) also sizes the LIMIT on every one of the
+  // parallel display-layer fetches this panel makes on load (LBAL/LVX/OVD/VOL7/SHAPE/PV/V4), so
+  // 750 meant seven separate calls each asking for a wider slice, not one. That compounded cost
+  // is what the user felt. 300 is back to being the trailing default rather than its own branch.
   return tf === '15m' ? 500 : ['30m', '1h'].includes(tf) ? 400 : tf === '4h' ? 300
-       : tf === '1w' ? 260 : tf === '1d' ? 750 : 300   // 1w → 260 (~5 years)
+       : tf === '1w' ? 260 : 300   // 1d/1w-other -> 300; 1w → 260 (~5 years)
 }
 
 function fmtDate(d, isIntraday) {
@@ -1378,6 +1577,8 @@ export default function SuperchartPanel({
   const [ovdMap, setOvdMap]       = useState({})   // date → ovdmap_* (OB/RC/CD/HO ·30/·60 · NM?), 1d only
   const [vol7Map, setVol7Map]     = useState({})   // date → vol7_* (M·σ levels, jumps, VB2, SHIFT), 1d only
   const [shapeMap, setShapeMap]   = useState({})   // date → shape_* (body-nest shape + context + cluster), 1d only
+  const [pvMap, setPvMap]         = useState({})   // date → pv_* (nine price×volume shapes, both price sources), 1d only
+  const [veMap, setVeMap]         = useState({})   // date → ve_* (VOL ECHO: VE · Q · R · ▲▼ · BO/BD · spike), 1d only
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
   const [showStats, setShowStats] = useState(false)
@@ -1427,6 +1628,51 @@ export default function SuperchartPanel({
   const barsShape = useMemo(
     () => bars.map(b => ({ ...b, ...(shapeMap[String(b.date).slice(0, 10)] || {}) })),
     [bars, shapeMap])
+  const barsPv = useMemo(
+    () => bars.map(b => ({ ...b, ...(pvMap[String(b.date).slice(0, 10)] || {}) })),
+    [bars, pvMap])
+  const barsVe = useMemo(
+    () => bars.map(b => ({ ...b, ...(veMap[String(b.date).slice(0, 10)] || {}) })),
+    [bars, veMap])
+
+  // V4 — per-signal WEIGHTS, user-directed (2026-09-23; revised from the flat first pass once
+  // the user saw how many SIG_GROUPS entries repeat the same information). Every signal starts
+  // at 0 (src/lib/v4Weights.js); reuses the Ultra screener's OWN filter catalog and the SAME
+  // weight map (imported, not re-typed) so the two surfaces read one definition of "what a
+  // signal is worth," not two that can drift apart.
+  //
+  // ⚠️ NOT YET VERIFIED IDENTICAL TO ULTRA. SIG_GROUPS was written against Ultra's scan row; this
+  // merged bar shares the display-layer fields (SHAPE/PV/LBAL/LVX/OVD/VOL7 — same backend store,
+  // guaranteed identical) but the "base" families read straight from /api/bar_signals, whose raw
+  // sig_* naming differs from some UI-aliased keys (bias_up, vol_spike_5x, …) Ultra's scan row
+  // carries after a backend rename table. Those specific predicates can under-fire here. See
+  // src/lib/v4Score.js for the full caveat; a fix is a named follow-up, not done in this pass.
+  // ▽△ anatomy verdict (AnatRow above, day1hMap) is Superchart-ONLY — it comes from
+  // /api/day1h, a per-ticker 1H-decomposition fetch that Ultra's scan never makes (300
+  // tickers × 1H history would be far too expensive for a screener pass). So x_anat_* can
+  // score here but will simply never fire on the Ultra Screener's V4 column — a real,
+  // permanent asymmetry, not a bug (2026-09-23, user confirmed wanting this added: "ki minda").
+  const barsV4 = useMemo(
+    () => bars.map(b => {
+      const d = String(b.date).slice(0, 10)
+      const anat = day1hMap[d]?.anat
+      // physMap (2026-09-24): the ⚛ family (_ph_* — RA/E2/E★/K2/S3U/AD/SPRING⚛ …, ~35 pts of
+      // the ICE 160-vs-100 gap) was never in this merge, so no physics signal could fire in V4
+      // here while it fired on Ultra. physMap is the SAME studio-DB source Ultra reads.
+      const merged = { ...b, ...(physMap[d] || {}), ...(shapeMap[d] || {}), ...(pvMap[d] || {}),
+                       ...(lbalMap[d] || {}), ...(lvxMap[d] || {}), ...(ovdMap[d] || {}),
+                       ...(vol7Map[d] || {}), ...(veMap[d] || {}),
+                       anat_v: anat?.v, anat_s: anat?.s, anat_rs: anat?.rs }
+      return { ...merged, v4_score: v4Score(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1),
+               v4_fired_labels: v4FiredLabels(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1),
+               _v4keys: v4Fired(V4_ALL_GROUPS, merged, 1).map(s => s.key) }
+    }),
+    [bars, physMap, shapeMap, pvMap, lbalMap, lvxMap, ovdMap, vol7Map, veMap, day1hMap])
+  // TURN·58 (2026-09-27, research_out/TURN_SET_V1.md): on a 10-bar low, how many of the 58 keys
+  // enriched at turns fired in t-2..t. Rides on barsV4 because it needs the same fired-key set.
+  const barsTurn = useMemo(() => withTurnCount(barsV4), [barsV4])
+  // ⟲ROW-TURN (2026-09-28, research_out/ROWSEQ_V1.md) — per-row turn-zone tiers; rides on barsV4 for _v4keys + phys_*.
+  const barsRowSeq = useMemo(() => withRowSeq(barsV4), [barsV4])
 
   const load = useCallback((t, f) => {
     setLoading(true)
@@ -1507,8 +1753,22 @@ export default function SuperchartPanel({
           setShapeMap(m)
         })
         .catch(() => setShapeMap({}))
+      api.pvMultiMarks(t, barsForTf(f) + 20)
+        .then(d => {
+          const m = {}
+          for (const r of (d?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r
+          setPvMap(m)
+        })
+        .catch(() => setPvMap({}))
+      api.volEchoMarks(t, barsForTf(f) + 20)
+        .then(d => {
+          const m = {}
+          for (const r of (d?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r
+          setVeMap(m)
+        })
+        .catch(() => setVeMap({}))
     } else {
-      setLbalMap({}); setLvxMap({}); setOvdMap({}); setVol7Map({}); setShapeMap({})
+      setLbalMap({}); setLvxMap({}); setOvdMap({}); setVol7Map({}); setShapeMap({}); setPvMap({}); setVeMap({})
     }
     // Bottom-Anatomy + (with1H) 1H-decomposition — each day → its 1H bars + anatomy
     // verdict. Fetched on EVERY daily load so the ▽△ anatomy row shows on the main
@@ -1562,11 +1822,12 @@ export default function SuperchartPanel({
     // blanks its own columns instead of shrinking the export.
     const MARK_LIMIT = 5000
     const marksFor = (fn) => (tf === '1d' ? fn(ticker, MARK_LIMIT) : Promise.resolve({ marks: [] }))
-    const [sigRes, physRes, lbalRes, lvxRes, ovdRes, vol7Res, shapeRes] = await Promise.allSettled([
+    const [sigRes, physRes, lbalRes, lvxRes, ovdRes, vol7Res, shapeRes, pvRes, veRes] = await Promise.allSettled([
       api.barSignals(ticker, tf, EXPORT_LIMIT),
       tf === '1d' ? api.studioBars(ticker, STUDIO_LIMIT) : Promise.resolve([]),
       marksFor(api.lbalMarks), marksFor(api.lvxMarks), marksFor(api.ovdmapMarks),
-      marksFor(api.vol7Marks), marksFor(api.shapectxMarks),
+      marksFor(api.vol7Marks), marksFor(api.shapectxMarks), marksFor(api.pvMultiMarks),
+      marksFor(api.volEchoMarks),
     ])
     const markMap = (res) => {
       const m = {}
@@ -1575,9 +1836,9 @@ export default function SuperchartPanel({
       return m
     }
     const mLbal = markMap(lbalRes), mLvx = markMap(lvxRes), mOvd = markMap(ovdRes)
-    const mVol7 = markMap(vol7Res), mShape = markMap(shapeRes)
+    const mVol7 = markMap(vol7Res), mShape = markMap(shapeRes), mPv = markMap(pvRes), mVe = markMap(veRes)
     const missing = [['L-BAL', lbalRes], ['L-VX', lvxRes], ['OVD', ovdRes], ['VOL7', vol7Res],
-                     ['SHAPE', shapeRes]].filter(([, r]) => r.status === 'rejected').map(([n]) => n)
+                     ['SHAPE', shapeRes], ['PV', pvRes], ['VOL_ECHO', veRes]].filter(([, r]) => r.status === 'rejected').map(([n]) => n)
     if (missing.length) setError(`CSV: ${missing.join(', ')} could not be fetched; those columns will be blank`)
     const full = sigRes.status === 'fulfilled' ? sigRes.value : null
     if (full?.length) {
@@ -1721,9 +1982,9 @@ export default function SuperchartPanel({
       'swing_type',
       // ── All scores (2026-07-18 — every score visible historically in the export)
       'ultra_score','ultra_score_band','ultra_score_v3','ultra_score_v3_band',
-      'prebreak_v2','prebreak_v3','rev_buy','brk_buy','mtf_echo','mtf_score_conf','turn_echo_n','h4_rev_today','h1_rev_today','fly_fresh','EDGES', 'SEQ34', 'SEQ34_WIN', 'SEQ_CTX', 'SEQ_CTX_UP', 'SEQ_ENS', 'SEQ_ENS_UP', 'CONF', 'CONF_TOP', 'CONF_EXT', 'CONF_EXT_TOP',
+      'prebreak_v2','prebreak_v3','rev_buy','brk_buy','mtf_echo','mtf_score_conf','turn_echo_n','h4_rev_today','h1_rev_today','fly_fresh','EDGES', 'SEQ34', 'SEQ34_WIN', 'SEQ34_DSR', 'SEQ34_COARSE', 'SEQ34_PS_MED', 'SEQ_CTX', 'SEQ_CTX_UP', 'SEQ_ENS', 'SEQ_ENS_UP', 'CONF', 'CONF_TOP', 'CONF_EXT', 'CONF_EXT_TOP',
       // ── chart↔CSV parity (2026-07-21): everything the Superchart renders
-      'L_SIG','BUY_SCORE','RSI','CCI','PROFILE_SCORE','PROFILE_CAT','EDGE_GOLD',
+      'L_SIG','L34_GRADE','BAR_BODY_WICK','BUY_SCORE','RSI','CCI','PROFILE_SCORE','PROFILE_CAT','EDGE_GOLD',
       'SEQ_CTX_LAYER','SEQ_CTX_KIND','SEQ_CTX_MEAN','SEQ_CTX_SIG','SEQ_ENS_DETAIL',
       // ── ATR time-to-target forecast (2026-07-26): per-bar historical forecast for review
       ...FORECAST_CSV_HEADERS,
@@ -1770,6 +2031,18 @@ export default function SuperchartPanel({
       'SHAPE_BAND','SHAPE_KNIFE_VETO','SHAPE_LSTUP_VETO','SHAPE_DIR_UP','SHAPE_DIR_DN',
       'SHAPE_CL_FAM','SHAPE_CL_BARS','SHAPE_BY_FAM','SHAPE_BY_DEN','SHAPE_MARK','SHAPE_LEGS',
       'SHAPE_MID','SHAPE_EXP','SHAPE_CON','SHAPE_LAST','SHAPE_WRAP','SHAPE_COIL','SHAPE_MOTH',
+      // PRICE × VOLUME — the nine ordinal shapes, on BOTH price sources, because they agree on only
+      // 52.7% of firing sessions. PV_MULTI_V1 sealed k = 9 → 0 BUILD / 4 VETO_CANDIDATE / 5 NULL,
+      // every cell negative in MINE. PV_VETO_* marks the four (REV RE2 UPP RUP): recorded, NOT
+      // applied. Never a ranking input.
+      'PV_CLOSE','PV_OHLC4','PV_AGREE','PV_VETO_CLOSE','PV_VETO_OHLC4',
+      // VOL ECHO — "260925_VOL_ECHO" at its defaults. Descriptive: every long study NULL. VE_SPK is
+      // HINDSIGHT (an origin is only 'echoed' once the echo arrives). VE_QR_REL_VETO = the QR_REL_V1
+      // veto shape (yesterday Q∧R, today the first ▲): confirmed, recorded, NOT applied.
+      'VE_SPIKE','VE_SPK','VE_ECHO','VE_ECHO_GAP','VE_ECHO_NMATCH','VE_ECHO_COL','VE_ECHO_VR','VE_ECHO_HITS',
+      'VE_Q','VE_QN','VE_R','VE_RN','VE_REL_UP','VE_REL_DN','VE_REL_N','VE_REL_Q',
+      'VE_BO','VE_BD','VE_BOV','VE_BDV','VE_BO_AGE','VE_BOV_X',
+      'VE_ZONE_ARMED','VE_ZONE_TOP','VE_ZONE_BOT','VE_ZONE_POS','VE_QR_REL_VETO',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
@@ -1969,6 +2242,9 @@ export default function SuperchartPanel({
       join(b.edges),
       b.seq34 ? b.seq34.seq : '',
       b.seq34?.win ?? '',
+      b.seq34?.dsr ?? '',
+      b.seq34?.coarse ? 1 : 0,
+      b.seq34?.ps_med ?? '',
       b.seq_ctx ? `${b.seq_ctx.dir}:${b.seq_ctx.seq}` : '',
       b.seq_ctx?.up ?? '',
       b.seq_ens ? `${b.seq_ens.n_up}up/${b.seq_ens.n_dn}dn` : '',
@@ -1978,6 +2254,8 @@ export default function SuperchartPanel({
       b.conf_ext ?? '',
       b.conf_ext_top ?? '',
       b.l_sig ?? '',
+      b.l34_grade ?? '',
+      b.bar_body_wick ?? '',
       b.buy_score ?? '',
       b.rsi ?? b.RSI ?? '',
       b.cci ?? b.CCI ?? '',
@@ -2030,6 +2308,16 @@ export default function SuperchartPanel({
           S.shape_mark ?? '', S.shape_legs ?? '',
           B01(S.shape_s_mid), B01(S.shape_s_exp), B01(S.shape_s_con), B01(S.shape_s_last),
           B01(S.shape_s_wrap), B01(S.shape_s_coil), B01(S.shape_s_moth),
+          ...(() => { const P = mPv[d] || {}
+            return [P.pv_c ?? '', P.pv_o ?? '', B01(P.pv_agree), B01(P.pv_veto_c), B01(P.pv_veto_o)] })(),
+          ...(() => { const E = mVe[d] || {}
+            return [B01(E.ve_spike), B01(E.ve_spk), B01(E.ve_echo), E.ve_echo_gap ?? '', E.ve_echo_nmatch ?? '',
+                    E.ve_echo_col ?? '', NUM(E.ve_echo_vr), E.ve_echo_hits ?? '',
+                    B01(E.ve_q), E.ve_qn ?? '', B01(E.ve_r), E.ve_rn ?? '',
+                    B01(E.ve_rel_up), B01(E.ve_rel_dn), E.ve_rel_n ?? '', E.ve_rel_q ?? '',
+                    B01(E.ve_bo), B01(E.ve_bd), B01(E.ve_bov), B01(E.ve_bdv), E.ve_bo_age ?? '', NUM(E.ve_bov_x),
+                    B01(E.ve_zone_armed), NUM(E.ve_zone_top, 4), NUM(E.ve_zone_bot, 4), E.ve_zone_pos ?? '',
+                    B01(E.ve_qr_rel_veto)] })(),
         ]
       })(),
     ])
@@ -2246,6 +2534,30 @@ export default function SuperchartPanel({
                 <VrpRow bars={bars} ticker={ticker} />
                 <AnatRow bars={bars} hoursMap={day1hMap} />
                 {with1H && <Row1H bars={bars} hoursMap={day1hMap} />}
+                {/* PV — the nine ordinal price×volume shapes, directly ABOVE UDN★ (user,
+                    2026-09-22). 1d only. Two rows for the two price sources, which agree on only
+                    52.7% of firing sessions. Descriptive: PV_MULTI_V1 k = 9 → 0 BUILD / 4 VETO /
+                    5 NULL, every cell negative in MINE; the four VETOes are recorded, not applied. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 'pv').map(row => (
+                  ['c', 'o'].map(src => (
+                    <ChipRow key={`${row.key}-${src}`} bars={barsPv}
+                             row={{ ...row,
+                                    label: (
+                                      <span title={src === 'c'
+                                        ? 'PRICE × VOLUME, price = CLOSE. Nine ordinal shapes from the last 3-5 daily bars. Shown beside the ohlc4 row because the two sources disagree on 47% of hits.'
+                                        : 'PRICE × VOLUME, price = OHLC4 — the Pine default. Nine ordinal shapes from the last 3-5 daily bars.'}>
+                                        PV·{src === 'c' ? 'C' : 'O'}
+                                      </span>
+                                    ),
+                                    getSigs: (b, prev) => row.getSigs(b, prev, src),
+                                    sigTitle: (sig, b) => row.sigTitle(sig, b, src) }} />
+                  ))
+                ))}
+                {/* ECHO — VOL_ECHO marks, directly below the PV rows. 1d only. Descriptive; the
+                    ⛔QR▲ chip is the one confirmed VETO (QR_REL_V1), recorded, not applied. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 've').map(row => (
+                  <ChipRow key={row.key} row={row} bars={barsVe} />
+                ))}
                 {/* UDN★ — L-BAL agreement marks, directly above SCORE (user, 2026-09-06). 1d only:
                     the row is a per-SESSION decomposition of the daily bar into its 15m bars. */}
                 {tf === '1d' && ROWS.filter(r => r.key === 'lbal').map(row => (
@@ -2277,6 +2589,11 @@ export default function SuperchartPanel({
                 {tf === '1d' && ROWS.filter(r => r.key === 'ovd').map(row => <ChipRow key={row.key} row={row} bars={barsOvd} />)}
                 {/* VOL7 — 7-level volume regime (M·σ, jumps, VB2, SHIFT), above SCORE (user, 2026-09-07). 1d only. */}
                 {tf === '1d' && ROWS.filter(r => r.key === 'vol7').map(row => <ChipRow key={row.key} row={row} bars={barsVol7} />)}
+                {/* V4 — flat baseline score, directly after VOL7 (user, 2026-09-23). 1d only. FIRST
+                    PASS / UNMEASURED — see the caveat on barsV4 above and in v4Score.js. */}
+                {tf === '1d' && ROWS.filter(r => r.key === 'v4').map(row => <ChipRow key={row.key} row={row} bars={barsV4} />)}
+                {tf === '1d' && ROWS.filter(r => r.key === 'turn').map(row => <ChipRow key={row.key} row={row} bars={barsTurn} />)}
+                {tf === '1d' && ROWS.filter(r => r.key === 'rowseq').map(row => <ChipRow key={row.key} row={row} bars={barsRowSeq} />)}
                 {/* 🏅 RANK_V1 — percentile of that day's edge fires (sealed A table), above SCORE (user, 2026-09-07). 1d only. */}
                 {tf === '1d' && ROWS.filter(r => r.key === 'rank').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
                 {ROWS.filter(r => r.key === 'score').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
@@ -2625,9 +2942,12 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* the remaining signal families */}
-                {/* 'phys' is excluded here because it is rendered above, directly under L —
-                    this catch-all is what silently drew it a second time at the bottom. */}
-                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick', 'cisd', 'lbal', 'lvx', 'ovd', 'vol7', 'rank', 'shape'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {/* Every row rendered explicitly ABOVE this line must also be excluded HERE, or
+                    this catch-all silently draws it a second time at the bottom — it already did
+                    that once for 'phys'. Caught again 2026-09-23: 'pv' (2026-09-22) and 'v4'
+                    (2026-09-23) were both added with their own dedicated render line and BOTH
+                    were missing from this list, so PV·C/PV·O and V4 were each rendering twice. */}
+                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick', 'cisd', 'lbal', 'lvx', 'ovd', 'vol7', 'rank', 'shape', 'pv', 've', 'v4', 'turn', 'rowseq'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
 
                 {/* ULTRA row — computed per-bar (independent confluence ranking) */}
 

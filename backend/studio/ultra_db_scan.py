@@ -192,9 +192,13 @@ _UI_KEY_TO_DB_COL: dict[str, str] = {
     # T/Z transitions
     "tz_bull_flip":   "sig_tz_flip",
     # Down-variants (BX↓/BE↓/FBO↓/EB↓/VBO↓)
-    "bo_dn":          "sig_vbo_dn",   # closest semantic match
-    "bx_dn":          "sig_vbo_dn",
-    "be_dn":          "sig_vbo_dn",
+    # BO↓/BX↓/BE↓ are their own WLNBB signals (wlnbb_engine BO_DN/BX_DN/BE_DN). They used to alias
+    # to sig_vbo_dn ("closest semantic match"), so all three chips showed VBO↓ on Ultra AND on
+    # Superchart (api_bar_signals mirrors this table). Ultra now passes the real `bars` columns
+    # through (above, wins over this table); these entries serve api_bar_signals' sig_*_dn.
+    "bo_dn":          "sig_bo_dn",
+    "bx_dn":          "sig_bx_dn",
+    "be_dn":          "sig_be_dn",
     "vbo_dn":         "sig_vbo_dn",
     "fbo_bear":       "sig_fbo_dn",
     "eb_bear":        "sig_eb_dn",
@@ -254,6 +258,10 @@ _PASSTHROUGH_SIGNAL_COLS = [
     "sig_z1g", "sig_z2g",
     # L family
     "sig_l_any", "l34", "l43", "l22", "be_up", "bo_up", "bx_up", "vbo_up",
+    # the REAL WLNBB down-breaks (`bars` carries them — incremental_delta writes them from
+    # sig_bo_dn/sig_bx_dn/sig_be_dn). Missing here before 2026-09-28, so the alias table below
+    # filled all three with VBO↓ (user-approved fix, "ki").
+    "bo_dn", "bx_dn", "be_dn",
     "sig_l1", "sig_l2", "sig_l3", "sig_l4", "sig_l5", "sig_l6",
     "sig_fri34", "sig_fri43", "sig_fri64", "sig_l555", "sig_l2l4",
     "sig_blue", "sig_cci", "sig_cci0r", "sig_ccib",
@@ -1078,6 +1086,61 @@ def _enrich_lvx(results: list) -> None:
         r.update(LX.MISS if hit is None else hit)
 
 
+def _enrich_pv_multi(results: list) -> None:
+    """In-place: PRICE × VOLUME — the nine ordinal shapes of the "260921_PV_MULTI" Pine script,
+    computed on BOTH price sources (`pv_c` close, `pv_o` ohlc4) because they disagree on 47% of
+    hits. DESCRIPTIVE ONLY: PV_MULTI_V1 sealed k = 9 → 0 BUILD / 4 VETO_CANDIDATE / 5 NULL with
+    every cell negative in MINE. The four VETOes are recorded, NOT applied — never a ranking
+    input. Every row gets the full `pv_*` key set (a miss reads '' / false, never undefined)."""
+    if not results:
+        return
+    from studio import pv_multi_store as PV
+    if not PV.available():
+        for r in results:
+            r.update(PV.MISS)
+        return
+    m = PV.by_dates({_row_date(r) for r in results})
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        r.update(PV.MISS if hit is None else hit)
+
+
+def _enrich_vol_echo(results: list) -> None:
+    """In-place: VOL ECHO — the "260925_VOL_ECHO" Pine script ported at its defaults (VE / Q / R /
+    ▲▼ release / BO▲ BD▼ BOV▲ BDV▼ / SPIKE / SPK). DESCRIPTIVE ONLY: every long study NULL; the
+    QR_REL_V1 veto (`ve_qr_rel_veto`) is recorded, NOT applied — never a ranking input. Every row
+    gets the full `ve_*` key set (a miss reads false / None, never undefined)."""
+    if not results:
+        return
+    from studio import vol_echo_store as VE
+    if not VE.available():
+        for r in results:
+            r.update(VE.MISS)
+        return
+    m = VE.by_dates({_row_date(r) for r in results})
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        r.update(VE.MISS if hit is None else hit)
+
+
+def _enrich_turn_rowseq(results: list) -> None:
+    """In-place: TURN·58 count + ⟲ROW per-row turn tiers (turn_rowseq_build.py → data/turn_rowseq_signals.parquet,
+    computed nightly with the Superchart's own JS). DESCRIPTIVE ONLY: turn-zone identification that
+    replicated out of sample; as a trade it does not beat the day's other bars and big-move prediction was
+    NULL — never a ranking input. Every row gets the full turn58_* / rs_* key set (a miss reads false)."""
+    if not results:
+        return
+    from studio import turn_rowseq_store as TRS
+    if not TRS.available():
+        for r in results:
+            r.update(TRS.MISS)
+        return
+    m = TRS.by_dates({_row_date(r) for r in results})
+    for r in results:
+        hit = m.get((r.get("ticker"), _row_date(r)))
+        r.update(TRS.MISS if hit is None else hit)
+
+
 def _enrich_ovdmap(results: list) -> None:
     """In-place: OVD daily map — OB/RC/CD/HO ·30/·60 + NM? tokens from the "260904_OVD_4_VOLUME_LOGICS
     _DAILY_MAP" Pine script ported for display (ovd_map_build.py → data/ovdmap_signals.parquet).
@@ -1737,6 +1800,20 @@ def run_ultra_db_scan(
         _enrich_shapectx(results)
     except Exception as exc:
         log.warning("_enrich_shapectx failed: %s", exc)
+
+    try:
+        _enrich_pv_multi(results)
+    except Exception as exc:
+        log.warning("_enrich_pv_multi failed: %s", exc)
+
+    try:
+        _enrich_vol_echo(results)
+    except Exception as exc:
+        log.warning("_enrich_vol_echo failed: %s", exc)
+    try:
+        _enrich_turn_rowseq(results)
+    except Exception as exc:
+        log.warning("_enrich_turn_rowseq failed: %s", exc)
 
     # ── Coverage accounting for the CURRENT overlay ───────────────────────────
     # A frozen member with no local rows must be VISIBLE, not silently absent. The

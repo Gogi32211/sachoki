@@ -202,6 +202,16 @@ export const api = {
   shapectxMarks: (ticker, limit = 400) =>
     get(`/api/studio/shapectx-marks/${ticker}?limit=${limit}`),
 
+  // PRICE × VOLUME — the nine ordinal shapes of "260921_PV_MULTI", on BOTH price sources
+  // (pv_c close, pv_o ohlc4). Descriptive only: PV_MULTI_V1 sealed k=9 → 0 BUILD / 4 VETO / 5 NULL.
+  pvMultiMarks: (ticker, limit = 400) =>
+    get(`/api/studio/pv-multi-marks/${ticker}?limit=${limit}`),
+
+  // VOL ECHO — "260925_VOL_ECHO" at its defaults: SPIKE · SPK · VE · Q · R · ▲/▼ · BO▲ BD▼ BOV▲ BDV▼.
+  // Descriptive only: long studies NULL; QR_REL_V1 veto (Q∧R → first ▲) recorded, not applied.
+  volEchoMarks: (ticker, limit = 400) =>
+    get(`/api/studio/vol-echo-marks/${ticker}?limit=${limit}`),
+
   // Today's LIVE forming 1d bar(s) + signals (Massive, 15-min delayed) to append
   // onto the DB chart. Returns {bars:[...]} with date > `after`; [] when closed.
   studioLiveTail: (ticker, after = '') =>

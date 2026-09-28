@@ -203,6 +203,40 @@ fi
 echo "──── 🔷 SHAPE × CONTEXT rebuild  ($(date '+%T')) ────"
 ( cd "$ROOT/backend" && nice -n 10 .venv/bin/python shape_ctx_build.py ) || { echo "  ⚠ SHAPE_CTX rebuild failed"; DEGRADED=1; }
 
+# ── ⚖️ PRICE × VOLUME MULTI (2026-09-22) ──────────────────────────────────────
+# The TradingView "260921_PV_MULTI" script ported for display: the nine ordinal price×volume shapes
+# (DIV UPP UPR REV RUP VUP TURN UP4 RE2) computed on BOTH price sources — close and ohlc4 — since
+# the two disagree on 47% of hits → data/pv_multi_signals.parquet. Read by the Ultra chips and
+# filters, the two Superchart PV rows and the Superchart CSV.
+#   1D ONLY — reads studio_analytics `bars`, so it is INDEPENDENT of the 1H/4H trust gate and lives
+#   outside that branch, beside SHAPE_CTX. ~10 s, atomic replace, non-fatal.
+#   DESCRIPTIVE ONLY: PV_MULTI_V1 sealed k = 9 → 0 BUILD / 4 VETO_CANDIDATE / 5 NULL, every cell
+#   negative in MINE. The four VETOes (REV RE2 UPP RUP) are RECORDED, NOT APPLIED. Never a ranking
+#   input. Parity with the sealed research is pinned by tests/test_pv_multi_display_parity.py.
+echo "──── ⚖️ PRICE × VOLUME rebuild  ($(date '+%T')) ────"
+( cd "$ROOT/backend" && nice -n 10 .venv/bin/python pv_multi_build.py ) || { echo "  ⚠ PV_MULTI rebuild failed"; DEGRADED=1; }
+
+# ── 📣 VOL ECHO (2026-09-27) ──────────────────────────────────────────────────
+# The TradingView "260925_VOL_ECHO" script ported at its defaults: SPIKE · SPK · VE echo · Q quiet ·
+# R after breakdown · ▲/▼ release · BO▲ BD▼ BOV▲ BDV▼ → data/vol_echo_signals.parquet. Read by the
+# Ultra chips and filters, the Superchart ECHO row and the Superchart CSV.
+#   1D ONLY — reads studio_analytics `bars`; INDEPENDENT of the 1H/4H trust gate. ~50 s, atomic
+#   replace, non-fatal.
+#   DESCRIPTIVE ONLY: every long study NULL; QR_REL_V1 veto (Q∧R then first ▲) CONFIRMED and
+#   RECORDED, NOT APPLIED. Never a ranking input. Port pinned by tests/test_vol_echo_port.py.
+echo "──── 📣 VOL ECHO rebuild  ($(date '+%T')) ────"
+( cd "$ROOT/backend" && nice -n 10 .venv/bin/python vol_echo_build.py ) || { echo "  ⚠ VOL_ECHO rebuild failed"; DEGRADED=1; }
+
+# ── ⟲ TURN·58 + ⟲ROW for Ultra (2026-09-28) ─────────────────────────────────────
+# Last 15 sessions per ticker of the two Superchart turn-zone gauges (TURN·58 count, ⟲ROW per-row
+# tiers) → data/turn_rowseq_signals.parquet, read by the Ultra filter chips. Runs AFTER the display
+# stores above (it reads lbal/lvx/ovd/vol7/shape/pv/vol_echo + anatomy + studio_4h/1h + EDGE masks) and
+# evaluates them with the Superchart's own JS (esbuild bundle of the catalog + lib/turnCount.js +
+# lib/rowSeq.js). Atomic replace, non-fatal.
+#   DESCRIPTIVE ONLY (TURN_SET_V1, ROWSEQ_V1): turn-zone identification, never a ranking input.
+echo "──── ⟲ TURN·58 / ⟲ROW rebuild  ($(date '+%T')) ────"
+( cd "$ROOT/backend" && nice -n 10 .venv/bin/python turn_rowseq_build.py ) || { echo "  ⚠ TURN/ROW rebuild failed"; DEGRADED=1; }
+
 # ── 💠 GEX edge-context forward log (2026-07-22) ──────────────────────────────
 # Options have NO historical snapshot, so GEX-confluence can only be validated by
 # capturing the LIVE GEX context at each edge-fire day and joining forward returns

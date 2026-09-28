@@ -7,6 +7,9 @@ import CodeCandleChart from './CodeCandleChart'
 import { gexSortVal, vrpSortVal, requestGexBulk, subscribeGex } from '../gexStore'
 import { anatSortVal, anatomyReady, getAnatomy, requestAnatomy, subscribeAnatomy } from '../anatomyStore'
 import { atrForecast } from '../atrForecast'
+import { v4Score, v4FiredLabels } from '../lib/v4Score'
+import { V4_WEIGHTS } from '../lib/v4Weights'
+import { V4_EXTRA_GROUPS } from '../lib/v4ExtraGroups'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
 const UNIVERSES = [
@@ -44,7 +47,9 @@ const DIR_OPTS = [
 // ── All signal filters — grouped by engine family ─────────────────────────────
 // divider:true = thin separator between groups
 // custom: fn(row)→bool for computed filters
-const SIG_GROUPS = [
+// Exported (2026-09-23) so V4 (src/lib/v4Score.js) can reuse this EXACT catalog on the
+// Superchart side too, instead of a second hand-maintained signal list that would drift.
+export const SIG_GROUPS = [
   // ── ★ COMPOSITE setups (backtested edge, 8M-bar fwd-return analysis) ──────
   //   Vol-Bull   = bias_up + volume spike (V×5/V×10)            → ~66-69% fwd_10d win
   //   Struct-BO  = LVBO + bullish-engulf + RSI>65               → ~82% next-pivot-HH
@@ -293,6 +298,146 @@ const SIG_GROUPS = [
     hint: '🎯 DIVERSITY — ≥3 of the 4 shape families in the last 10 bars. ⚠ NOT a strength mark: SHAPE_CLUSTER_V1 measured NO_CLUSTER as the BEST cell (−0.13) and 🎯🔁 as the WORST (−0.68, 0/4 years), decaying monotonically with more clustering.' },
   { key: 'shape_by_den', label: '🔁den', cls: 'text-gray-400',
     hint: '🔁 DENSITY — ≥4 of the last 10 bars carried a shape. Measured no different from 🎯 (−0.27 vs −0.19): the two marks read differently on a chart but did not behave as different predictive axes.' },
+  // ── PRICE × VOLUME — the TradingView "260921_PV_MULTI" script ported for display
+  //   (pv_multi_build.py → data/pv_multi_signals.parquet, _enrich_pv_multi). Daily bars only.
+  //   TWO GROUPS because the script offers two price sources and they DISAGREE: over 2.15M firing
+  //   sessions `close` and `ohlc4` pick the same shape only 52.7% of the time.
+  //   DESCRIPTIVE ONLY. PV_MULTI_V1, sealed 2026-09-21, k = 9 → 0 BUILD / 4 VETO_CANDIDATE /
+  //   5 NULL, with EVERY cell negative in MINE. The four VETOes (REV RE2 UPP RUP) are RECORDED,
+  //   NOT APPLIED — they cover ~13.6% of bars, and applying them is an interaction question that
+  //   needs its own family and its own k. Nothing here is green, because nothing here measured
+  //   positive. Never a ranking input.
+  { divider: true, label: 'PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL' },
+  { key: 'pv_o_div', label: 'DIV', cls: 'text-slate-300',
+    hint: 'DIV (ohlc4) — price fell 3 bars while volume rose 3 bars. Fires on 5.95% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_o_upp', label: 'UPP', cls: 'text-rose-300',
+    hint: 'UPP (ohlc4) — price rose 3 bars while volume rose 3 bars. Fires on 5.97% of liquid bars. Sealed verdict: VETO_CANDIDATE — −0.618 MINE / −0.573 VERIFY, negative in all 4 MINE years, dsr_neg 1.000.' },
+  { key: 'pv_o_upr', label: 'UPR', cls: 'text-slate-300',
+    hint: 'UPR (ohlc4) — volume rose 3 bars and price is above its level 2 bars ago (clean UPP excluded). Fires on 3.58% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_o_rev', label: 'REV', cls: 'text-rose-300',
+    hint: 'REV (ohlc4) — price and volume both fell 3 bars, then both turned up. Fires on 1.64% of liquid bars. Sealed verdict: VETO_CANDIDATE — −0.909 MINE / −0.686 VERIFY, negative in all 4 MINE years, dsr_neg 1.000.' },
+  { key: 'pv_o_rup', label: 'RUP', cls: 'text-rose-300',
+    hint: 'RUP (ohlc4) — volume contracted 3 bars with day-3 price above day-1, then price and volume turned up. Fires on 3.83% of liquid bars. Sealed verdict: VETO_CANDIDATE — −0.350 MINE / −0.316 VERIFY, negative in all 4 MINE years, dsr_neg 0.996.' },
+  { key: 'pv_o_vup', label: 'VUP', cls: 'text-slate-300',
+    hint: 'VUP (ohlc4) — volume fell 3 bars while price stayed above its level 2 bars ago. Fires on 10.55% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_o_turn', label: 'TURN', cls: 'text-slate-300',
+    hint: 'TURN (ohlc4) — price declined then recovered 2 bars, with the script\'s volume turn structure. Fires on 0.74% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_o_up4', label: 'UP4', cls: 'text-slate-300',
+    hint: 'UP4 (ohlc4) — price rose 4 bars while volume expanded, rested, then re-expanded above the prior peak. Fires on 1.42% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_o_re2', label: 'RE2', cls: 'text-rose-300',
+    hint: 'RE2 (ohlc4) — price down-down-up while volume went up-down-up. Fires on 2.19% of liquid bars. Sealed verdict: VETO_CANDIDATE — −0.689 MINE / −0.320 VERIFY, dsr_neg 1.000.' },
+  { key: 'pv_veto_o', label: '⛔veto', cls: 'text-red-300',
+    hint: '⛔ any of the four VETO_CANDIDATE shapes (REV RE2 UPP RUP) on the ohlc4 source. Recorded, NOT applied — the app does not suppress anything on this.' },
+  { key: 'pv_agree', label: '=both', cls: 'text-gray-400',
+    hint: 'Both price sources picked the SAME shape on this bar. They agree on only 52.7% of firing sessions, so this chip selects the unambiguous half.' },
+  { divider: true, label: 'PRICE × VOLUME · price = CLOSE' },
+  { key: 'pv_c_div', label: 'DIV', cls: 'text-slate-300',
+    hint: 'DIV (close) — price fell 3 bars while volume rose 3 bars. Fires on 5.95% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_c_upp', label: 'UPP', cls: 'text-rose-300',
+    hint: 'UPP (close) — price rose 3 bars while volume rose 3 bars. Fires on 5.97% of liquid bars. Sealed verdict: VETO_CANDIDATE — −0.618 MINE / −0.573 VERIFY, negative in all 4 MINE years, dsr_neg 1.000.' },
+  { key: 'pv_c_upr', label: 'UPR', cls: 'text-slate-300',
+    hint: 'UPR (close) — volume rose 3 bars and price is above its level 2 bars ago (clean UPP excluded). Fires on 3.58% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_c_rev', label: 'REV', cls: 'text-rose-300',
+    hint: 'REV (close) — price and volume both fell 3 bars, then both turned up. Fires on 1.64% of liquid bars. Sealed verdict: VETO_CANDIDATE — −0.909 MINE / −0.686 VERIFY, negative in all 4 MINE years, dsr_neg 1.000.' },
+  { key: 'pv_c_rup', label: 'RUP', cls: 'text-rose-300',
+    hint: 'RUP (close) — volume contracted 3 bars with day-3 price above day-1, then price and volume turned up. Fires on 3.83% of liquid bars. Sealed verdict: VETO_CANDIDATE — −0.350 MINE / −0.316 VERIFY, negative in all 4 MINE years, dsr_neg 0.996.' },
+  { key: 'pv_c_vup', label: 'VUP', cls: 'text-slate-300',
+    hint: 'VUP (close) — volume fell 3 bars while price stayed above its level 2 bars ago. Fires on 10.55% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_c_turn', label: 'TURN', cls: 'text-slate-300',
+    hint: 'TURN (close) — price declined then recovered 2 bars, with the script\'s volume turn structure. Fires on 0.74% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_c_up4', label: 'UP4', cls: 'text-slate-300',
+    hint: 'UP4 (close) — price rose 4 bars while volume expanded, rested, then re-expanded above the prior peak. Fires on 1.42% of liquid bars. Sealed verdict: NULL — no effect that replicated.' },
+  { key: 'pv_c_re2', label: 'RE2', cls: 'text-rose-300',
+    hint: 'RE2 (close) — price down-down-up while volume went up-down-up. Fires on 2.19% of liquid bars. Sealed verdict: VETO_CANDIDATE — −0.689 MINE / −0.320 VERIFY, dsr_neg 1.000.' },
+  { key: 'pv_veto_c', label: '⛔veto', cls: 'text-red-300',
+    hint: '⛔ any of the four VETO_CANDIDATE shapes (REV RE2 UPP RUP) on the close source. Recorded, NOT applied.' },
+  // ── VOL ECHO — the TradingView "260925_VOL_ECHO" script ported at its defaults
+  //   (vol_echo_build.py → data/vol_echo_signals.parquet, _enrich_vol_echo). Daily bars only.
+  //   DESCRIPTIVE ONLY: VOL_ECHO_LONG_V1 0/274 · LONG_2326 0/286 · TRADE_V1 0/9 — every long study
+  //   NULL. The one confirmed result is a VETO (QR_REL_V1: yesterday Q∧R, today the first ▲ release,
+  //   −1.40 pp vs a random buy in VERIFY, 6/6 years) — recorded, NOT applied. SPK is hindsight and is
+  //   deliberately not offered as a filter. Never a ranking input.
+  { divider: true, label: 'VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto' },
+  { key: 've_echo', label: 'VE', cls: 'text-cyan-300',
+    hint: 'VE — echo: volume within ±40% of an earlier spike (≥1.5× median), in the same price zone, 5-250 bars later. Fires on ~13.5% of bars: context, not an event.' },
+  { key: 've_q', label: 'Q', cls: 'text-purple-300',
+    hint: 'Q — closes inside the armed echo zone on volume ≤ 0.8 × the 20-bar median (zone armed 60 bars after the echo).' },
+  { key: 've_r', label: 'R', cls: 'text-orange-300',
+    hint: 'R — volume ≤ 0.8 × median within 20 bars after BD▼ / BDV▼. Fires on ~15.6% of bars.' },
+  { key: 've_qr', label: 'Q∧R', cls: 'text-orange-200',
+    hint: 'Q∧R — both on the same bar: price broke below the zone, then came back inside on low volume. QR_RSI_V1: ≈0 alone, −0.88 pp with RSI > 50 (below the veto bar).' },
+  { key: 've_rel_up', label: '▲rel', cls: 'text-green-300',
+    hint: '▲ RELEASE — green bar with volume > SMA20 after quiet bars (first 3 of the series). VOL_ECHO_TRADE_V1: NULL as an entry.' },
+  { key: 've_rel_dn', label: '▼rel', cls: 'text-red-300',
+    hint: '▼ RELEASE — red bar with volume > SMA20 after quiet bars (first 3 of the series).' },
+  { key: 've_bo', label: 'BO▲', cls: 'text-blue-300',
+    hint: 'BO▲ — first green candle that opens AND closes above the echo zone (within 120 bars). NULL as an entry.' },
+  { key: 've_bov', label: 'BOV▲', cls: 'text-blue-200',
+    hint: 'BOV▲ — BO▲ with volume > SMA20. NULL as an entry (SL5/TP15, raw / EMA200 / RS).' },
+  { key: 've_bd', label: 'BD▼', cls: 'text-fuchsia-300',
+    hint: 'BD▼ — first red candle that opens AND closes below the echo zone.' },
+  { key: 've_bdv', label: 'BDV▼', cls: 'text-fuchsia-200',
+    hint: 'BDV▼ — BD▼ with volume > SMA20.' },
+  { key: 've_zone_armed', label: 'zone', cls: 'text-gray-400',
+    hint: 'An echo zone is armed on this bar (≤ 60 bars since the last echo).' },
+  { key: 've_spike', label: '●spk', cls: 'text-amber-300',
+    hint: 'Spike — volume ≥ 1.5 × the 20-bar median. ~23% of bars: context.' },
+  { key: 've_qr_rel_veto', label: '⛔QR▲', cls: 'text-rose-300',
+    hint: '⛔ QR_REL_V1 VETO CONFIRMED — yesterday Q∧R, today the first ▲ release. −1.82 pp MINE / −1.40 pp VERIFY vs a random buy, negative in all 6 years (book ATR×12 exit). Recorded, NOT applied — nothing is suppressed.' },
+  // ── TURN·58 + ⟲ROW — turn-zone gauges (turn_rowseq_build.py → data/turn_rowseq_signals.parquet,
+  //   _enrich_turn_rowseq; computed nightly with the Superchart's OWN lib/turnCount.js + lib/rowSeq.js).
+  //   DESCRIPTIVE ONLY (research_out/TURN_SET_V1.md, ROWSEQ_V1.md): both identify turn zones out of sample;
+  //   neither picks a better trade (same-day Δ ≈ 0) and ≥ +30 % big-move prediction was NULL — a
+  //   watchlist filter, never a ranking input. Daily bars only.
+  { divider: true, label: 'TURN · ⟲ROW — turn-zone identification; not a buy signal' },
+  { key: 'turn_ge20', label: 'TURN≥20', cls: 'text-amber-200',
+    hint: 'TURN·58 ≥ 20 — 10-bar low with ≥20 of the 58 turn-enriched signals in the last 3 bars. 2024-26: turned 1.34× as often as an average 10-bar low (NASDAQ out of sample 1.42). As a trade: not better than the day\'s other lows.' },
+  { key: 'turn_ge26', label: 'TURN≥26', cls: 'text-amber-200',
+    hint: 'TURN·58 ≥ 26 — NASDAQ out of sample: 1.56× the turn rate of an average 10-bar low (~3 % of lows). Identification only.' },
+  { key: 'turn_ge30', label: 'TURN≥30', cls: 'text-amber-100',
+    hint: 'TURN·58 ≥ 30 — 2024-26: 1.41× (plateau top band). Identification only.' },
+  { key: 'rs_pair', label: '◆V∧M', cls: 'text-amber-100',
+    hint: '◆ VOL7 and MTF rows both CONFIRMED — the one row pair that added beyond the best single row: turn-zone lift 1.88 after removing price-location × ATR% effects (2024-26). ~0.4 % of bars. Same-day return ≈ 0.' },
+  { key: 'rs_c2', label: 'ROW●≥2', cls: 'text-amber-200',
+    hint: '≥ 2 rows CONFIRMED at once. ROWSEQ_V1: many rows together added NOTHING over the best single row (COUNT: 1.51 vs MTF 1.52) — kept as a convenience filter.' },
+  { key: 'rs_c3', label: 'ROW●≥3', cls: 'text-amber-200',
+    hint: '≥ 3 rows CONFIRMED at once. Same caveat: confluence of rows did not add beyond the best row.' },
+  { key: 'rs_fly_c', label: 'FLY●', cls: 'text-amber-200',
+    hint: 'FLY row turn sequence CONFIRMED (top 5 % of MINE scores; ✦fresh ABCD/CD/BD/AD at t-0/1). Turn-zone lift 1.63 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_fly_e', label: 'FLY○+', cls: 'text-slate-300',
+    hint: 'FLY row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  { key: 'rs_gr_c', label: 'GR●', cls: 'text-amber-200',
+    hint: 'GR row turn sequence CONFIRMED (top 5 % of MINE scores; G3 / V gaps, G1→G3 orders). Turn-zone lift 1.6 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_gr_e', label: 'GR○+', cls: 'text-slate-300',
+    hint: 'GR row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  { key: 'rs_mtf_c', label: 'MTF●', cls: 'text-amber-200',
+    hint: 'MTF row turn sequence CONFIRMED (top 5 % of MINE scores; ▲4H / △1H REV triggers, repeated, 1H→4H order). Turn-zone lift 1.52 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_mtf_e', label: 'MTF○+', cls: 'text-slate-300',
+    hint: 'MTF row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  { key: 'rs_phys_c', label: '⚛●', cls: 'text-amber-200',
+    hint: '⚛ row turn sequence CONFIRMED (top 5 % of MINE scores; R·D, K1D, S3D, ★/★★, gG2/3, SPRING⚛). Turn-zone lift 1.45 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_phys_e', label: '⚛○+', cls: 'text-slate-300',
+    hint: '⚛ row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  { key: 'rs_vol7_c', label: 'VOL7●', cls: 'text-amber-200',
+    hint: 'VOL7 row turn sequence CONFIRMED (top 5 % of MINE scores; M4-M6·σ5/σ6, Σ+, VB2 sequences). Turn-zone lift 1.43 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_vol7_e', label: 'VOL7○+', cls: 'text-slate-300',
+    hint: 'VOL7 row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  { key: 'rs_pv_c', label: 'PV●', cls: 'text-amber-200',
+    hint: 'PV row turn sequence CONFIRMED (top 5 % of MINE scores; price×volume shapes). Turn-zone lift 1.42 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_pv_e', label: 'PV○+', cls: 'text-slate-300',
+    hint: 'PV row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  { key: 'rs_break_c', label: 'BRK●', cls: 'text-amber-200',
+    hint: 'BRK row turn sequence CONFIRMED (top 5 % of MINE scores; BO/BX/BE/EB/FBO/4BF sequences). Turn-zone lift 1.41 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_break_e', label: 'BRK○+', cls: 'text-slate-300',
+    hint: 'BRK row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  { key: 'rs_ovd_c', label: 'OVD●', cls: 'text-amber-200',
+    hint: 'OVD row turn sequence CONFIRMED (top 5 % of MINE scores; OB/RC/CD/HO opening/closing volume logics). Turn-zone lift 1.41 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_ovd_e', label: 'OVD○+', cls: 'text-slate-300',
+    hint: 'OVD row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
+  { key: 'rs_delta_c', label: 'Δ●', cls: 'text-amber-200',
+    hint: 'Δ row turn sequence CONFIRMED (top 5 % of MINE scores; FLP↑ ΔΔ↑ Δ↑ NS …). Turn-zone lift 1.4 after removing price-location × ATR% effects (2024-26). Identification only.' },
+  { key: 'rs_delta_e', label: 'Δ○+', cls: 'text-slate-300',
+    hint: 'Δ row turn sequence EARLY or CONFIRMED (top 20 % of MINE scores).' },
   { divider: true },
   // ── F / G signals ─────────────────────────────────────────────────────
   { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
@@ -793,6 +938,12 @@ const SIG_GROUPS = [
     custom: r => setupPhase(r) === 'Early' },
 ]
 
+// V4_ALL_GROUPS — SIG_GROUPS plus V4_EXTRA_GROUPS (RANK/CONF/EDGES/SEQ/MTF/DIV — signal-like
+// fields on the row that never became SIG_GROUPS filter chips). V4 scoring uses this merged
+// catalog on BOTH surfaces so Ultra and Superchart score from the exact same signal list;
+// SIG_GROUPS itself is untouched (still drives the filter-chip UI as before).
+export const V4_ALL_GROUPS = [...SIG_GROUPS, ...V4_EXTRA_GROUPS]
+
 // ── Live-only signal keys (no Studio-DB column) ──────────────────────────────
 // These are computed only in the live scan path (turbo_engine / gog_engine) and
 // have no enriched column in the DuckDB. In DB-instant mode they match ZERO rows,
@@ -1264,6 +1415,19 @@ const KEEP_ALWAYS = new Set([
   'shape_rsi','shape_band','shape_knife','shape_veto','shape_lstup_veto','shape_dir_up',
   'shape_dir_dn','shape_can_dir','shape_cl_fam','shape_cl_bars','shape_by_fam','shape_by_den',
   'shape_mark','shape_legs',
+  // PRICE × VOLUME (2026-09-22) — strings + booleans, same reason as SHAPE: without this every
+  // PV chip would stop filtering after a cache reload. Descriptive only.
+  'pv','pv_c','pv_o','pv_text','pv_agree','pv_veto_c','pv_veto_o',
+  'pv_c_div','pv_c_upp','pv_c_upr','pv_c_rev','pv_c_rup','pv_c_vup','pv_c_turn','pv_c_up4','pv_c_re2',
+  'pv_o_div','pv_o_upp','pv_o_upr','pv_o_rev','pv_o_rup','pv_o_vup','pv_o_turn','pv_o_up4','pv_o_re2',
+  // VOL ECHO (2026-09-27) — booleans + ints; same reason: without this the chips stop filtering
+  // after a cache reload. Descriptive only.
+  've','ve_text','ve_echo_col','ve_qr','ve_spike','ve_spk','ve_echo','ve_q','ve_r','ve_rel_up','ve_rel_dn',
+  've_bo','ve_bd','ve_bov','ve_bdv','ve_zone_armed','ve_qr_rel_veto',
+  've_echo_gap','ve_echo_nmatch','ve_echo_hits','ve_qn','ve_rn','ve_rel_n','ve_rel_q','ve_bo_age',
+  've_zone_pos','ve_echo_vr','ve_bov_x','ve_zone_top','ve_zone_bot',
+  // TURN·58 + ⟲ROW (2026-09-28) — booleans + ints; without this the chips stop filtering after a cache reload.
+  'turn58_cand','turn58_n','turn_ge20','turn_ge26','turn_ge30','rs_pair','rs_nconf','rs_nearly','rs_text','rs_c2','rs_c3','rs_fly','rs_fly_c','rs_fly_e','rs_gr','rs_gr_c','rs_gr_e','rs_mtf','rs_mtf_c','rs_mtf_e','rs_phys','rs_phys_c','rs_phys_e','rs_vol7','rs_vol7_c','rs_vol7_e','rs_pv','rs_pv_c','rs_pv_e','rs_break','rs_break_c','rs_break_e','rs_ovd','rs_ovd_c','rs_ovd_e','rs_delta','rs_delta_c','rs_delta_e',
 ])
 function _slimRow(r) {
   const out = {}
@@ -1632,6 +1796,13 @@ export default function UltraScanPanel({ onSelectTicker }) {
           if (!f) return r
           const merged = { ...r }
           for (const k of ENRICH_FIELDS) if (f[k] !== undefined) merged[k] = f[k]
+          // V4 is computed once per row and cached ON the row (see the useMemo below). The
+          // spread above copies that cache, so a row scored BEFORE enrichment arrived kept its
+          // pre-enrichment total forever (2026-09-24: ICE showed 115 right after a scan, 160 —
+          // the correct, Superchart-matching value — only after a remount rebuilt the rows from
+          // cache). Drop the cache so the memo re-scores this row on the enriched fields.
+          delete merged.v4_score
+          delete merged.v4_fired_labels
           return merged
         }))
       })
@@ -1750,6 +1921,23 @@ export default function UltraScanPanel({ onSelectTicker }) {
                           : lookbackN >= 5  ? 'turbo_score_n5'
                           : lookbackN >= 3  ? 'turbo_score_n3'
                           : 'buy_score'
+
+  // V4 — per-signal WEIGHTS, user-directed (2026-09-23; revised from the flat first pass once
+  // the user saw how many entries repeat the same information). Every signal starts at 0
+  // (src/lib/v4Weights.js) and the user is filling weights in incrementally, key by key — this
+  // component only sums whatever v4Weights.js currently holds. Computed once per row, mutated
+  // onto allResults and cached by identity — the same in-place-cache idiom `r._ages` already
+  // uses below, so a full 402-predicate pass does not re-run on every filter click. Recomputing
+  // needs a fresh scan (or a hard reload) to pick up a v4Weights.js edit, same as any other code
+  // change — there is no live-reload of the weight map into an already-cached row.
+  useMemo(() => {
+    for (const r of allResults) {
+      if (r.v4_score === undefined) {
+        r.v4_score = v4Score(V4_ALL_GROUPS, V4_WEIGHTS, r, 1)
+        r.v4_fired_labels = v4FiredLabels(V4_ALL_GROUPS, V4_WEIGHTS, r, 1)
+      }
+    }
+  }, [allResults])
 
   // ── Client-side filter + sort ──────────────────────────────────────────────
   const results = useMemo(() => {
@@ -2461,6 +2649,35 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.shape_legs    = r.shape_legs ?? ''
       flat.shape_knife_veto = r.shape_veto ? 1 : 0
       flat.shape_lstup_veto = r.shape_lstup_veto ? 1 : 0
+      // PRICE × VOLUME (2026-09-22) — descriptive; PV_MULTI_V1 sealed k = 9 → 0 BUILD /
+      // 4 VETO_CANDIDATE / 5 NULL, every cell negative in MINE. Both price sources are exported
+      // because they agree on only 52.7% of firing sessions. pv_veto_* is recorded, NOT applied.
+      flat.pv_close   = r.pv_c ?? ''
+      flat.pv_ohlc4   = r.pv_o ?? ''
+      flat.pv_agree   = r.pv_agree ? 1 : 0
+      flat.pv_veto_close = r.pv_veto_c ? 1 : 0
+      flat.pv_veto_ohlc4 = r.pv_veto_o ? 1 : 0
+      // VOL ECHO (2026-09-27) — descriptive; ve_qr_rel_veto = the confirmed QR_REL_V1 veto shape,
+      // recorded, NOT applied. SPK is hindsight and is not exported from a same-day scan.
+      flat.ve_text      = r.ve_text ?? ''
+      flat.ve_echo      = r.ve_echo ? 1 : 0
+      flat.ve_echo_gap  = r.ve_echo_gap ?? ''
+      flat.ve_echo_col  = r.ve_echo_col ?? ''
+      flat.ve_q         = r.ve_q ? 1 : 0
+      flat.ve_r         = r.ve_r ? 1 : 0
+      flat.ve_rel_up    = r.ve_rel_up ? 1 : 0
+      flat.ve_rel_dn    = r.ve_rel_dn ? 1 : 0
+      flat.ve_bo        = r.ve_bo ? 1 : 0
+      flat.ve_bov       = r.ve_bov ? 1 : 0
+      flat.ve_bd        = r.ve_bd ? 1 : 0
+      flat.ve_bdv       = r.ve_bdv ? 1 : 0
+      flat.ve_zone_pos  = r.ve_zone_pos ?? ''
+      flat.ve_qr_rel_veto = r.ve_qr_rel_veto ? 1 : 0
+      // TURN·58 + ⟲ROW (2026-09-28) — descriptive turn-zone gauges, not a buy signal.
+      flat.turn58_n   = r.turn58_cand ? (r.turn58_n ?? '') : ''
+      flat.rs_text    = r.rs_text ?? ''
+      flat.rs_nconf   = r.rs_nconf ?? ''
+      flat.rs_pair    = r.rs_pair ? 1 : 0
       flat.seq34 = r.seq34 ? r.seq34.seq : ''
       flat.seq34_win = r.seq34?.win ?? ''
       flat.seq34_ps_med = r.seq34?.ps_med ?? ''

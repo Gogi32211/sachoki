@@ -1,0 +1,321 @@
+<title>Signal Symbol Legend</title>
+<style>
+  :root{
+    --bg:#0e1117; --bg-elev:#161b24; --bg-card:#1b212c;
+    --line:#2a3140; --line-soft:#232a36;
+    --text:#e8ecf3; --text-dim:#9aa5b5; --text-faint:#5d6779;
+    --accent:#e0a930; --accent-soft:#3a3220;
+    --boost:#4fd98c; --boost-soft:#16281f;
+    --veto:#f0665c; --veto-soft:#2c1a1a;
+    --neutral:#6fb3e0; --neutral-soft:#182530;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f7f7f5; --bg-elev:#ffffff; --bg-card:#ffffff;
+      --line:#e2e2de; --line-soft:#ececea;
+      --text:#20232b; --text-dim:#5b6270; --text-faint:#8a90a0;
+      --accent:#b3791c; --accent-soft:#faf0dc;
+      --boost:#1f9d5c; --boost-soft:#e8f7ee;
+      --veto:#c73f35; --veto-soft:#fbeae8;
+      --neutral:#2a72a8; --neutral-soft:#e9f3fb;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f7f7f5; --bg-elev:#ffffff; --bg-card:#ffffff;
+    --line:#e2e2de; --line-soft:#ececea;
+    --text:#20232b; --text-dim:#5b6270; --text-faint:#8a90a0;
+    --accent:#b3791c; --accent-soft:#faf0dc;
+    --boost:#1f9d5c; --boost-soft:#e8f7ee;
+    --veto:#c73f35; --veto-soft:#fbeae8;
+    --neutral:#2a72a8; --neutral-soft:#e9f3fb;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1117; --bg-elev:#161b24; --bg-card:#1b212c;
+    --line:#2a3140; --line-soft:#232a36;
+    --text:#e8ecf3; --text-dim:#9aa5b5; --text-faint:#5d6779;
+    --accent:#e0a930; --accent-soft:#3a3220;
+    --boost:#4fd98c; --boost-soft:#16281f;
+    --veto:#f0665c; --veto-soft:#2c1a1a;
+    --neutral:#6fb3e0; --neutral-soft:#182530;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+    padding-inline:16px; padding-block:32px;
+  }
+  .wrap{ max-width:920px; margin:0 auto; }
+
+  header{ margin-bottom:28px; }
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 8px;
+  }
+  h1{ font-size:clamp(24px,4vw,32px); margin:0 0 10px; text-wrap:balance; letter-spacing:-.01em; }
+  .sub{ color:var(--text-dim); font-size:14.5px; line-height:1.55; max-width:64ch; }
+  .sub b{ color:var(--text); font-weight:600; }
+
+  .callout{
+    margin-top:16px; background:var(--accent-soft); border:1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+    border-radius:10px; padding:12px 14px; font-size:13px; line-height:1.55; color:var(--text);
+    max-width:64ch;
+  }
+  .callout b{ color:var(--accent); }
+
+  .search{
+    margin-top:20px; display:flex; gap:8px; align-items:center;
+    background:var(--bg-elev); border:1px solid var(--line); border-radius:10px;
+    padding:10px 14px;
+  }
+  .search svg{ flex:none; color:var(--text-faint); }
+  .search input{
+    flex:1; border:none; background:transparent; outline:none; color:var(--text);
+    font-family:var(--sans); font-size:14px;
+  }
+  .search input::placeholder{ color:var(--text-faint); }
+  .count{ font-family:var(--mono); font-size:12px; color:var(--text-faint); white-space:nowrap; }
+
+  .section{ margin-top:34px; }
+  .section-head{
+    display:flex; align-items:baseline; gap:10px; margin-bottom:12px;
+    padding-bottom:8px; border-bottom:1px solid var(--line-soft);
+  }
+  .section-head h2{ font-size:15px; margin:0; font-weight:600; }
+  .section-head .tag{
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+  }
+
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
+
+  .card{
+    background:var(--bg-card); border:1px solid var(--line); border-radius:12px;
+    padding:14px; display:flex; gap:12px; align-items:flex-start;
+  }
+  .card.boost{ border-color:color-mix(in srgb, var(--boost) 35%, var(--line)); }
+  .card.veto{ border-color:color-mix(in srgb, var(--veto) 35%, var(--line)); }
+
+  .glyph{
+    flex:none; width:40px; height:40px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:19px; background:var(--accent-soft); color:var(--accent);
+  }
+  .card.boost .glyph{ background:var(--boost-soft); color:var(--boost); }
+  .card.veto .glyph{ background:var(--veto-soft); color:var(--veto); }
+  .card.neutral .glyph{ background:var(--neutral-soft); color:var(--neutral); }
+
+  .card .body{ min-width:0; }
+  .card .name{ font-weight:600; font-size:13.5px; margin-bottom:2px; }
+  .card .meaning{ color:var(--text-dim); font-size:12.5px; line-height:1.45; margin-bottom:6px; }
+  .card .examples{
+    font-family:var(--mono); font-size:11px; color:var(--text-faint);
+    display:flex; flex-wrap:wrap; gap:5px;
+  }
+  .card .examples span{
+    background:var(--bg-elev); border:1px solid var(--line-soft); border-radius:5px;
+    padding:2px 6px;
+  }
+
+  .tierbox{
+    margin-top:34px; background:var(--bg-elev); border:1px solid var(--line);
+    border-radius:12px; padding:18px 20px;
+  }
+  .tierbox h2{ font-size:14px; margin:0 0 12px; }
+  .tierrow{ display:flex; gap:14px; align-items:center; padding:7px 0; font-size:13px; }
+  .tierrow .g{ font-family:var(--mono); width:62px; flex:none; color:var(--accent); font-size:15px; }
+  .tierrow .d{ color:var(--text-dim); }
+  .tierrow + .tierrow{ border-top:1px solid var(--line-soft); }
+
+  footer{
+    margin-top:36px; padding-top:16px; border-top:1px solid var(--line-soft);
+    color:var(--text-faint); font-size:12px; line-height:1.6;
+  }
+
+  [hidden]{ display:none !important; }
+
+  @media (max-width:480px){
+    .grid{ grid-template-columns:1fr; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">v4Weights.js · reference</p>
+    <h1>Signal Symbol Legend</h1>
+    <p class="sub">
+      ყოველ სექციაში, კომენტარებში (<code>// 🥇G3</code>-ის მსგავსად) გამოყენებული სიმბოლოების
+      ახსნა — რომ სწრაფად იცნო რას ნიშნავს თითოეული, როცა <b>v4Weights.js</b>-ს ათვალიერებ.
+      ეს გვერდი მხოლოდ საცნობარო ლექსიკონია — ქულების წყარო კვლავ მხოლოდ ის ფაილია.
+    </p>
+    <div class="callout">
+      <b>· (შუა წერტილი) = ორი ცალკე სიგნალი ერთად.</b> როცა ხედავ ორ კოდს <code>·</code>-ით
+      შეერთებულს (<code>RA·D</code>, <code>M4·σ5</code>) — ეს არის ორი დამოუკიდებელი signal,
+      ეკრანზე ერთ ჩიპად აჩვენებული კომპაქტურობისთვის. თითოეული ცალკე ითვლება
+      <code>v4Weights.js</code>-ში (და ხშირად კომბინაციასაც თავისი საკუთარი <code>key</code>
+      აქვს, <code>x_phys_ra_d</code>-ის მსგავსად) — არა ერთი "შერეული" სიგნალი.
+    </div>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="q" type="text" placeholder="მოძებნე სიმბოლო ან სიტყვა… (მაგ: g3, veto, sos)">
+      <span class="count" id="cnt"></span>
+    </div>
+  </header>
+
+  <div id="sections"></div>
+
+  <div class="tierbox">
+    <h2>ზოგადი ტიერების კონვენცია (ერთიანი ყველა ოჯახში)</h2>
+    <div class="tierrow"><span class="g">★ / ★★</span><span class="d">ერთი ვარსკვლავი = სუსტი/ბაზისური დონე; ორი ვარსკვლავი = ძლიერი/ორმაგი დადასტურების დონე (მაგ. <code>lbal_star_v</code> vs <code>lbal_conflict_v</code>, <code>_ph_ad1</code> vs <code>_ph_ad2</code>)</span></div>
+    <div class="tierrow"><span class="g">○○○</span><span class="d">წრეები = შებრუნებული/უარყოფითი პარალელი ვარსკვლავიან სიგნალთან (მაგ. <code>lbal_half_up_v</code> ★★★ vs <code>lbal_half_dn_v</code> ○○○)</span></div>
+    <div class="tierrow"><span class="g">XXX</span><span class="d">კონფლიქტი/არაფერი არ არის ნათელი — L-BAL ოჯახის "ნეიტრალური" მარკერი</span></div>
+    <div class="tierrow"><span class="g">↑ / ↓</span><span class="d">მიმართულება — ზრდადი (ბულიში) ან კლებადი (ბეარიში) ვერსია იმავე სიგნალისა</span></div>
+    <div class="tierrow"><span class="g">↑↑ / ↑↑↑</span><span class="d">თანმიმდევრული ზრდის დონეები (rgti/mtf ოჯახებში) — მეტი ისარი = უფრო გახანგრძლივებული სერია</span></div>
+    <div class="tierrow"><span class="g">∗ / any</span><span class="d">"ამ ოჯახის ნებისმიერი წევრი ჩაირთო" — ჯგუფური OR (მაგ. <code>_l5_any</code>, <code>seq_any</code>, <code>_any_p</code>)</span></div>
+    <div class="tierrow"><span class="g">¹ ² ³</span><span class="d">ზედა ინდექსი = 0-3 კიბის საფეხური ერთ სიგნალში (მაგ. L34-ის grade — <code>x_l34_grade2plus</code>, <code>x_l34_grade3</code>)</span></div>
+    <div class="tierrow"><span class="g">🟡</span><span class="d">WATCH-tier მარკერი — ნაპოვნია, მაგრამ დღემდე შესუსტებული/დაბალი სანდოობის (მაგ. day-clustered სტატისტიკით სუსტი), ნაცვლად სრულად ვალიდირებულის</span></div>
+    <div class="tierrow"><span class="g">🔇</span><span class="d">"quiet-tape" დამატებითი პირობა — იგივე სიგნალი, მაგრამ მშვიდ 1H ტეიპზე (ჩუმი ბაზარი); ხშირად ეს არის უფრო ძლიერი ვალიდირებული ვერსია</span></div>
+  </div>
+
+  <footer>
+    v4Weights.js-ში ყოველი key-ის გვერდით მდგარი კომენტარი (<code>// ლეიბლი</code>) ზუსტად ეს
+    სიმბოლოებია — ეს გვერდი მხოლოდ განმარტავს მათ, ქულებს არ ინახავს და ავტომატურად არ
+    სინქრონდება ფაილთან. თუ ახალი ოჯახი დაემატება v4Weights.js-ს, ეს ლექსიკონი ხელით
+    განახლდება საჭიროებისამებრ. ბოლო განახლება: 2026-09-23 (EDGE-board 48 კოდი + კომპოზიტური
+    სვიპი — body/wick, SEQ34 tier, L34 grade, VOL7 M/σ, SHAPE code×direction).
+  </footer>
+</div>
+
+<script>
+const DATA = [
+  { section: "★ ⚡ ❖ 🚀 — კომბო / კომპოზიტური სეტაპები", tag: "backtested edge", items: [
+    { g:"⚡", tone:"boost", name:"ელვა — მოცულობის ბრეიკი", meaning:"ფასი + მოცულობის spike ერთდროულად (Vol-Bull), ან ჯვარედინი ოჯახების რაოდენობა ერთ ბარზე (×2+/×3+/×4+)", ex:["_combo_volbull","_cross2","_cross3"] },
+    { g:"❖", tone:"boost", name:"სტრუქტურული ბრეიკაუთი", meaning:"LVBO/absorption + bullish engulf + RSI>65 — სტრუქტურის დარღვევა მომენტუმის კონტექსტში", ex:["_combo_structbo","_combo_absorbeb"] },
+    { g:"★", tone:"boost", name:"საუკეთესო/კომპოზიტი მარკერი", meaning:"BEST★/STRONG — ამ ოჯახის ყველაზე სანდო წევრი", ex:["best_sig","strong_sig"] },
+    { g:"🚀", tone:"boost", name:"რაკეტა — ძლიერი კომბო", meaning:"ULTRA-ს ძველი 🚀 კომბო სიგნალი (2809 ოჯახი)", ex:["rocket"] },
+  ]},
+  { section: "🥇 EDGE-board — ვალიდირებული სეტაპები, თითო კოდი", tag: "edge_replay.py · 48 კოდი", items: [
+    { g:"🔄DR", tone:"boost", name:"dual-reclaim", meaning:"ორმაგი oversold reclaim — ~2.4x უფრო ხშირი ვიდრე 📐 დივერგენციის ეჯი", ex:["x_edge_dualrec"] },
+    { g:"🕐DR", tone:"boost", name:"1H-confirmed bottom", meaning:"1D deep-oversold + 1H VX-climax→R2X flip — knife −0.23→+1.38", ex:["x_edge_h1dr"] },
+    { g:"⚡G3A", tone:"boost", name:"G3-Abs", meaning:"G3 გაპ-რეკლეიმი + აბსორბციის დადასტურება", ex:["x_edge_g3a"] },
+    { g:"🎯3 / 🎯4", tone:"boost", name:"Cluster-Bottom", meaning:"≥3 ან ≥4 დამოუკიდებელი edge-ოჯახი 10 ბარში ერთად — 🎯4 ყოველთვის შეიცავს 🎯3-ს (ბექენდში დუბლირება უკვე მოცილებულია)", ex:["x_edge_conf3","x_edge_conf4"] },
+    { g:"💠L34C", tone:"boost", name:"L34-camp reversal", meaning:"იგივე დონეზე უკვე ნანახი წითელი L34 + 🟢REV-ის დაბრუნება", ex:["x_edge_l34camp"] },
+    { g:"🏆L34C", tone:"boost", name:"L34→L34 continuity", meaning:"იგივე L34 გრძელდება Z-absorption და T1-demand ბარებზე", ex:["x_edge_l34cont"] },
+    { g:"⚔️FBT", tone:"veto", name:"fail-bear trap", meaning:"ბეარიშ ხაფანგის წარუმატებლობა — ფასი არ ჰყვება ვარდნის მცდელობას", ex:["x_edge_fbt"] },
+    { g:"💤ZAT", tone:"boost", name:"Z-Absorb-Turn", meaning:"ღრმა-ბეარიშ Z5/Z11 + wt_evr + წითელი-L34 → შემდეგი ბარის T3/T9", ex:["x_edge_zat"] },
+    { g:"🧊CF", tone:"boost", name:"Coil-floor absorption", meaning:"25-ბარიანი ვიწრო რენჯი იატაკზე + Z-აბსორბცია + RS + RSI<40", ex:["x_edge_cf"] },
+    { g:"🌀EAR", tone:"boost", name:"Engulf-Absorb-Reversal", meaning:"engulf-ტიპის აბსორბციის შემობრუნება", ex:["x_edge_ear"] },
+    { g:"🎬SVC", tone:"neutral", name:"stop-volume confirm", meaning:"შეჩერების მოცულობის დადასტურება", ex:["x_edge_svc"] },
+    { g:"🥪SAND", tone:"boost", name:"T2G-Sandwich", meaning:"T2G→T10→T2G + RSI≥70 + 🏆RS — პირველი overbought-ეჯი", ex:["x_edge_sand"] },
+    { g:"🪨GNB", tone:"boost", name:"T1G-NB + RS", meaning:"T1G no-bounce ვარიანტი RS-გეიტით (RS სავალდებულო კომპონენტია)", ex:["x_edge_gnb"] },
+    { g:"🥇 (EDGE-ში)", tone:"boost", name:"+ Leader-in-Laggard გეიტი", meaning:"იგივე G3/G3A/L43, მაგრამ ლიდერ-სექტორის გეიტით გაძლიერებული — ბაზისურ კოდთან ერთად ორივე ცალკე ითვლება (განზრახ, არა შეცდომა)", ex:["x_edge_g3_lead","x_edge_l43_lead"] },
+  ]},
+  { section: "⛔ 💨 ✅ 📍 🧱 🏆 🎯 🔁 — SHAPE × CONTEXT (body-nest)", tag: "0 BUILD, descriptive", items: [
+    { g:"⛔", tone:"veto", name:"ვეტო — არ იყიდო", meaning:"დადასტურებული უარყოფითი პირობა (LST↑ ვეტო, knife-ვეტო, მშრალი აბსორბცია, PV_MULTI-ს ვეტო)", ex:["shape_lstup_veto","shape_veto","pv_veto_o"] },
+    { g:"💨", tone:"boost", name:"აბსორბცია", meaning:"ეფექტი შთანთქმულია — ფასი ვერ მიდის ქვევით ძალისხმევის მიუხედავად", ex:["shape_absorb"] },
+    { g:"✅", tone:"boost", name:"ტკბილი წერტილი", meaning:"ფასი 'sweet spot'-შია — ისტორიულად საუკეთესო ზონა ამ ფორმისთვის", ex:["shape_sweet"] },
+    { g:"📍", tone:"neutral", name:"იატაკი (floor)", meaning:"ბარი დგას ცნობილ საყრდენ დონეზე", ex:["shape_floor"] },
+    { g:"🧱", tone:"neutral", name:"საკვანძო დონე (key level)", meaning:"≥2-ჯერ ტესტირებული რეალური საყრდენი (key-level gate)", ex:["shape_key"] },
+    { g:"🏆", tone:"boost", name:"RS gate (Relative Strength)", meaning:"close/benchmark > EMA200(rs) — ხარისხიანი დაწევა ვიდრე დანა (universal worst-year rescuer). ⚠️ იგივე ვარსკვლავი SEQ34-ში სულ სხვა რამეს ნიშნავს (იხ. ქვემოთ)", ex:["shape_rs"] },
+    { g:"🎯", tone:"neutral", name:"ოჯახის მიხედვით (by family)", meaning:"კლასტერული სიმკვრივის ღერძი — გაზომილია რომ უარესდება მეტი კლასტერით", ex:["shape_by_fam"] },
+    { g:"🔁", tone:"neutral", name:"სიმკვრივის მიხედვით (by density)", meaning:"იგივე კლასტერული ღერძის მეორე გვერდი — კონტექსტია, არა ძალა", ex:["shape_by_den"] },
+    { g:"↑ / ↓ (SHAPE-ში)", tone:"neutral", name:"ჩაყლაპული სხეულის მიმართულება", meaning:"7 კოდი (MTH/CL4/MID/EXP/CON/LST/WRP) × მიმართულება — ადრე მხოლოდ LST↑-ს ჰქონდა საკუთარი ქულა, ახლა დანარჩენ 13 კომბინაციასაც", ex:["x_shape_mth_up","x_shape_con_dn"] },
+  ]},
+  { section: "▭ Body + Wick — svela ბარის ფორმა", tag: "bar_body_wick", items: [
+    { g:"X / S / M", tone:"neutral", name:"სხეულის კლასი", meaning:"X = გაფართოებული სხეული, S = ნორმალური, M = მინიმალური", ex:["x_bw2_x","x_bw2_s","x_bw2_m"] },
+    { g:"TB / BB", tone:"neutral", name:"ბუზის კლასი (ზედა/ქვედა)", meaning:"TB = ზედა ბუზი, BB = ქვედა ბუზი ('ჩაქუჩი' — the hammer)", ex:["x_bw2_tb","x_bw2_bb"] },
+    { g:"J / F", tone:"neutral", name:"დოჯი / ბრტყელი", meaning:"J = დოჯი (ორივე ბუზი თანაბარი), F = ბრტყელი (ბუზი მინიმალური)", ex:["x_bw2_j","x_bw2_f"] },
+  ]},
+  { section: "🧬 SEQ34 — გაყინული OOS-სექვენცია", tag: "frozen-OOS", items: [
+    { g:"🏆 (SEQ34-ში)", tone:"boost", name:"DSR≥0.6 selection-proof", meaning:"ერთადერთი 'სრულად სანდო' tier ამ ოჯახში — ⚠️ იგივე სიმბოლო SHAPE-ში 'RS gate'-ს ნიშნავს, კონტექსტი განსაზღვრავს მნიშვნელობას", ex:["x_seq34_gold"] },
+    { g:"° (გრადუსი)", tone:"neutral", name:"coarse დამთხვევა", meaning:"სექვენცია დამთხვა 'უხეშად' (no-L token-ით), არა ზუსტად — ° არარსებობა = exact match", ex:["x_seq34_coarse","x_seq34_exact"] },
+  ]},
+  { section: "⚛ ⟂ — ფიზიკა და CISD", tag: "260815", items: [
+    { g:"⚛", tone:"neutral", name:"ფიზიკის რეჟიმი", meaning:"Wyckoff-სტილის 'ენერგია/მასა/წნევა' რეჟიმის სუფიქსი (SPRING⚛, SOS★⚛, UTAD⚛, ACC-TR⚛, MARKUP⚛)", ex:["_ph_spr","_ph_sos","_ph_utad"] },
+    { g:"⟂", tone:"neutral", name:"CISD — მდგომარეობის ცვლილება", meaning:"'Change In State of Delivery' — მიწოდების რეჟიმის მკვეთრი ცვლილება", ex:["_ci_sq","_ci_mp"] },
+    { g:"RA·U / RA·D", tone:"neutral", name:"რეჟიმი · EMA20 პოზიცია", meaning:"RA/RN/RF (რეჟიმის ასო) + U/D (close ზემოთ/ქვემოთ EMA20) — ორი ცალკე სიგნალი ერთ ჩიპში, ცალ-ცალკე ქულადი", ex:["x_phys_ra_u","x_phys_ra_d"] },
+    { g:"E1★ / E2★", tone:"neutral", name:"ენერგიის საფეხური · გათავისუფლება", meaning:"E0/E1/E2 (დაგროვილი ენერგიის დონე) + ★ (რენჯი გაფართოვდა ATR baseline-ს მიღმა) — 6 სუფთა კომბინაცია", ex:["x_phys_e1_star","x_phys_e2"] },
+    { g:"Σ", tone:"boost", name:"სიგმა — მოცულობის z-score", meaning:"მოცულობა სტატისტიკურად უჩვეულო დონეზეა (VOL7-ის σ+ დონე)", ex:["vol7_sigma_plus"] },
+    { g:"▲ / ▼", tone:"neutral", name:"VOL7 რეჟიმის შემობრუნება", meaning:"მოცულობის რეჟიმი გადავიდა +2 ან −2 საფეხურით", ex:["vol7_up2","vol7_dn2"] },
+    { g:"◆", tone:"neutral", name:"VOL7 უფრო ძლიერი შემობრუნება", meaning:"იგივე რეჟიმის ცვლილება, მაგრამ ±3 საფეხურით (◆+3/◆−3)", ex:["vol7_up3","vol7_dn3"] },
+  ]},
+  { section: "🔊 VOL7 — M{დონე}·σ{დონე}", tag: "M0-M6 × σ0-σ6", items: [
+    { g:"M0…M6", tone:"neutral", name:"მედიან-რეიშოს დონე", meaning:"M0 <0.4× · M1 <0.7× · M2 <1× · M3 <1.5× · M4 <2.5× · M5 <5× · M6 ≥5× 20-დღიანი მედიანისა. ⚠️ M6 = LADDER_V1-ის ვალიდირებული VETO (−11.97 day-clustered)", ex:["x_vol7_m1","vol7_m6"] },
+    { g:"σ0…σ6", tone:"neutral", name:"სიგმის დონე", meaning:"BB(მოცულობა,20,1) დონე — σ5 = +1σ..+2σ, σ6 ≥ +2σ. აქამდე ცალკე არცერთი σ-დონე არ ითვლებოდა", ex:["x_vol7_sg5","x_vol7_sg6"] },
+  ]},
+  { section: "▭ L34 — grade · ფერი · TRIPLE", tag: "institutional absorption", items: [
+    { g:"¹ ² ³", tone:"boost", name:"grade კიბე (0-3)", meaning:"3 ღერძი: near-25bar-low / RSI<40 / იგივე-დონის კამპანია — grade3 ყველაზე ძლიერი", ex:["x_l34_grade2plus","x_l34_grade3"] },
+    { g:"წითელი L34", tone:"boost", name:"ინსტიტუციური აბსორბცია", meaning:"close<open — ტიპი რომელიც ატარებს ეჯს", ex:["x_l34_red"] },
+    { g:"მწვანე L34", tone:"veto", name:"'ხაფანგის' ტიპი", meaning:"close≥open — reversal-ბარზე მწვანე L34 = trap (−1.01%, PF 0.87)", ex:["x_l34_green"] },
+    { g:"💠 (L34-ში)", tone:"boost", name:"TRIPLE", meaning:"წითელი-L34 + 🟢REV + ▲4H ერთ ბარზე — +2.05%/win47/PF1.29, ყველაზე era-balanced გაძლიერება", ex:["x_l34_triple"] },
+  ]},
+  { section: "🥇 🟡 👑 🌉 🧲 🧺 — Macro / Seq-edges", tag: "2026-08-04..06", items: [
+    { g:"🥇", tone:"boost", name:"ლიდერი ჩამორჩენილში (Leader-in-Laggard)", meaning:"ლიდერი სექტორის სახელი 'იზიდავს' ჩამორჩენილს — ADX-ჰიპოთეზა უარყოფილია, ეს კი დადასტურდა ×1.15 ლიფტით", ex:["lead_g3","lead_g3a"] },
+    { g:"🟡", tone:"neutral", name:"Seq-edges ჯგუფის მარკერი", meaning:"'ნებისმიერი' ამ ოჯახის სექვენციური ეჯი ჩაირთო", ex:["seq_any"] },
+    { g:"👑", tone:"boost", name:"გვირგვინი — Z1G crown", meaning:"ამ სექვენციური ოჯახის ყველაზე ძლიერი/გვირგვინოსანი წევრი", ex:["seq_crown"] },
+    { g:"🌉", tone:"boost", name:"ხიდი (bridge)", meaning:"ორ სექვენციურ მდგომარეობას შორის გადამყვანი შაბლონი (Z1G4/v2)", ex:["seq_z1gt4","seq_v2"] },
+    { g:"🧲", tone:"boost", name:"მაგნიტი", meaning:"ფასს 'იზიდავს' Z9HL დონისკენ", ex:["seq_z9hl"] },
+    { g:"🧺", tone:"neutral", name:"კალათა (basket)", meaning:"აგრეგირებული/ჯგუფური სექვენციის სტატისტიკა, არა ცალკე ივენთი", ex:["seq_20"] },
+  ]},
+  { section: "📐 — MTF-EMA (Multi-Timeframe)", tag: "15m·1h·4h", items: [
+    { g:"📐", tone:"neutral", name:"მრავალ-თაიმფრეიმიანი EMA სტეკი", meaning:"15წთ/1სთ/4სთ-ის EMA-ების ურთიერთგანლაგება — booster თანმხლები დადასტურებით, სუსტი მარტო", ex:["mtf_up","mtf_upup","mtf_k0"] },
+  ]},
+  { section: "🎲 ⤴ ⤵ — სექვენციის კონტექსტი (ახალი, EXTRA)", tag: "V4_EXTRA_GROUPS", items: [
+    { g:"⤴", tone:"boost", name:"booster — სექვენცია ეხმარება", meaning:"seq_ctx.dir === 'up' — ისტორიული სექვენცია ამ ბარზე მთავრდება positive-მიმართულებით", ex:["x_seqctx_up"] },
+    { g:"⤵", tone:"veto", name:"suppressor — სექვენცია აფერხებს", meaning:"seq_ctx.dir === 'down' — იგივე მექანიზმი, უარყოფითი მიმართულებით", ex:["x_seqctx_dn"] },
+    { g:"🎲", tone:"neutral", name:"tail — მსხვილი კუდის კონტექსტი", meaning:"იშვიათად აგრძელებს, მაგრამ როცა აგრძელებს — მსხვილი (parabola fuel)", ex:["x_seqctx_tail"] },
+  ]},
+  { section: "▽△ Bottom-Anatomy verdict", tag: "Superchart-only", items: [
+    { g:"🔻💪", tone:"boost", name:"ზუსტი დაბლობი (precise)", meaning:"reversal + RS-დადასტურებული — ყველაზე სანდო ვერსია", ex:["x_anat_rev_rs"] },
+    { g:"🔻", tone:"neutral", name:"სტრუქტურული დაბლობი", meaning:"reversal, RS-ის გარეშე — ~1.37× გამდიდრებული რეალური დაბლობებისთვის, დაბალი სიზუსტით", ex:["x_anat_rev_norm"] },
+    { g:"🌀 (ანატომიაში)", tone:"neutral", name:"shakeout/spring", meaning:"დათრგუნული bearish-engulf მყარ იატაკზე, მაგრამ გვიან hi-vol T-reversal close-ზე", ex:["x_anat_shake"] },
+  ]},
+];
+
+const sectionsEl = document.getElementById('sections');
+const qEl = document.getElementById('q');
+const cntEl = document.getElementById('cnt');
+
+function render(filter){
+  const f = (filter || '').trim().toLowerCase();
+  sectionsEl.innerHTML = '';
+  let shown = 0, total = 0;
+
+  DATA.forEach(sec => {
+    const matched = sec.items.filter(it => {
+      total++;
+      const hay = (it.g + ' ' + it.name + ' ' + it.meaning + ' ' + it.ex.join(' ')).toLowerCase();
+      return !f || hay.includes(f);
+    });
+    if (!matched.length) return;
+    shown += matched.length;
+
+    const secDiv = document.createElement('div');
+    secDiv.className = 'section';
+    secDiv.innerHTML = `<div class="section-head"><h2>${sec.section}</h2><span class="tag">${sec.tag}</span></div>`;
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    matched.forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'card ' + it.tone;
+      card.innerHTML = `
+        <div class="glyph">${it.g}</div>
+        <div class="body">
+          <div class="name">${it.name}</div>
+          <div class="meaning">${it.meaning}</div>
+          <div class="examples">${it.ex.map(e => `<span>${e}</span>`).join('')}</div>
+        </div>`;
+      grid.appendChild(card);
+    });
+    secDiv.appendChild(grid);
+    sectionsEl.appendChild(secDiv);
+  });
+
+  cntEl.textContent = f ? `${shown} / ${total}` : `${total} სიმბოლო`;
+}
+
+qEl.addEventListener('input', () => render(qEl.value));
+render('');
+</script>

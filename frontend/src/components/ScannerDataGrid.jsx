@@ -581,7 +581,7 @@ export default function ScannerDataGrid({
   // Number of columns for colSpan calculation
   // ultra adds: ULTRA + UV3 + 🎲 + BUY + EDGE + PM + ⏱ + ⚖️ columns (+8 vs turbo); split adds Split column (+1)
   // 📐 divergence is added for BOTH variants (it sits after T/Z, which turbo also has)
-  const baseColCount = (variant === 'ultra' ? 29 : 16) + 1
+  const baseColCount = (variant === 'ultra' ? 30 : 16) + 1  // +1 for V4 (2026-09-23)
   const colCount = (universe === 'split' || universe === 'zone') ? baseColCount + 1 : baseColCount
 
   const SortTh = ({ col, children, cls = '' }) => (
@@ -618,6 +618,13 @@ export default function ScannerDataGrid({
             {/* UV3 — ULTRA Score v3, the reweighted ranker (NOT the PreBreakout V3 column) */}
             {variant === 'ultra' && (
               <SortTh col="ultra_score_v3" cls="text-right min-w-[46px]" title="ULTRA Score v3 (2026-07-18) — reweighted ranker: oversold(RSI) + price-zone($21-89) + earners(BX↑/STR/absorb) + 🏆RS/🎯cluster/🎋TLS. Ranks forward return (Spearman +0.08 vs the old score's −0.00, 6yr path-sim); DEMOTES the overbought/extended names the old ULTRA tops. Own bands A≥60/B≥45/C≥30. Hover a value for reasons.">UV3</SortTh>
+            )}
+            {/* V4 — per-signal WEIGHTS (user-directed, 2026-09-23): every signal starts at 0
+                (src/lib/v4Weights.js) and the user fills weights in incrementally. Placed right
+                after the three calibrated scores on purpose — no colour band is the tell that
+                nothing here is validated yet, whatever the weights end up being. */}
+            {variant === 'ultra' && (
+              <SortTh col="v4_score" cls="text-right min-w-[42px]" title="V4 (2026-09-23, user-directed weights) — sum of per-signal points from src/lib/v4Weights.js over every SIG_GROUPS chip that fires TODAY. Most signals are still 0; the user is assigning weights one at a time. UNMEASURED: this is a running total, not a validated ranker. Hover a value to see which signals fired and their current weight.">V4</SortTh>
             )}
             {/* 🎲 — score AGREEMENT: how many rankers sit in their own measured good zone */}
             {variant === 'ultra' && (
@@ -798,6 +805,27 @@ export default function ScannerDataGrid({
                       : (r.ultra_score_v3_reasons || (r.ultra_score_v3 != null ? `UV3 ${r.ultra_score_v3}` : ''))}>
                     {r.ultra_score_v3 != null && r.ultra_score_v3 !== '' ? (
                       <span className={`font-mono text-xs ${zoneCls(r.ultra_score_v3, ZONES.uv3)}`}>{r.ultra_score_v3}</span>
+                    ) : <span className="text-gray-700">—</span>}
+                  </td>
+                )}
+
+                {/* V4 — the user's OWN weight map (v4Weights.js, every chosen key = 5) with the
+                    user's OWN >45 = green cut (2026-09-24: "damibrune chemi gaketebuli score V4"
+                    — restored after a one-day trial of a book-verdict map, kept in research_out/
+                    V4_BOOK_WEIGHTS_V1.md). NOT the app's empirical zone-colour convention:
+                    V4_HISTORY_V1 measured this map as a signal COUNTER with no forward-return
+                    ordering (rank IC +0.004, ≥45 = baseline). Same cut on Superchart's V4 row.
+                    Tooltip lists every fired signal with its weight. */}
+                {variant === 'ultra' && (
+                  <td className="px-2 py-1 text-right"
+                    title={r.v4_score != null
+                      ? `V4 = ${r.v4_score} (sum of per-signal weights, ${r.v4_fired_labels?.length ?? 0} signals fired today)`
+                        + (r.v4_fired_labels?.length ? `\nfired: ${r.v4_fired_labels.join(' · ')}` : '')
+                      : ''}>
+                    {r.v4_score != null ? (
+                      <span className={`font-mono text-xs ${
+                        r.v4_score > 45 ? 'text-green-400 font-bold' : 'text-md-on-surface-var/70'
+                      }`}>{r.v4_score}</span>
                     ) : <span className="text-gray-700">—</span>}
                   </td>
                 )}

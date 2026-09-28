@@ -103,8 +103,16 @@ def _bar_to_db_row(ticker: str, bar: dict, universe: str,
     row["universe"] = universe
 
     # 5. Derive sig_t*/sig_z* flags from t_sig / z_sig (matches importer line 363)
-    tsig = row.get("t_sig", "") or ""
-    zsig = row.get("z_sig", "") or ""
+    # FIX (2026-09-24): "t_sig"/"z_sig" are not keys either `row` or `bar` ever carries — api_
+    # bar_signals emits a single combined state string under "tz" (e.g. "T4", "Z11", "T1G"),
+    # same field Superchart reads. The two `row.get(...)` calls above always returned "", so
+    # sig_t1..sig_t12/sig_z1..sig_z12 were unconditionally 0 on every Preview-scan row — found
+    # while chasing a Preview-vs-DB-instant V4 mismatch on ICE (user: "isev sxvadasxva mnishvne
+    # lobebia"). Preview scan is the ONLY path affected; DB-instant reads the real nightly-built
+    # sig_t*/sig_z* columns straight from the DB and was never wrong.
+    _tz = str(bar.get("tz") or "")
+    tsig = _tz if _tz.startswith("T") else ""
+    zsig = _tz if _tz.startswith("Z") else ""
     for n in _T_NAMES:
         row[f"sig_{n.lower()}"] = 1 if tsig == n else 0
     for n in _Z_NAMES:
