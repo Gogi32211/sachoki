@@ -271,7 +271,7 @@ function Replay2Panel() {
               {/* 'days' … 'top2%' = DAY-clustered view (2026-09-03 audit): one observation per
                   entry-day minus same-day control. Trade columns overstate evidence when fires
                   cluster on the same day; the day columns are what survives. */}
-              <tr>{['setup', 'n', 'med%', 'win%', 'pf', 'worst yr', 'yrs+', 'days', 'day edge', 'day win', 'top2%', 'dsr', 'claim']
+              <tr>{['setup', 'n', 'med%', 'win%', 'pf', 'worst yr', 'yrs+', 'days', 'day edge', 'day edge ATR', 'day win', 'top2%', 'dsr', 'claim']
                 .map(h => <th key={h} className="text-right px-2 py-1 font-normal first:text-left">{h}</th>)}</tr>
             </thead>
             <tbody>
@@ -290,6 +290,11 @@ function Replay2Panel() {
                   <td className={'px-2 py-0.5 text-right ' +
                     (r.day_med_edge == null ? 'text-md-on-surface-var/50' : r.day_med_edge > 0 ? 'text-emerald-300' : 'text-rose-300')}>
                     {r.day_med_edge == null ? '—' : (r.day_med_edge > 0 ? '+' : '') + r.day_med_edge}</td>
+                  {/* AUDIT_ATR_V1: additive, ATR-matched day edge (the 'day edge' column is untouched) */}
+                  <td className={'px-2 py-0.5 text-right ' +
+                    (r.day_med_edge_atr == null ? 'text-md-on-surface-var/50' : r.day_med_edge_atr > 0 ? 'text-emerald-300' : 'text-rose-300')}
+                    title="ATR-matched: each trade vs same-day control trades of the same ATR% quintile (AUDIT_ATR_V1)">
+                    {r.day_med_edge_atr == null ? '—' : (r.day_med_edge_atr > 0 ? '+' : '') + r.day_med_edge_atr}</td>
                   <td className="px-2 py-0.5 text-right">{r.day_win_edge ?? '—'}</td>
                   <td className={'px-2 py-0.5 text-right ' + ((r.top2_share ?? 0) >= 15 ? 'text-orange-300' : '')}>{r.top2_share ?? '—'}</td>
                   <td className={'px-2 py-0.5 text-right ' +

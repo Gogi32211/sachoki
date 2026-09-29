@@ -67,3 +67,12 @@ Artifacts (session scratchpad `v4hist/`): `tzxbot_plan.txt`, `tzxbot.py`, `tzxbo
 - ▲4H on a Z11 bar is a clear **negative** in 2024-26. This matches "Z11 = abort" again.
 - The near misses (△1H+T12, ▲4H+Z10, 🔺+T5) are leads only.
 - The search burden across the whole family is now ≈ 170 cells.
+
+---
+## ⚠️ CORRECTION 2026-09-29 — the T/Z-increment claims were not ATR-matched
+The book exit (trail = 12·ATR%) makes returns volatility-dependent, and the contrasts here did not match ATR%. Re-checked within day × ATR% (22 bins):
+- **🔻💪+T9:** vs other T9 +0.63 / +0.98 pp, not significant. Inside 🔻💪, T9 is −1.06 pp in 2024-26. The gain is RS. (T9_RS_V1)
+- **🕐DR+Z2G:** 🕐DR lifts Z2G +2.52 / +2.42. Z2G adds nothing to 🕐DR (+1.65 / −0.86).
+- **T5L46ED / Z2GL46ED / Z9L46NUR:** +0.77/+0.16 · +0.20/−0.35 · +0.56/+0.59, all ≈ 0. (TZ_BOOSTERS_V1 AMENDMENT_1)
+
+Ultra chip hints and the `bottom_cluster_forward.py` docstring now carry these numbers. The forward rules are not changed.

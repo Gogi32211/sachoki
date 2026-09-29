@@ -13,6 +13,14 @@ x_anat_rev_rs / x_anat_rev_norm / x_anat_shake in frontend/src/lib/v4ExtraGroups
   B4 🕐DR+Z2G = 🕐DR edge (edge_replay h1dr_chip) on t AND T/Z state Z2G on t    TZ_X_BOTTOM_V1 — the 2 cells
                that passed MINE→VERIFY; declared before any forward data. Forward k = 4.)
   B3/B4 additionally need Δ ≥ their anchor's forward Δ (🔻💪 alone / 🕐DR alone) — the state must add.
+  B5 T5L46ED  / B6 Z2GL46ED / B7 Z9L46NUR = package composites (T/Z state + l_sig + full_suffix) that passed
+      TZPKG_REVISIT_V1 Stage 2 (AMENDMENT_3, 2026-09-28, declared before any forward data). Each must also beat its
+      anchor = the same T/Z state without the composite (A_T5 / A_Z2G / A_Z9). PASS for B5-B7 = the research claim
+      itself: same-day PAIRED difference (composite mean − anchor mean, days with both) > 0 with day-clustered CI lo > 0.
+      Forward k = 7.
+⚠️ NOTE 2026-09-29 (recorded before any forward data; rules NOT changed): the B3-B7 research contrasts were not
+ATR-matched. Within day × ATR% (T9_RS_V1, TZ_BOOSTERS_V1 AMENDMENT_1): B3 T9 adds nothing to 🔻💪 (−1.06 pp 2024-26),
+B4 Z2G adds nothing to 🕐DR (−0.86), B5/B6/B7 ≈ 0 (+0.16 / −0.35 / +0.59). Expect B3-B7 to FAIL their anchor tests.
 Eligible: close ≥ $5, 20-day mean $volume ≥ $5M. Entry open[t+1], book _pathsim ATR×12 trail, maxh 60,
 slip .0015, 5-bar cooldown. Control: every eligible bar on the stride-10 control_keys.phase grid.
 Only trades whose full 60-session horizon lies inside the data are scored (right-edge censoring).
@@ -62,8 +70,8 @@ def run(d0: str, d1: str | None) -> dict:
     el = ((df["close"] >= 5) & (dv >= 5e6) & df["atr_14"].notna()).to_numpy()
     v = df["v"].fillna("").to_numpy(); rs = df["rs"].fillna(False).astype(bool).to_numpy()
     tzq = duckdb.connect(db_path("studio_analytics.duckdb"), read_only=True).execute(f"""WITH r AS (SELECT ticker,
-            cast(date as varchar)[:10] date, t_sig, z_sig, row_number() OVER (PARTITION BY ticker, date ORDER BY universe) rn
-            FROM bars WHERE universe <> 'index' AND date >= '{load_from}') SELECT ticker, date, t_sig, z_sig FROM r WHERE rn = 1""").fetchdf()
+            cast(date as varchar)[:10] date, t_sig, z_sig, l_sig, full_suffix, row_number() OVER (PARTITION BY ticker, date ORDER BY universe) rn
+            FROM bars WHERE universe <> 'index' AND date >= '{load_from}') SELECT ticker, date, t_sig, z_sig, l_sig, full_suffix FROM r WHERE rn = 1""").fetchdf()
     df = df.merge(tzq, on=["ticker", "date"], how="left")
     tzs = df["t_sig"].fillna("").astype(str).where(df["t_sig"].fillna("").astype(str) != "", df["z_sig"].fillna("").astype(str)).to_numpy()
     import edge_replay
@@ -85,12 +93,17 @@ def run(d0: str, d1: str | None) -> dict:
     rsb = (v == "rev") & rs & el
     df["A_RS"] = rsb; df["B3"] = rsb & (tzs == "T9")
     df["A_DR"] = dr & el; df["B4"] = dr & el & (tzs == "Z2G")
+    comp = pd.Series(tzs).astype(str) + df["l_sig"].fillna("").astype(str).str.strip().to_numpy() + df["full_suffix"].fillna("").astype(str).str.strip().to_numpy()
+    comp = comp.to_numpy()
+    for rule, anchor, st, cp in (("B5", "A_T5", "T5", "T5L46ED"), ("B6", "A_Z2G", "Z2G", "Z2GL46ED"), ("B7", "A_Z9", "Z9", "Z9L46NUR")):
+        df[anchor] = el & (tzs == st) & (comp != cp); df[rule] = el & (comp == cp)
     starts = np.r_[0, np.flatnonzero(tk[1:] != tk[:-1]) + 1]; ends = np.r_[starts[1:], n]
     pos = np.arange(n) - np.repeat(starts, ends - starts)
     ph = pd.Series(tk).map(lambda t: phase(t, 10)).to_numpy()
     df["CTRL"] = el & ((pos - ph) % 10 == 0)
     grp = {t: x.reset_index(drop=True) for t, x in df[["ticker", "date", "open", "high", "low", "close", "atr_14",
-                                                        "B1", "B2", "B3", "B4", "A_RS", "A_DR", "CTRL"]].groupby("ticker", sort=False)}
+                                                        "B1", "B2", "B3", "B4", "A_RS", "A_DR",
+                                                        "B5", "B6", "B7", "A_T5", "A_Z2G", "A_Z9", "CTRL"]].groupby("ticker", sort=False)}
     cal = sorted(df.date.unique())
     last_ok = cal[-(HORIZON + 2)] if len(cal) > HORIZON + 2 else cal[0]     # entry must have 60 sessions after it
     hi = min(d1, last_ok) if d1 else last_ok
@@ -100,7 +113,7 @@ def run(d0: str, d1: str | None) -> dict:
     cd = ctrl.groupby("date_in").ret.agg(["mean", "size"])
     rng = np.random.default_rng(20260928)
     out = {"window": [d0, hi], "control_trades": len(ctrl)}
-    for rule in ("A_RS", "A_DR", "B1", "B2", "B3", "B4"):
+    for rule in ("A_RS", "A_DR", "A_T5", "A_Z2G", "A_Z9", "B1", "B2", "B3", "B4", "B5", "B6", "B7"):
         t = keep(sim(rule))
         dm = t.groupby("date_in").ret.mean().to_frame("s").join(cd, how="inner"); dm = dm[dm["size"] >= 20]
         x = ((dm.s - dm["mean"]) * 100).to_numpy()
@@ -113,7 +126,15 @@ def run(d0: str, d1: str | None) -> dict:
     for rule, anchor in (("B3", "A_RS"), ("B4", "A_DR")):         # the state must add over its anchor
         if isinstance(out.get(rule), dict) and "PASS" in out[rule] and "same_day_delta_pp" in out.get(anchor, {}):
             out[rule]["PASS"] = bool(out[rule]["PASS"] and out[rule]["same_day_delta_pp"] >= out[anchor]["same_day_delta_pp"])
-    for anchor in ("A_RS", "A_DR"):
+    sims = {}
+    for rule, anchor in (("B5", "A_T5"), ("B6", "A_Z2G"), ("B7", "A_Z9")):      # paired same-day composite − own signal
+        a_ = keep(sim(rule)).groupby("date_in").ret.mean(); b_ = keep(sim(anchor)).groupby("date_in").ret.mean()
+        x = ((a_ - b_).dropna() * 100).to_numpy()
+        if isinstance(out.get(rule), dict) and len(x) >= 10:
+            lo2, hi2 = np.percentile([x[rng.integers(0, len(x), len(x))].mean() for _ in range(3000)], [2.5, 97.5])
+            out[rule]["paired_vs_anchor_pp"] = round(float(x.mean()), 2); out[rule]["paired_ci95"] = [round(lo2, 2), round(hi2, 2)]
+            out[rule]["PASS"] = bool(x.mean() > 0 and lo2 > 0)
+    for anchor in ("A_RS", "A_DR", "A_T5", "A_Z2G", "A_Z9"):
         if isinstance(out.get(anchor), dict): out[anchor].pop("PASS", None); out[anchor]["role"] = "anchor (reference, not a test)"
     return out
 

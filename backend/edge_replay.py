@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 
 SLIP = 0.0015
 MIN_CTRL = 20            # control trades a session needs before its median is a benchmark
+MIN_CTRL_ATR = 8         # AUDIT_ATR_V1: control trades a (session × ATR-quintile) cell needs
 
 
 def _ctrl_phase(ticker: str, stride: int = 40) -> int:
@@ -2010,6 +2011,8 @@ def _pathsim(grp: dict, col: str, mode: str, stop: float, target: float,
                     nan=trail), 0.15, 0.60)
         else:
             _tr_arr = None
+        with np.errstate(invalid="ignore", divide="ignore"):
+            _atr_p = (gdf["atr_14"].to_numpy(float) / np.where(cl > 0, cl, np.nan)) if "atr_14" in gdf else None
         ent = gdf[col].to_numpy(bool); n = len(gdf); last = -99
         dfull = gdf["date"].astype(str).to_numpy()
         dts = gdf["date"].astype(str).str[:4].to_numpy()
@@ -2048,7 +2051,11 @@ def _pathsim(grp: dict, col: str, mode: str, stop: float, target: float,
                            "mae": mlo / entry - 1,          # max adverse excursion (≤0 heat taken)
                            "mfe": mhi / entry - 1,          # max favorable excursion
                            "hold": int(jout - i),           # bars held (entry@i+1 → exit@jout)
-                           "risk": (_tr if mode == "trail" else risk)})
+                           "risk": (_tr if mode == "trail" else risk),
+                           # ATR% at the SIGNAL bar (2026-09-29, AUDIT_ATR_V1): lets a caller compare a
+                           # setup with controls of the same volatility — the trail is ATR-scaled, so
+                           # returns are volatility-dependent. Additive; nothing reads it for trading.
+                           "atrp": (float(_atr_p[i]) if _atr_p is not None else float("nan"))})
     return pd.DataFrame(trades)
 
 
@@ -2345,6 +2352,45 @@ def edge_replay(setup: str = "all", months: int = 36, dv_floor: float = 3_000_00
     else:
         _ctr_day = pd.Series(dtype=float)
 
+    # 2026-09-29 AUDIT_ATR_V1 (user-approved: a NEW column beside day_med_edge, the old one untouched).
+    # The book trail is clip(12·ATR%, 15, 60), so a return depends on the name's volatility; setups
+    # that fire on volatile names were being compared with an average-volatility control. ATR-matched
+    # day edge: a DENSER control (every 10th bar >= $21, same phase scheme — 1-in-40 leaves ~2 trades
+    # per volatility cell), cells = entry-day × ATR% quintile of the signal bar (cuts from the control
+    # trades), a cell median needs >= MIN_CTRL_ATR trades; every setup trade minus its own cell median
+    # → day median → median over days. Same exit, same universe, same session filter as day_med_edge.
+    for _tk, _g in grp.items():
+        if "EDGE_CTRL_ATR10" not in _g.columns:
+            _m = np.zeros(len(_g), dtype=bool)
+            _e = np.where(_g["close"].to_numpy() >= 21)[0]
+            if len(_e):
+                _m[_e[_ctrl_phase(_tk, 10) % len(_e)::10]] = True
+            _g["EDGE_CTRL_ATR10"] = _m
+    _ctra = _pathsim(grp, "EDGE_CTRL_ATR10", mode, stop, target, trail, maxh, slip=slip,
+                     atr_k=(atr_k or None))
+    _atr_cuts = None; _ctr_cell = None
+    if len(_ctra) and "atrp" in _ctra and _ctra["atrp"].notna().sum() > 100:
+        _atr_cuts = np.nanquantile(_ctra["atrp"].to_numpy(float), [0.2, 0.4, 0.6, 0.8])
+        _cq = np.digitize(_ctra["atrp"].to_numpy(float), _atr_cuts)
+        _cc = (_ctra["ret"] * 100).groupby([pd.to_datetime(_ctra["date_in"]).dt.date.to_numpy(), _cq])
+        _ctr_cell = _cc.median().where(_cc.size() >= MIN_CTRL_ATR).dropna()
+
+    def _day_fields_atr(tr: pd.DataFrame) -> dict:
+        nul = {"n_days_atr": 0, "day_med_edge_atr": None, "day_win_edge_atr": None}
+        if tr is None or not len(tr) or _ctr_cell is None or "atrp" not in tr:
+            return nul
+        q = np.digitize(tr["atrp"].to_numpy(float), _atr_cuts)
+        key = pd.MultiIndex.from_arrays([pd.to_datetime(tr["date_in"]).dt.date.to_numpy(), q])
+        cm = _ctr_cell.reindex(key).to_numpy()
+        ok_ = ~np.isnan(cm) & tr["atrp"].notna().to_numpy()
+        if not ok_.any():
+            return nul
+        diff = pd.Series((tr["ret"].to_numpy() * 100 - cm)[ok_],
+                         index=pd.to_datetime(tr["date_in"]).dt.date.to_numpy()[ok_])
+        e = diff.groupby(level=0).median().to_numpy()
+        return {"n_days_atr": int(len(e)), "day_med_edge_atr": round(float(np.median(e)), 2),
+                "day_win_edge_atr": round(float((e > 0).mean() * 100), 1)}
+
     def _day_fields(tr: pd.DataFrame) -> dict:
         if tr is None or not len(tr) or not len(_ctr_day):
             return {"n_days": 0, "day_med_edge": None, "day_win_edge": None, "top2_share": None}
@@ -2366,6 +2412,7 @@ def edge_replay(setup: str = "all", months: int = 36, dv_floor: float = 3_000_00
         tr = _pathsim(grp, col, mode, stop, target, trail, maxh, slip=slip, atr_k=(atr_k or None))
         _s = _stats(name, tr)
         _s.update(_day_fields(tr))
+        _s.update(_day_fields_atr(tr))
         _s["col"] = col          # stable identity (mask column); labels get relabelled, this doesn't
         out.append(_s)
         if with_trades and setup != "all":

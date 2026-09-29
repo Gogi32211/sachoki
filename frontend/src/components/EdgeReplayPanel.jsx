@@ -177,6 +177,8 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
                   trades win/lose together — the trade columns to the left overstate evidence. */}
               <Th k="n_days" cls="text-right" title="Entry-DAYS, not trades. This is the real sample size when fires cluster on the same day.">days</Th>
               <Th k="day_med_edge" cls="text-right" title="Median over entry-days of (setup day-median − same-day control day-median). The number that survives day clustering.">day edge</Th>
+              {/* AUDIT_ATR_V1 (2026-09-29): ADDITIVE column beside 'day edge' (that one is untouched). */}
+              <Th k="day_med_edge_atr" cls="text-right" title="ATR-MATCHED day edge (AUDIT_ATR_V1). Same as 'day edge', but each trade is compared with same-day control trades of the SAME volatility (ATR% quintile of the signal bar; control = every 10th bar ≥ $21). The book trail is 12×ATR%, so returns depend on volatility — a setup that fires on volatile names was being compared with an average-volatility control. Where the two columns disagree, trust this one.">day edge ATR</Th>
               <Th k="day_win_edge" cls="text-right" title="% of entry-days where the setup beat the same-day control.">day win</Th>
               <Th k="top2_share" cls="text-right" title="Share of all positive day-edge carried by the two best days. High = a few market days made the headline.">top2%</Th>
               {overfit && <Th cls="text-right" >DSR</Th>}
@@ -202,6 +204,8 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
                 <td className={`px-2 py-1.5 text-right ${(r.n_days ?? 0) < 80 ? 'text-orange-400' : 'text-slate-400'}`}
                     title={(r.n_days ?? 0) < 80 ? 'THIN: fewer than 80 entry-days' : undefined}>{r.n_days ?? '—'}</td>
                 <td className={`px-2 py-1.5 text-right font-semibold ${r.day_med_edge == null ? 'text-slate-600' : r.day_med_edge > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.day_med_edge == null ? '—' : (r.day_med_edge > 0 ? '+' : '') + r.day_med_edge.toFixed(2)}</td>
+                <td className={`px-2 py-1.5 text-right font-semibold ${r.day_med_edge_atr == null ? 'text-slate-600' : r.day_med_edge_atr > 0 ? 'text-emerald-400' : 'text-red-400'}`}
+                    title={r.n_days_atr != null ? `ATR-matched · ${r.n_days_atr} days · day win ${r.day_win_edge_atr ?? '—'}%` : undefined}>{r.day_med_edge_atr == null ? '—' : (r.day_med_edge_atr > 0 ? '+' : '') + r.day_med_edge_atr.toFixed(2)}</td>
                 <td className={`px-2 py-1.5 text-right ${r.day_win_edge == null ? 'text-slate-600' : r.day_win_edge >= 55 ? 'text-emerald-400' : r.day_win_edge > 50 ? 'text-slate-300' : 'text-red-400'}`}>{r.day_win_edge == null ? '—' : r.day_win_edge.toFixed(1)}</td>
                 <td className={`px-2 py-1.5 text-right ${(r.top2_share ?? 0) >= 15 ? 'text-orange-400' : 'text-slate-500'}`}>{r.top2_share == null ? '—' : r.top2_share.toFixed(0)}</td>
                 {overfit && (() => {

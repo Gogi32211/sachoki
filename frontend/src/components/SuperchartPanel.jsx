@@ -984,7 +984,7 @@ const ROWS = [
     // BO▲/BOV▲ BD▼/BDV▼ breakout · ● spike · SPK an origin that was echoed LATER (hindsight: it is
     // drawn back onto the spike bar, exactly as the Pine draws it) · ⛔QR▲ the QR_REL_V1 veto shape.
     // DESCRIPTIVE ONLY: every long study NULL (LONG_V1 0/274, LONG_2326 0/286, TRADE_V1 0/9);
-    // QR_REL_V1 veto CONFIRMED (−1.40 pp VERIFY vs a random buy, 6/6 years) — recorded, not applied.
+    // QR_REL_V1 veto (−1.40 pp VERIFY when found) — ❌ NOT reproduced by AUDIT_ATR_V1 (−0.01 pp) — recorded, not applied.
     key: 've',
     label: 'ECHO',
     chipCols: 2,
@@ -1010,7 +1010,7 @@ const ROWS = [
         R: 'R — volume ≤ 0.8 × median within 20 bars after BD▼ / BDV▼.',
         SPK: 'SPK — this spike was echoed LATER. Hindsight: the mark is drawn back onto the spike bar, so it was not knowable on this day.',
         '●': 'Spike — volume ≥ 1.5 × the 20-bar median (the origin the script remembers).',
-        '⛔QR▲': 'QR_REL_V1 VETO — yesterday Q∧R, today the first ▲ release. −1.82 pp MINE / −1.40 pp VERIFY vs a random buy, negative in all 6 years. Recorded, NOT applied.',
+        '⛔QR▲': 'QR_REL_V1 veto — yesterday Q∧R, today the first ▲ release. ❌ NOT REPRODUCED (AUDIT_ATR_V1, 2026-09-29): on current data −0.01 pp all years (−0.53 2021-23 / +0.42 2024-26); the original −1.82 / −1.40 pp no longer holds. Recorded, NOT applied.',
       }
       const t = T[sig]
         || (sig.startsWith('▲') ? `RELEASE ▲${b.ve_rel_n} — green bar with volume > SMA20 after ${b.ve_rel_q} quiet bar(s).`
@@ -1018,7 +1018,7 @@ const ROWS = [
         : sig.startsWith('BO') ? `${sig} — first green candle that opens AND closes above the zone, ${b.ve_bo_age} bars after the echo${sig === 'BOV▲' ? `, volume ×${b.ve_bov_x ?? '?'} of SMA20` : ''}.`
         : sig.startsWith('BD') ? `${sig} — first red candle that opens AND closes below the zone, ${b.ve_bo_age} bars after the echo${sig === 'BDV▼' ? `, volume ×${b.ve_bov_x ?? '?'} of SMA20` : ''}.`
         : '')
-      return `${base}${t}\n\nDescriptive only — VOL_ECHO long studies NULL; the one confirmed result is the ⛔QR▲ veto. Never a ranking input.`
+      return `${base}${t}\n\nDescriptive only — VOL_ECHO long studies NULL; the ⛔QR▲ veto did not reproduce in AUDIT_ATR_V1. Never a ranking input.`
     },
     chipCls: (s) => (
       s === 'VE' ? 'bg-cyan-900/60 text-cyan-200'
@@ -1379,7 +1379,7 @@ const ROWS = [
       const p = TOP_PAIRS.find(x => x.label === sig); const x = TOP_SINGLES.find(y => y.label === sig)
       const it = p || x; if (!it) return undefined
       return `${p ? 'TOP pair' : 'TOP single'} ${sig} — on in the last 3 bars. Turn-zone lift ${it.lift} vs a bar with the same price location, ATR% and recent-low status (VERIFY 2024-26, corrected; first published 1.3-2.7 without the recent-low control). `
-           + `Same-day return vs the day's other bars: ${it.sd >= 0 ? '+' : ''}${it.sd.toFixed(2)} pp (descriptive).\n\n`
+           + `Same-day return vs the day's other bars, ATR-matched (AUDIT_ATR_V1, VERIFY 2024-26): ${it.sd >= 0 ? '+' : ''}${it.sd.toFixed(2)} pp (descriptive).\n\n`
            + '⚠️ Mostly re-states that a low was just printed: controlling for price location, ATR% AND a 10-bar low in t-3..t, only the 🕐DR family keeps a real increment (1.2-1.33); the rest ≈ 1.0 (TZL_BOTTOM_SEQ_V1). Not path-sim-tested as a setup; not a buy signal, never a score input.'
     },
     chipCls: (sig) => {
