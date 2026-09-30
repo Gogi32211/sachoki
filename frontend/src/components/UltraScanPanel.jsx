@@ -737,9 +737,13 @@ export const SIG_GROUPS = [
     custom: r => r.phys_wyc === 'ACC-TR' },
   { key: '_ph_dist', label: 'DIST-TR⚛', cls: 'text-amber-300',
     custom: r => r.phys_wyc === 'DIST-TR' },
+  // WYC_AXIS_V1 / GX_RS_V1 (2026-09-30): ⚛ MARKUP / MKDN = the GOLDEN-/DEATH-CROSS regime (bar_physics.py: EMA50 vs
+  // EMA200, not ATR-compressed), not a Wyckoff structure. Hints added; label and filter unchanged. Forward B8/B9.
   { key: '_ph_mkup', label: 'MARKUP⚛',  cls: 'text-emerald-300',
+    hint: 'MARKUP⚛ = GOLDEN-CROSS regime: EMA50 > EMA200 (and not ATR-compressed). Not a Wyckoff structure despite the name. Inside any T/Z signal, a MARKUP name beat a MKDN name on the same day at the same volatility: +1.69 pp 2024-26 in 16 of 17 unselected T/Z states (WYC_AXIS_V1); +1.35 pp with RS held equal, +2.07 pp when MARKUP AND 🏆RS vs MKDN without RS (GX_RS_V1). About ⅔ of it is plain trend location. Regime-dependent: ≈0 in 2021-22. Seen-data result — forward read 2027-03 (B8/B9).',
     custom: r => r.phys_wyc === 'MARKUP' },
   { key: '_ph_mkdn', label: 'MKDN⚛',    cls: 'text-rose-300',
+    hint: 'MKDN⚛ = DEATH-CROSS regime: EMA50 < EMA200 (and not ATR-compressed). Not a Wyckoff structure despite the name. T/Z longs in MKDN names did worse than in MARKUP names on the same day (−1.35…−1.69 pp 2024-26, WYC_AXIS_V1 / GX_RS_V1), and 🏆RS does NOT rescue them (MKDN+RS ≈ MKDN without RS). Regime-dependent: ≈0 in 2021-22. Forward read 2027-03 (B8/B9).',
     custom: r => r.phys_wyc === 'MKDN' },
   { divider: true, label: '⟂ CISD (260815)' },
   // ── ⟂ Change in state of delivery ────────────────────────────────────────────

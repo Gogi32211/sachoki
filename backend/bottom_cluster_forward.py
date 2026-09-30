@@ -21,6 +21,12 @@ x_anat_rev_rs / x_anat_rev_norm / x_anat_shake in frontend/src/lib/v4ExtraGroups
 ⚠️ NOTE 2026-09-29 (recorded before any forward data; rules NOT changed): the B3-B7 research contrasts were not
 ATR-matched. Within day × ATR% (T9_RS_V1, TZ_BOOSTERS_V1 AMENDMENT_1): B3 T9 adds nothing to 🔻💪 (−1.06 pp 2024-26),
 B4 Z2G adds nothing to 🕐DR (−0.86), B5/B6/B7 ≈ 0 (+0.16 / −0.35 / +0.59). Expect B3-B7 to FAIL their anchor tests.
+  B8 GX = inside any T/Z state, ⚛ MARKUP (golden cross EMA50>EMA200) vs ⚛ MKDN (death cross), strata = day × ATR%-bin × state × 🏆RS
+  B9 GX·RS = inside any T/Z state, (MARKUP ∧ RS) vs (MKDN ∧ ¬RS), strata = day × ATR%-bin × state
+      (AMENDMENT_4, 2026-09-30, user OK "samive"; from WYC_AXIS_V1 / GX_RS_V1 — seen-data VERIFY 2024-26: B8 +1.35 [1.10, 1.61],
+      B9 +2.07 [1.72, 2.42]; declared before any forward data). Estimand = the research one: PER-BAR book return (entry open[t+1],
+      trail clip(12·ATR%, 15, 60), maxh 60, 15 bps, NO cooldown), paired within the strata, day-clustered. ATR% bins use the FROZEN
+      MINE-window cut points ATR_CUTS below. PASS = mean day Δ > 0 with 95 % CI lo > 0. Forward k = 9.
 Eligible: close ≥ $5, 20-day mean $volume ≥ $5M. Entry open[t+1], book _pathsim ATR×12 trail, maxh 60,
 slip .0015, 5-bar cooldown. Control: every eligible bar on the stride-10 control_keys.phase grid.
 Only trades whose full 60-session horizon lies inside the data are scored (right-edge censoring).
@@ -48,6 +54,42 @@ from studio.paths import db_path, DATA_DIR             # noqa: E402
 FORWARD_START = "2026-09-29"
 READ_ON_OR_AFTER = date(2027, 3, 1)
 HORIZON = 60
+# AMENDMENT_4 — ATR%-bin cut points frozen from the research MINE window (2021-23, rowseq ok bars); never re-estimate.
+ATR_CUTS = [0.01785, 0.020244, 0.022135, 0.02382, 0.025396, 0.02694, 0.028528, 0.030209, 0.032028, 0.034012, 0.036232,
+            0.038752, 0.041687, 0.045093, 0.049218, 0.054449, 0.061351, 0.071419, 0.089267, 0.11816, 0.212641]
+
+
+def _bar_returns(o, h, l, c, atr, tk, idx):
+    """Per-bar book return for signal bars `idx` (entry open[t+1], ATR×12 trail, maxh 60, 15 bps, gap fills at open)."""
+    out = np.full(len(idx), np.nan); S = 0.0015; n = len(o)
+    for q, t in enumerate(idx):
+        end = t + 1 + HORIZON
+        if end > n or tk[end - 1] != tk[t] or not (o[t + 1] > 0) or not (atr[t] > 0) or not (c[t] > 0):
+            continue
+        tr = min(0.60, max(0.15, 12.0 * atr[t] / c[t])); entry = o[t + 1] * (1 + S); pk = entry; r = np.nan
+        for j in range(t + 1, end):
+            if j > t + 1 and o[j] <= pk * (1 - tr):
+                r = o[j] / entry - 1 - S; break
+            pk = max(pk, h[j]); ts = pk * (1 - tr)
+            if l[j] <= ts:
+                r = ts / entry - 1 - S; break
+        out[q] = r if r == r else c[end - 1] / entry - 1 - S
+    return out
+
+
+def _paired(frame: pd.DataFrame, rng) -> dict:
+    """frame: d, stratum, r, g (bool group). Paired group − rest within stratum, n(group)-weighted per day, day bootstrap."""
+    g = frame.groupby(["d", "k", "g"]).r.mean().unstack("g").dropna()
+    if g.empty or True not in g or False not in g:
+        return {"days": 0, "note": "no paired strata"}
+    w = frame[frame.g].groupby(["d", "k"]).size().reindex(g.index)
+    z = pd.DataFrame({"x": (g[True] - g[False]).to_numpy() * w.to_numpy(), "w": w.to_numpy(), "d": g.index.get_level_values(0)})
+    s_ = z.groupby("d")[["x", "w"]].sum(); x = (s_.x / s_.w * 100).to_numpy()
+    if len(x) < 10:
+        return {"days": len(x), "note": "too few paired days"}
+    lo, hi = np.percentile([x[rng.integers(0, len(x), len(x))].mean() for _ in range(3000)], [2.5, 97.5])
+    return {"days": len(x), "n_group": int(frame.g.sum()), "paired_delta_pp": round(float(x.mean()), 2),
+            "ci95": [round(lo, 2), round(hi, 2)], "PASS": bool(x.mean() > 0 and lo > 0)}
 
 
 def run(d0: str, d1: str | None) -> dict:
@@ -70,8 +112,8 @@ def run(d0: str, d1: str | None) -> dict:
     el = ((df["close"] >= 5) & (dv >= 5e6) & df["atr_14"].notna()).to_numpy()
     v = df["v"].fillna("").to_numpy(); rs = df["rs"].fillna(False).astype(bool).to_numpy()
     tzq = duckdb.connect(db_path("studio_analytics.duckdb"), read_only=True).execute(f"""WITH r AS (SELECT ticker,
-            cast(date as varchar)[:10] date, t_sig, z_sig, l_sig, full_suffix, row_number() OVER (PARTITION BY ticker, date ORDER BY universe) rn
-            FROM bars WHERE universe <> 'index' AND date >= '{load_from}') SELECT ticker, date, t_sig, z_sig, l_sig, full_suffix FROM r WHERE rn = 1""").fetchdf()
+            cast(date as varchar)[:10] date, t_sig, z_sig, l_sig, full_suffix, phys_wyc, row_number() OVER (PARTITION BY ticker, date ORDER BY universe) rn
+            FROM bars WHERE universe <> 'index' AND date >= '{load_from}') SELECT ticker, date, t_sig, z_sig, l_sig, full_suffix, phys_wyc FROM r WHERE rn = 1""").fetchdf()
     df = df.merge(tzq, on=["ticker", "date"], how="left")
     tzs = df["t_sig"].fillna("").astype(str).where(df["t_sig"].fillna("").astype(str) != "", df["z_sig"].fillna("").astype(str)).to_numpy()
     import edge_replay
@@ -134,6 +176,27 @@ def run(d0: str, d1: str | None) -> dict:
             lo2, hi2 = np.percentile([x[rng.integers(0, len(x), len(x))].mean() for _ in range(3000)], [2.5, 97.5])
             out[rule]["paired_vs_anchor_pp"] = round(float(x.mean()), 2); out[rule]["paired_ci95"] = [round(lo2, 2), round(hi2, 2)]
             out[rule]["PASS"] = bool(x.mean() > 0 and lo2 > 0)
+    # ── AMENDMENT_4: B8 / B9 (golden-cross regime inside T/Z; per-bar returns, paired, ATR-matched) ──
+    sx = duckdb.connect().execute(f"SELECT ticker, CAST(date AS VARCHAR) date, rs AS rs_shape FROM "
+                                  f"read_parquet('{DATA_DIR}/shapectx_signals.parquet') WHERE date >= '{load_from}'").fetchdf()
+    sx["date"] = sx["date"].str[:10]
+    rsx = df[["ticker", "date"]].merge(sx.drop_duplicates(["ticker", "date"]), on=["ticker", "date"], how="left")["rs_shape"]
+    rs_s = rsx.fillna(False).astype(bool).to_numpy()
+    wyc = df["phys_wyc"].fillna("").astype(str).to_numpy()
+    gc, dcx = wyc == "MARKUP", wyc == "MKDN"
+    dts = df["date"].to_numpy()
+    cand = np.flatnonzero(el & (tzs != "") & (gc | dcx) & (dts >= d0) & (dts <= hi))
+    O_, H_, L_, C_, A_ = (df[x].to_numpy(float) for x in ("open", "high", "low", "close", "atr_14"))
+    rets = _bar_returns(O_, H_, L_, C_, A_, tk, cand)
+    okr = ~np.isnan(rets); cand, rets = cand[okr], rets[okr]
+    abin = np.digitize(A_[cand] / C_[cand], ATR_CUTS)
+    st_code = pd.factorize(tzs[cand])[0]
+    base = pd.DataFrame({"d": dts[cand], "r": rets})
+    f8 = base.assign(k=(abin + 32 * st_code) * 2 + rs_s[cand], g=gc[cand])
+    out["B8"] = _paired(f8, rng); out["B8"]["rule"] = "GC vs DC inside T/Z, RS held equal"
+    m9 = (gc[cand] & rs_s[cand]) | (dcx[cand] & ~rs_s[cand])
+    f9 = base.assign(k=abin + 32 * st_code, g=gc[cand] & rs_s[cand])[m9]
+    out["B9"] = _paired(f9, rng); out["B9"]["rule"] = "GC∧RS vs DC∧¬RS inside T/Z"
     for anchor in ("A_RS", "A_DR", "A_T5", "A_Z2G", "A_Z9"):
         if isinstance(out.get(anchor), dict): out[anchor].pop("PASS", None); out[anchor]["role"] = "anchor (reference, not a test)"
     return out
