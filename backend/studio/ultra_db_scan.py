@@ -330,6 +330,15 @@ _PASSTHROUGH_SIGNAL_COLS = [
 ]
 
 
+class _Row(dict):
+    """dict with a Series-like `.index` (membership only) — see the PERF note in run_ultra_db_scan."""
+    __slots__ = ()
+
+    @property
+    def index(self):
+        return self.keys()
+
+
 def _row_to_dict(row: pd.Series) -> dict:
     """Convert a DB row to the UI-compatible row dict.
 
@@ -696,17 +705,30 @@ def _enrich_seq3(results: list, universes) -> None:
     ph = ",".join("?" * len(tks))
     conn = get_analytics_conn()
     try:
-        df = conn.execute(f"""
+        # PERF (2026-10-01): only the last SEQ_BARS sessions are kept, and every result row already
+        # passed the ≤ 7-day stale filter, so rank a recent window instead of the full history
+        # (the full-history window was ~18 s on all universes). Generous margin for halts/holidays.
+        _mx = conn.execute(f"SELECT max(date) FROM bars WHERE ticker IN ({ph})", tks).fetchone()[0]
+        _since = str(pd.Timestamp(_mx) - pd.Timedelta(days=SEQ_BARS * 3 + 45))[:10] if _mx is not None else "1900-01-01"
+        _q = lambda tick_ph: f"""
             WITH d AS (
               SELECT ticker, date, {cols},
                      row_number() OVER (PARTITION BY ticker, date ORDER BY
                        CASE universe WHEN 'sp500' THEN 0 WHEN 'nasdaq' THEN 1 ELSE 2 END) rn
-              FROM bars WHERE ticker IN ({ph})
+              FROM bars WHERE ticker IN ({tick_ph}) AND date >= ?
             ), u AS (SELECT * EXCLUDE rn FROM d WHERE rn = 1),
             k AS (SELECT *, row_number() OVER (PARTITION BY ticker ORDER BY date DESC) age
                   FROM u)
             SELECT * FROM k WHERE age <= {SEQ_BARS} ORDER BY ticker, date
-        """, tks).fetchdf()
+        """
+        df = conn.execute(_q(ph), tks + [_since]).fetchdf()
+        # Thinly traded names whose last SEQ_BARS sessions reach further back than the window
+        # (a handful: preferreds, units) get the full-history query, so the output is identical.
+        _cnt = df.groupby("ticker").size() if len(df) else pd.Series(dtype=int)
+        _short = [t for t in tks if int(_cnt.get(t, 0)) < SEQ_BARS]
+        if _short:
+            _full = conn.execute(_q(",".join("?" * len(_short))), _short + ["1900-01-01"]).fetchdf()
+            df = pd.concat([df[~df.ticker.isin(_short)], _full], ignore_index=True).sort_values(["ticker", "date"])
     finally:
         conn.close()
     by: dict = {}
@@ -1532,6 +1554,16 @@ def run_ultra_db_scan(
         else:
             where_sql, params = f"universe IN ({placeholders})", list(universes)
 
+        # PERF (2026-10-01): with the stale filter on, only bars of the last few weeks can survive it,
+        # so rank only those. The window over the FULL history (9M rows × 439 columns) cost 10-50 s
+        # per scan; the windowed query returns the identical post-filter rows in < 0.5 s (verified
+        # column-by-column on sp500 and on all three universes). max_age_days=None keeps full history.
+        date_sql = ""
+        if max_age_days is not None:
+            _mx = conn.execute(f"SELECT max(date) FROM bars WHERE {where_sql}", params).fetchone()[0]
+            if _mx is not None:
+                date_sql = " AND date >= ?"
+                params = params + [str(pd.Timestamp(_mx) - pd.Timedelta(days=int(max_age_days) + 21))[:10]]
         latest = conn.execute(f"""
             WITH ranked AS (
               SELECT *,
@@ -1545,7 +1577,7 @@ def run_ultra_db_scan(
                                 END
                      ) AS rn
               FROM bars
-              WHERE {where_sql}
+              WHERE {where_sql}{date_sql}
             )
             SELECT * FROM ranked WHERE rn = 1
         """, params).fetchdf()
@@ -1682,7 +1714,14 @@ def run_ultra_db_scan(
         }
 
         results = []
-        for _, row in latest.iterrows():
+        # PERF (2026-10-01): iterrows() hands _row_to_dict a pandas Series, and ~1,000 Series
+        # lookups per row cost ~12 s on the full universe. _Row is a plain dict over the SAME
+        # element objects (iterrows itself reads latest.values) exposing the only Series API the
+        # function uses: `col in row.index`, row.get, row[col] and dict(row).
+        _cols = list(latest.columns)
+        _vals = latest.values
+        for _i in range(len(_vals)):
+            row = _Row(zip(_cols, _vals[_i]))
             d = _row_to_dict(row)
             key = (d.get("ticker"), d.get("universe"))
             ages = sig_ages_by_id.get(key) or {}
