@@ -4368,6 +4368,26 @@ def api_brain_postmortem(ticker: str):
         return {"error": str(e)}
 
 
+@app.get("/api/anatomy-history/{ticker}")
+def api_anatomy_history(ticker: str, limit: int = 5000):
+    """Full ▽△ Bottom-Anatomy history for ONE ticker from data/anatomy_signals.parquet (the nightly
+    anatomy_build.py port of the /api/day1h definition). Lets the Superchart CSV export score the
+    V4 anatomy keys (x_anat_*) on EVERY bar instead of only the ~300 days /api/day1h is asked for.
+    Read-only, additive: {marks: [{date, anat_v, anat_s, anat_rs}]} oldest→newest."""
+    import os
+    import pyarrow.parquet as pq
+    from studio.paths import DATA_DIR
+    tk = ticker.upper().strip()
+    path = os.path.join(DATA_DIR, "anatomy_signals.parquet")
+    if not os.path.exists(path):
+        return {"ticker": tk, "marks": [], "error": "anatomy_signals.parquet not built"}
+    t = pq.read_table(path, columns=["ticker", "date", "v", "s", "rs"], filters=[("ticker", "==", tk)])
+    df = t.to_pandas().sort_values("date").tail(max(1, min(int(limit), 20000)))
+    marks = [{"date": str(r.date)[:10], "anat_v": (r.v or None), "anat_s": (None if r.s != r.s else int(r.s)),
+              "anat_rs": bool(r.rs) if r.rs == r.rs else None} for r in df.itertuples()]
+    return {"ticker": tk, "marks": marks}
+
+
 @app.get("/api/anatomy-latest")
 def api_anatomy_latest():
     """Whole-universe latest-bar Bottom-Anatomy verdict for the Ultra screener ▽△ column:

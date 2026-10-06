@@ -1851,12 +1851,15 @@ export default function SuperchartPanel({
     // blanks its own columns instead of shrinking the export.
     const MARK_LIMIT = 5000
     const marksFor = (fn) => (tf === '1d' ? fn(ticker, MARK_LIMIT) : Promise.resolve({ marks: [] }))
-    const [sigRes, physRes, lbalRes, lvxRes, ovdRes, vol7Res, shapeRes, pvRes, veRes] = await Promise.allSettled([
+    const [sigRes, physRes, lbalRes, lvxRes, ovdRes, vol7Res, shapeRes, pvRes, veRes, anatRes] = await Promise.allSettled([
       api.barSignals(ticker, tf, EXPORT_LIMIT),
       tf === '1d' ? api.studioBars(ticker, STUDIO_LIMIT) : Promise.resolve([]),
       marksFor(api.lbalMarks), marksFor(api.lvxMarks), marksFor(api.ovdmapMarks),
       marksFor(api.vol7Marks), marksFor(api.shapectxMarks), marksFor(api.pvMultiMarks),
       marksFor(api.volEchoMarks),
+      // ▽△ anatomy for the WHOLE history (2026-10-05) — the screen's day1hMap covers ~300 days only,
+      // so without this the V4 anatomy keys (x_anat_*, 5 pts each) would silently stop scoring there.
+      marksFor(api.anatomyHistory),
     ])
     const markMap = (res) => {
       const m = {}
@@ -1866,8 +1869,9 @@ export default function SuperchartPanel({
     }
     const mLbal = markMap(lbalRes), mLvx = markMap(lvxRes), mOvd = markMap(ovdRes)
     const mVol7 = markMap(vol7Res), mShape = markMap(shapeRes), mPv = markMap(pvRes), mVe = markMap(veRes)
+    const mAnat = markMap(anatRes)
     const missing = [['L-BAL', lbalRes], ['L-VX', lvxRes], ['OVD', ovdRes], ['VOL7', vol7Res],
-                     ['SHAPE', shapeRes], ['PV', pvRes], ['VOL_ECHO', veRes]].filter(([, r]) => r.status === 'rejected').map(([n]) => n)
+                     ['SHAPE', shapeRes], ['PV', pvRes], ['VOL_ECHO', veRes], ['ANATOMY', anatRes]].filter(([, r]) => r.status === 'rejected').map(([n]) => n)
     if (missing.length) setError(`CSV: ${missing.join(', ')} could not be fetched; those columns will be blank`)
     const full = sigRes.status === 'fulfilled' ? sigRes.value : null
     if (full?.length) {
@@ -2072,6 +2076,11 @@ export default function SuperchartPanel({
       'VE_Q','VE_QN','VE_R','VE_RN','VE_REL_UP','VE_REL_DN','VE_REL_N','VE_REL_Q',
       'VE_BO','VE_BD','VE_BOV','VE_BDV','VE_BO_AGE','VE_BOV_X',
       'VE_ZONE_ARMED','VE_ZONE_TOP','VE_ZONE_BOT','VE_ZONE_POS','VE_QR_REL_VETO',
+      // ── V4 (2026-10-05, user: "V4 qulebi istoriulad csv-shi") — the SAME score the Superchart V4
+      // row shows (v4Score over V4_ALL_GROUPS with V4_WEIGHTS, lookback 1), computed on EVERY exported
+      // bar from the same merge barsV4 uses, but fed by the export's full-history fetches. V4_N = how
+      // many catalog signals fired; V4_FIRED = their labels (weight > 0 ones carry the score).
+      'V4_SCORE','V4_N','V4_FIRED',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
@@ -2348,6 +2357,18 @@ export default function SuperchartPanel({
                     B01(E.ve_zone_armed), NUM(E.ve_zone_top, 4), NUM(E.ve_zone_bot, 4), E.ve_zone_pos ?? '',
                     B01(E.ve_qr_rel_veto)] })(),
         ]
+      })(),
+      // ── V4: same merge order as barsV4 (bar · phys · shape · pv · lbal · lvx · ovd · vol7 · ve · anat)
+      ...(() => {
+        const d = String(b.date).slice(0, 10)
+        const A = mAnat[d]
+        const merged = { ...b, ...(_phys[b.date] || {}), ...(mShape[d] || {}), ...(mPv[d] || {}),
+                         ...(mLbal[d] || {}), ...(mLvx[d] || {}), ...(mOvd[d] || {}),
+                         ...(mVol7[d] || {}), ...(mVe[d] || {}),
+                         anat_v: A?.anat_v ?? undefined, anat_s: A?.anat_s ?? undefined, anat_rs: A?.anat_rs ?? undefined }
+        const fired = v4Fired(V4_ALL_GROUPS, merged, 1)
+        return [v4Score(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1), fired.length,
+                v4FiredLabels(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1).join(' · ')]
       })(),
     ])
     // A header/cell count drift silently shifts every column after the break, and the CSV still

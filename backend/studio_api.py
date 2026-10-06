@@ -1305,6 +1305,23 @@ def ovdmap_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
             "meta": {"as_of": sp.get("as_of"), "built_at": sp.get("built_at"), "definitions": sp.get("ovdmap")}}
 
 
+@router.get("/v4-marks/{ticker}")
+def v4_marks(ticker: str, limit: int = Query(400, ge=1, le=10000)):
+    """Stored V4 history per bar (1D): fired catalog keys + the score re-summed with the CURRENT v4Weights.js
+    (data/v4_signals.parquet, v4_history_build.py — Superchart row shape). DESCRIPTIVE ONLY."""
+    import json as _json
+    from studio import v4_history_store as V4
+    from studio.paths import DATA_DIR as _DD
+    if not V4.available():
+        return {"marks": [], "meta": None, "note": "v4_signals.parquet not built — run backend/v4_history_build.py"}
+    meta = None
+    try:
+        meta = _json.load(open(os.path.join(_DD, "V4_SIGNALS_V1.json")))
+    except Exception:
+        pass
+    return {"marks": V4.by_ticker(ticker, limit), "meta": meta}
+
+
 @router.get("/vol7-marks/{ticker}")
 def vol7_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
     """VOL7 per-bar states (1D): MR level M0..M6, σ level, consensus (= / MR+ / Σ+), level jump (▲+2 ▼−2
@@ -1831,6 +1848,61 @@ def exact_sequence(req: ExactSequenceRequest):
     except Exception as e:
         log.exception("exact_sequence failed")
         raise HTTPException(500, detail=str(e))
+
+
+def _tf_conn(tf: str):
+    """Read-only connection to the tf DB (1d = analytics). Returns (conn, error)."""
+    import os as _os
+    import duckdb as _duckdb
+    from studio.paths import db_path as _dbp
+    tf = (tf or "1d").lower()
+    path = _dbp("studio_analytics.duckdb") if tf == "1d" else _dbp(tf)
+    if not _os.path.exists(path):
+        return None, f"{tf} DB not built yet"
+    try:
+        return _duckdb.connect(path, read_only=True), None
+    except Exception as _le:
+        if "lock" in str(_le).lower():
+            return None, f"{tf} DB is being written — try again soon"
+        raise
+
+
+@router.post("/q-sequence")
+def q_sequence(req: ExactSequenceRequest):
+    """Exact Sequence on the Pine 260924_Q_WLNBB_CMB_MR_CONSENSUS alphabet (Q0-Q8+G/R, L, V-level,
+    suffix, body/wick, gap/range+true-gap, VIX/PSAR/RSI2, R·regime·C·H, P/D, Wyckoff, RSI).
+    Same request shape and outcome block as /exact-sequence; additive (studio/q_sequence.py)."""
+    from studio.q_sequence import query_q_sequence
+    try:
+        tf = (req.tf or "1d").lower()
+        conn, err = _tf_conn(tf)
+        if err:
+            return {"matches": 0, "tf": tf, "error": err}
+        try:
+            r = query_q_sequence(bars=req.bars, universe=req.universe, strictness=req.strictness,
+                                 pivot_lr=req.pivot_lr, conn=conn, match_rows=req.match_rows,
+                                 min_price=req.min_price, max_price=req.max_price,
+                                 years=req.years, months=req.months)
+        finally:
+            conn.close()
+        r["tf"] = tf
+        return _with_search_accounting(req, r)
+    except Exception as e:
+        log.exception("q_sequence failed")
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/q-sequence/bars")
+def q_sequence_bars(ticker: str, n: int = 6, tf: str = "1d"):
+    """Last n bars of a ticker in the Q-tab alphabet — fills the builder from a real chart."""
+    from studio.q_sequence import describe_bars
+    conn, err = _tf_conn(tf)
+    if err:
+        return {"bars": [], "error": err}
+    try:
+        return {"bars": describe_bars(ticker, max(1, min(int(n), 12)), conn=conn), "tf": tf}
+    finally:
+        conn.close()
 
 
 _ICS_CACHE: dict | None = None

@@ -237,6 +237,23 @@ echo "──── 📣 VOL ECHO rebuild  ($(date '+%T')) ────"
 echo "──── ⟲ TURN·58 / ⟲ROW rebuild  ($(date '+%T')) ────"
 ( cd "$ROOT/backend" && nice -n 10 .venv/bin/python turn_rowseq_build.py ) || { echo "  ⚠ TURN/ROW rebuild failed"; DEGRADED=1; }
 
+# ── V4 history increment (2026-10-05, user: "V4 mtlian DB bazashi" + "ki daamate gamis damatebebi") ──
+# The Superchart V4 per bar (fired catalog keys) for every ticker → data/v4_signals.parquet, read by
+# /api/studio/v4-marks (score re-summed with the CURRENT v4Weights.js). Recomputes the last 14 calendar
+# days and merges them into the store, so a night skipped by the trust gate is healed by the next one.
+# Same sources as TURN/ROW above (display stores + anatomy + EDGE frame) PLUS studio_4h/1h/15m for the
+# REV / MTF-echo / turn-echo / mtf_conf fields → gated on the 1H/4H trust gate. ~5-10 min, atomic
+# replace, non-fatal. DESCRIPTIVE ONLY: V4 as a ranker was measured NULL (research_out/V4_HISTORY_V1.md).
+if [ "$INTRADAY_TRUSTED" = "1" ]; then
+  echo "──── V4 history increment  ($(date '+%T')) ────"
+  V4_SINCE=$(date -v-14d '+%Y-%m-%d')
+  ( cd "$ROOT/backend" && nice -n 10 .venv/bin/python -W ignore v4_history_build.py --since "$V4_SINCE" --nightly ) \
+    || { echo "  ⚠ V4 history increment failed"; DEGRADED=1; }
+else
+  echo "  ⏭  skipping V4 history increment — it reads studio_4h/1h/15m (next night heals the 14-day window)"
+  SKIPPED="$SKIPPED v4hist"
+fi
+
 # ── 💠 GEX edge-context forward log (2026-07-22) ──────────────────────────────
 # Options have NO historical snapshot, so GEX-confluence can only be validated by
 # capturing the LIVE GEX context at each edge-fire day and joining forward returns

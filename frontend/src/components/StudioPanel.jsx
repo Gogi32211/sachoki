@@ -164,6 +164,7 @@ const SUBTABS = [
   { id: 'playbook',  label: '📒 Playbook'     },
   { id: 'sigstats',  label: '📈 Signal Stats' },
   { id: 'exact',     label: '🎯 Exact Sequence' },
+  { id: 'qseq',      label: '🔷 Q Sequence' },
   { id: 'seqlab',    label: '🧬 Seq Lab'      },
   { id: 'dbchart',   label: '🕯️ DB Chart'     },
   { id: 'events',    label: '🎯 Events'       },
@@ -1928,6 +1929,434 @@ export function ExactSequenceTab({ tf: tfProp = '1d' } = {}) {
                         <div className="text-[10px] text-md-on-surface-var/40 mt-2 mb-1 px-1">no next pivot yet ({none.length})</div>
                         {none.map((r, i) => <TRow key={i} r={r} side="none" />)}
                       </>}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── Q SEQUENCE TAB ────────────────────────────────────────────────────────────
+// The Exact Sequence builder on the Pine "260924_Q_WLNBB_CMB_MR_CONSENSUS" alphabet:
+// Q0-Q8 + G/R (colour-blind body arrangement) replaces T/Z, plus the script's own volume
+// token (V0-V6 · ●▲▼ · ↑V/↓V · ↑v/↓v), TRUE-gap "→", R·regime·C·H line and Wyckoff lane.
+// Backend: /api/studio/q-sequence (studio/q_sequence.py). Additive — ExactSequenceTab untouched.
+// ═══════════════════════════════════════════════════════════════════════════════
+const Q_LINE_LABELS = {
+  line1:  'L1 — Q code (Q0-Q8 + G/R)',
+  line2:  'L2 — L (WLNBB)',
+  line3:  'L3 — volume V0-V6 ●▲▼ ↑V/↓V ↑v/↓v',
+  line4:  'L4 — suffix',
+  line5:  'L5 — body/wick',
+  line6:  'L6 — gap/range (+TRUE gap →)',
+  line7:  'L7 — VIX/PSAR/RSI2',
+  line8:  'L8 — R-OHM · regime · C · H',
+  line9:  'L9 — PREUP/PREDN (P/D)',
+  line10: 'L10 — Wyckoff phase',
+  line11: 'L11 — RSI range (e.g. 20-35)',
+}
+const Q_FIELDS = [
+  ['q',         'Q',       'Q1G Q2* !Q8*'],
+  ['l',         'L',       'L34 or L*'],
+  ['vol',       'volume',  'V4* *↑V* V2●'],
+  ['suffix',    'suffix',  'EU or *'],
+  ['body_wick', 'body/wk', 'XF STB *'],
+  ['gap_range', 'gap/rng', 'G2→G1-N G*'],
+  ['line5',     'VIX/PS',  'PS-R2X *'],
+  ['line6',     'R·C·H',   'RA·U* RF*'],
+  ['ema',       'P/D',     'P55 P* D*'],
+  ['wyc',       'WYC',     'ACC-TR SPRING*'],
+  ['rsi',       'RSI rng', '20-35'],
+]
+const Q_EMPTY_BAR = Object.fromEntries(Q_FIELDS.map(([k]) => [k, '']))
+const Q_LINE_OF_FIELD = { q: 'line1', l: 'line2', vol: 'line3', suffix: 'line4', body_wick: 'line5',
+  gap_range: 'line6', line5: 'line7', line6: 'line8', ema: 'line9', wyc: 'line10', rsi: 'line11' }
+
+function QBarSlot({ idx, isLast, bar, onChange, totalBars, strict }) {
+  const upd = (k, v) => onChange({ ...bar, [k]: v })
+  const label = isLast ? 'bar 0 (now)' : `bar -${totalBars - 1 - idx}`
+  return (
+    <div className="rounded-lg border border-md-outline-var bg-md-surface/30 p-2 flex-1 min-w-[180px]">
+      <div className="text-[10px] text-md-on-surface-var/70 font-mono mb-1 text-center">
+        {label}{bar.date ? <span className="text-sky-300/70"> · {bar.date}</span> : null}
+      </div>
+      {Q_FIELDS.map(([k, lab, ph]) => (
+        <div key={k} className={cls('flex items-center gap-1 mb-1', !strict[Q_LINE_OF_FIELD[k]] && 'opacity-45')}>
+          <span className="text-[9px] text-md-on-surface-var/60 font-mono w-12">{lab}</span>
+          <input type="text" value={bar[k] || ''} onChange={e => upd(k, e.target.value)} placeholder={ph}
+            className="flex-1 min-w-0 bg-md-surface-high border border-md-outline-var rounded
+                       px-1.5 py-0.5 text-[11px] font-mono text-md-on-surface
+                       focus:outline-none focus:border-md-primary/50" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function QSequenceTab({ tf: tfProp = '1d' } = {}) {
+  const [bars, setBars] = useState([{ ...Q_EMPTY_BAR }, { ...Q_EMPTY_BAR }, { ...Q_EMPTY_BAR }])
+  const [uni,      setUni]      = useState('sp500')
+  const [pivotLr,  setPivotLr]  = useState(3)
+  const [minPrice, setMinPrice] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
+  const [years,    setYears]    = useState([])
+  const [months,   setMonths]   = useState([])
+  const [strict,   setStrict]   = useState(Object.fromEntries(
+    Object.keys(Q_LINE_LABELS).map(k => [k, k === 'line1' || k === 'line2'])))
+  const [result,   setResult]   = useState(null)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState(null)
+  const [tfData,    setTfData]    = useState({})
+  const [tfLoading, setTfLoading] = useState({})
+  const [tfOpen,    setTfOpen]    = useState({})
+  const [tickerModal, setTickerModal] = useState(null)
+  const [tickerLoading, setTickerLoading] = useState(false)
+  const [srcTicker, setSrcTicker] = useState('')
+  const [srcLoading, setSrcLoading] = useState(false)
+  const _body = useRef(null)
+
+  const updateBar = (i, nb) => setBars(prev => prev.map((b, j) => j === i ? nb : b))
+  const changeN = (n) => setBars(prev => n > prev.length
+    // grow/shrink on the OLD side, so bar 0 (now) keeps what was typed into it
+    ? [...Array(n - prev.length).fill(null).map(() => ({ ...Q_EMPTY_BAR })), ...prev]
+    : prev.slice(prev.length - n))
+  const reset = () => { setBars(prev => prev.map(() => ({ ...Q_EMPTY_BAR }))); setResult(null); setError(null) }
+
+  // Fill the builder with a real ticker's last N bars (exact codes; RSI left blank —
+  // a point value is not a range, type one if you want line 11).
+  const loadFromTicker = () => {
+    const t = srcTicker.trim().toUpperCase()
+    if (!t) return
+    setSrcLoading(true); setError(null)
+    api.studioQSequenceBars(t, bars.length, tfProp)
+      .then(r => {
+        if (r.error) { setError(r.error); return }
+        if (!r.bars?.length) { setError(`${t}: no bars in the ${tfProp} DB`); return }
+        setBars(r.bars.map(b => ({ ...Q_EMPTY_BAR, ...Object.fromEntries(
+          Q_FIELDS.filter(([k]) => k !== 'rsi').map(([k]) => [k, b[k] || ''])),
+          date: b.date, rsi_hint: b.rsi_val })))
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setSrcLoading(false))
+  }
+
+  const cleanBars = () => bars.map(b => Object.fromEntries(Q_FIELDS.map(([k]) => [k, b[k] || ''])))
+
+  const loadTf = (tf) => {
+    const body = _body.current
+    if (!body) return
+    setTfOpen(p => ({ ...p, [tf]: true }))
+    if (tfData[tf] || tfLoading[tf]) return
+    setTfLoading(p => ({ ...p, [tf]: true }))
+    api.studioQSequence({ ...body, tf })
+      .then(h => setTfData(p => ({ ...p, [tf]: h })))
+      .catch(e => setTfData(p => ({ ...p, [tf]: { error: e.message } })))
+      .finally(() => setTfLoading(p => ({ ...p, [tf]: false })))
+  }
+
+  const openTickerModal = (tf = tfProp) => {
+    const body = _body.current
+    if (!body) return
+    setTickerLoading(true); setTickerModal(null)
+    api.studioQSequence({ ...body, tf, match_rows: true })
+      .then(r => setTickerModal({ rows: r.rows || [], tf }))
+      .catch(() => setTickerModal({ rows: [], tf }))
+      .finally(() => setTickerLoading(false))
+  }
+
+  const run = async () => {
+    setLoading(true); setError(null); setResult(null); setTfData({}); setTfLoading({}); setTfOpen({})
+    try {
+      const body = { bars: cleanBars(), strictness: strict, pivot_lr: pivotLr, tf: tfProp }
+      if (uni !== 'both') body.universe = uni
+      if (minPrice !== '' && !isNaN(Number(minPrice))) body.min_price = Number(minPrice)
+      if (maxPrice !== '' && !isNaN(Number(maxPrice))) body.max_price = Number(maxPrice)
+      if (years.length)  body.years  = years
+      if (months.length) body.months = months
+      const r = await api.studioQSequence(body)
+      if (r.error) { setError(r.error); return }
+      setResult(r)
+      _body.current = body
+    } catch (e) { setError(e.message) }
+    finally     { setLoading(false) }
+  }
+
+  const o = result?.outcomes
+  const fwdMain = tfProp === '1d' ? ['5d', '10d', '20d'] : ['5 bars', '10 bars', '20 bars']
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <h3 className="text-sm font-semibold text-md-on-surface mb-1">
+          Q Sequence — 260924 Q·WLNBB·CMB alphabet — HL/HH Predictor
+        </h3>
+        <p className="text-xs text-md-on-surface-var">
+          Same engine as 🎯 Exact Sequence, but on the Pine <span className="font-mono">260924_Q_WLNBB_CMB_MR_CONSENSUS</span> lines.
+          {' '}<span className="font-mono text-sky-300">Q</span>: Q1 fully above · Q2 overlap ↑ · Q3 engulf, centre ↑ ·
+          Q4 inside, centre ↑ · Q5 inside, centre ↓ · Q6 engulf, centre ↓ · Q7 overlap ↓ · Q8 fully below · Q0 identical
+          (bodies vs the previous bar) + <span className="font-mono">G</span>/<span className="font-mono">R</span> colour.
+          {' '}<span className="font-mono text-sky-300">volume</span>: V0-V6 = volume / 20-bar median level;
+          {' '}<span className="font-mono">●</span> σ-level agrees · <span className="font-mono">▲</span> median ≥2 higher · <span className="font-mono">▼</span> σ ≥2 higher;
+          {' '}<span className="font-mono">↑V</span>/<span className="font-mono">↓V</span> V≥4 on Q1-Q4 / Q5-Q8;
+          {' '}<span className="font-mono">↑v</span>/<span className="font-mono">↓v</span> same level, volume up/down.
+          {' '}gap/range shows the TRUE-gap class after <span className="font-mono">→</span> when it differs.
+          Syntax: <span className="font-mono text-amber-300">*</span> wildcard
+          (<span className="font-mono text-amber-300">Q1*</span>, <span className="font-mono text-amber-300">*↑V*</span>),
+          {' '}<span className="font-mono text-rose-300">!</span> NOT, space = OR. Lines 1-2 match by default; toggle the chips.
+        </p>
+      </Card>
+
+      <div className="rounded-xl border border-md-outline-var overflow-hidden">
+        <div className="px-3 py-2 bg-sky-900/30 border-b border-md-outline-var flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-bold text-sky-300">Q Sequence Builder</span>
+          <span className="text-[10px] text-md-on-surface-var/60 ml-3">fill from ticker</span>
+          <input value={srcTicker} onChange={e => setSrcTicker(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && loadFromTicker()}
+            placeholder="e.g. LTRX" title={`copy the last ${bars.length} ${tfProp} bars of a ticker into the slots`}
+            className="w-20 bg-md-surface-high border border-md-outline-var rounded text-[11px] font-mono text-md-on-surface px-1.5 py-0.5" />
+          <button onClick={loadFromTicker} disabled={srcLoading}
+            className="px-2 py-0.5 rounded text-[10px] bg-sky-800/60 text-sky-100 hover:bg-sky-700/70">
+            {srcLoading ? '…' : `⤓ last ${bars.length} bars`}
+          </button>
+          <button onClick={reset}
+            className="ml-auto px-2 py-0.5 rounded text-[10px] bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface transition-colors">
+            ↺ Clear
+          </button>
+        </div>
+
+        <div className="px-3 py-3 flex gap-2 flex-wrap bg-md-surface/30">
+          {bars.map((bar, i) => (
+            <QBarSlot key={i} idx={i} bar={bar} strict={strict}
+                      isLast={i === bars.length - 1} totalBars={bars.length}
+                      onChange={(b) => updateBar(i, b)} />
+          ))}
+        </div>
+
+        <div className="px-3 py-2 border-t border-md-outline-var bg-md-surface-con/40 flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-md-on-surface-var/70">match:</span>
+          {Object.keys(Q_LINE_LABELS).map(k => (
+            <button key={k} onClick={() => setStrict(prev => ({ ...prev, [k]: !prev[k] }))}
+              title={Q_LINE_LABELS[k]}
+              className={cls('px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors border',
+                strict[k]
+                  ? 'bg-sky-600/30 text-sky-300 border-sky-700/60'
+                  : 'bg-md-surface-high text-md-on-surface-var/70 border-md-outline-var hover:text-md-on-surface')}>
+              {k.toUpperCase()}
+            </button>
+          ))}
+
+          <div className="w-px h-4 bg-white/10 mx-1" />
+          <span className="text-[10px] text-md-on-surface-var/70">bars:</span>
+          {EXACT_N_OPTS.map(n => (
+            <button key={n} onClick={() => changeN(n)}
+              className={cls('px-2 py-0.5 rounded text-[10px] font-mono',
+                bars.length === n ? 'bg-sky-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>
+              {n}b
+            </button>
+          ))}
+          <span className="text-[10px] text-md-on-surface-var/70 ml-1">pivot:</span>
+          {[3, 5].map(lr => (
+            <button key={lr} onClick={() => setPivotLr(lr)}
+              className={cls('px-2 py-0.5 rounded text-[10px] font-mono',
+                pivotLr === lr ? 'bg-sky-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>
+              {lr}-{lr}
+            </button>
+          ))}
+          <select value={uni} onChange={e => setUni(e.target.value)}
+            className="bg-md-surface-high border border-md-outline-var rounded text-[11px] text-md-on-surface px-2 py-0.5">
+            {EXACT_UNI_OPTS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+          </select>
+          <span className="text-[10px] text-md-on-surface-var/70 ml-1">price $</span>
+          <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)} placeholder="min"
+            title="min close price on the entry bar ($21-89 = quality zone)"
+            className="w-16 bg-md-surface-high border border-md-outline-var rounded text-[11px] text-md-on-surface px-1.5 py-0.5" />
+          <span className="text-[10px] text-md-on-surface-var/50">–</span>
+          <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} placeholder="max"
+            className="w-16 bg-md-surface-high border border-md-outline-var rounded text-[11px] text-md-on-surface px-1.5 py-0.5" />
+
+          {result?.search_accounting && (
+            <span title={result.search_accounting.note || ''}
+              className={cls('px-2 py-0.5 rounded text-[10px] font-mono ml-auto border',
+                result.search_accounting.k_distinct == null
+                  ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
+                  : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var')}>
+              {result.search_accounting.k_distinct == null
+                ? 'k unknown — not counted'
+                : `k ${result.search_accounting.k_distinct} distinct · ${result.search_accounting.queries} queries`}
+              {result.search_accounting.claim_is_new === false && <span className="text-emerald-400"> · repeat</span>}
+            </span>
+          )}
+          <Btn onClick={run} disabled={loading} size="sm" className={result?.search_accounting ? 'ml-2' : 'ml-auto'}>
+            {loading ? <><Spinner /> Searching...</> : '▶ Find Matches'}
+          </Btn>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1 px-3 pb-2 border-t border-md-outline-var pt-2">
+          <span className="text-[10px] text-md-on-surface-var/70 w-12">years</span>
+          <button onClick={() => setYears([])}
+            className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+              years.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>all</button>
+          {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
+            <button key={y} onClick={() => setYears(p => p.includes(y) ? p.filter(x => x !== y) : [...p, y])}
+              className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+                years.includes(y) ? 'bg-emerald-700 text-emerald-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>
+              {String(y).slice(2)}</button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1 px-3 pb-2">
+          <span className="text-[10px] text-md-on-surface-var/70 w-12">months</span>
+          <button onClick={() => setMonths([])}
+            className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+              months.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>all</button>
+          {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((mn, i) => (
+            <button key={mn} onClick={() => setMonths(p => p.includes(i + 1) ? p.filter(x => x !== i + 1) : [...p, i + 1])}
+              className={cls('px-1.5 py-0.5 rounded text-[11px] font-medium',
+                months.includes(i + 1) ? 'bg-sky-700 text-sky-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>
+              {mn}</button>
+          ))}
+        </div>
+
+        {error && <div className="px-4 py-2 text-red-400 text-xs border-t border-md-outline-var">{error}</div>}
+      </div>
+
+      {result && (
+        <Card>
+          <div className="flex items-center gap-3 mb-3 text-[11px]">
+            <span className="text-md-on-surface-var/70">sequence:</span>
+            <span className="font-mono text-md-on-surface">{result.sequence_label}</span>
+            <span className="ml-auto text-md-on-surface-var/70">
+              universe: {fmtNum(result.baseline)} bars · pivot {result.pivot_lr}-{result.pivot_lr} · {tfProp.toUpperCase()}
+            </span>
+          </div>
+          {result.matches === 0 ? (
+            <div className="px-4 py-6 text-center text-amber-400/80 text-sm">
+              0 historical matches. Loosen the match (toggle off LINE chips, use * wildcards) or reduce the bar count.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-baseline gap-3 px-3 py-2 bg-sky-900/20 rounded border border-sky-700/30">
+                <span className="text-[10px] text-sky-300/70">matches</span>
+                <span className="text-2xl font-mono font-bold text-sky-300">{fmtNum(result.matches)}</span>
+                <span className="text-[10px] text-md-on-surface-var/70">
+                  ({(result.matches / result.baseline * 100).toFixed(3)}% of universe)
+                </span>
+              </div>
+
+              <SeqBand o={o} label={tfProp.toUpperCase()} labelColor="text-sky-300" fwdUnits={fwdMain}
+                       accent="border-sky-700/30 bg-sky-900/10" matches={result.matches}
+                       onTickerClick={() => openTickerModal(tfProp)} />
+
+              {result.next_bar?.length > 0 && (
+                <div className="rounded border border-md-outline-var bg-md-surface-high/30 px-3 py-2">
+                  <div className="text-[10px] text-md-on-surface-var/70 mb-1.5">
+                    next bar's Q code (n {fmtNum(result.next_bar_total)})
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {result.next_bar.map(nb => (
+                      <span key={nb.sig} className={cls('rounded px-1.5 py-0.5 text-[10px] font-mono',
+                        nb.is_bull ? 'bg-lime-900/30 text-lime-300' : nb.is_bear ? 'bg-rose-900/30 text-rose-300' : 'bg-md-surface-high text-md-on-surface-var')}>
+                        {nb.sig} <b>{nb.pct}%</b>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {tfProp === '1d' && (
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {SEQ_INTRADAY.map(({ tf, accent, color }) => {
+                    if (tfLoading[tf]) return (
+                      <div key={tf} className={cls('rounded border px-2 py-1 text-[10px] animate-pulse', accent, color)}>
+                        ⏳ {tf.toUpperCase()}…
+                      </div>
+                    )
+                    if (tfOpen[tf]) return (
+                      <button key={tf} onClick={() => setTfOpen(p => ({ ...p, [tf]: false }))}
+                        className={cls('rounded border px-2 py-1 text-[10px] font-mono hover:opacity-70', accent, color)}>
+                        {tf.toUpperCase()} ×
+                      </button>
+                    )
+                    return (
+                      <button key={tf} onClick={() => loadTf(tf)}
+                        className={cls('rounded border px-2 py-1 text-[10px] font-mono opacity-50 hover:opacity-90', accent, color)}>
+                        + {tf.toUpperCase()}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {tfProp === '1d' && SEQ_INTRADAY.map(({ tf, label, units, hint, accent, color }) => {
+                if (!tfOpen[tf] || tfLoading[tf]) return null
+                const d = tfData[tf]
+                if (!d) return null
+                if (d.error) return <div key={tf} className="text-[9px] text-amber-400/60">{tf.toUpperCase()} unavailable: {d.error}</div>
+                if (d.matches === 0) return <div key={tf} className="text-[9px] text-md-on-surface-var/50">{tf.toUpperCase()}: 0 matches for this sequence</div>
+                return (
+                  <SeqBand key={tf} o={d.outcomes} label={label} labelColor={color} fwdUnits={units}
+                           matches={d.matches} baseline={d.baseline} hint={hint} accent={accent}
+                           onTickerClick={() => openTickerModal(tf)} />
+                )
+              })}
+
+              <div className="text-[9px] text-md-on-surface-var/50 font-mono">
+                strictness: {Object.entries(result.strictness).filter(([_, v]) => v).map(([k]) => k).join(', ') || 'none'}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {(tickerLoading || tickerModal) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+             onClick={() => { setTickerModal(null); setTickerLoading(false) }}>
+          <div className="bg-md-surface rounded-xl border border-md-outline-var shadow-2xl w-[720px] max-h-[80vh] overflow-hidden flex flex-col"
+               onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-var">
+              <span className="text-sm font-semibold text-md-on-surface">
+                Matched tickers · {tickerModal?.tf?.toUpperCase() ?? '…'} · newest first
+              </span>
+              <button onClick={() => { setTickerModal(null); setTickerLoading(false) }}
+                className="text-md-on-surface-var/60 hover:text-white text-lg leading-none">×</button>
+            </div>
+            {tickerLoading ? (
+              <div className="p-6 text-center text-[11px] text-md-on-surface-var/50 animate-pulse">loading tickers…</div>
+            ) : (() => {
+              const rows = tickerModal?.rows || []
+              const hh = rows.filter(r => r.hh === 1 || r.hh === true)
+              const hl = rows.filter(r => r.hl === 1 || r.hl === true)
+              const none = rows.filter(r => !r.hh && !r.hl)
+              const TRow = ({ r, side }) => (
+                <div className="flex items-center gap-2 px-3 py-1 hover:bg-white/5 rounded cursor-pointer text-[11px]"
+                     title="click to copy ticker" onClick={() => navigator.clipboard?.writeText(r.ticker).catch(() => {})}>
+                  <span className={cls('font-mono font-bold w-14', side === 'hh' ? 'text-lime-300' : side === 'hl' ? 'text-amber-300' : 'text-md-on-surface-var')}>{r.ticker}</span>
+                  <span className="text-md-on-surface-var/50">{r.date}</span>
+                  <span className="font-mono text-[9px] text-sky-300/70">{r.q} {r.vol}</span>
+                  {r.fwd_20d != null && <span className={cls('ml-auto font-mono text-[10px]', r.fwd_20d > 0 ? 'text-lime-400' : 'text-red-400')}>
+                    {r.fwd_20d > 0 ? '+' : ''}{r.fwd_20d.toFixed(1)}% 20
+                  </span>}
+                </div>
+              )
+              return (
+                <div className="overflow-y-auto flex-1 p-3">
+                  {none.length > 0 && <>
+                    <div className="text-[10px] font-semibold text-sky-300 mb-1 px-1">no next pivot yet — the live ones ({none.length})</div>
+                    <div className="grid grid-cols-2 gap-x-3 mb-3">{none.map((r, i) => <TRow key={i} r={r} side="none" />)}</div>
+                  </>}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-[10px] font-semibold text-lime-300 mb-1.5 px-1">↗ HH — went UP ({hh.length})</div>
+                      {hh.map((r, i) => <TRow key={i} r={r} side="hh" />)}
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-amber-300 mb-1.5 px-1">↘ HL — went DOWN ({hl.length})</div>
+                      {hl.map((r, i) => <TRow key={i} r={r} side="hl" />)}
                     </div>
                   </div>
                 </div>
@@ -4646,6 +5075,7 @@ export default function StudioPanel() {
         {activeTab === 'playbook'  && <PlaybookTab tf={tf} />}
         {activeTab === 'sigstats'  && <SignalStatsTab tf={tf} />}
         {activeTab === 'exact'     && <ExactSequenceTab tf={tf} />}
+        {activeTab === 'qseq'      && <QSequenceTab tf={tf} />}
         {activeTab === 'seqlab'    && <SeqLabTab tf={tf} />}
         {activeTab === 'dbchart'   && <DbChartTab tf={tf} />}
         {activeTab === 'events'    && <EventsTab tf={tf} />}

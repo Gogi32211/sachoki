@@ -150,6 +150,7 @@ export const api = {
     get(`/api/bar_signals/${ticker}?tf=${tf}&bars=${bars}`),
 
   // 1D←1H decomposition: each day broken into its 1H bars (TZ token + L + vol class)
+  anatomyHistory: (ticker, limit = 5000) => get(`/api/anatomy-history/${ticker}?limit=${limit}`),
   day1h: (ticker, days = 45) =>
     get(`/api/day1h/${ticker}?days=${days}`),
 
@@ -408,6 +409,8 @@ export const api = {
   studioSigSequence:   (body)                  => post('/api/studio/signal-stats/sequence', body),
   studioConfluence:    (body)                  => post('/api/studio/confluence-sequence', body),
   studioExactSequence: (body)                  => post('/api/studio/exact-sequence', body),
+  studioQSequence:     (body)                  => post('/api/studio/q-sequence', body),
+  studioQSequenceBars: (ticker, n = 6, tf = '1d') => get(`/api/studio/q-sequence/bars?ticker=${encodeURIComponent(ticker)}&n=${n}&tf=${tf}`),
   studioIntradayConfirmScore: (trigger)        => get(`/api/studio/intraday-confirm-score?trigger=${encodeURIComponent(trigger || '')}`),
   studioExactSeq1hFilter: (body)               => post('/api/studio/exact-sequence-1h-filter', body),
 
