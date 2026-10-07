@@ -1,0 +1,731 @@
+key,label,family,w_now,w_new,role,fires_pct,why,direction
+_combo_volbull,⚡Vol-Bull,(top),5,0,AND,0.044,"= AND of 5 signals (fires on 100% of their joint bars): vol_spike_5x, bias_up, _l5_any, _gt_ema20, _not_ext",
+_combo_structbo,❖Struct-BO,(top),5,5,KEEP,0.7,,
+_combo_absorbeb,❖Absorb→EB,(top),5,5,KEEP,0.104,,
+_combo_blowoff,⚡Blowoff↓,(top),0,0,AND,0.314,"= AND of 6 signals (fires on 100% of their joint bars): vol_spike_5x, _wl_l6, _wl_l46, _cl_o, _l5_any",
+best_sig,BEST★,★ combo (backtested),5,5,KEEP,1.9,,
+strong_sig,STRONG,★ combo (backtested),5,5,KEEP,3.466,,
+vol_spike_20x,V×20,★ combo (backtested),0,0,KEEP,0.555,,
+vol_spike_10x,V×10,★ combo (backtested),0,0,KEEP,1.072,,
+vol_spike_5x,V×5,★ combo (backtested),0,0,KEEP,2.405,,
+vbo_up,VBO↑,★ combo (backtested),5,5,KEEP,6.419,,
+abs_sig,ABS,★ combo (backtested),5,5,KEEP,7.048,,
+climb_sig,CLB,★ combo (backtested),5,5,KEEP,3.252,,
+load_sig,LD,★ combo (backtested),5,5,KEEP,6.711,,
+ns,NS,★ combo (backtested),5,5,KEEP,5.383,,
+sq,SQ,★ combo (backtested),5,5,KEEP,3.503,,
+sc,SC,★ combo (backtested),5,5,KEEP,0.528,,
+nd,ND,★ combo (backtested),5,5,KEEP,5.498,,
+buy_2809,BUY,★ combo (backtested),0,5,KEEP,1.069,,bull +5
+rocket,🚀,★ combo (backtested),0,5,KEEP,0.187,,bull +5
+sig3g,3G,★ combo (backtested),5,5,KEEP,0.261,,
+rtv,RTV,★ combo (backtested),0,5,KEEP,3.727,,bull +5
+hilo_buy,HILO↑,★ combo (backtested),5,5,KEEP,11.007,,
+atr_brk,ATR↑,★ combo (backtested),5,5,NEVER,0.0,,
+bb_brk,BB↑,★ combo (backtested),5,5,KEEP,1.057,,
+va,VA,★ combo (backtested),0,0,KEEP,4.757,,
+bias_up,↑BIAS,★ combo (backtested),0,5,KEEP,0.313,,bull +5
+um_2809,UM,★ combo (backtested),0,0,KEEP,21.389,,
+svs_2809,SVS,★ combo (backtested),0,0,KEEP,4.861,,
+conso_2809,CON,★ combo (backtested),0,0,KEEP,60.714,,
+pt5,PT5,★ combo (backtested),0,0,NEVER,0.0,,
+pt5_h1_any,PT5·1H,★ combo (backtested),0,0,NEVER,0.0,,
+pt5_m15_any,PT5·15,★ combo (backtested),0,0,NEVER,0.0,,
+pt5_strong,PT5+,★ combo (backtested),5,5,NEVER,0.0,,
+pt5_xr_volw_va,XR:VOL_W↔VA,★ combo (backtested),0,0,NEVER,0.0,,
+mt5_strong,MT5+,★ combo (backtested),0,0,NEVER,0.0,,
+pt9,PT9,★ combo (backtested),0,0,NEVER,0.0,,
+pt9_h1_any,PT9·1H,★ combo (backtested),0,0,NEVER,0.0,,
+pt9_m15_any,PT9·15,★ combo (backtested),0,0,NEVER,0.0,,
+pt9_strong,PT9+,★ combo (backtested),5,5,NEVER,0.0,,
+pt3,PT3,★ combo (backtested),0,0,NEVER,0.0,,
+pt3_h1_any,PT3·1H,★ combo (backtested),0,0,NEVER,0.0,,
+pt1,PT1,★ combo (backtested),0,0,NEVER,0.0,,
+pt1_h1_any,PT1·1H,★ combo (backtested),0,0,NEVER,0.0,,
+pt_any,PT·ALL,★ combo (backtested),0,0,NEVER,0.0,,
+pt_any_h1,PT·ALL1H,★ combo (backtested),0,0,NEVER,0.0,,
+pt_any_strong,PT·ALL+,★ combo (backtested),5,5,NEVER,0.0,,
+lbal_star_v,★V,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,17.423,,
+lbal_conflict_v,★★V,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,5.872,,
+lbal_half_up_v,★★★V,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,7.344,,
+lbal_half_dn_v,○○○V,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,7.198,,
+lbal_nn_v,XXXV,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,2.794,,
+lbal_star_a,★a,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,16.617,,
+lbal_conflict_a,★★a,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,12.991,,
+lbal_half_up_a,★★★a,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,6.007,,
+lbal_half_dn_a,○○○a,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,6.053,,
+lbal_nn_a,XXXa,"★ L-BAL (15m L-label balance vs candle · V and all counts, both shown · descriptive)",5,5,KEEP,1.023,,
+lvx_l34_v,L34V,L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive),5,5,KEEP,4.708,,
+lvx_l34_vl,L34VL,L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive),5,5,KEEP,3.087,,
+lvx_l34_vh,L34VH,L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive),5,0,AND,2.787,"= AND of 6 signals (fires on 90% of their joint bars): lvx_l34_v, lvx_l34_vl, _wl_l3, _ne_n, _l5_any",
+lvx_l34_vx,L34VX,L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive),5,5,KEEP,1.799,,
+lvx_l46_v,L46V,L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive),5,5,KEEP,11.991,,
+lvx_l46_vl,L46VL,L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive),5,5,KEEP,8.479,,
+lvx_l46_vh,L46VH,L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive),5,0,DUP,8.463,same bars as lvx_l46_vl (Jaccard 1.00),
+lvx_l46_vx,L46VX,L-VX (daily L34/L46 · V vol>SMA20 · VL/VH one lower TF · VX both · descriptive),5,0,DUP,8.21,same bars as lvx_l46_vl (Jaccard 0.97),
+ovdmap_ob30,OB·30,OVD daily map (opening / closing 15m volume logics · descriptive),5,5,KEEP,3.307,,
+ovdmap_ob60,OB·60,OVD daily map (opening / closing 15m volume logics · descriptive),5,5,KEEP,9.886,,
+ovdmap_rc30,RC·30,OVD daily map (opening / closing 15m volume logics · descriptive),0,5,KEEP,2.068,,bull +5
+ovdmap_rc60,RC·60,OVD daily map (opening / closing 15m volume logics · descriptive),0,5,KEEP,4.0,,bull +5
+ovdmap_cd30,CD·30,OVD daily map (opening / closing 15m volume logics · descriptive),5,5,KEEP,13.551,,
+ovdmap_cd60,CD·60,OVD daily map (opening / closing 15m volume logics · descriptive),5,5,KEEP,12.663,,
+ovdmap_ho30,HO·30,OVD daily map (opening / closing 15m volume logics · descriptive),5,5,KEEP,1.015,,
+ovdmap_ho60,HO·60,OVD daily map (opening / closing 15m volume logics · descriptive),5,5,KEEP,1.526,,
+ovdmap_nm,NM?,OVD daily map (opening / closing 15m volume logics · descriptive),0,0,KEEP,1.963,,
+vol7_m0,M0,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),0,0,UNION,4.516,"fires when any of 4 signals fires (covers 100%): x_vol7_m0_sg2, x_vol7_m0_sg1, x_vol7_m0_sg3, x_vol7_m0_sg0",
+vol7_m5,M5,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),0,0,UNION,4.871,"fires when any of 4 signals fires (covers 100%): x_vol7_m5_sg6, x_vol7_m5_sg5, x_vol7_m5_sg3, x_vol7_m5_sg4",
+vol7_m6,M6,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),0,0,UNION,2.634,"fires when any of 5 signals fires (covers 100%): x_vol7_m6_sg6, vol7_vb2, x_vol7_m6_sg3, x_vol7_m6_sg5, x_vol7_m6_sg4",
+vol7_up2,▲+2,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),5,5,KEEP,7.222,,
+vol7_dn2,▼−2,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),0,0,KEEP,7.452,,
+vol7_up3,◆+3,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),5,5,KEEP,3.831,,
+vol7_dn3,◆−3,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),0,0,KEEP,3.181,,
+vol7_sigma_plus,Σ+,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),5,0,UNION,8.694,"fires when any of 6 signals fires (covers 100%): x_vol7_m4_sg6, x_vol7_m0_sg2, x_vol7_m3_sg5, x_vol7_m1_sg3, x_vol7_m0_sg3",
+vol7_mr_plus,MR+,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),5,0,UNION,1.629,"fires when any of 4 signals fires (covers 100%): x_vol7_m5_sg3, x_vol7_m6_sg3, x_vol7_m6_sg4, x_vol7_m2_sg0",
+vol7_vb2,VB2,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),0,0,KEEP,1.165,,
+vol7_shift_up,SHIFT↑,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),5,5,KEEP,0.126,,
+vol7_shift_dn,SHIFT↓,VOL7 (7-level volume regime · median-ratio vs sigma · jumps · VB2 · SHIFT · descriptive),0,0,KEEP,0.123,,
+shape_mth,MTH,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,0,UNION,1.223,"fires when any of 2 signals fires (covers 96%): x_shape_mth_up, x_shape_mth_dn",
+shape_cl4,CL4,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,0,UNION,2.392,"fires when any of 2 signals fires (covers 96%): x_shape_cl4_up, x_shape_cl4_dn",
+shape_mid,MID,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,5,KEEP,3.449,,
+shape_exp,EXP,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,0,UNION,0.927,"fires when any of 2 signals fires (covers 100%): x_shape_exp_dn, x_shape_exp_up",
+shape_con,CON,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,5,KEEP,1.242,,
+shape_lst,LST,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,0,UNION,3.694,"fires when any of 2 signals fires (covers 100%): x_shape_lst_dn, shape_lstup_veto",
+shape_wrp,WRP,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,0,UNION,4.387,"fires when any of 2 signals fires (covers 99%): x_shape_wrp_dn, x_shape_wrp_up",
+shape_lstup_veto,⛔LST↑,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),0,-5,KEEP,1.65,,bear −5
+shape_veto,⛔KNF,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),0,-5,KEEP,0.109,,bear −5
+shape_absorb,💨abs,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,5,KEEP,3.506,,
+shape_dry,⛔dry,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,5,KEEP,28.741,,
+shape_sweet,✅swt,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,5,KEEP,3.181,,
+shape_floor,📍flr,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,5,KEEP,32.336,,
+shape_key,🧱key,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,5,KEEP,73.413,,
+shape_rs,🏆rs,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),5,5,KEEP,20.256,,
+shape_by_fam,🎯div,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),0,0,KEEP,13.986,,
+shape_by_den,🔁den,SHAPE × CONTEXT (body-nest shapes · effort · cluster · descriptive — clustering measured WORSE),0,0,KEEP,9.7,,
+pv_o_div,DIV,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,5,5,KEEP,5.515,,
+pv_o_upp,UPP,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,5,5,KEEP,5.183,,
+pv_o_upr,UPR,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,5,5,KEEP,3.345,,
+pv_o_rev,REV,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,5,5,KEEP,1.724,,
+pv_o_rup,RUP,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,5,5,KEEP,3.341,,
+pv_o_vup,VUP,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,0,5,KEEP,10.036,,bull +5
+pv_o_turn,TURN,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,5,5,KEEP,0.706,,
+pv_o_up4,UP4,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,5,5,KEEP,1.209,,
+pv_o_re2,RE2,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,0,0,KEEP,2.221,,
+pv_veto_o,⛔veto,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,0,0,UNION,12.469,"fires when any of 4 signals fires (covers 100%): pv_o_upp, pv_o_rup, pv_o_re2, pv_o_rev",
+pv_agree,=both,PRICE × VOLUME · price = OHLC4 (Pine default) — descriptive; 0 BUILD / 4 VETO / 5 NULL,0,0,KEEP,20.929,,
+pv_c_div,DIV,PRICE × VOLUME · price = CLOSE,5,5,KEEP,4.548,,
+pv_c_upp,UPP,PRICE × VOLUME · price = CLOSE,5,5,KEEP,4.39,,
+pv_c_upr,UPR,PRICE × VOLUME · price = CLOSE,5,5,KEEP,4.104,,
+pv_c_rev,REV,PRICE × VOLUME · price = CLOSE,5,5,KEEP,1.538,,
+pv_c_rup,RUP,PRICE × VOLUME · price = CLOSE,5,5,KEEP,3.04,,
+pv_c_vup,VUP,PRICE × VOLUME · price = CLOSE,0,5,KEEP,9.74,,bull +5
+pv_c_turn,TURN,PRICE × VOLUME · price = CLOSE,5,5,KEEP,0.638,,
+pv_c_up4,UP4,PRICE × VOLUME · price = CLOSE,5,5,KEEP,0.843,,
+pv_c_re2,RE2,PRICE × VOLUME · price = CLOSE,0,0,KEEP,1.808,,
+pv_veto_c,⛔veto,PRICE × VOLUME · price = CLOSE,0,0,UNION,10.776,"fires when any of 4 signals fires (covers 100%): pv_c_upp, pv_c_rup, pv_c_re2, pv_c_rev",
+ve_echo,VE,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,0,KEEP,13.487,,
+ve_q,Q,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,0,KEEP,7.098,,
+ve_r,R,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,0,KEEP,15.653,,
+ve_qr,Q∧R,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,0,AND,3.82,"= AND of 5 signals (fires on 100% of their joint bars): ve_q, ve_r, ve_zone_armed, _l5_any, _not_ext",
+ve_rel_up,▲rel,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,5,KEEP,3.957,,bull +5
+ve_rel_dn,▼rel,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,-5,KEEP,3.914,,bear −5
+ve_bo,BO▲,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,5,KEEP,2.802,,bull +5
+ve_bov,BOV▲,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,5,KEEP,1.705,,bull +5
+ve_bd,BD▼,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,-5,KEEP,3.129,,bear −5
+ve_bdv,BDV▼,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,-5,KEEP,1.812,,bear −5
+ve_zone_armed,zone,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,0,KEEP,48.919,,
+ve_spike,●spk,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,0,UNION,22.853,"fires when any of 22 signals fires (covers 95%): ve_echo, x_vol7_m4, x_vol7_m4_sg5, x_vol7_m4_sg3, x_vol7_m4_sg4",
+ve_qr_rel_veto,⛔QR▲,"VOL ECHO — descriptive; long studies NULL, ⛔QR▲ = confirmed veto",0,-5,KEEP,0.362,,bear −5
+turn_ge15,TURN≥15,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+turn_ge20,TURN≥20,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+turn_ge26,TURN≥26,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+turn_ge30,TURN≥30,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_pair,◆V∧M,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_c2,ROW●≥2,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_c3,ROW●≥3,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_fly_c,FLY●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_fly_e,FLY○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_gr_c,GR●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_gr_e,GR○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_mtf_c,MTF●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_mtf_e,MTF○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_phys_c,⚛●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_phys_e,⚛○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_vol7_c,VOL7●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_vol7_e,VOL7○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_pv_c,PV●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_pv_e,PV○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_break_c,BRK●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_break_e,BRK○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_ovd_c,OVD●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_ovd_e,OVD○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_delta_c,Δ●,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+rs_delta_e,Δ○+,TURN · ⟲ROW — turn-zone identification; not a buy signal,0,0,NEVER,0.0,,
+top_dr_pair,◆🕐DR pair,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_pair_any,TOP pair,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_gg3_dr,gG3+🕐DR,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_flp_dr,FLP↑+🕐DR,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_rtv_gg3,RTV+gG3,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_fbo_p,FBO↑+P,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_gg3_fbo,gG3+FBO↑,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_v_fbo,V+FBO↑,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_svs_fbo,SVS+FBO↑,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_hilo_gg3,HILO↑+gG3,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_gg3_zrt,gG3+ZRT,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_p_g3_fbo,G3+FBO↑,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_dr,🕐DR·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_fbo,FBO↑·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_rtv,RTV·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_c3,🎯3·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_gg3,gG3·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_hilo,HILO↑·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_zrt,ZRT·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_m4s6,M4·σ6·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_svs,SVS·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+top_s_g3,G3·3b,"TOP·58 — best turn identifiers (last 3 bars); identification, not a buy signal",0,0,NEVER,0.0,,
+uf_edge_rowzone,EDGE ⟲ROW,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,NEVER,0.0,,
+uf_edge_any,EDGE any,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,UNION,12.804,"fires when any of 46 signals fires (covers 100%): uf_edge_zrt, uf_edge_par, uf_edge_rtb, uf_edge_atm, uf_edge_qzc",
+uf_rs_t9,🔻💪+T9,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,NEVER,0.0,,
+uf_dr_z2g,🕐DR+Z2G,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,AND,0.081,"= AND of 6 signals (fires on 100% of their joint bars): uf_edge_h1dr, tz_z2g, _l5_any, _not_ext, x_edges_any",
+uf_comp_t5l46ed,T5L46ED,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.629,,bull +5
+uf_comp_z2gl46ed,Z2GL46ED,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,4.277,,bull +5
+uf_comp_z9l46nur,Z9L46NUR,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,NEVER,0.0,,
+uf_edge_dualrec,🔄DR,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.054,,bull +5
+uf_edge_h1dr,🕐DR,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.795,,bull +5
+uf_edge_cap,CAP,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.007,,bull +5
+uf_edge_qzc,QZC,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,1.079,,bull +5
+uf_edge_dl1,D+L1,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.122,,bull +5
+uf_edge_g3,G3,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.401,,bull +5
+uf_edge_g3a,⚡G3-Abs,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.207,,bull +5
+uf_edge_atm,ATM,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,1.286,,
+uf_edge_atmr,ATMR,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.062,,
+uf_edge_spr,SPR,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.063,,
+uf_edge_z11,Z11,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.015,,
+uf_edge_l43,L43,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.014,,
+uf_edge_l43_quiet,L43🔇,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.022,,
+uf_edge_wsh,WSH,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.048,,
+uf_edge_h1b,H1B,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,NEVER,0.0,,
+uf_edge_eng,ENG,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.019,,
+uf_edge_el46,EL46,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.006,,
+uf_edge_zrt,ZRT,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,4.899,,
+uf_edge_zrt_l46,ZRT🟢,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.279,,
+uf_edge_hb15,HB15,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.622,,bull +5
+uf_edge_rtb,RTB,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,1.76,,bull +5
+uf_edge_p55,P55,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.723,,bull +5
+uf_edge_par,PAR,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,1.982,,
+uf_edge_conf3,🎯3,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.877,,
+uf_edge_conf4,🎯4,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.457,,
+uf_edge_g3rl,G3RL,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,AND,0.082,"= AND of 5 signals (fires on 100% of their joint bars): _gr_g3, _l5_any, fuchsia_rl, _not_ext, x_edges_any",
+uf_edge_g3g3,G3²,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.447,,
+uf_edge_g3g3rl,G3²RL🟡,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.03,,
+uf_edge_l34camp,💠L34C,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.011,,
+uf_edge_sc46,SC46,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.006,,bull +5
+uf_edge_nssc,NSSC,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.016,,bull +5
+uf_edge_g3l46,G3L46,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.69,,
+uf_edge_fbt,⚔️FBT,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.016,,bull +5
+uf_edge_zat,💤ZAT,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,RARE,0.002,,
+uf_edge_cf,🧊CF,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.601,,bull +5
+uf_edge_ear,🌀EAR,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.051,,bull +5
+uf_edge_t1rs,🎯T1RS,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.035,,bull +5
+uf_edge_t3rs,🎯T3RS,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.114,,bull +5
+uf_edge_l34cont,🏆L34C,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.009,,
+uf_edge_svc,🎬SVC,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.075,,bull +5
+uf_edge_g3_lead,🥇G3,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,DUP,0.036,same bars as lead_lag (Jaccard 0.98),
+uf_edge_g3a_lead,🥇G3A,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,DUP,0.021,same bars as lead_g3a (Jaccard 1.00),
+uf_edge_l43_lead,🥇L43,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,RARE,0.003,,
+uf_edge_sand,🥪SAND,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.004,,bull +5
+uf_edge_gnb,🪨GNB,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.007,,bull +5
+uf_edge_gnb_l34,🪨+L34,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,RARE,0.002,,
+uf_edge_wsh_iv,WSH🔎,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.229,,bull +5
+uf_edge_wsh_vs,WSH💥,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.025,,bull +5
+uf_edge_premium_rev,EDGE🟢,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.113,,
+cd,CD,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,KEEP,2.225,,
+ca,CA,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,KEEP,5.543,,
+cw,CW,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,KEEP,2.141,,
+g1,G1,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.902,,bull +5
+g2,G2,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.938,,bull +5
+g4,G4,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,1.186,,bull +5
+g6,G6,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.262,,bull +5
+g11,G11,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,1.566,,bull +5
+seq_bcont,SBC,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,2.297,,bull +5
+tz_any_t,ANY T,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,5,0,UNION,47.132,"fires when any of 105 signals fires (covers 100%): fly_bd, fly_cd, fly_ad, fly_abcd, x_anat_cont",
+tz_t1g,T1G,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,3.307,,bull +5
+tz_t2g,T2G,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,9.787,,bull +5
+tz_t1,T1,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,4.167,,bull +5
+tz_t2,T2,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,6.774,,bull +5
+tz_t3,T3,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,4.055,,bull +5
+tz_t4,T4,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,4.742,,bull +5
+tz_t5,T5,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,3.751,,bull +5
+tz_t6,T6,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,2.103,,bull +5
+tz_t9,T9,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,4.599,,bull +5
+tz_t10,T10,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,2.104,,bull +5
+tz_t11,T11,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.815,,bull +5
+tz_t12,T12,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,5,KEEP,0.927,,bull +5
+tz_bull_flip,TZ→3,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,SIMILAR,3.374,overlaps _early (Jaccard 0.87),
+tz_attempt,TZ→2,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,NEVER,0.0,,
+tz_weak_bull,W,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,NEVER,0.0,,
+tz_any_z,ANY Z,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,0,UNION,49.439,"fires when any of 26 signals fires (covers 99%): tz_z2g, tz_z2, tz_z4, tz_z3, uf_comp_z2gl46ed",
+tz_z1g,Z1G,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,2.783,,bear −5
+tz_z2g,Z2G,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,10.481,,bear −5
+tz_z1,Z1,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,3.537,,bear −5
+tz_z2,Z2,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,8.258,,bear −5
+tz_z3,Z3,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,4.323,,bear −5
+tz_z4,Z4,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,4.613,,bear −5
+tz_z5,Z5,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,3.583,,bear −5
+tz_z6,Z6,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,3.14,,bear −5
+tz_z7,Z7,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,2.935,,bear −5
+tz_z9,Z9,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,4.269,,bear −5
+tz_z10,Z10,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,2.417,,bear −5
+tz_z11,Z11,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,2.047,,bear −5
+tz_z12,Z12,EDGE today — per code (same-day fire) · EDGE ⟲ROW = edge inside a ⟲ROW turn zone,0,-5,KEEP,0.304,,bear −5
+_wl_any,ANY L,L1 · L code,0,0,UNION,99.882,"fires when any of 481 signals fires (covers 100%): shape_key, conso_2809, _gr_n, _lt_ema200, _ph_k0",
+_wl_l1,L1,L1 · L code,0,5,KEEP,24.249,,bull +5
+_wl_l2,L2,L1 · L code,0,5,KEEP,41.227,,bull +5
+_wl_l3,L3,L1 · L code,5,5,KEEP,23.643,,
+_wl_l4,L4,L1 · L code,0,0,UNION,34.367,"fires when any of 27 signals fires (covers 97%): _wl_l46, lvx_l46_v, _wl_l34, lvx_l46_vl, l34",
+_wl_l5,L5,L1 · L code,0,-5,KEEP,26.054,,bear −5
+_wl_l6,L6,L1 · L code,0,0,DUP,23.633,same bars as _wl_l46 (Jaccard 1.00),
+_wl_l34,L34,L1 · L code,5,0,UNION,9.776,"fires when any of 10 signals fires (covers 100%): l34, lvx_l34_vl, lvx_l34_vh, l22, lvx_l34_vx",
+_wl_l46,L46,L1 · L code,5,5,KEEP,23.633,,
+_ne_n,N,L2 suffix,0,0,KEEP,52.399,,
+_ne_e,E,L2 suffix,0,0,KEEP,47.492,,
+_wk_u,U,L2 suffix,0,0,KEEP,36.127,,
+_wk_d,D,L2 suffix,0,0,KEEP,37.1,,
+_wk_b,B,L2 suffix,0,0,KEEP,9.742,,
+_pen_p,P,L2 suffix,0,0,KEEP,17.314,,
+_pen_r,R,L2 suffix,0,0,KEEP,17.149,,
+_pen_h,H,L2 suffix,0,0,KEEP,6.318,,
+_cl_a,A,L2 suffix,0,5,KEEP,14.789,,bull +5
+_cl_o,O,L2 suffix,0,-5,KEEP,15.856,,bear −5
+_cl_i,I,L2 suffix,0,0,KEEP,25.404,,
+_bw_x,X,L3 body·wick,0,0,UNION,37.719,"fires when any of 7 signals fires (covers 100%): _bw_xf, x_bw_x_bare, sig_260308, x_bw_x_tb, x_bw_x_bb",
+_bw_m,M,L3 body·wick,0,0,UNION,31.587,"fires when any of 6 signals fires (covers 100%): x_bw_m_j, x_bw_m_bare, tz_z7, x_bw_m_tb, x_bw_m_bb",
+_bw_s,S,L3 body·wick,0,0,UNION,30.694,"fires when any of 5 signals fires (covers 100%): x_bw_s_bare, x_bw_s_f, x_bw_s_j, x_bw_s_tb, x_bw_s_bb",
+_bw_j,J,L3 body·wick,0,0,UNION,23.05,"fires when any of 4 signals fires (covers 100%): x_bw_m_j, x_bw_s_j, tz_z7, x_bw_x_j",
+_bw_tb,TB,L3 body·wick,0,0,UNION,8.316,"fires when any of 3 signals fires (covers 100%): x_bw_s_tb, x_bw_m_tb, x_bw_x_tb",
+_bw_bb,BB,L3 body·wick,0,5,UNION,7.593,"fires when any of 3 signals fires (covers 100%): x_bw_s_bb, x_bw_m_bb, x_bw_x_bb",
+_bw_f,F,L3 body·wick,0,0,UNION,32.35,"fires when any of 7 signals fires (covers 100%): _bw_xf, x_bw_s_f, eb_bear, eb_bull, _bw_mf",
+_bw_xf,XF,L3 body·wick,0,0,AND,20.238,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_x, x_bw2_f",
+_bw_mf,MF,L3 body·wick,0,0,AND,1.718,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_m, x_bw2_f",
+_ph_ra,RA,⚛ physics (260815),0,0,UNION,25.709,"fires when any of 3 signals fires (covers 100%): x_phys_ra_d, x_phys_ra_u, _ph_sprs",
+_ph_rn,RN,⚛ physics (260815),0,0,UNION,45.089,"fires when any of 2 signals fires (covers 100%): x_phys_rn_d, x_phys_rn_u",
+_ph_rf,RF,⚛ physics (260815),0,0,UNION,26.106,"fires when any of 2 signals fires (covers 100%): x_phys_rf_d, x_phys_rf_u",
+_ph_u,·U,⚛ physics (260815),0,0,UNION,46.888,"fires when any of 25 signals fires (covers 99%): x_phys_rn_u, x_phys_k1_u, x_phys_rf_u, x_phys_ra_u, para_prep",
+_ph_d,·D,⚛ physics (260815),0,0,UNION,53.112,"fires when any of 28 signals fires (covers 98%): x_phys_rn_d, x_phys_k1_d, x_phys_ra_d, x_phys_rf_d, predn2",
+_ph_e2,E2,⚛ physics (260815),5,0,UNION,30.337,"fires when any of 2 signals fires (covers 100%): x_phys_e2, x_phys_e2_star",
+_ph_es,E★,⚛ physics (260815),5,0,UNION,2.37,"fires when any of 2 signals fires (covers 100%): x_phys_e2_star, x_phys_e1_star",
+_ph_k2,K2,⚛ physics (260815),0,0,UNION,3.059,"fires when any of 2 signals fires (covers 100%): x_phys_k2_u, x_phys_k2_d",
+_ph_k1,K1,⚛ physics (260815),0,0,UNION,40.613,"fires when any of 2 signals fires (covers 100%): x_phys_k1_d, x_phys_k1_u",
+_ph_k0,K0,⚛ physics (260815),0,0,KEEP,56.315,,
+_ph_c0,C0,⚛ physics (260815),0,0,KEEP,25.487,,
+_ph_c1,C1,⚛ physics (260815),0,0,KEEP,44.631,,
+_ph_c2,C2,⚛ physics (260815),0,0,KEEP,24.715,,
+_ph_h0,H0,⚛ physics (260815),0,0,KEEP,35.496,,
+_ph_h2,H2,⚛ physics (260815),0,0,KEEP,21.235,,
+_ph_m2,M2,⚛ physics (260815),0,0,KEEP,21.112,,
+_ph_s3u,S3U,⚛ physics (260815),5,5,KEEP,24.625,,
+_ph_s3d,S3D,⚛ physics (260815),0,-5,KEEP,34.179,,bear −5
+_ph_ad,AD any,⚛ physics (260815),5,0,UNION,7.147,"fires when any of 4 signals fires (covers 100%): _ph_ad2, _ph_ad1, _ph_ada, _ph_sos",
+_ph_ad1,★,⚛ physics (260815),5,5,KEEP,2.612,,
+_ph_ad2,★★,⚛ physics (260815),5,5,KEEP,4.289,,
+_ph_ada,★A,⚛ physics (260815),5,5,KEEP,0.246,,
+_ph_gg3,gG3,⚛ physics (260815),5,5,KEEP,3.425,,
+_ph_spr,SPRING⚛,⚛ physics (260815),5,5,KEEP,0.446,,
+_ph_sprs,SPRING★⚛,⚛ physics (260815),5,5,KEEP,0.452,,
+_ph_utad,UTAD⚛,⚛ physics (260815),0,-5,KEEP,0.717,,bear −5
+_ph_sos,SOS★⚛,⚛ physics (260815),0,5,KEEP,0.061,,bull +5
+_ph_acc,ACC-TR⚛,⚛ physics (260815),0,5,KEEP,5.177,,bull +5
+_ph_dist,DIST-TR⚛,⚛ physics (260815),0,-5,KEEP,0.917,,bear −5
+_ph_mkup,MARKUP⚛,⚛ physics (260815),0,5,KEEP,41.217,,bull +5
+_ph_mkdn,MKDN⚛,⚛ physics (260815),0,-5,KEEP,50.889,,bear −5
+_ci_ps,+S,⟂ CISD (260815),0,5,KEEP,1.368,,bull +5
+_ci_ms,−S,⟂ CISD (260815),0,-5,KEEP,0.919,,bear −5
+_ci_sq,⟂seq,⟂ CISD (260815),0,0,KEEP,0.028,,
+_ci_mp,⟂mpm,⟂ CISD (260815),0,0,KEEP,0.536,,
+_gr_g1,G1,L4 gap·range,0,0,KEEP,6.124,,
+_gr_g2,G2,L4 gap·range,0,0,KEEP,11.1,,
+_gr_g3,G3,L4 gap·range,0,0,KEEP,7.258,,
+_gr_v,V,L4 gap·range,0,0,KEEP,8.444,,
+_gr_c,C,L4 gap·range,0,0,KEEP,12.132,,
+_gr_n,N,L4 gap·range,0,0,KEEP,60.681,,
+_l5_any,L5∗,L5 vix·psar·rsi2,0,0,DUP,100.0,same bars as _wl_any (Jaccard 1.00),
+_l5_vx,VX,L5 vix·psar·rsi2,0,0,KEEP,6.619,,
+_l5_vr,VR,L5 vix·psar·rsi2,0,0,KEEP,11.99,,
+_l5_pb,PB,L5 vix·psar·rsi2,0,5,KEEP,47.424,,bull +5
+_l5_ps,PS,L5 vix·psar·rsi2,0,-5,KEEP,52.576,,bear −5
+_l5_r2h,R2H,L5 vix·psar·rsi2,0,0,KEEP,21.719,,
+_l5_r2l,R2L,L5 vix·psar·rsi2,0,0,KEEP,23.825,,
+_l5_r2x,R2X,L5 vix·psar·rsi2,0,0,DUP,10.98,same bars as hilo_buy (Jaccard 0.99),
+_l5_r2d,R2D,L5 vix·psar·rsi2,0,0,KEEP,10.56,,
+_vb_vb,VB,L6 vol,0,0,KEEP,3.144,,
+_vb_b,B,L6 vol,0,0,KEEP,10.982,,
+_vb_n,N,L6 vol,0,0,KEEP,21.698,,
+_vb_l,L,L6 vol,0,0,KEEP,55.501,,
+_vb_w,W,L6 vol,0,0,KEEP,8.676,,
+w2_accum,ACC,Wyckoff cycle (260529),0,5,KEEP,44.305,,bull +5
+w2_break,BRK,Wyckoff cycle (260529),0,5,KEEP,11.408,,bull +5
+w2_sc,SC,Wyckoff cycle (260529),0,0,KEEP,0.671,,
+w2_ar,AR,Wyckoff cycle (260529),0,5,KEEP,0.491,,bull +5
+w2_st,ST,Wyckoff cycle (260529),0,0,KEEP,0.144,,
+w2_spring,SPR,Wyckoff cycle (260529),5,5,KEEP,0.213,,
+w2_sos,SOS,Wyckoff cycle (260529),5,5,KEEP,0.354,,
+w2_jac,JAC,Wyckoff cycle (260529),0,5,KEEP,0.337,,bull +5
+w2_lps,LPS,Wyckoff cycle (260529),5,5,KEEP,0.092,,
+w2_evr,EVR,Wyckoff cycle (260529),0,0,KEEP,0.505,,
+wt_valid_tr,TR,Wyckoff trig (agent),0,0,KEEP,48.591,,
+wt_spring,tSPR,Wyckoff trig (agent),5,5,KEEP,0.699,,
+wt_sos,tSOS,Wyckoff trig (agent),5,5,KEEP,0.175,,
+wt_lps,tLPS,Wyckoff trig (agent),5,5,KEEP,12.6,,
+wt_evr,tEVR,Wyckoff trig (agent),0,0,KEEP,1.87,,
+_l_any,L∗,Wyckoff trig (agent),0,0,UNION,14.297,"fires when any of 10 signals fires (covers 100%): l34, be_up, l43, fri34, uf_comp_t5l46ed",
+_be_any,BE,Wyckoff trig (agent),0,0,UNION,8.835,"fires when any of 2 signals fires (covers 100%): be_dn, be_up",
+fri34,FRI34,Wyckoff trig (agent),0,0,AND,0.815,"= AND of 7 signals (fires on 100% of their joint bars): _wl_l3, _ne_n, _l5_any, l34, blue",
+fri43,FRI43,Wyckoff trig (agent),0,0,AND,0.332,"= AND of 6 signals (fires on 100% of their joint bars): _wl_l6, _wl_l46, _l5_any, l43, blue",
+fri64,FRI64,Wyckoff trig (agent),0,0,AND,1.741,"= AND of 5 signals (fires on 98% of their joint bars): _wl_l6, _wl_l46, _l5_any, blue, _not_ext",
+l34,L34,Wyckoff trig (agent),0,5,KEEP,7.461,,
+l43,L43,Wyckoff trig (agent),0,5,KEEP,3.111,,bull +5
+l22,L22,Wyckoff trig (agent),0,5,KEEP,2.315,,
+l555,L555,Wyckoff trig (agent),0,-5,KEEP,0.842,,bear −5
+blue,BL,Wyckoff trig (agent),5,5,KEEP,4.006,,
+cci_ready,CCI,Wyckoff trig (agent),0,5,KEEP,2.948,,bull +5
+cci_0_retest,CCI0R,Wyckoff trig (agent),0,5,KEEP,4.332,,bull +5
+cci_blue_turn,CCIB,Wyckoff trig (agent),0,5,KEEP,0.82,,bull +5
+bo_up,BO↑,Wyckoff trig (agent),5,5,KEEP,6.561,,
+bo_dn,BO↓,Wyckoff trig (agent),0,-5,KEEP,6.198,,bear −5
+bx_up,BX↑,Wyckoff trig (agent),5,5,KEEP,4.512,,
+bx_dn,BX↓,Wyckoff trig (agent),0,-5,KEEP,3.96,,bear −5
+be_up,BE↑,Wyckoff trig (agent),5,5,KEEP,3.971,,
+be_dn,BE↓,Wyckoff trig (agent),0,-5,KEEP,4.864,,bear −5
+fuchsia_rh,RH,Wyckoff trig (agent),5,5,KEEP,2.38,,
+fuchsia_rl,RL,Wyckoff trig (agent),5,5,KEEP,2.519,,
+pre_pump,PP,Wyckoff trig (agent),5,5,KEEP,11.725,,
+x2g_wick,X2G,Wyckoff trig (agent),0,0,NEVER,0.0,,
+x2_wick,X2,Wyckoff trig (agent),0,0,NEVER,0.0,,
+x1g_wick,X1G,Wyckoff trig (agent),0,0,NEVER,0.0,,
+x1_wick,X1,Wyckoff trig (agent),0,0,NEVER,0.0,,
+x3_wick,X3,Wyckoff trig (agent),0,0,NEVER,0.0,,
+wick_bull,WK↑,Wyckoff trig (agent),0,5,KEEP,5.998,,bull +5
+best_long,BEST↑,Wyckoff trig (agent),5,0,AND,0.13,"= AND of 7 signals (fires on 100% of their joint bars): _ne_e, _wk_b, _cl_a, _l5_any, fbo_bull",
+fbo_bull,FBO↑,Wyckoff trig (agent),5,5,KEEP,3.89,,
+fbo_bear,FBO↓,Wyckoff trig (agent),0,-5,KEEP,3.99,,bear −5
+eb_bull,EB↑,Wyckoff trig (agent),5,5,KEEP,4.429,,
+eb_bear,EB↓,Wyckoff trig (agent),0,-5,KEEP,4.787,,bear −5
+bf_buy,4BF,Wyckoff trig (agent),0,5,KEEP,15.493,,bull +5
+bf_sell,4BF↓,Wyckoff trig (agent),0,-5,KEEP,16.758,,bear −5
+ultra_3up,3↑,Wyckoff trig (agent),0,5,KEEP,0.276,,bull +5
+sig_l88,L88,Wyckoff trig (agent),0,0,KEEP,0.842,,
+sig_260308,260308,Wyckoff trig (agent),0,0,KEEP,3.088,,
+d_blast_bull,ΔΔ↑,Wyckoff trig (agent),0,5,KEEP,5.955,,bull +5
+d_surge_bull,Δ↑,Wyckoff trig (agent),0,5,KEEP,11.205,,bull +5
+d_strong_bull,B/S↑,Wyckoff trig (agent),0,5,KEEP,2.044,,bull +5
+d_absorb_bull,Ab↑,Wyckoff trig (agent),5,5,KEEP,1.759,,
+d_spring,dSPR,Wyckoff trig (agent),5,0,AND,0.369,"= AND of 5 signals (fires on 100% of their joint bars): _l5_any, d_absorb_bull, d_div_bull, _not_ext, _early",
+d_div_bull,T↓,Wyckoff trig (agent),0,5,KEEP,3.274,,bull +5
+d_vd_div_bull,NS,Wyckoff trig (agent),0,5,KEEP,7.964,,bull +5
+d_cd_bull,cd↑,Wyckoff trig (agent),0,5,KEEP,4.648,,bull +5
+d_flip_bull,FLP↑,Wyckoff trig (agent),5,5,KEEP,4.572,,
+d_orange_bull,ORG↑,Wyckoff trig (agent),0,0,UNION,3.404,"fires when any of 4 signals fires (covers 100%): d_surge_bear_grn, d_surge_bull_red, d_blast_bear_grn, d_blast_bull_red",
+d_blast_bull_red,ΔΔ↑R,Wyckoff trig (agent),0,5,KEEP,0.548,,bull +5
+d_surge_bull_red,Δ↑R,Wyckoff trig (agent),0,5,KEEP,1.027,,bull +5
+d_surge_bear_grn,Δ↓G,Wyckoff trig (agent),0,-5,KEEP,1.156,,bear −5
+d_blast_bear_grn,ΔΔ↓G,Wyckoff trig (agent),0,-5,KEEP,0.673,,bear −5
+d_vd_div_bear,ND,Wyckoff trig (agent),0,-5,KEEP,7.288,,bear −5
+_any_p,ANY P,Wyckoff trig (agent),0,0,UNION,8.314,"fires when any of 7 signals fires (covers 100%): preup2, preup89, preup55, preup50, preup3",
+preup66,P66,Wyckoff trig (agent),5,5,KEEP,1.186,,
+preup55,P55,Wyckoff trig (agent),5,5,KEEP,1.976,,
+preup89,P89,Wyckoff trig (agent),5,5,KEEP,2.921,,
+preup3,P3,Wyckoff trig (agent),5,5,KEEP,1.612,,
+preup2,P2,Wyckoff trig (agent),5,5,KEEP,3.077,,
+preup50,P50,Wyckoff trig (agent),5,5,KEEP,1.643,,
+_any_d,ANY D,Wyckoff trig (agent),0,0,UNION,9.084,"fires when any of 7 signals fires (covers 100%): predn2, predn50, predn89, predn55, predn3",
+predn66,D66,Wyckoff trig (agent),0,-5,KEEP,1.214,,bear −5
+predn55,D55,Wyckoff trig (agent),0,-5,KEEP,2.047,,bear −5
+predn89,D89,Wyckoff trig (agent),0,-5,KEEP,3.007,,bear −5
+predn3,D3,Wyckoff trig (agent),0,0,AND,1.654,"= AND of 6 signals (fires on 100% of their joint bars): _l5_any, predn2, predn50, _lt_ema20, _lt_ema50",
+predn2,D2,Wyckoff trig (agent),0,-5,KEEP,4.879,,bear −5
+predn50,D50,Wyckoff trig (agent),0,-5,KEEP,4.077,,bear −5
+_gt_ema200,P>200,Wyckoff trig (agent),0,5,KEEP,42.601,,bull +5
+_gt_ema89,P>89,Wyckoff trig (agent),0,5,KEEP,44.404,,bull +5
+_gt_ema50,P>50,Wyckoff trig (agent),0,0,SIMILAR,45.428,overlaps _gt_ema89 (Jaccard 0.83),
+_gt_ema20,P>20,Wyckoff trig (agent),0,0,DUP,46.701,same bars as _ph_u (Jaccard 0.99),
+_lt_ema20,P<20,Wyckoff trig (agent),0,0,DUP,53.189,same bars as _ph_d (Jaccard 1.00),
+_lt_ema50,P<50,Wyckoff trig (agent),0,-5,KEEP,54.462,,bear −5
+_lt_ema89,P<89,Wyckoff trig (agent),0,0,SIMILAR,55.487,overlaps _lt_ema50 (Jaccard 0.86),
+_lt_ema200,P<200,Wyckoff trig (agent),0,-5,KEEP,57.289,,bear −5
+rs_strong,RS+,Wyckoff trig (agent),5,5,NEVER,0.0,,
+rs,RS,Wyckoff trig (agent),0,0,NEVER,0.0,,
+para_prep,PREP,Wyckoff trig (agent),0,5,KEEP,3.414,,bull +5
+para_start,PARA,Wyckoff trig (agent),5,0,UNION,2.934,"fires when any of 2 signals fires (covers 99%): para_plus, uf_edge_par",
+para_plus,PARA+,Wyckoff trig (agent),5,5,KEEP,2.77,,
+para_retest,RETEST,Wyckoff trig (agent),5,5,KEEP,1.124,,
+rgti_ll,LL,Wyckoff trig (agent),0,0,NEVER,0.0,,
+rgti_up,UP,Wyckoff trig (agent),0,0,NEVER,0.0,,
+rgti_upup,↑↑,Wyckoff trig (agent),5,5,NEVER,0.0,,
+rgti_upupup,↑↑↑,Wyckoff trig (agent),5,5,NEVER,0.0,,
+rgti_orange,ORG,Wyckoff trig (agent),0,0,NEVER,0.0,,
+rgti_green,GRN,Wyckoff trig (agent),5,5,NEVER,0.0,,
+rgti_greencirc,GC,Wyckoff trig (agent),5,5,NEVER,0.0,,
+smx,SMX,Wyckoff trig (agent),0,0,NEVER,0.0,,
+lead_lag,🥇LEAD-in-LAG,🥇 Macro / sector (2026-08-06),5,5,KEEP,0.036,,
+lead_g3,🥇G3,🥇 Macro / sector (2026-08-06),5,0,DUP,0.036,same bars as lead_lag (Jaccard 0.98),
+lead_g3a,🥇G3A,🥇 Macro / sector (2026-08-06),5,5,AND,0.021,"= AND of 15 signals (fires on 100% of their joint bars): uf_edge_g3, uf_edge_g3a, uf_edge_atm, uf_edge_g3_lead, _gr_g3",
+lead_l43,🥇L43,🥇 Macro / sector (2026-08-06),5,5,RARE,0.003,,
+seq_any,🟡SEQ*,🟡 Seq-edges (2026-08-04),5,5,KEEP,0.046,,
+seq_crown,👑Z1G,🟡 Seq-edges (2026-08-04),5,5,KEEP,0.024,,
+seq_z1gt4,🌉Z1G4,🟡 Seq-edges (2026-08-04),5,0,AND,0.003,"= AND of 5 signals (fires on 100% of their joint bars): tz_t4, _l5_any, seq_any, _not_ext, x_edges_any",
+seq_v2,🌉v2,🟡 Seq-edges (2026-08-04),5,5,RARE,0.003,,
+seq_z9hl,🧲Z9HL,🟡 Seq-edges (2026-08-04),5,5,KEEP,0.006,,
+seq_20,🧺SEQ,🟡 Seq-edges (2026-08-04),0,5,KEEP,0.01,,bull +5
+mtf_k0,📐K0,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+mtf_smx,📐SMX,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+mtf_orange,📐ORG,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+mtf_up,📐UP,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+mtf_upup,📐↑↑,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+mtf_upupup,📐↑↑↑,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+mtf_ll,📐LL,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+akan_sig,A,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+smx_sig,SM,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+nnn_sig,N,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+mx_sig,MX,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+gog_sig,GOG,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+gog_g1p,G1P,📐 MTF-EMA (15m·1h·4h DB),0,5,KEEP,0.507,,bull +5
+gog_g2p,G2P,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+gog_g3p,G3P,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+gog_g1l,G1L,📐 MTF-EMA (15m·1h·4h DB),0,5,KEEP,4.243,,bull +5
+gog_g2l,G2L,📐 MTF-EMA (15m·1h·4h DB),0,5,KEEP,0.01,,bull +5
+gog_g3l,G3L,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+gog_g1c,G1C,📐 MTF-EMA (15m·1h·4h DB),0,5,KEEP,0.966,,bull +5
+gog_g2c,G2C,📐 MTF-EMA (15m·1h·4h DB),0,0,RARE,0.002,,
+gog_g3c,G3C,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+_gog_any_p,★GOG+,📐 MTF-EMA (15m·1h·4h DB),0,0,DUP,0.507,same bars as gog_g1p (Jaccard 1.00),
+_not_ext,!EXT,📐 MTF-EMA (15m·1h·4h DB),0,0,DUP,100.0,same bars as _wl_any (Jaccard 1.00),
+ctx_lds,LDS,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+ctx_ldc,LDC,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+ctx_ldp,LDP,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+ctx_lrc,LRC,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+ctx_lrp,LRP,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+ctx_wrc,WRC,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+ctx_sqb,SQB,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+ctx_bct,BCT,📐 MTF-EMA (15m·1h·4h DB),5,5,NEVER,0.0,,
+fly_abcd,ABCD,📐 MTF-EMA (15m·1h·4h DB),5,5,KEEP,19.462,,
+fly_cd,CD,📐 MTF-EMA (15m·1h·4h DB),5,0,SIMILAR,21.198,overlaps fly_abcd (Jaccard 0.90),
+fly_bd,BD,📐 MTF-EMA (15m·1h·4h DB),5,0,UNION,21.88,"fires when any of 7 signals fires (covers 99%): fly_cd, fly_ad, fly_abcd, x_fly_fresh_cd, x_fly_fresh_ad",
+fly_ad,AD,📐 MTF-EMA (15m·1h·4h DB),5,0,SIMILAR,19.743,overlaps fly_abcd (Jaccard 0.85),
+_rsi_os,RSI≤35,📐 MTF-EMA (15m·1h·4h DB),0,0,KEEP,12.226,,
+_rsi_ob,RSI≥70,📐 MTF-EMA (15m·1h·4h DB),0,0,KEEP,5.893,,
+_yf_only,yf,📐 MTF-EMA (15m·1h·4h DB),0,0,NEVER,0.0,,
+_cross2,⚡×2+,📐 MTF-EMA (15m·1h·4h DB),0,0,UNION,45.382,"fires when any of 46 signals fires (covers 100%): _cross3, d_surge_bull, l34, abs_sig, load_sig",
+_cross3,⚡×3+,📐 MTF-EMA (15m·1h·4h DB),0,5,KEEP,18.831,,bull +5
+_cross4,⚡×4+,📐 MTF-EMA (15m·1h·4h DB),0,5,KEEP,6.589,,bull +5
+_early,[E],📐 MTF-EMA (15m·1h·4h DB),5,5,KEEP,3.623,,
+x_rank_fires,RANK any,"🏅 RANK / CONF / EDGES (composite families, not in SIG_GROUPS)",0,0,NEVER,0.0,,
+x_conf_fires,CONF any,"🏅 RANK / CONF / EDGES (composite families, not in SIG_GROUPS)",0,0,NEVER,0.0,,
+x_edges_any,EDGES any,"🏅 RANK / CONF / EDGES (composite families, not in SIG_GROUPS)",0,0,DUP,12.97,same bars as uf_edge_any (Jaccard 0.99),
+x_edge_dualrec,🔄DR dual-reclaim,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.054,same bars as uf_edge_dualrec (Jaccard 1.00),
+x_edge_h1dr,🕐DR 1H-confirmed bottom,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.795,same bars as uf_edge_h1dr (Jaccard 1.00),
+x_edge_cap,CAP T1-Capit-Bounce,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.007,same bars as uf_edge_cap (Jaccard 1.00),
+x_edge_qzc,QZC QZ-Capit-Reversal,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,1.079,same bars as uf_edge_qzc (Jaccard 1.00),
+x_edge_dl1,D+L1 bear-trap reversal,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.122,same bars as uf_edge_dl1 (Jaccard 1.00),
+x_edge_g3,G3 gap reclaim,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.401,same bars as uf_edge_g3 (Jaccard 1.00),
+x_edge_g3a,⚡G3-Abs,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.207,same bars as uf_edge_g3a (Jaccard 1.00),
+x_edge_atm,ATM Atomic edge,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,1.286,same bars as uf_edge_atm (Jaccard 1.00),
+x_edge_atmr,ATMR Atomic-R,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.062,same bars as uf_edge_atmr (Jaccard 1.00),
+x_edge_spr,SPR Wyckoff Spring,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.063,same bars as uf_edge_spr (Jaccard 1.00),
+x_edge_z11,Z11 Z11-T11,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.015,same bars as uf_edge_z11 (Jaccard 1.00),
+x_edge_l43,L43 L43-TRIPLE,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.014,same bars as uf_edge_l43 (Jaccard 1.00),
+x_edge_l43_quiet,L43🔇 quiet-tape (validated tier),"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.022,same bars as uf_edge_l43_quiet (Jaccard 1.00),
+x_edge_wsh,WSH Washout/capitulation,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.048,same bars as uf_edge_wsh (Jaccard 1.00),
+x_edge_h1b,H1B 1H-bottom base,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,5,NEVER,0.0,,
+x_edge_eng,ENG Engulf-Absorption,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.019,same bars as uf_edge_eng (Jaccard 1.00),
+x_edge_el46,EL46 Engulf-L46 (GEM2),"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.006,same bars as uf_edge_el46 (Jaccard 1.00),
+x_edge_zrt,ZRT Zone-Retest,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,4.899,same bars as uf_edge_zrt (Jaccard 1.00),
+x_edge_zrt_l46,"ZRT🟢 Zone-Retest, L46-quality","🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.279,same bars as uf_edge_zrt_l46 (Jaccard 1.00),
+x_edge_hb15,HB15 High-Base 15m-Dip,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.622,same bars as uf_edge_hb15 (Jaccard 1.00),
+x_edge_rtb,RTB RTB-Base,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,1.76,same bars as uf_edge_rtb (Jaccard 1.00),
+x_edge_p55,P55 refined setup,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.723,same bars as uf_edge_p55 (Jaccard 1.00),
+x_edge_par,PAR Parabola ride,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,1.982,same bars as uf_edge_par (Jaccard 1.00),
+x_edge_conf3,🎯3 Cluster-Bottom ≥3 families,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.877,same bars as uf_edge_conf3 (Jaccard 1.00),
+x_edge_conf4,🎯4 Cluster-Bottom ≥4 families,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.457,same bars as uf_edge_conf4 (Jaccard 1.00),
+x_edge_g3rl,G3RL G3 gap-chain variant,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.082,same bars as uf_edge_g3rl (Jaccard 1.00),
+x_edge_g3g3,G3² G3→G3 gap-chain,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.447,same bars as uf_edge_g3g3 (Jaccard 1.00),
+x_edge_g3g3rl,G3²RL🟡 WATCH-tier (day-clustered weaker),"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.03,same bars as uf_edge_g3g3rl (Jaccard 1.00),
+x_edge_l34camp,💠L34C L34-camp reversal,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.011,same bars as uf_edge_l34camp (Jaccard 1.00),
+x_edge_sc46,SC46,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.006,same bars as uf_edge_sc46 (Jaccard 1.00),
+x_edge_nssc,NSSC,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.016,same bars as uf_edge_nssc (Jaccard 1.00),
+x_edge_g3l46,G3L46 G3+L46 chain,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.69,same bars as uf_edge_g3l46 (Jaccard 1.00),
+x_edge_fbt,⚔️FBT fail-bear trap,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.016,same bars as uf_edge_fbt (Jaccard 1.00),
+x_edge_zat,💤ZAT Z-Absorb-Turn,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,RARE,0.002,,
+x_edge_cf,🧊CF Coil-floor absorption,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.601,same bars as uf_edge_cf (Jaccard 1.00),
+x_edge_ear,🌀EAR Engulf-Absorb-Reversal,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.051,same bars as uf_edge_ear (Jaccard 1.00),
+x_edge_t1rs,🎯T1RS T1 + RS dip,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.035,same bars as uf_edge_t1rs (Jaccard 1.00),
+x_edge_t3rs,🎯T3RS T3 + RS dip,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.114,same bars as uf_edge_t3rs (Jaccard 1.00),
+x_edge_l34cont,🏆L34C L34→L34 continuity,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.009,same bars as uf_edge_l34cont (Jaccard 1.00),
+x_edge_svc,🎬SVC stop-volume confirm,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.075,same bars as uf_edge_svc (Jaccard 1.00),
+x_edge_g3_lead,🥇G3 G3 + Leader-in-Laggard,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.036,same bars as lead_lag (Jaccard 0.98),
+x_edge_g3a_lead,🥇G3A G3-Abs + Leader gate,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,0,DUP,0.021,same bars as lead_g3a (Jaccard 1.00),
+x_edge_l43_lead,🥇L43 L43-TRIPLE + Leader gate,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",5,5,RARE,0.003,,
+x_edge_sand,🥪SAND T2G-Sandwich,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.004,same bars as uf_edge_sand (Jaccard 1.00),
+x_edge_gnb,🪨GNB T1G-NB + RS,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.007,same bars as uf_edge_gnb (Jaccard 1.00),
+x_edge_gnb_l34,🪨+L34 T1G-NB + L34 pre-condition,"🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,RARE,0.002,,
+x_edge_wsh_iv,"WSH🔎 Washout, intraday demand confirmed","🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.229,same bars as uf_edge_wsh_iv (Jaccard 1.00),
+x_edge_wsh_vs,"WSH💥 Washout, volume event confirmed","🥇 EDGE-board, per code (edge_replay.py DISPLAY_SETUPS)",0,0,DUP,0.025,same bars as uf_edge_wsh_vs (Jaccard 1.00),
+x_seqctx_up,SEQ⤴ booster,🧬 Sequence context (booster/suppressor ending on this bar),0,5,KEEP,30.123,,bull +5
+x_seqctx_dn,SEQ⤵ suppressor,🧬 Sequence context (booster/suppressor ending on this bar),0,-5,KEEP,30.91,,bear −5
+x_seqctx_tail,SEQ🎲 tail,🧬 Sequence context (booster/suppressor ending on this bar),0,0,KEEP,1.48,,
+x_seqens_fires,SEQ_ENS any,🧬 Sequence context (booster/suppressor ending on this bar),0,0,KEEP,29.737,,
+x_seq34_fires,SEQ34 any,🧬 Sequence context (booster/suppressor ending on this bar),0,0,NEVER,0.0,,
+x_mtf_echo_true,MTF echo confirm,🕐 MTF confirmation layer,0,5,KEEP,1.195,,bull +5
+x_mtf_echo_false,MTF echo ZERO,🕐 MTF confirmation layer,0,-5,KEEP,0.343,,bear −5
+x_fly_fresh,FLY fresh (any ✦type),🕐 MTF confirmation layer,5,5,UNION,0.777,"fires when any of 3 signals fires (covers 98%): x_fly_fresh_cd, x_fly_fresh_ad, x_fly_fresh_abcd",
+x_fly_fresh_abcd,✦FLY-ABCD,🕐 MTF confirmation layer,5,0,AND,0.69,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, fly_abcd, x_fly_fresh_bd",
+x_fly_fresh_cd,✦FLY-CD,🕐 MTF confirmation layer,5,5,KEEP,0.73,,
+x_fly_fresh_bd,✦FLY-BD,🕐 MTF confirmation layer,5,0,DUP,0.758,same bars as x_fly_fresh (Jaccard 0.98),
+x_fly_fresh_ad,✦FLY-AD,🕐 MTF confirmation layer,5,0,AND,0.713,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, fly_ad, x_fly_fresh_bd",
+x_turn_echo,TURN echo (any ①②③),🕐 MTF confirmation layer,0,0,UNION,14.124,"fires when any of 4 signals fires (covers 100%): x_turn_echo_2, x_turn_echo_3, x_turn_echo_1, x_mtf_echo_true",
+x_turn_echo_1,① 1/3 intraday TFs echoed,🕐 MTF confirmation layer,5,5,KEEP,4.377,,
+x_turn_echo_2,② 2/3 intraday TFs echoed,🕐 MTF confirmation layer,5,5,KEEP,4.893,,
+x_turn_echo_3,③ 3/3 intraday TFs echoed,🕐 MTF confirmation layer,5,5,KEEP,4.854,,
+x_div_buy,DIV buy,"📐 Oscillator divergence × 🏆RS (validated: BUY/DEEP long, TOP suppressor)",5,5,KEEP,0.036,,
+x_div_deep,DIV deep,"📐 Oscillator divergence × 🏆RS (validated: BUY/DEEP long, TOP suppressor)",0,0,NEVER,0.0,,
+x_div_top,DIV top (suppressor),"📐 Oscillator divergence × 🏆RS (validated: BUY/DEEP long, TOP suppressor)",0,0,NEVER,0.0,,
+x_anat_rev_rs,🔻💪 precise bottom (rev+RS),"▽△ Bottom-Anatomy verdict (Superchart-only, no Ultra equivalent)",5,5,KEEP,3.738,,
+x_anat_rev_norm,"🔻 structural bottom (rev, no RS)","▽△ Bottom-Anatomy verdict (Superchart-only, no Ultra equivalent)",0,5,KEEP,13.201,,bull +5
+x_anat_shake,🌀 shakeout/spring,"▽△ Bottom-Anatomy verdict (Superchart-only, no Ultra equivalent)",5,5,KEEP,6.991,,
+x_anat_cont,🔺 continuation (markup),"▽△ Bottom-Anatomy verdict (Superchart-only, no Ultra equivalent)",5,5,KEEP,10.215,,
+x_phys_ra_u,RA·U,⚛ PHYS regime combos (RA/RN/RF × U/D) — scored separately from RA/RN/RF and U/D alone,0,5,KEEP,11.672,,bull +5
+x_phys_ra_d,RA·D,⚛ PHYS regime combos (RA/RN/RF × U/D) — scored separately from RA/RN/RF and U/D alone,5,5,KEEP,14.037,,
+x_phys_rn_u,RN·U,⚛ PHYS regime combos (RA/RN/RF × U/D) — scored separately from RA/RN/RF and U/D alone,5,5,KEEP,21.001,,
+x_phys_rn_d,RN·D,⚛ PHYS regime combos (RA/RN/RF × U/D) — scored separately from RA/RN/RF and U/D alone,0,-5,KEEP,24.087,,bear −5
+x_phys_rf_u,RF·U,⚛ PHYS regime combos (RA/RN/RF × U/D) — scored separately from RA/RN/RF and U/D alone,5,5,KEEP,12.62,,
+x_phys_rf_d,RF·D,⚛ PHYS regime combos (RA/RN/RF × U/D) — scored separately from RA/RN/RF and U/D alone,0,-5,KEEP,13.486,,bear −5
+x_phys_e0,E0 (no ★),"⚛ PHYS energy tier × ★ (E0/E1/E2 × released) — non-overlapping, unlike _ph_e2/_ph_es",0,0,KEEP,27.49,,
+x_phys_e1,E1 (no ★),"⚛ PHYS energy tier × ★ (E0/E1/E2 × released) — non-overlapping, unlike _ph_e2/_ph_es",0,0,KEEP,35.39,,
+x_phys_e2,E2 (no ★),"⚛ PHYS energy tier × ★ (E0/E1/E2 × released) — non-overlapping, unlike _ph_e2/_ph_es",5,5,KEEP,28.145,,
+x_phys_e0_star,E0★ released,"⚛ PHYS energy tier × ★ (E0/E1/E2 × released) — non-overlapping, unlike _ph_e2/_ph_es",5,5,RARE,0.003,,
+x_phys_e1_star,E1★ released,"⚛ PHYS energy tier × ★ (E0/E1/E2 × released) — non-overlapping, unlike _ph_e2/_ph_es",5,5,KEEP,0.176,,
+x_phys_e2_star,E2★ released,"⚛ PHYS energy tier × ★ (E0/E1/E2 × released) — non-overlapping, unlike _ph_e2/_ph_es",5,5,KEEP,2.192,,
+x_bw2_x,X body (expanded),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,DUP,37.719,same bars as _bw_x (Jaccard 1.00),
+x_bw2_m,M body (minimal),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,DUP,31.587,same bars as _bw_m (Jaccard 1.00),
+x_bw2_s,S body (normal),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,DUP,30.694,same bars as _bw_s (Jaccard 1.00),
+x_bw2_j,J wick (doji),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,DUP,23.05,same bars as _bw_j (Jaccard 1.00),
+x_bw2_tb,TB wick (upper),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,DUP,8.316,same bars as _bw_tb (Jaccard 1.00),
+x_bw2_bb,"BB wick (lower, ""the hammer"")",▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),5,0,DUP,7.593,same bars as _bw_bb (Jaccard 1.00),
+x_bw2_f,F wick (flat),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,DUP,32.35,same bars as _bw_f (Jaccard 1.00),
+x_bw2_xf,XF (expanded + flat),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,DUP,20.238,same bars as _bw_xf (Jaccard 1.00),
+x_bw2_mf,MF (minimal + flat),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,DUP,1.718,same bars as _bw_mf (Jaccard 1.00),
+x_bw_x_bare,"X (expanded, no strong wick)",▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,KEEP,11.214,,
+x_bw_s_bare,"S (normal, no strong wick)",▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,KEEP,11.438,,
+x_bw_m_bare,"M (minimal, no strong wick)",▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,KEEP,6.039,,
+x_bw_x_j,XJ (expanded + doji),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,AND,1.826,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_x, x_bw2_j",
+x_bw_x_tb,XTB (expanded + upper wick),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,AND,2.388,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_x, x_bw2_tb",
+x_bw_x_bb,"XBB (expanded + lower wick, ""the hammer"")",▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),5,0,AND,2.053,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_x, x_bw2_bb",
+x_bw_s_j,SJ (normal + doji),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,AND,3.07,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_s, x_bw2_j",
+x_bw_s_tb,STB (normal + upper wick),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),5,0,AND,3.019,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_s, x_bw2_tb",
+x_bw_s_bb,SBB (normal + lower wick),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),5,0,AND,2.772,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_s, x_bw2_bb",
+x_bw_s_f,SF (normal + flat),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),0,0,AND,10.394,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_s, x_bw2_f",
+x_bw_m_j,MJ (minimal + doji),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),5,0,AND,18.154,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_m, x_bw2_j",
+x_bw_m_tb,MTB (minimal + upper wick),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),5,0,AND,2.909,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_m, x_bw2_tb",
+x_bw_m_bb,MBB (minimal + lower wick),▭ Body+Wick (bar_body_wick) — Superchart-side mirror of _bw_* (Ultra reads a differently-named field),5,0,AND,2.768,"= AND of 4 signals (fires on 100% of their joint bars): _l5_any, _not_ext, x_bw2_m, x_bw2_bb",
+x_seq34_gold,🧬🏆 DSR≥0.6 selection-proof,🧬 SEQ34 tier (DSR / coarse) — x_seq34_fires above does not distinguish these,5,5,NEVER,0.0,,
+x_seq34_coarse,🧬° coarse match (no-L token),🧬 SEQ34 tier (DSR / coarse) — x_seq34_fires above does not distinguish these,0,0,NEVER,0.0,,
+x_seq34_exact,🧬 exact match,🧬 SEQ34 tier (DSR / coarse) — x_seq34_fires above does not distinguish these,0,0,NEVER,0.0,,
+x_l34_red,red L34 (absorption line),"▭ L34 grade × color × TRIPLE — _wl_l34/l34 above only knows ""L34 fired"", not which of these",5,0,DUP,2.28,same bars as l22 (Jaccard 0.98),
+x_l34_green,green L34 (trap type),"▭ L34 grade × color × TRIPLE — _wl_l34/l34 above only knows ""L34 fired"", not which of these",5,0,DUP,7.496,same bars as l34 (Jaccard 1.00),
+x_l34_grade2plus,"red L34, grade ≥2/3","▭ L34 grade × color × TRIPLE — _wl_l34/l34 above only knows ""L34 fired"", not which of these",5,5,KEEP,0.709,,
+x_l34_grade3,"red L34, grade 3/3 (top of ladder)","▭ L34 grade × color × TRIPLE — _wl_l34/l34 above only knows ""L34 fired"", not which of these",5,5,KEEP,0.061,,
+x_l34_triple,💠 TRIPLE (red-L34 + 🟢REV + ▲4H),"▭ L34 grade × color × TRIPLE — _wl_l34/l34 above only knows ""L34 fired"", not which of these",5,0,AND,0.158,"= AND of 11 signals (fires on 100% of their joint bars): _wl_l3, _ne_n, _l5_any, l22, _lt_ema20",
+x_edge_premium_rev,EDGE🟢 premium (QZC/D+L1/RTB/P55 + REV-confirmed),🥇 EDGE premium-combo gate (same boolean as the CSV EDGE_GOLD column),5,0,DUP,0.113,same bars as uf_edge_premium_rev (Jaccard 1.00),
+x_vol7_m1,M1,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,15.773,"fires when any of 4 signals fires (covers 100%): x_vol7_m1_sg2, x_vol7_m1_sg1, x_vol7_m1_sg3, x_vol7_m1_sg0",
+x_vol7_m2,M2,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,29.477,"fires when any of 4 signals fires (covers 100%): x_vol7_m2_sg2, x_vol7_m2_sg3, x_vol7_m2_sg1, x_vol7_m2_sg0",
+x_vol7_m3,M3,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,28.206,"fires when any of 5 signals fires (covers 100%): x_vol7_m3_sg3, x_vol7_m3_sg4, x_vol7_m3_sg5, x_vol7_m3_sg6, x_vol7_m3_sg2",
+x_vol7_m4,M4,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,12.539,"fires when any of 4 signals fires (covers 100%): x_vol7_m4_sg5, x_vol7_m4_sg3, x_vol7_m4_sg4, x_vol7_m4_sg6",
+x_vol7_sg0,σ0,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,1.289,"fires when any of 3 signals fires (covers 100%): x_vol7_m1_sg0, x_vol7_m0_sg0, x_vol7_m2_sg0",
+x_vol7_sg1,σ1,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,7.898,"fires when any of 3 signals fires (covers 100%): x_vol7_m1_sg1, x_vol7_m2_sg1, x_vol7_m0_sg1",
+x_vol7_sg2,σ2,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,24.614,"fires when any of 4 signals fires (covers 100%): x_vol7_m2_sg2, x_vol7_m1_sg2, x_vol7_m0_sg2, x_vol7_m3_sg2",
+x_vol7_sg3,σ3,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,42.47,"fires when any of 7 signals fires (covers 100%): x_vol7_m3_sg3, x_vol7_m2_sg3, x_vol7_m4_sg3, x_vol7_m1_sg3, x_vol7_m5_sg3",
+x_vol7_sg4,σ4,"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,7.629,"fires when any of 4 signals fires (covers 100%): x_vol7_m3_sg4, x_vol7_m4_sg4, x_vol7_m5_sg4, x_vol7_m6_sg4",
+x_vol7_sg5,σ5 (+1σ..+2σ),"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,7.731,"fires when any of 4 signals fires (covers 100%): x_vol7_m4_sg5, x_vol7_m3_sg5, x_vol7_m5_sg5, x_vol7_m6_sg5",
+x_vol7_sg6,σ6 (≥+2σ),"🔊 VOL7 remaining median-ratio + sigma tiers (M1-M4, σ0-σ6 — previously unscored)",0,0,UNION,6.386,"fires when any of 4 signals fires (covers 100%): x_vol7_m5_sg6, x_vol7_m4_sg6, x_vol7_m6_sg6, x_vol7_m3_sg6",
+x_shape_mth_up,MTH↑,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),5,5,KEEP,1.093,,
+x_shape_mth_dn,MTH↓,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),0,-5,KEEP,0.085,,bear −5
+x_shape_cl4_up,CL4↑,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),5,5,KEEP,1.78,,
+x_shape_cl4_dn,CL4↓,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),0,-5,KEEP,0.508,,bear −5
+x_shape_mid_up,MID↑,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),5,5,KEEP,1.439,,
+x_shape_mid_dn,MID↓,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),0,-5,KEEP,1.486,,bear −5
+x_shape_exp_up,EXP↑,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),5,5,KEEP,0.337,,
+x_shape_exp_dn,EXP↓,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),0,-5,KEEP,0.59,,bear −5
+x_shape_con_up,CON↑,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),5,5,KEEP,0.466,,
+x_shape_con_dn,CON↓,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),0,-5,KEEP,0.482,,bear −5
+x_shape_lst_dn,LST↓,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),0,-5,KEEP,2.043,,bear −5
+x_shape_wrp_up,WRP↑,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),5,5,KEEP,2.025,,
+x_shape_wrp_dn,WRP↓,🔷 SHAPE code × direction (only LST↑ had its own key before — 13 more combos),0,-5,KEEP,2.325,,bear −5
+x_vol7_m0_sg0,M0·σ0,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.335,,
+x_vol7_m0_sg1,M0·σ1,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,1.322,,
+x_vol7_m0_sg2,M0·σ2,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,2.138,,
+x_vol7_m0_sg3,M0·σ3,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.721,,
+x_vol7_m0_sg4,M0·σ4,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m0_sg5,M0·σ5,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m0_sg6,M0·σ6,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m1_sg0,M1·σ0,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.914,,
+x_vol7_m1_sg1,M1·σ1,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,5.229,,
+x_vol7_m1_sg2,M1·σ2,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,8.124,,
+x_vol7_m1_sg3,M1·σ3,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,1.505,,
+x_vol7_m1_sg4,M1·σ4,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m1_sg5,M1·σ5,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m1_sg6,M1·σ6,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m2_sg0,M2·σ0,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.039,,
+x_vol7_m2_sg1,M2·σ1,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,1.347,,
+x_vol7_m2_sg2,M2·σ2,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,14.285,,
+x_vol7_m2_sg3,M2·σ3,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,13.806,,
+x_vol7_m2_sg4,M2·σ4,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,RARE,0.0,,
+x_vol7_m2_sg5,M2·σ5,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m2_sg6,M2·σ6,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m3_sg0,M3·σ0,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m3_sg1,M3·σ1,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m3_sg2,M3·σ2,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.065,,
+x_vol7_m3_sg3,M3·σ3,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,21.802,,
+x_vol7_m3_sg4,M3·σ4,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",5,5,KEEP,4.291,,
+x_vol7_m3_sg5,M3·σ5,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,1.89,,
+x_vol7_m3_sg6,M3·σ6,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.158,,
+x_vol7_m4_sg0,M4·σ0,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m4_sg1,M4·σ1,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m4_sg2,M4·σ2,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,RARE,0.002,,
+x_vol7_m4_sg3,M4·σ3,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",5,5,KEEP,3.217,,
+x_vol7_m4_sg4,M4·σ4,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,2.648,,
+x_vol7_m4_sg5,M4·σ5,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,4.39,,
+x_vol7_m4_sg6,M4·σ6,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",5,5,KEEP,2.283,,
+x_vol7_m5_sg0,M5·σ0,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m5_sg1,M5·σ1,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m5_sg2,M5·σ2,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,RARE,0.0,,
+x_vol7_m5_sg3,M5·σ3,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.862,,
+x_vol7_m5_sg4,M5·σ4,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.521,,
+x_vol7_m5_sg5,M5·σ5,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",5,5,KEEP,1.129,,
+x_vol7_m5_sg6,M5·σ6,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",5,5,KEEP,2.359,,
+x_vol7_m6_sg0,M6·σ0,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m6_sg1,M6·σ1,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,NEVER,0.0,,
+x_vol7_m6_sg2,M6·σ2,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,RARE,0.0,,
+x_vol7_m6_sg3,M6·σ3,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",0,0,KEEP,0.557,,
+x_vol7_m6_sg4,M6·σ4,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",5,5,KEEP,0.169,,
+x_vol7_m6_sg5,M6·σ5,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",5,5,KEEP,0.322,,
+x_vol7_m6_sg6,M6·σ6,"🔊 VOL7 M{mr}·σ{sg} — full grid, every specific pair its own key",5,5,KEEP,1.586,,
+x_phys_k1_u,K1U,⚛ PHYS K-stretch × direction (K1/K2 × U/D) — _ph_k1/_ph_k2 above do not distinguish these,5,5,KEEP,18.975,,
+x_phys_k1_d,K1D,⚛ PHYS K-stretch × direction (K1/K2 × U/D) — _ph_k1/_ph_k2 above do not distinguish these,0,-5,KEEP,21.638,,bear −5
+x_phys_k2_u,K2U (extended above EMA20),⚛ PHYS K-stretch × direction (K1/K2 × U/D) — _ph_k1/_ph_k2 above do not distinguish these,5,5,KEEP,1.824,,
+x_phys_k2_d,K2D (extended below EMA20),⚛ PHYS K-stretch × direction (K1/K2 × U/D) — _ph_k1/_ph_k2 above do not distinguish these,0,-5,KEEP,1.235,,bear −5
+x_phys_s0,S0 (flat/no alignment),⚛ PHYS S-resonance (EMA-stack alignment count × direction) — only S3U/S3D had keys before,0,0,KEEP,0.124,,
+x_phys_s1_u,S1U,⚛ PHYS S-resonance (EMA-stack alignment count × direction) — only S3U/S3D had keys before,0,0,NEVER,0.0,,
+x_phys_s2_u,S2U,⚛ PHYS S-resonance (EMA-stack alignment count × direction) — only S3U/S3D had keys before,0,5,KEEP,20.116,,bull +5
+x_phys_s1_d,S1D,⚛ PHYS S-resonance (EMA-stack alignment count × direction) — only S3U/S3D had keys before,0,0,NEVER,0.0,,
+x_phys_s2_d,S2D,⚛ PHYS S-resonance (EMA-stack alignment count × direction) — only S3U/S3D had keys before,0,-5,KEEP,20.956,,bear −5
+x_h4_rev_today,▲ 4H REV-trigger (early entry),⏱ 4H/1H intraday-leads (lead4h.py — validated +0.84pp/6-6yr),5,5,KEEP,11.167,,
+x_h1_rev_today,△ 1H REV-trigger only (4H silent),⏱ 4H/1H intraday-leads (lead4h.py — validated +0.84pp/6-6yr),5,5,KEEP,12.586,,
+x_rev_buy_echo,🟢 REV-buy + MTF echo,🟢🔵⚠️ BUY row (rev_buy/brk_buy/mtf_score_conf — validated 6yr path-sim),5,5,KEEP,2.165,,
+x_rev_buy_noecho,"⚠️ REV-buy, NO echo (suppressor)",🟢🔵⚠️ BUY row (rev_buy/brk_buy/mtf_score_conf — validated 6yr path-sim),0,0,DUP,0.343,same bars as x_mtf_echo_false (Jaccard 1.00),
+x_brk_buy,🔵 BRK-buy,🟢🔵⚠️ BUY row (rev_buy/brk_buy/mtf_score_conf — validated 6yr path-sim),5,5,KEEP,1.457,,
+x_mtf_conf_0,mtf_conf 0/3 (HARD SKIP),🟢🔵⚠️ BUY row (rev_buy/brk_buy/mtf_score_conf — validated 6yr path-sim),0,-5,KEEP,14.396,,bear −5
+x_mtf_conf_1,mtf_conf 1/3,🟢🔵⚠️ BUY row (rev_buy/brk_buy/mtf_score_conf — validated 6yr path-sim),5,5,KEEP,2.395,,
+x_mtf_conf_2,mtf_conf 2/3,🟢🔵⚠️ BUY row (rev_buy/brk_buy/mtf_score_conf — validated 6yr path-sim),5,5,KEEP,2.195,,
+x_mtf_conf_3,mtf_conf 3/3,🟢🔵⚠️ BUY row (rev_buy/brk_buy/mtf_score_conf — validated 6yr path-sim),5,5,KEEP,3.363,,
+x_whisper,● whisper,● whisper (Cat row) — strong seq-context + same-bar intraday echo,5,5,KEEP,10.511,,
+x_profile_sweet_spot,⭐ Sweet Spot,Cat row — profile_category (⭐ Sweet Spot / ↑ Building / ⚠ Late),5,5,KEEP,1.728,,
+x_profile_building,↑ Building,Cat row — profile_category (⭐ Sweet Spot / ↑ Building / ⚠ Late),5,5,KEEP,2.36,,
+x_profile_late,⚠ Late,Cat row — profile_category (⭐ Sweet Spot / ↑ Building / ⚠ Late),5,5,NEVER,0.0,,

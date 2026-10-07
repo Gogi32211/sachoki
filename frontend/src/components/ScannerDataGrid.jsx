@@ -824,7 +824,7 @@ export default function ScannerDataGrid({
                       : ''}>
                     {r.v4_score != null ? (
                       <span className={`font-mono text-xs ${
-                        r.v4_score > 45 ? 'text-green-400 font-bold' : 'text-md-on-surface-var/70'
+                        r.v4_score > 45 ? 'text-green-400 font-bold' : r.v4_score < 0 ? 'text-red-400' : 'text-md-on-surface-var/70'
                       }`}>{r.v4_score}</span>
                     ) : <span className="text-gray-700">—</span>}
                   </td>

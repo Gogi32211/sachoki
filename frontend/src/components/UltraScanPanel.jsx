@@ -7,7 +7,7 @@ import CodeCandleChart from './CodeCandleChart'
 import { gexSortVal, vrpSortVal, requestGexBulk, subscribeGex } from '../gexStore'
 import { anatSortVal, anatomyReady, getAnatomy, requestAnatomy, subscribeAnatomy } from '../anatomyStore'
 import { atrForecast } from '../atrForecast'
-import { v4Score, v4FiredLabels } from '../lib/v4Score'
+import { v4Score, v4FiredLabels, v4FromKeys } from '../lib/v4Score'
 import { V4_WEIGHTS } from '../lib/v4Weights'
 import { V4_EXTRA_GROUPS } from '../lib/v4ExtraGroups'
 
@@ -2044,14 +2044,27 @@ export default function UltraScanPanel({ onSelectTicker }) {
   // uses below, so a full 402-predicate pass does not re-run on every filter click. Recomputing
   // needs a fresh scan (or a hard reload) to pick up a v4Weights.js edit, same as any other code
   // change — there is no live-reload of the weight map into an already-cached row.
+  // 2026-10-07 (user: "ertnairad iyos"): when the nightly V4 store holds this row's bar, its STORED fired keys
+  // are scored instead of the live Ultra row — the same keys the Superchart V4 row and the CSV read, so all
+  // three agree. A bar the store does not have yet (live/intraday) keeps the live evaluation.
+  const [v4Store, setV4Store] = useState(null)
+  useEffect(() => { api.v4Latest().then(d => setV4Store(d?.map || {})).catch(() => setV4Store({})) }, [])
   useMemo(() => {
     for (const r of allResults) {
-      if (r.v4_score === undefined) {
+      const st = v4Store?.[r.ticker]
+      const d = String(r.scan_date || r.date || '').slice(0, 10)
+      if (st && st.date === d) {
+        if (r._v4src !== 'store' || r.v4_score === undefined) {
+          const v = v4FromKeys(V4_ALL_GROUPS, V4_WEIGHTS, st.v4_keys)
+          r.v4_score = v.score; r.v4_fired_labels = v.labels; r._v4src = 'store'
+        }
+      } else if (r.v4_score === undefined) {
         r.v4_score = v4Score(V4_ALL_GROUPS, V4_WEIGHTS, r, 1)
         r.v4_fired_labels = v4FiredLabels(V4_ALL_GROUPS, V4_WEIGHTS, r, 1)
+        r._v4src = 'live'
       }
     }
-  }, [allResults])
+  }, [allResults, v4Store])
 
   // ── Client-side filter + sort ──────────────────────────────────────────────
   const results = useMemo(() => {
@@ -2229,7 +2242,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, anatFilter, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter, seqSlots, seqActive])
+  }, [allResults, v4Store, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, anatFilter, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter, seqSlots, seqActive])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')

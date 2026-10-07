@@ -1305,6 +1305,14 @@ def ovdmap_marks(ticker: str, limit: int = Query(400, ge=1, le=5000)):
             "meta": {"as_of": sp.get("as_of"), "built_at": sp.get("built_at"), "definitions": sp.get("ovdmap")}}
 
 
+@router.get("/v4-latest")
+def v4_latest():
+    """Every ticker's LAST stored V4 fired-keys {ticker: {date, v4_keys}} — Ultra's V4 column scores these
+    with the current v4Weights.js, so it equals the Superchart V4 row and the CSV for the same bar."""
+    from studio import v4_history_store as V4
+    return {"map": V4.latest_map(), "as_of": V4._LATEST.get("date")}
+
+
 @router.get("/v4-marks/{ticker}")
 def v4_marks(ticker: str, limit: int = Query(400, ge=1, le=10000)):
     """Stored V4 history per bar (1D): fired catalog keys + the score re-summed with the CURRENT v4Weights.js

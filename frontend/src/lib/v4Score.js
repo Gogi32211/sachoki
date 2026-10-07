@@ -71,3 +71,20 @@ export function v4FiredLabels(SIG_GROUPS, weights, row, lookbackN = 1) {
     .filter(sig => sig.label)
     .map(sig => `${sig.label}(${weights[sig.key] ?? 0})`)
 }
+
+/** V4 from STORED fired keys (data/v4_signals.parquet via /api/studio/v4-marks or /v4-latest) — the single
+ * source the Superchart row, the CSV and Ultra all read for a bar the nightly store already holds, so the three
+ * show the same number by construction (2026-10-07, user: "ertnairad iyos"). Labels follow catalog order and
+ * the same "label(weight)" format as v4FiredLabels. */
+export function v4FromKeys(SIG_GROUPS, weights, keys) {
+  const set = new Set(keys || [])
+  let score = 0
+  const labels = []
+  for (const sig of SIG_GROUPS) {
+    if (sig.divider || !set.has(sig.key)) continue
+    score += weights[sig.key] ?? 0
+    if (sig.label) labels.push(`${sig.label}(${weights[sig.key] ?? 0})`)
+  }
+  return { score, labels, n: set.size }
+}
+

@@ -13,6 +13,11 @@
 #   Log:               ~/Library/Logs/sachoki_update.log
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# node for the esbuild/JS steps (⟲ TURN/ROW, V4 history). launchd starts this script with a bare PATH that has
+# no nvm, and both steps failed every night with "No such file or directory: 'node'" (seen 2026-10-06/07).
+NODE_DIR=$(ls -d "$HOME"/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)
+[ -n "$NODE_DIR" ] && export PATH="$NODE_DIR:$PATH"
+
 cd "$ROOT"
 PORT="${BACKEND_PORT:-8080}"
 LOG="$HOME/Library/Logs/sachoki_update.log"

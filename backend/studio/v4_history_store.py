@@ -57,3 +57,23 @@ def by_ticker(ticker: str, limit: int = 400) -> list[dict]:
     df = df.sort_values("date").tail(max(1, int(limit)))
     return [{"date": r.date, "v4_score": score(r.v4_keys), "v4_n": int(r.v4_n), "v4_keys": r.v4_keys.split(),
              "v4_score_build": int(r.v4_score_build)} for r in df.itertuples()]
+
+
+_LATEST: dict = {"mtime": None, "map": None, "date": None}
+
+
+def latest_map() -> dict:
+    """{ticker: {"date", "v4_keys"}} for every ticker's LAST stored bar (Ultra's V4 column reads this so the
+    screener, the Superchart and the CSV all score the same stored fired-keys). Cached by file mtime."""
+    if not available():
+        return {}
+    mt = os.path.getmtime(PARQ)
+    if _LATEST["mtime"] != mt:
+        import pyarrow.parquet as pq
+        df = pq.read_table(PARQ, columns=["ticker", "date", "v4_keys"]).to_pandas()
+        last = df.sort_values(["ticker", "date"]).drop_duplicates("ticker", keep="last")
+        _LATEST["map"] = {r.ticker: {"date": r.date, "v4_keys": r.v4_keys.split()} for r in last.itertuples()}
+        _LATEST["date"] = str(df.date.max())
+        _LATEST["mtime"] = mt
+    return _LATEST["map"]
+

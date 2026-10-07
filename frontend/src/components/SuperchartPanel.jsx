@@ -5,7 +5,7 @@ import { lbalPick } from '../lbalMode'
 import { atrForecast, computeAtr14, forecastCsvCells, FORECAST_CSV_HEADERS, fmtForecast } from '../atrForecast'
 import { requestGex, getGex, subscribeGex } from '../gexStore'
 import { V4_ALL_GROUPS } from './UltraScanPanel'
-import { v4Score, v4FiredLabels, v4Fired } from '../lib/v4Score'
+import { v4Score, v4FiredLabels, v4Fired, v4FromKeys } from '../lib/v4Score'
 import { withTurnCount, TURN_LIFT } from '../lib/turnCount'
 import { withRowSeq, ROW_ORDER, ROW_SHORT, ROW_LIFT, ROW_LIFT_OLD, PAIR_LIFT, PAIR_LIFT_OLD } from '../lib/rowSeq'
 import { withTopPairs, TOP_SINGLES, TOP_PAIRS } from '../lib/topPairs'
@@ -1299,14 +1299,16 @@ const ROWS = [
     getSigs: (b) => (b.v4_fired_labels?.length ? [String(b.v4_score)] : []),
     sigTitle: (sig, b) => {
       const labels = (b.v4_fired_labels || []).join(' \u00b7 ')
-      return `V4 = ${sig} (sum of per-signal weights, ${b.v4_fired_labels?.length ?? 0} signals fired today)\n`
+      return `V4 = ${sig} (sum of per-signal weights, ${b.v4_fired_labels?.length ?? 0} signals fired today; `
+           + `bullish +5 / bearish −5 / duplicates and composites 0 — src/lib/v4Weights.js)\n`
            + (labels ? `fired: ${labels}\n\n` : '\n')
-           + 'Every signal starts at 0 (src/lib/v4Weights.js); the user is assigning weights one '
-           + 'at a time. Each fired signal above shows its label and current weight, e.g. "T2G(0)".'
+           + 'Each fired signal above shows its label and current weight, e.g. "T2G(5)", "Z2G(-5)".'
     },
     chipCls: (sig, b) => (b?.v4_score > 45
       ? 'bg-green-900 text-green-300 font-mono font-bold ring-1 ring-green-500/60'
-      : 'bg-md-surface-high text-md-on-surface-var font-mono'),
+      : b?.v4_score < 0
+        ? 'bg-red-950 text-red-300 font-mono'          // 2026-10-07: bearish signals now weigh −5
+        : 'bg-md-surface-high text-md-on-surface-var font-mono'),
   },
   {
     // TURN·58 — descriptive turn-likelihood gauge (research_out/TURN_SET_V1.md, user "gaakete"
@@ -1605,7 +1607,8 @@ export default function SuperchartPanel({
   const [vol7Map, setVol7Map]     = useState({})   // date → vol7_* (M·σ levels, jumps, VB2, SHIFT), 1d only
   const [shapeMap, setShapeMap]   = useState({})   // date → shape_* (body-nest shape + context + cluster), 1d only
   const [pvMap, setPvMap]         = useState({})   // date → pv_* (nine price×volume shapes, both price sources), 1d only
-  const [veMap, setVeMap]         = useState({})   // date → ve_* (VOL ECHO: VE · Q · R · ▲▼ · BO/BD · spike), 1d only
+  const [veMap, setVeMap]         = useState({})
+  const [v4StoreMap, setV4StoreMap] = useState({})  // date → stored V4 fired keys (data/v4_signals.parquet), 1d only   // date → ve_* (VOL ECHO: VE · Q · R · ▲▼ · BO/BD · spike), 1d only
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
   const [showStats, setShowStats] = useState(false)
@@ -1690,11 +1693,14 @@ export default function SuperchartPanel({
                        ...(lbalMap[d] || {}), ...(lvxMap[d] || {}), ...(ovdMap[d] || {}),
                        ...(vol7Map[d] || {}), ...(veMap[d] || {}),
                        anat_v: anat?.v, anat_s: anat?.s, anat_rs: anat?.rs }
-      return { ...merged, v4_score: v4Score(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1),
-               v4_fired_labels: v4FiredLabels(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1),
+      const _st = v4StoreMap[d]
+      const _v = _st ? v4FromKeys(V4_ALL_GROUPS, V4_WEIGHTS, _st) : null
+      return { ...merged, v4_score: _v ? _v.score : v4Score(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1),
+               v4_fired_labels: _v ? _v.labels : v4FiredLabels(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1),
+               v4_src: _v ? 'store' : 'live',
                _v4keys: v4Fired(V4_ALL_GROUPS, merged, 1).map(s => s.key) }
     }),
-    [bars, physMap, shapeMap, pvMap, lbalMap, lvxMap, ovdMap, vol7Map, veMap, day1hMap])
+    [bars, physMap, shapeMap, pvMap, lbalMap, lvxMap, ovdMap, vol7Map, veMap, day1hMap, v4StoreMap])
   // TURN·58 (2026-09-27, research_out/TURN_SET_V1.md): on a 10-bar low, how many of the 58 keys
   // enriched at turns fired in t-2..t. Rides on barsV4 because it needs the same fired-key set.
   const barsTurn = useMemo(() => withTurnCount(barsV4), [barsV4])
@@ -1799,6 +1805,15 @@ export default function SuperchartPanel({
     } else {
       setLbalMap({}); setLvxMap({}); setOvdMap({}); setVol7Map({}); setShapeMap({}); setPvMap({}); setVeMap({})
     }
+    // Stored V4 fired keys (2026-10-07, user: "ertnairad iyos") — the bar's V4 is scored from the nightly store when
+    // it holds the date, so this row, the CSV and Ultra read the same keys. Live bars fall back to live evaluation.
+    if (f === '1d') {
+      api.v4Marks(t, barsForTf(f) + 20)
+        .then(d => { const m = {}; for (const r of (d?.marks ?? [])) if (r?.date) m[String(r.date).slice(0, 10)] = r.v4_keys; setV4StoreMap(m) })
+        .catch(() => setV4StoreMap({}))
+    } else {
+      setV4StoreMap({})
+    }
     // Bottom-Anatomy + (with1H) 1H-decomposition — each day → its 1H bars + anatomy
     // verdict. Fetched on EVERY daily load so the ▽△ anatomy row shows on the main
     // Superchart too; the 1H-decomposition row itself renders only when with1H.
@@ -1851,7 +1866,7 @@ export default function SuperchartPanel({
     // blanks its own columns instead of shrinking the export.
     const MARK_LIMIT = 5000
     const marksFor = (fn) => (tf === '1d' ? fn(ticker, MARK_LIMIT) : Promise.resolve({ marks: [] }))
-    const [sigRes, physRes, lbalRes, lvxRes, ovdRes, vol7Res, shapeRes, pvRes, veRes, anatRes] = await Promise.allSettled([
+    const [sigRes, physRes, lbalRes, lvxRes, ovdRes, vol7Res, shapeRes, pvRes, veRes, anatRes, v4Res] = await Promise.allSettled([
       api.barSignals(ticker, tf, EXPORT_LIMIT),
       tf === '1d' ? api.studioBars(ticker, STUDIO_LIMIT) : Promise.resolve([]),
       marksFor(api.lbalMarks), marksFor(api.lvxMarks), marksFor(api.ovdmapMarks),
@@ -1860,6 +1875,7 @@ export default function SuperchartPanel({
       // ▽△ anatomy for the WHOLE history (2026-10-05) — the screen's day1hMap covers ~300 days only,
       // so without this the V4 anatomy keys (x_anat_*, 5 pts each) would silently stop scoring there.
       marksFor(api.anatomyHistory),
+      marksFor(api.v4Marks),
     ])
     const markMap = (res) => {
       const m = {}
@@ -1870,6 +1886,7 @@ export default function SuperchartPanel({
     const mLbal = markMap(lbalRes), mLvx = markMap(lvxRes), mOvd = markMap(ovdRes)
     const mVol7 = markMap(vol7Res), mShape = markMap(shapeRes), mPv = markMap(pvRes), mVe = markMap(veRes)
     const mAnat = markMap(anatRes)
+    const mV4 = markMap(v4Res)   // stored V4 fired keys — same source as the V4 row and Ultra
     const missing = [['L-BAL', lbalRes], ['L-VX', lvxRes], ['OVD', ovdRes], ['VOL7', vol7Res],
                      ['SHAPE', shapeRes], ['PV', pvRes], ['VOL_ECHO', veRes], ['ANATOMY', anatRes]].filter(([, r]) => r.status === 'rejected').map(([n]) => n)
     if (missing.length) setError(`CSV: ${missing.join(', ')} could not be fetched; those columns will be blank`)
@@ -2366,6 +2383,10 @@ export default function SuperchartPanel({
                          ...(mLbal[d] || {}), ...(mLvx[d] || {}), ...(mOvd[d] || {}),
                          ...(mVol7[d] || {}), ...(mVe[d] || {}),
                          anat_v: A?.anat_v ?? undefined, anat_s: A?.anat_s ?? undefined, anat_rs: A?.anat_rs ?? undefined }
+        if (mV4[d]?.v4_keys) {
+          const v = v4FromKeys(V4_ALL_GROUPS, V4_WEIGHTS, mV4[d].v4_keys)
+          return [v.score, v.n, v.labels.join(' · ')]
+        }
         const fired = v4Fired(V4_ALL_GROUPS, merged, 1)
         return [v4Score(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1), fired.length,
                 v4FiredLabels(V4_ALL_GROUPS, V4_WEIGHTS, merged, 1).join(' · ')]

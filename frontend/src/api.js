@@ -151,6 +151,8 @@ export const api = {
 
   // 1D←1H decomposition: each day broken into its 1H bars (TZ token + L + vol class)
   anatomyHistory: (ticker, limit = 5000) => get(`/api/anatomy-history/${ticker}?limit=${limit}`),
+  v4Marks:  (ticker, limit = 400) => get(`/api/studio/v4-marks/${ticker}?limit=${limit}`),
+  v4Latest: () => get('/api/studio/v4-latest'),
   day1h: (ticker, days = 45) =>
     get(`/api/day1h/${ticker}?days=${days}`),
 

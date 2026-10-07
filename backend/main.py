@@ -4695,6 +4695,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     _w2_sc, _w2_ar, _w2_st = _eng_arr(_w2_df, "w2_sc"), _eng_arr(_w2_df, "w2_ar"), _eng_arr(_w2_df, "w2_st")
     _w2_spr, _w2_sos2, _w2_jac = _eng_arr(_w2_df, "w2_spring"), _eng_arr(_w2_df, "w2_sos"), _eng_arr(_w2_df, "w2_jac")
     _w2_lps, _w2_evr = _eng_arr(_w2_df, "w2_lps"), _eng_arr(_w2_df, "w2_evr")
+    _w2_acc, _w2_brk = _eng_arr(_w2_df, "w2_accum"), _eng_arr(_w2_df, "w2_break")   # 2026-10-07: V4 ACC/BRK keys
     _wt_spr, _wt_sos, _wt_lps, _wt_evr = (_eng_arr(_wt_df, "wt_spring"), _eng_arr(_wt_df, "wt_sos"),
                                           _eng_arr(_wt_df, "wt_lps"), _eng_arr(_wt_df, "wt_evr"))
     # PREBREAK extra sub-signals (already computed in _wy523_df, just not emitted)
@@ -5708,6 +5709,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         for _k, _arr in (("w2_sc", _w2_sc), ("w2_ar", _w2_ar), ("w2_st", _w2_st),
                          ("w2_spring", _w2_spr), ("w2_sos", _w2_sos2), ("w2_jac", _w2_jac),
                          ("w2_lps", _w2_lps), ("w2_evr", _w2_evr),
+                         ("w2_accum", _w2_acc), ("w2_break", _w2_brk),
                          ("wt_spring", _wt_spr), ("wt_sos", _wt_sos), ("wt_lps", _wt_lps),
                          ("wt_evr", _wt_evr)):
             _b_last.setdefault(_k, int(bool(_arr[i])) if i < len(_arr) else 0)
@@ -6208,6 +6210,28 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
                     _b[_ui_key] = _b[_db_col]
     except Exception:
         log.debug("UI-key alias mirror skipped", exc_info=True)
+
+    # Field-name aliases the V4 catalog reads under Ultra's names (2026-10-07, found when bearish keys got −5 and
+    # the stored V4 history — built from the DB under these names — stopped matching the Superchart). This
+    # endpoint emits sig_price_gt_200 / bar_line5 / sig_cisd_plus_struct / tz, the catalog reads price_gt_200 /
+    # tz_wlnbb_bar_line5 / cisd_plus_struct / tz_sig. setdefault only — no existing key is touched.
+    try:
+        for _b in result:
+            for _lvl in ("20", "50", "89", "200"):
+                for _side in ("gt", "lt"):
+                    _src = f"sig_price_{_side}_{_lvl}"
+                    if _src in _b:
+                        _b.setdefault(f"price_{_side}_{_lvl}", _b[_src])
+            for _k in ("cisd_plus_struct", "cisd_minus_struct"):
+                if f"sig_{_k}" in _b:
+                    _b.setdefault(_k, _b[f"sig_{_k}"])
+            for _k in ("bar_line5", "bar_body_wick", "bar_gap_range"):
+                if _k in _b:
+                    _b.setdefault(f"tz_wlnbb_{_k}", _b[_k])
+            if _b.get("tz"):
+                _b.setdefault("tz_sig", _b["tz"])
+    except Exception:
+        log.debug("V4 field-name aliases skipped", exc_info=True)
 
     # T/Z + L-code derived flags (2026-09-24, found while re-checking the ICE gap after the
     # mirror above: user still saw 115 on Ultra vs 90 on Superchart). _UI_KEY_TO_DB_COL has no
